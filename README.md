@@ -55,7 +55,15 @@ Mr. Tatta held various positions in the financial service industry.
 
 ## Advisors
 
-Rene Rivera
+René Rivera
+
+René Rivera is a contributor to the Boost C++ Libraries and was part
+of the Release Team, was Testing Manager, and is the author of Boost
+Predef and Boost Build. He has worked in the game development field
+since 1998 and has been doing C++ since 1987. He is a co-organizer for
+the Chicago C/C++ Users Group. Currently he is a Lead Programmer at
+Disbelief LLC doing contracting for companies doing AAA games and
+virtual reality development.
 
 Jens Weller
 
