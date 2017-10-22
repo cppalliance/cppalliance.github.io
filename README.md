@@ -46,14 +46,12 @@ Louis Tatta
 
 Louis Tatta serves as the Vice-Chairman of C++ Alliance and is responsible
 for the day-to-day operation and general management of the company.  Prior
-to joining C++ Alliance, Mr. Tatta served as Chief Operating Officer, where
-he managed operations of a technology startup, business operations,
+to joining, Mr. Tatta served as Chief Operating Officer, where
+he managed operations of a technology startup, lead all business operations,
 new business development, product development, purchasing/procurement, and
 infrastructure development.  Manage key account relationships and executed
-strategic marketing plans with advertising partners.  Implemented business
-infrastructure and processes to respond rapidly to client base demands for
-product and service.   Previous to this, Mr. Tatta held various positions in
-the financial service industry.
+strategic marketing plans with advertising partners.  Previous to this,
+Mr. Tatta held various positions in the financial service industry.
 
 ## Advisors
 
