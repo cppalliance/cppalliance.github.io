@@ -75,3 +75,14 @@ his main work is running the Meeting C++ Platform (conference, website,
 social media and recruiting). His main role has become being a C++
 evangelist, as this he speaks and travels to other conferences and user
 groups around the world.
+
+# Activity
+
+* October 20, 2017 René Rivera joins as Advisor
+
+* October 16, 2017 Jens Weller joins as Advisor
+
+* October 1, 2017 Louis Tatta joins as Vice-Chairman
+
+* July 7, 2017 Beast is accepted into Boost
+
