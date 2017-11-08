@@ -13,7 +13,7 @@ The organization achieves its mission through these means:
 
 ## Our Vision
 
-Mankind has become increasingly reliant on software for all aspects
+Humankind has become increasingly reliant on software for all aspects
 of life including commerce, industry, recreation, transportation,
 communication, and more. We believe that the best software solutions
 are written using the C++ programming language. We believe that
@@ -29,7 +29,7 @@ contributions.
 
 ## Our Team
 
-### Chairman
+### Chairperson
 
 Vinnie Falco
 
@@ -40,11 +40,11 @@ open source accomplishments include Boost.Beast, NuDB, DSPFilters,
 and extensive contribution to Ripple. He is also known for authoring
 the BearShare file sharing application in 2001.
 
-### Vice-Chairman
+### Vice-Chairperson
 
 Louis Tatta
 
-Louis Tatta serves as the Vice-Chairman of C++ Alliance and is responsible
+Louis Tatta serves as the Vice-Chairperson of C++ Alliance and is responsible
 for the day-to-day operation and general management of the company.  Prior
 to joining, Mr. Tatta served as Chief Operating Officer, where
 he managed operations of a technology startup, lead all business operations,
@@ -82,7 +82,7 @@ groups around the world.
 
 * October 16, 2017 Jens Weller joins as Advisor
 
-* October 1, 2017 Louis Tatta joins as Vice-Chairman
+* October 1, 2017 Louis Tatta joins as Vice-Chairperson
 
 * July 7, 2017 Beast is accepted into Boost
 
