@@ -7,8 +7,8 @@ The C++ Alliance promotes and supports the C++ language community.
 The organization achieves its mission through these means:
 
 * Fund open source libraries
-* Organize and attend C++ conferences
-* Participate and attend WG21 proceedings
+* Organize and support C++ conferences and community activities
+* Support and promote WG21 proceedings
 * Provide C++ education
 
 ## Our Vision
