@@ -76,7 +76,16 @@ social media and recruiting). His main role has become being a C++
 evangelist, as this he speaks and travels to other conferences and user
 groups around the world.
 
+Jon Kalb
+
+Jon Kalb is a C++ community organizer. He chairs CppCon, C++Now, the
+Silicon Valley Code Camp C++ Track, and the Boost Steering Committee.
+Jon does on-site C++ training for companies around the world and is the
+author (with Gašper Ažman) of C++ Today: The Beast is Back.
+
 # Activity
+
+* November 26, 2017 Jon Kalb joins as Advisor
 
 * October 20, 2017 René Rivera joins as Advisor
 
