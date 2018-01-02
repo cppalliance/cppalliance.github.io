@@ -29,7 +29,7 @@ contributions.
 
 ## Our Team
 
-### Chairman
+### Board Members
 
 Vinnie Falco
 
@@ -40,21 +40,6 @@ open source accomplishments include Boost.Beast, NuDB, DSPFilters,
 and extensive contribution to Ripple. He is also known for authoring
 the BearShare file sharing application in 2001.
 
-### Vice-Chairman
-
-Louis Tatta
-
-Louis Tatta serves as the Vice-Chairman of C++ Alliance and is responsible
-for the day-to-day operation and general management of the company.  Prior
-to joining, Mr. Tatta served as Chief Operating Officer, where
-he managed operations of a technology startup, lead all business operations,
-new business development, product development, purchasing/procurement, and
-infrastructure development.  Manage key account relationships and executed
-strategic marketing plans with advertising partners.  Previous to this,
-Mr. Tatta held various positions in the financial service industry.
-
-## Advisors
-
 René Rivera
 
 René Rivera is a contributor to the Boost C++ Libraries and was part
@@ -64,6 +49,29 @@ since 1998 and has been doing C++ since 1987. He is a co-organizer for
 the Chicago C/C++ Users Group. Currently he is a Lead Programmer at
 Disbelief LLC doing contracting for companies doing AAA games and
 virtual reality development.
+
+Jon Kalb
+
+Jon Kalb is a C++ community organizer. He chairs CppCon, C++Now, the
+Silicon Valley Code Camp C++ Track, and the Boost Steering Committee.
+Jon does on-site C++ training for companies around the world and is the
+author (with Gašper Ažman) of C++ Today: The Beast is Back.
+
+### Executive Team
+
+Louis Tatta
+
+Louis Tatta serves as the Chief Executive Officere of C++ Alliance and is
+responsible for the day-to-day operation and general management of the
+company.  Prior to joining, Mr. Tatta served as Chief Operating Officer at
+BearShare, where he managed operations of a technology startup, lead all
+business operations, new business development, product development,
+purchasing/procurement, and infrastructure development. Managed key
+account relationships and executed strategic marketing plans with
+advertising partners.  Previous to this, Mr. Tatta held various
+positions in the financial service industry.
+
+## Advisors
 
 Jens Weller
 
@@ -76,14 +84,9 @@ social media and recruiting). His main role has become being a C++
 evangelist, as this he speaks and travels to other conferences and user
 groups around the world.
 
-Jon Kalb
-
-Jon Kalb is a C++ community organizer. He chairs CppCon, C++Now, the
-Silicon Valley Code Camp C++ Track, and the Boost Steering Committee.
-Jon does on-site C++ training for companies around the world and is the
-author (with Gašper Ažman) of C++ Today: The Beast is Back.
-
 # Activity
+
+* January 2, 2018 Update team designations
 
 * November 26, 2017 Jon Kalb joins as Advisor
 
