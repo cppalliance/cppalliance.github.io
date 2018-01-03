@@ -1,6 +1,24 @@
 ﻿# Mission
 
-The C++ Alliance promotes and supports the C++ language community.
+The mission of the C++ Alliance is to empower C++ programmers by
+building a better C++ programming environment with such activities
+as: supporting the work of the ISO Standard Committee by improving
+the core language and standard library, supporting the creation and
+distribution of open source C++ libraries, developing, communicating,
+and promoting the use of C++ best practices, and supporting the
+creation and use of better tools and standards for building and
+working with C++ source code. The Alliance will achieve this by
+supporting individuals and organizations that are working toward
+these goals through both direct and indirect action or funding.
+The support may take any of several forms. For example, the
+Alliance will employ software engineers to create key open
+sources libraries or tools. The Alliance may give travel
+grants to events such ISO Standards Committee meetings,
+conferences, or other C++ related events. It may offer
+prizes to the individual or group of individuals that
+accomplish a specific goal. It may give sponsorships
+or other indirect support to conferences or other
+organizations with overlapping goals.
 
 ## Activities
 
@@ -85,6 +103,8 @@ evangelist, as this he speaks and travels to other conferences and user
 groups around the world.
 
 # Activity
+
+* January 2, 2018 Update mission statement
 
 * January 2, 2018 Update team designations
 
