@@ -1,5 +1,9 @@
 ﻿# Mission
 
+The C++ Alliance is a California non-profit 501(c)(3) (pending)
+organization whose primary function is to advance C++ by
+developing open source libraries.
+
 The mission of the C++ Alliance is to empower C++ programmers by
 building a better C++ programming environment with such activities
 as: supporting the work of the ISO Standard Committee by improving
@@ -89,6 +93,25 @@ account relationships and executed strategic marketing plans with
 advertising partners.  Previous to this, Mr. Tatta held various
 positions in the financial service industry.
 
+### Technical Committee
+
+The technical committee performs technical research on projects
+and individuals, and advises the board on technical and social
+topics related to C++.
+
+Glen Fernandes
+
+Glen Joseph Fernandes has worked at Intel and Microsoft as a
+Software Engineer. He is the author of the Boost Align library,
+a major contributor the the Boost Smart Pointers and Boost Core
+libraries, and has also contributed to several other Boost C++
+libraries. He is a contributor to the ISO C++ Standard by authoring
+proposal papers and defect reports, and has two features accepted
+for the upcoming C++20 standard (P0673R1, P0653R2). He lives with
+his wife, Caroline, and daughter, Aeryn, in the US, graduated from
+the University of Sydney, Australia, and before all that, lived in
+New Zealand.
+
 ## Advisors
 
 Jens Weller
@@ -103,6 +126,10 @@ evangelist, as this he speaks and travels to other conferences and user
 groups around the world.
 
 # Activity
+
+* January 9, 2018 Update About
+
+* January 9, 2018 Add Technical Committee
 
 * January 2, 2018 Update mission statement
 
