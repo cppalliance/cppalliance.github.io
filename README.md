@@ -125,7 +125,21 @@ social media and recruiting). His main role has become being a C++
 evangelist, as this he speaks and travels to other conferences and user
 groups around the world.
 
+## FAQ
+
+Q) Given the existence of Standard C++ Foundation and Software Freedom Conservancy, why was it necessary to form The C++ Alliance as a new, separate legal entity?
+
+A) Although the missions of Standard C++ Foundation and The C++ Alliance are similar and overlapping, they have different status under tax law. The Foundation is organized as a 501(c)(6) organization, a trade group. In addition to providing legal protection for companies to work together in ways that might otherwise be viewed as industrial "collusion," a trade group can accept tax-deductible dues from member companies. The Alliance is organized as a 501(c)(3) organization, a charity which can accept tax deductible contributes from the general public.
+
+Although the tax status of Software Freedom Conservancy and The C++ Alliance are similar, their missions and concerns are different. There is mission overlap. Conservancy, whose mission is to support the development of FLOSS libraries supports the Boost Libraries project, which would also be within the mission of The Alliance, but The Alliance has both a narrower and a broader mission. While Conservancy is language agnostic and is focused on software development, The Alliance is focused exclusively on the C++ environment and is free to support non-FLOSS projects such as language proposals, books, education materials, tools, or other projects which may not be software or may have non-FLOSS licensing.
+
+It is also the case that The C++ Alliance is not a good fit as a Conservancy project. It is appropriate for small open-source projects to pool their resources to provide themselves with financial, legal, accounting, and other services for which they have a common need and for which they may, individually, be too small to economically procure. Although The Alliance will be promoting library development, it doesn't have the same requirements as a FLOSS software producer, so would need different services than your typical Conservancy project and has sufficient endowment to fund the services that it will require.
+
+
+
 # Activity
+
+* March 23, 2018 Added FAQ
 
 * January 9, 2018 Update About
 
