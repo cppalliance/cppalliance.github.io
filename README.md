@@ -83,7 +83,7 @@ author (with Gašper Ažman) of C++ Today: The Beast is Back.
 
 Louis Tatta
 
-Louis Tatta serves as the Chief Executive Officere of C++ Alliance and is
+Louis Tatta serves as the Chief Executive Officer of C++ Alliance and is
 responsible for the day-to-day operation and general management of the
 company.  Prior to joining, Mr. Tatta served as Chief Operating Officer at
 BearShare, where he managed operations of a technology startup, lead all
