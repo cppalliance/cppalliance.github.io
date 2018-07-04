@@ -1,4 +1,4 @@
-﻿# Mission
+# Mission
 
 The C++ Alliance is a California non-profit 501(c)(3) (pending)
 organization whose primary function is to advance C++ by
