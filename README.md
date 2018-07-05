@@ -139,7 +139,7 @@ It is also the case that The C++ Alliance is not a good fit as a Conservancy pro
 
 # Activity
 
-* March 23, 2018 Added FAQ
+* July 4, 2018 Added FAQ
 
 * January 9, 2018 Update About
 
