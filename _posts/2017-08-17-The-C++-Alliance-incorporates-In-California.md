@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: company, vinnie
 ---
 The C++ Alliance, Inc. officially incorporates as a California

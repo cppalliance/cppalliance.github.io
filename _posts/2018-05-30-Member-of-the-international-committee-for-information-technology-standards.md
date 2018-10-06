@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: company
 ---
 The Alliance is member of the

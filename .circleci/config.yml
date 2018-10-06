@@ -1,0 +1,43 @@
+version: 2
+jobs:
+  test:
+    docker:
+      - image: circleci/ruby:2.4-node-browsers-legacy
+    steps:
+      - checkout
+      - run: |
+          bundle install
+          bundle exec jekyll build
+  deploy:
+    docker:
+      - image: circleci/ruby:2.4-node-browsers-legacy
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "0e:f2:3d:32:8f:16:ed:25:7f:ea:a6:03:79:22:54:df"
+      - checkout
+      - run: bundle install
+      - run: bundle exec jekyll build
+      - run: |
+          find . -maxdepth 1 ! -name '_site' ! -name '.git' ! -name '.circleci' -exec rm -rf {} \;
+          mv _site/* .
+          rm -r _site/
+          git config --global user.name "CircleCI"
+          git config --global user.email "circleci@cppalliance.com"
+          git add .
+          git commit --allow-empty -m "$(git log develop -1 --pretty=%B)"
+          git push -f origin HEAD:master
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - test:
+          filters:
+            branches:
+              ignore: master
+      - deploy:
+          requires:
+            - test
+          filters:
+            branches:
+              only: develop

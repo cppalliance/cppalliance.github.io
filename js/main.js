@@ -1,42 +1,38 @@
-$(document).ready(function() {
-		$('.navbar-nav a').on('click', function(e) {
-			if ($(window).width < 700){
-				$('#navbarResponsive').addClass("show");
-			}
-			else {
-				$('#navbarResponsive').removeClass("show");
-			}
-		});
-		$('.navbar-nav a').bind('click', function(e) {
-				//e.preventDefault(); // prevent hard jump, the default behavior
-				var target = $(this).attr("href"); // Set the target as variable
+document.addEventListener('DOMContentLoaded', function(event) {
+  var navHamburger = document.getElementById('nav-hamburger');
+  var navItems = document.getElementById('nav-items');
+  var body = document.getElementById('body');
+  var listItems = document.querySelectorAll('.nav-link-mobile');
 
-				// perform animated scrolling by getting top-position of target-element and set it as scroll target
-				$('html, body').stop().animate({
-						scrollTop: $(target).offset().top
-				}, 2000, function() {
-						location.hash = target; //attach the hash (#jumptarget) to the pageurl
-				});
+  function forEach(array, callback, scope) {
+    for (var i = 0; i < array.length; i++) {
+      callback.call(scope, i, array[i]);
+    }
+  };
 
-				return false;
-		});
+  function hideMobileDropdownMenu() {
+    navHamburger.classList.remove('active');
+    navItems.classList.remove('active');
+    body.classList.remove('locked');
+  }
+
+  navHamburger.addEventListener('click', function(e) {
+    navHamburger.classList.toggle('active');
+    navItems.classList.toggle('active');
+    body.classList.toggle('locked');
+  });
+
+  window.addEventListener('resize', function() {
+    hideMobileDropdownMenu();
+  });
+
+  forEach(listItems, function (index, item) {
+    item.addEventListener('click', function(e) {
+      if (window.innerWidth < 1024) {
+        hideMobileDropdownMenu();
+      }
+    })
+  });
+
 });
 
-$(window).scroll(function() {
-		var scrollDistance = $(window).scrollTop();
-
-		// Show/hide menu on scroll
-		//if (scrollDistance >= 850) {
-		//		$('nav').fadeIn("fast");
-		//} else {
-		//		$('nav').fadeOut("fast");
-		//}
-	
-		// Assign active class to nav links while scolling
-		$('.innerSection').each(function(i) {
-				if ($(this).position().top <= scrollDistance) {
-						$('.navbar-nav a.active').removeClass('active');
-						$('.navbar-nav a').eq(i).addClass('active');
-				}
-		});
-}).scroll();

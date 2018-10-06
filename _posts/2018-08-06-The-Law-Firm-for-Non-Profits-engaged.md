@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: company
 title: The Law Firm for Non-Profits engaged
 ---

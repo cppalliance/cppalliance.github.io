@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: company
 ---
 The board of directors establishes the Technical Committee, whose job

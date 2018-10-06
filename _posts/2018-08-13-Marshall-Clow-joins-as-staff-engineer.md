@@ -1,8 +1,10 @@
 ---
 layout: post
+nav-class: dark
 categories: company, marshall
 title: Marshall Clow joins as a Staff Engineer
 ---
+
 Marshall Clow joins the Alliance as a Staff Engineer. Previously,
 he worked at Qualcomm for many years. Most of his time is spent
 working on

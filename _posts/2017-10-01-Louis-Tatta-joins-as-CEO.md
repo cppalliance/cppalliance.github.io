@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: company, louis
 title: "Louis Tatta joins as CEO"
 ---

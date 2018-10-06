@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: vinnie
 ---
 <a href="https://github.com/boostorg/beast">Beast</a>, an HTTP and

@@ -1,22 +1,66 @@
 ---
 layout: default
+type: article
 ---
-{% include top-title.html heading="Post" %}
 
-<section class="innerSection innerBlogContainer">
-    <div class="container">
-        <div class="row">
-        <div class="col-lg-12 blogInner">
+<div class='post'>
+  <div class='current-article'>
+    {% if page.hero-image %}
+      <img class='post-hero' src='{{ site.baseurl }}/images/posts/{{page.hero-image}}' />
+    {% endif %}
 
-        <article>
-        <div class="blogContainer">
-        <span>{{ page.date | date: "%m/%d/%Y"}}</span>
-        <b>{{ page.title }}</b>
-        <p>{{ content }}</p>
-        </div>
-        </article>
 
+    <section class='section article'>
+      {% if page.caption %}
+        <span class='caption'>{{ page.caption }}</span>
+      {% endif %}
+
+      <article>
+        <span class='text-s news-date'>{{ page.date | date: "%m/%d/%Y"}}</span>
+        <h2 class='text-l news-title'>{{ page.title }}</h2>
+
+        {% if page.author %}
+        <div class='author'>
+          <!-- list of all potential authors -->
+          {% if page.author-id %}
+            <img class='author-img' src='{{ site.baseurl }}/images/people/{{page.author-id}}.jpg' alt={{page.author}} />
+          {% endif %}
+
+          <span class='text-xxs author-name'>by
+            {% if page.author-id %}
+              <a class='link' href='{{ site.baseurl }}/people/{{page.author-id}}'>
+            {% endif %}
+
+            {{ page.author }}
+
+            {% if page.author-id %}
+            </a>
+            {% endif %}
+          </span>
         </div>
+        {% endif %}
+        <div class='text-xxs content-text'>
+          {{ content }}
         </div>
+      </article>
+    </section>
+  </div>
+  <section class="section news" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>Recent Posts</h2>
     </div>
-</section>
+    <div class='news-content formatted-text'>
+      <ul>
+        {% for post in site.posts limit:3 %}
+        <li class='news-list-item '>
+          <span class='text-s news-date'>{{ post.date | date: "%m/%d/%Y"}}</span>
+          <a class='text-l news-title link' href="{{site.baseurl}}{{ post.url }}">{{ post.title }}</a>
+        </li>
+        {% endfor %}
+        <li>
+          <a class='text-l all link' href="{{site.baseurl}}/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+</div>

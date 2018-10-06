@@ -1,5 +1,6 @@
 ---
 layout: post
+nav-class: dark
 categories: company
 title: Gold sponsor of C++Now
 ---
