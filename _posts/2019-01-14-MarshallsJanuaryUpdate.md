@@ -1,3 +1,10 @@
+---
+layout: post
+nav-class: dark
+categories: marshall
+title: Marshall's January Update
+---
+
 Monthly update (or, what Marshall did in December)
 
 There are three main areas where I spend my time.
