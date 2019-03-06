@@ -1,3 +1,4 @@
+---
 layout: post
 nav-class: dark
 categories: company
