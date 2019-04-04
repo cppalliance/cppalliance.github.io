@@ -2,10 +2,8 @@
 layout: post
 nav-class: dark
 categories: marshall
-title: Marshall's March Update
+title: Marshall's April Update
 ---
-
-Monthly update (or, what Marshall did in March)
 
 There are four main areas where I spend my time.
 
