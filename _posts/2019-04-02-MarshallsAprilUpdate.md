@@ -5,8 +5,6 @@ categories: marshall
 title: Marshall's March Update
 ---
 
-Monthly update (or, what Marshall did in March)
-
 There are four main areas where I spend my time.
 
 * Libc++, where I am the "code owner"
