@@ -26,7 +26,7 @@ The Windows implementation of the certificate store in Certify will now properly
 use the entire chain passed by the peer, which resolves certificate failures in
 less common cases.
 
-Don't forget to star the repository: https://github.com/djarek/certify!
+Don't forget to star the repository: [https://github.com/djarek/certify](https://github.com/djarek/certify)!
 
 # Boost.Beast
 Most of the work this month involved making Beast compile faster and use less
@@ -44,4 +44,4 @@ The project lacked functioning CI so I implemented one. Since the project was
 previously only compiled on MSVC, this proved to be quite challenging, because
 MSVC accepts code that is not valid C++11. I've also created a deplyoment docker
 image, which allows running the application in popular cloud environments, like
-Heroku. A development version of the app is available at https://beast-lounge.herokuapp.com/.
+Heroku. A development version of the app is available at [https://beast-lounge.herokuapp.com/](https://beast-lounge.herokuapp.com/).
