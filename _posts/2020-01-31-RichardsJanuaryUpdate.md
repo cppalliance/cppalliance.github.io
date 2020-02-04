@@ -12,18 +12,18 @@ at the end of December last year.
 
 I first met Vinnie on Slack when I chose to use [Boost.Beast](https://github.com/boostorg/beast) in a 
 greenfield project - a highly scalable market data distribution system and quoting gateway for the Japanese
-cryptocurrency exchange [liquid.com](liquid.com).
+cryptocurrency exchange [liquid.com](http://liquid.com).
 
 There were a number of candidates for C++ HTTP frameworks and it is interesting for me to examine the decision-making
 process I went through in choosing one.
 
 If I am honest, there are two main factors that influenced me towards Boost.Beast:
 
-1. I am a long-time fanboi of (Boost.Asio)(https://github.com/boostorg/asio). I find it's paradigm very pleasing. 
+1. I am a long-time fanboi of [Boost.Asio](https://github.com/boostorg/asio). I find it's paradigm very pleasing. 
 Once you decipher the (extremely terse!) documentation it becomes obvious that it was written by a hyper-intelligent
 extraterrestrial masquerading as a human being.
 
-2. I have used the (Boost Library)[https://www.boost.org/] (or more correctly, libraries) for many years. 
+2. I have used the [Boost Library](https://www.boost.org/) (or more correctly, libraries) for many years. 
 Boost has become synonymous with trust, quality and dependability. As far as I have always been concerned, 
 boost is *the* standard. The standard library has always been a pale shadow of it.
 
@@ -38,7 +38,7 @@ I was personally impressed by the speed with which I was able to assimilate a ne
 service infrastructure using nothing more than boost, nlohmann_json, openssl and a c++17 compiler. In my view
 this would not have been possible without the excellent documentation and careful attention to detail in Boost.Beast.
 
-During the development, I reached out to Vinnie and Damien on slack a number of times. Both were always helpful 
+During the development, I reached out to Vinnie and Damian on Slack a number of times. Both were always helpful 
 and attentive. Without a doubt they were instrumental in the success of my project.
 
 So here I am in January 2020. Just like the old TV advert where Victor Kayam was so impressed with his electric 
@@ -128,8 +128,8 @@ you get time to do very often when working on an FX-options desk in an investmen
 
 I have been providing some support to the upcoming [Boost.JSON](https://github.com/vinniefalco/json) library.
 This library focusses on:
-* Absolute correctness in reference to (RFC8259)[https://datatracker.ietf.org/doc/rfc8259/]. 
-* Seeking to match or exceed the performance of other c++ JSON libraries such as (RapdJSON)[https://rapidjson.org/].
+* Absolute correctness in reference to [RFC8259](https://datatracker.ietf.org/doc/rfc8259/). 
+* Seeking to match or exceed the performance of other c++ JSON libraries such as [RapidJSON](https://rapidjson.org/).
 * Providing a clean, unsurprising programming interface and impeccable documentation.
 
 This is a fascinating project for me. Various JSON libraries employ various tricks for improving performance. 
@@ -138,7 +138,7 @@ Grail of full correctness, minimal state and absolute performance will be an int
 
 ## Boost.URL
 
-Vinnie is also working on (Boost.URL)[https://github.com/vinniefalco/url]. While I have not contributed any code,
+Vinnie is also working on [Boost.URL](https://github.com/vinniefalco/url). While I have not contributed any code,
 spending my time in the `#beast` Slack channel has meant that I've been able to keep up to speed with the various
 design choices being made. Again, there has been much to learn about a design rationale that focuses heavily on
 the potential maintenance burden.
@@ -149,7 +149,7 @@ discourse.
 # Work Schedule 
 
 The C++ Alliance is based on the West Coast of the USA, while I live and work in the tiny Principality of 
-(Andorra)[https://en.wikipedia.org/wiki/Andorra] in mainland Europe. This puts me some nine hours ahead of my 
+[Andorra](https://en.wikipedia.org/wiki/Andorra) in mainland Europe. This puts me some nine hours ahead of my 
 colleagues across the Pond. 
 
 It turns out that this is a perfect way of working for me. I can get up at 8am, nip out for a couple of hours skiing or 
@@ -175,7 +175,7 @@ Furthermore, having a legitimate excuse to interact with the other maintainers o
 These people are some of the brightest minds on the planet. I live in hope that some of this brilliance will
 rub off.
 
-If you work with C++, I highly recommend that you join the (Cpplang)[http://slack.cpp.al] Slack channel.
+If you work with C++, I highly recommend that you join the [Cpplang](http://slack.cpp.al) Slack channel.
 
 If you'd like to contact me to discuss my experiences I'd be happy to receive a message on Slack.
 
