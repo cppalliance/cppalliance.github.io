@@ -1,14 +1,6 @@
 version: 2
 jobs:
-  test:
-    docker:
-      - image: circleci/ruby:2.4-node-browsers-legacy
-    steps:
-      - checkout
-      - run: |
-          bundle install
-          bundle exec jekyll build
-  deploy:
+  build:
     docker:
       - image: circleci/ruby:2.4-node-browsers-legacy
     steps:
@@ -16,28 +8,63 @@ jobs:
           fingerprints:
             - "0e:f2:3d:32:8f:16:ed:25:7f:ea:a6:03:79:22:54:df"
       - checkout
-      - run: bundle install
-      - run: bundle exec jekyll build
-      - run: |
-          find . -maxdepth 1 ! -name '_site' ! -name '.git' ! -name '.circleci' -exec rm -rf {} \;
-          mv _site/* .
-          rm -r _site/
-          git config --global user.name "CircleCI"
-          git config --global user.email "circleci@cppalliance.com"
-          git add .
-          git commit --allow-empty -m "$(git log develop -1 --pretty=%B)"
-          git push -f origin HEAD:master
+      - restore_cache:
+          keys:
+            - v1-bundle-{{ checksum "Gemfile" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-bundle
+      - run: bundle check --path=vendor/bundle || bundle install --path=vendor/bundle --jobs=4 --retry=3
+      - save_cache:
+          key: v1-bundle-{{ checksum "Gemfile" }}
+          paths:
+            - vendor/bundle
+      - run: bundle exec jekyll build --config _config_develop.yml
+      - run:
+          name: make preview folder
+          command: |
+            ls -la
+            find . -maxdepth 1 ! -name '_site' ! -name 'vendor' ! -name 'Gemfile*' ! -name '.git' ! -name '.circleci' -exec rm -rf {} \;
+            echo The first rm -rf executed!
+            ls -la
+            mkdir preview
+            mv _site/* preview/
+            rm -r _site/
+            echo rm -r _site/ executed!
+            ls -la
+      - run:
+          name: reset --hard HEAD^ (to prev commit)
+          command: |
+            git config --global user.name "CircleCI"
+            git config --global user.email "circleci@cppalliance.com"
+            git stash save --keep-index
+            git reset --hard HEAD^
+            echo reset HEAD executed!
+            ls -la
+      - run:
+          name: jekyll build from previous commit
+          command: |
+            bundle install --path vendor/bundle
+            bundle exec jekyll build
+            echo jeykll build executed!
+            ls -la
+            echo listing root folder
+            ls -la _site
+            echo list _site folder
+            find . -maxdepth 1 ! -name '_site' ! -name 'Gemfile*' ! -name '.git' ! -name '.circleci' -exec rm -rf {} \;
+            mv _site/* .
+            rm -r _site/
+            ls -la
+      - run:
+          name: commit to master branch
+          command: |
+            git add .
+            git commit --allow-empty -m "$(git log develop -1 --pretty=%B)"
+            git push -f origin HEAD:master
 workflows:
   version: 2
   build_and_deploy:
     jobs:
-      - test:
+      - build:
           filters:
             branches:
               ignore: master
-      - deploy:
-          requires:
-            - test
-          filters:
-            branches:
-              only: develop
