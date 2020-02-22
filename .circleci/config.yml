@@ -17,10 +17,19 @@ jobs:
             - "0e:f2:3d:32:8f:16:ed:25:7f:ea:a6:03:79:22:54:df"
       - checkout
       - run: bundle install
-      - run: bundle exec jekyll build
       - run: |
-          find . -maxdepth 1 ! -name '_site' ! -name '.git' ! -name '.circleci' -exec rm -rf {} \;
-          mv _site/* .
+          if [ "$CIRCLE_PR_NUMBER" ]; then
+            mkdir -p _preview/pr/$CIRCLE_PR_NUMBER
+            echo "baseurl: /_preview/pr/$CIRCLE_PR_NUMBER" >> _config.yml
+          fi
+          bundle exec jekyll build
+      - run: |
+          find . -maxdepth 1 ! -name '_preview' ! -name '_site' ! -name '.git' ! -name '.circleci' -exec rm -rf {} \;
+          if [ "$CIRCLE_PR_NUMBER" ]; then
+            mv _site/* _preview/pr/$CIRCLE_PR_NUMBER
+          else
+            mv _site/* .
+          fi
           rm -r _site/
           git config --global user.name "CircleCI"
           git config --global user.email "circleci@cppalliance.com"
@@ -40,4 +49,4 @@ workflows:
             - test
           filters:
             branches:
-              only: develop
+              ignore: master
