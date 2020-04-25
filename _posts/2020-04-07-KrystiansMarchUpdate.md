@@ -147,7 +147,7 @@ This paper intends to substantially overhaul the wording that describes the inte
 This problem stems from the notion that objects don't exist before their lifetime has started and after it has ended. This allows compilers to make a lot of assumptions and consequently leads to more optimized code, but the manner in which the wording was applied has severely crippled our ability to refer to "not-objects". We want to be able to place restrictions on storage that an object used to occupy, but simply have no way for doing so. Thus, the direction I plan to take is to define the semantics of storage, allowing us to place restrictions on that storage even if no object exists within it. I don't have too many of the core definitions completed yet as they require the most time to make them robust, but once that is hashed out, applying it where needed should be smooth sailing. 
 
 Here is a short list of the main changes:
-- Define what a *region of storage*, specify when it is acquired, released, and what kinds of objects may occupy it.
+- Define what a *region of storage* is, specify when it is acquired, released, and what kinds of objects may occupy it.
 - Remove the storage duration property from objects, and effectively make that agnostic of the storage they occupy. Instead, associate storage duration with a variable. Dynamic storage duration can removed since such storage isn't associated with a variable.
 - Specify when *reuse* of storage occurs, and its effects upon the objects within that storage.
 - Properly specify when pointers and expressions refer to storage while preserving the notion that they refer to objects (or functions).
