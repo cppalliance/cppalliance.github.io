@@ -14,7 +14,7 @@ Due to the COVID-19 pandemic, my classes have been moved online. It's certainly 
 
 I spent the first few days of March putting the finishing touches on Boost.StaticString in preparation for the release of Boost 1.73.0, mostly consisting of housekeeping tasks, but also some bug fixes for certain compiler configurations. In particular, a problem arose with GCC 5 regarding its `constexpr` support, two of which impede using `basic_static_string` during constant evaluation: `throw` expressions, and non-static member functions whose return type is the class they are a member of. With respect to the former, consider the following:
 
-{% highlight cpp %}
+```cpp
 constexpr int throw_not_evaluated(bool flag)
 {
 	if (flag)
@@ -23,7 +23,7 @@ constexpr int throw_not_evaluated(bool flag)
 }
 
 constexpr int const_eval = throw_not_evaluated(false);
-{% endhighlight %}
+```
 [View this on Godbolt](https://godbolt.org/z/CEuEvr)
 
 It is helpful to first establish what the standard has to say regarding the above example. Looking at [[dcl.constexpr] p3](https://timsong-cpp.github.io/cppwp/n4140/dcl.constexpr#3), we see that `throw_not_evaluated` contains no constructs that are explicitly prohibited from appearing within a `constexpr` function in all contexts. Now taking a look at [[expr.const] p2](https://timsong-cpp.github.io/cppwp/n4140/expr.const#2) we see:
