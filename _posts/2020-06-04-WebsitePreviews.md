@@ -4,7 +4,7 @@ nav-class: dark
 categories: sam
 title: Automated Documentation Previews
 ---
-
+[by Sam Darwin](https://cppalliance.org/people/sam)
 # Overview
 
 Greetings, and welcome to my first blog post at The C++ Alliance.
@@ -45,7 +45,7 @@ Each pull request will get it's own separate "website". There could be hundreds 
 
 An nginx proxy server which sits in front of S3 serves the documents with a consistent URL format, and allows multiple repositories to share the same S3 bucket.
 
-The resulting functionality can be see in action. On this pull request [https://github.com/boostorg/beast/pull/1973](https://github.com/boostorg/beast/pull/1973) a message appears:
+The resulting functionality can be seen in action. On this pull request [https://github.com/boostorg/beast/pull/1973](https://github.com/boostorg/beast/pull/1973) a message appears:
 
 | An automated preview of the documentation is available at [http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html](http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html) |
 
@@ -311,7 +311,7 @@ Post-build Actions
 Publish artifacts to S3  
 S3 Profile: example-bot-profile  
   
-Source: _site/** (set this value as necessary for your code)
+Source: _site/** (set this value as necessary for your code)  
 Destination:  example-previews/example/${ghprbPullId}  
 Bucket Region: us-east-1  
 No upload on build failure (checked)  
