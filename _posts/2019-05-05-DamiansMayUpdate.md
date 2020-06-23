@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: company, damian
 title: Damian's April Update
+author: Damian Jarek
+author-id: damian
 ---
 
 This month I've been working on the following projects:

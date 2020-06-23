@@ -2,6 +2,8 @@
 layout: post
 nav-class: dark
 categories: company, damian
+author: Damian Jarek
+author-id: damian
 ---
 # Initial work on `Certify` complete
 It's been mentioned in my initial blog post that I'd be working on a TLS

@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's June Update
+author: Marshall Clow
+author-id: marshall
 ---
 
 There are four main areas where I spend my time.

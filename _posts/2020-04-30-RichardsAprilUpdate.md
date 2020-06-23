@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: richard
 title: Richard's April Update
+author: Richard Hodges
+author-id: richard
 ---
 
 # Boost 1.73 Released and other Matters

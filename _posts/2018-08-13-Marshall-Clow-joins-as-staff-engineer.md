@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: company, marshall
 title: Marshall Clow joins as a Staff Engineer
+author: Marshall Clow
+author-id: marshall
 ---
 
 Marshall Clow joins the Alliance as a Staff Engineer. Previously,

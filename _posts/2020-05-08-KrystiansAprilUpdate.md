@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: krystian
 title: Krystian's April Update
+author: Krystian Stasiowski
+author-id: krystian
 ---
 
 # Overview
@@ -23,7 +25,7 @@ I also worked on `monotonic_resource`, the `memory_resource` counterpart to `poo
 
 The implementations of these features are pretty trivial, but they provide significant opportunities to cut down on dynamic allocations. For example, when parsing a large number of JSON documents, a single `monotonic_resource` can be used and reset in between the parsing of each document without releasing any dynamically allocated storage. While care should be taken to destroy objects that occupy the storage before the allocator is reset, this can substantially reduce the number of allocations required and thus result in non-trivial performance gains.
 
-The other major thing I worked on was fixing an overload resolution bug on clang-cl involving `json::value`. This was originally brought to my attention by Vinnie when the CI build for clang-cl started reporting that overload resolution for `value({false, 1, "2"})` was ambiguous. After a few hours of investigating, I found that `false` was being treated as a null pointer constant -- something that was certainly annoying, but it also didn't fully explain why this error was happening. 
+The other major thing I worked on was fixing an overload resolution bug on clang-cl involving `json::value`. This was originally brought to my attention by Vinnie when the CI build for clang-cl started reporting that overload resolution for `value({false, 1, "2"})` was ambiguous. After a few hours of investigating, I found that `false` was being treated as a null pointer constant -- something that was certainly annoying, but it also didn't fully explain why this error was happening.
 
 After this unfortunate discovery, I tried again with `value({0, 1, "2"})`, this time on clang, and it turns out this was a problem here as well. After *many* hours of testing, I found that the constructor in `storage_ptr` taking a parameter of type `memory_resource` had a small problem: its constraint was missing `::type` after the `enable_if`, allowing `storage_ptr` to be constructed from any pointer type, including `const char*`. This somewhat helped to alleviate the problem, but `value({false, false, false})` was still failing. After many more hours of groking the standard and trying to reproduce the error, I finally came upon the following `json::string` constructors:
 
@@ -31,7 +33,7 @@ After this unfortunate discovery, I tried again with `value({0, 1, "2"})`, this 
 string(string const& other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {})
 
 string(string_view other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {})
-``` 
+```
 
 See the problem here? Since the first parameter of both constructors can be constructed from null pointer constants, overload resolution for `string(0, 0, 0)` would be ambiguous. However, this isn't the full story. Consider the following constructors for `value`:
 

@@ -2,6 +2,8 @@
 layout: post
 nav-class: dark
 categories: company, damian
+author: Damian Jarek
+author-id: damian
 ---
 # Certify - X509 certificate validation
 I always knew that validating a certificate chain presented by a peer is not an

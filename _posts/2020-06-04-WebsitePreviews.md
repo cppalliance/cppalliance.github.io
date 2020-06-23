@@ -3,8 +3,9 @@ layout: post
 nav-class: dark
 categories: sam
 title: Automated Documentation Previews
+author: Sam Darwin
+author-id: sam
 ---
-[by Sam Darwin](https://cppalliance.org/people/sam)
 # Overview
 
 Greetings, and welcome to my first blog post at The C++ Alliance.
