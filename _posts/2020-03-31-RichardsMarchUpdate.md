@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: richard
 title: Richard's March Update
+author: Richard Hodges
+author-id: richard
 ---
 
 # Coding in the time of a Pandemic

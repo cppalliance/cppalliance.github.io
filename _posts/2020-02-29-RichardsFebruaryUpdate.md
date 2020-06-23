@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: richard
 title: Richard's February Update
+author: Richard Hodges
+author-id: richard
 ---
 
 # The Lesser HTTP Refactor

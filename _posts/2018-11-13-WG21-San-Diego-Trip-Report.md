@@ -2,6 +2,8 @@
 layout: post
 nav-class: dark
 categories: standards, marshall
+author: Marshall Clow
+author-id: marshall
 ---
 # WG21 San Diego Meeting
 

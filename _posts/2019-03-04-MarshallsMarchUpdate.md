@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's March Update
+author: Marshall Clow
+author-id: marshall
 ---
 
 Monthly update (or, what Marshall did in January and February)

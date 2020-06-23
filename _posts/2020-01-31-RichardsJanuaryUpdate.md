@@ -3,6 +3,8 @@ layout: post
 nav-class: dark
 categories: richard
 title: Richard's January Update
+author: Richard Hodges
+author-id: richard
 ---
 
 # History
