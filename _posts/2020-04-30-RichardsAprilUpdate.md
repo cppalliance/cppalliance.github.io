@@ -30,7 +30,7 @@ The second was whether is was possible to easily implement an async future in As
 
 Here is my motivating use case:
 
-```c++
+```cpp
     auto p = async::promise<std::string>();
     auto f = p.get_future();
 
@@ -64,7 +64,7 @@ The source code is [here](https://github.com/madmongo1/webclient/blob/develop/in
 I tried a couple of ways around the non-default-constructable requirement. My first was to require the CompletionToken
 to the async_wait initiating function to be compatible with:
 
-```c++
+```cpp
 void (error_code, std::optional<T>)
 ```
 
@@ -77,7 +77,7 @@ argument of any type, and this will translate cleanly when used with `net::use_f
 A default Boost.Outcome object almost fits the bill, except that its exception_ptr type is boost rather than standard.
 
 This is easily solved with a typedef:
-```c++
+```cpp
 template<class T> using myoutcome = boost::outcome2::basic_outcome<T, error:code, std::exception_ptr>;
 ```
 
@@ -86,7 +86,7 @@ that Boost.Outcome is only compatible with C++14 or higher.
 
 So in the end, I cobbled together a 'good enough' version of outcome using a variant:
 
-```c++
+```cpp
 template < class T >
 struct outcome
 {
@@ -113,7 +113,7 @@ The code for this is [here](https://github.com/madmongo1/webclient/blob/develop/
 
 Finally this allowed me to express intent at the call site like so:
 
-```c++
+```cpp
     auto f = p.get_future();
 
     f.async_wait([](outcome<std::string> os){
@@ -128,7 +128,7 @@ Finally this allowed me to express intent at the call site like so:
 
 The coroutine interface can be made cleaner:
 
-```c++
+```cpp
     try {
         auto str = co_await f();
         // use the string
@@ -143,7 +143,7 @@ The coroutine interface can be made cleaner:
 
 For the above code to compile we'd have to add the following trivial transform:
 
-```c++
+```cpp
     template < class T >
     auto future< T >::operator()() -> net::awaitable< T >
     {
@@ -164,7 +164,7 @@ When your composed operation's intermediate completion handlers are invoked,
 the underlying `detail::composed_op` provides a mutable reference to itself. A typical completion handler looks like 
 this:
 
-```c++
+```cpp
     template<class Self>
     void operator()(Self& self, error_code ec = {} , std::size_t bytes_transferred = 0)
     {
@@ -177,7 +177,7 @@ this:
 
 What I wanted was a composed operation where the following is legal:
 
-```c++
+```cpp
     template<class Self>
     void operator()(Self self /* note copy */, error_code ec = {} , std::size_t bytes_transferred = 0)
     {
@@ -212,7 +212,7 @@ I also cut/pasted some ancillary free functions in order to make asio work nicel
 
 Here's the code... it's not pretty:
 
-```c++
+```cpp
 template < class Impl, class Work, class Handler, class Signature >
 struct shared_composed_op
 {
@@ -308,7 +308,7 @@ inline void asio_handler_invoke(const Function &                                
 
 With that in hand, and with a little more _jiggery pokery_, I was able to express intent thus:
 
-```c++
+```cpp
     template < class Self >
     void operator()(Self &self, error_code ec = {}, std::size_t bytes_transferred = 0)
     {
@@ -364,7 +364,7 @@ There are a couple of interesting things to note:
 If you start two or more async operations that will complete on the same object, they must all be allowed to complete.
 This is why we yield and wait for both the socket and the timeout:
 
-```c++
+```cpp
             while (this->resolving() || this->timeout_outstanding())
                 yield;
 ```
@@ -373,7 +373,7 @@ This leads directly to the problem of managing the error_code. Two error_codes w
 (which we hope to cancel before it times out) and one for the resolve operation. 
 This means we have to store the first relevant error code somewhere:
 
-```c++
+```cpp
 /// @brief a mixin to manage overall operation error state
 struct has_error_code
 {
@@ -393,7 +393,7 @@ struct has_error_code
 
 And we need a means of allowing communication between the timeout timer and the resolver:
 
-```c++
+```cpp
     template < class Self >
     void initiate_resolve(Self self, std::string const &host, std::string const &service)
     {
@@ -417,7 +417,7 @@ And we need a means of allowing communication between the timeout timer and the 
 
 One cancels the other....
 
-```c++
+```cpp
     void on_timeout()
     {
         this->cancel_resolver();
@@ -431,7 +431,7 @@ One cancels the other....
     }
 ```
 
-```c++
+```cpp
     auto resolving() const -> bool { return !results_.has_value(); }
 
     auto cancel_resolver() -> void { resolver_.cancel(); }
