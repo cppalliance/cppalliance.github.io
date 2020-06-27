@@ -59,7 +59,7 @@ b: Targeting a POSIX system (just because I happen to know more about POSIX than
 
 This program simply copies the contents of `stdin` to `stdout`:
  
-```c++
+```cpp
 int
 main()
 {
@@ -92,7 +92,7 @@ them when writing the function `async_copy_all`.
 Fortunately, Asio's new(ish) `async_compose` template function makes this reasonably 
 painless:
 
-```c++
+```cpp
 template<class InStream, class OutStream, class CompletionToken>
 auto
 async_copy_all(
@@ -247,7 +247,7 @@ The situation will be similar for a write operation.
 
 Now consider the following code (`ls` is an object of our hypothetical type `logging_socket`:
 
-```c++
+```cpp
   ls.async_write_some(
     get_tx_buffer(),
     net::bind_executor(
