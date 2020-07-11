@@ -2,7 +2,6 @@
 layout: post
 nav-class: dark
 categories: standards, marshall
-author: Marshall Clow
 author-id: marshall
 ---
 # WG21 San Diego Meeting
@@ -34,7 +33,7 @@ catastrophe) that it will be part of C++20. This was a huge paper, weighing
 in at 220+ pages. We spent several days in LWG reviewing this (and a bunch
 of time at previous meetings as well).
 
-We also moved a bunch (around 25) of smaller papers; too many to list here. 
+We also moved a bunch (around 25) of smaller papers; too many to list here.
 
 Detailed trip reports can be found around the web:
 

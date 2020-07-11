@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's May Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -32,7 +31,7 @@ There was a lot of "infrastructure work" done on libc++ this month; a large clea
 
 * Improved the behavior of the compiler intrinsic `__is_base_of`. Clang no longer generates an error when you ask about inheritance relationships with unions, even if the non-union class is incomplete. This intrinsic is used by libc++ to implement `std::is_base_of`.
 
-* Fixed a few `regex` bugs, and improved the `regex` tests in C++03. 
+* Fixed a few `regex` bugs, and improved the `regex` tests in C++03.
 
 ### LLVM bugs resolved this month (probably incomplete)
 
@@ -54,13 +53,13 @@ There were no WG21 meetings in April. However, LWG held one teleconference this 
 
 I am working on more "cleanup" papers similar to [P1458 - Mandating the Standard Library: Clause 16 - Language support library](https://wg21.link/P1458), and my [P0805 - Comparing Containers](https://wg21.link/P0805) needs an update.
 
-The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review. 
+The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review.
 
 Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (`flat_map`, text formatting, etc).
 
 # Boost
 
-It's been a quiet month for boost (except for C++ Now, the conference formerly known as BoostCon). 
+It's been a quiet month for boost (except for C++ Now, the conference formerly known as BoostCon).
 
 There are a couple of good trip reports for C++Now:
 * [Matthew Butler](https://maddphysics.com/2019/05/13/cnow-2019-trip-report/)

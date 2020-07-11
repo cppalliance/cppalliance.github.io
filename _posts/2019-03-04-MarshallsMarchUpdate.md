@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's March Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -90,7 +89,7 @@ We adopted several new features for C++20:
 * P1164R1 Make create_directory() Intuitive
 * P1227R2 Signed ssize() functions, unsigned size() functions
 * P1252R2 Ranges Design Cleanup
-* P1357R1 Traits for [Un]bounded Arrays	
+* P1357R1 Traits for [Un]bounded Arrays
 
 I wrote five substantive papers for the Kona meeting, all were adopted. Five of them were very similar, all about improving the wording in the standard, rather than proposing new features.
 
@@ -102,16 +101,16 @@ I wrote five substantive papers for the Kona meeting, all were adopted. Five of 
 
 I was also the nominal author of [P1457](https://wg21.link/P1457) "C++ Standard Library Issues to be moved in Kona", but that was just a list of issues whose resolutions we adopted.
 
-Between now and the next meeting (July), LWG will be working on reviewing papers and issues to be adopted in July. I'm planning regular teleconferences (in fact, we had the first one on 1-March). 
+Between now and the next meeting (July), LWG will be working on reviewing papers and issues to be adopted in July. I'm planning regular teleconferences (in fact, we had the first one on 1-March).
 
-The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review. 
+The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review.
 
 
 # Boost
 
 It's been a quiet couple of months for Boost, since we're between releases, and I have been busy with libc++ and WG21 activities. There have been a few bugs to chase down, and the dealing with change requests for the libraries whose maintainers have "moved on" takes some time.
 
-However, it's time for another Boost release (1.70), and I will be acting as the release manager again. The release calendar is available (as always) on [the Boost website](https://www.boost.org/development). 
+However, it's time for another Boost release (1.70), and I will be acting as the release manager again. The release calendar is available (as always) on [the Boost website](https://www.boost.org/development).
 
 The beta release is schedule for March 13th, and the final release for 10-April.
 

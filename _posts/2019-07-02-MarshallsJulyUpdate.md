@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's June Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -80,7 +79,7 @@ I had seven papers in the pre-Cologne mailing:
 * [P1723R0: Mandating the Standard Library: Clause 31 - Atomics library](https://wg21.link/P1723)
 * [P1724R0: C++ Standard Library Issues to be moved in Cologne](https://wg21.link/P1724)
 
-The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review. 
+The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review.
 
 Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (`flat_map`, text formatting, etc).
 

@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: company, damian
 title: Damian's March Update
-author: Damian Jarek
 author-id: damian
 ---
 

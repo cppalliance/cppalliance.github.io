@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's January Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -17,7 +16,7 @@ There are three main areas where I spend my time.
 
 ----
 Boost:
-December was a big month for boost, and much of the first part of the month was taken up with the release process. I was the release manager for the 1.69.0 release, which went live on 12-December. The final release process was fairly straighforward, with only one release candidate being made/tested - as opposed to the beta, which took _three_. In any case, we had a successful release, and the I (and other boost developers) are now happily working on features/bug fixes for the 1.70 release - which will occur in March.  
+December was a big month for boost, and much of the first part of the month was taken up with the release process. I was the release manager for the 1.69.0 release, which went live on 12-December. The final release process was fairly straighforward, with only one release candidate being made/tested - as opposed to the beta, which took _three_. In any case, we had a successful release, and the I (and other boost developers) are now happily working on features/bug fixes for the 1.70 release - which will occur in March.
 
 ----
 Libc++:

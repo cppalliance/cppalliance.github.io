@@ -18,20 +18,28 @@ type: article
       <div class="title-section center">
         <h2 class='text-l news-title no-border'>{{ page.title }}</h2>
 
-        {% if page.author %}
+
+
+        {% if page.author-id %}
         <div class='author d-iblock'>
           <!-- list of all potential authors -->
 
           <span class='text-xxs author-name'>By
-            {% if page.author-id %}
               <a class='link' href='{{ site.baseurl }}/people/{{page.author-id}}'>
-            {% endif %}
 
-            {{ page.author }}
+              {% assign people-pages = site.pages %}
+              {% assign page_author-id = page.author-id %}
+              {% for people in people-pages %}
 
-            {% if page.author-id %}
-            </a> on
-            {% endif %}
+                {% if people.id == page_author-id %}
+                  {{people.member-name}}
+                {% endif %}
+
+              {% endfor %}
+
+              {% if page.author-id %}
+              </a> on
+              {% endif %}
           </span>
         </div>
         {% endif %}
