@@ -3,14 +3,13 @@ layout: post
 nav-class: dark
 categories: sam
 title: Automated Documentation Previews
-author: Sam Darwin
 author-id: sam
 ---
 # Overview
 
 Greetings, and welcome to my first blog post at The C++ Alliance.
 
-I've recently begun working on an interesting project for the Alliance which might also have more widespread applicability. The same requirement could possibly apply to your organization as well. 
+I've recently begun working on an interesting project for the Alliance which might also have more widespread applicability. The same requirement could possibly apply to your organization as well.
 
 Consider an open-source project that has multiple contributors who are submitting changes via pull-requests in Github. You'd like to have assurances that a pull-request passes all tests before being merged. That is done with continuous integration solutions such as Travis or Circle-CI, which are quite popular and well-known. Similarly, if the submission is *documentation*, you would like to be able to view the formatted output in it's final published format so you can review the layout, the colors, and so on. What would be the best way to build and publish documentation from pull requests?
 
@@ -24,7 +23,7 @@ Let's briefly think about the latter option. If secret keys are enabled in Circl
 
 What can be done?
 
-The answer - which is not overly difficult if you already have some experience - is to run an in-house build server such as Jenkins. This adds multiple layers of security: 
+The answer - which is not overly difficult if you already have some experience - is to run an in-house build server such as Jenkins. This adds multiple layers of security:
 
 - Optionally, does *not* publicly print the build output.
 - Optionally, does *not* run based on a .circleci file or Jenkinsfile, so modifying the configuration file is not an avenue for external attacks.
@@ -34,7 +33,7 @@ While the new system may not be impregnable, it's a major improvement compared t
 
 # Design
 
-Here is a high level overview of how the system operates, before getting into further details. 
+Here is a high level overview of how the system operates, before getting into further details.
 
 A jenkins server is installed.
 
@@ -42,7 +41,7 @@ It builds the documentation jobs, and then copies the resulting files to AWS S3.
 
 The job posts a message in the GitHub pull request conversation with a hyperlink to the new docs.
 
-Each pull request will get it's own separate "website". There could be hundreds of versions being simultaneously hosted. 
+Each pull request will get it's own separate "website". There could be hundreds of versions being simultaneously hosted.
 
 An nginx proxy server which sits in front of S3 serves the documents with a consistent URL format, and allows multiple repositories to share the same S3 bucket.
 
@@ -85,240 +84,240 @@ Replace "website" with your repository name.<br>
 Replace "example-previews" with your S3 bucket name.
 
 ### General Server Setup
-  
-Install Jenkins - https://www.jenkins.io/doc/book/installing/  
-  
-Install SSL certificate for Jenkins (jenkins.example.com):  
-```  
-apt install certbot  
-certbot certonly  
-```  
-  
-Install nginx.  
+
+Install Jenkins - https://www.jenkins.io/doc/book/installing/
+
+Install SSL certificate for Jenkins (jenkins.example.com):
+```
+apt install certbot
+certbot certonly
+```
+
+Install nginx.
 
 ```
 apt install nginx
 ```
 
-Create a website, as follows:  
-```  
-server {  
-    listen 80;  
-    listen [::]:80;  
-    server_name jenkins.example.com;  
-    location '/.well-known/acme-challenge' {  
-        default_type "text/plain";  
-        root /var/www/letsencrypt;  
-    }  
-    location / {  
-         return 301 https://jenkins.example.com:8443$request_uri;  
-    }  
-}  
-  
-server {  
-listen 8443 ssl default_server;  
-listen [::]:8443 ssl default_server;  
-ssl_certificate /etc/letsencrypt/live/jenkins.example.com/fullchain.pem;  
-ssl_certificate_key /etc/letsencrypt/live/jenkins.example.com/privkey.pem;  
-#include snippets/snakeoil.conf;  
-location / {  
-include /etc/nginx/proxy_params;  
-proxy_pass http://localhost:8080;  
-proxy_read_timeout 90s;  
-}  
-}  
-```  
- 
+Create a website, as follows:
+```
+server {
+    listen 80;
+    listen [::]:80;
+    server_name jenkins.example.com;
+    location '/.well-known/acme-challenge' {
+        default_type "text/plain";
+        root /var/www/letsencrypt;
+    }
+    location / {
+         return 301 https://jenkins.example.com:8443$request_uri;
+    }
+}
+
+server {
+listen 8443 ssl default_server;
+listen [::]:8443 ssl default_server;
+ssl_certificate /etc/letsencrypt/live/jenkins.example.com/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/jenkins.example.com/privkey.pem;
+#include snippets/snakeoil.conf;
+location / {
+include /etc/nginx/proxy_params;
+proxy_pass http://localhost:8080;
+proxy_read_timeout 90s;
+}
+}
+```
+
 Set the URL inside of Jenkins->Manage Jenkins->Configure System to be https://_url_ , replacing _url_ with the hostname such as jenkins.example.com.
- 
-Install the plugin "GitHub pull requests builder"  
-Go to ``Manage Jenkins`` -> ``Configure System`` -> ``GitHub pull requests builder`` section.  
-  
-Click "Create API Token". Log into github. 
-  
-Update "Commit Status Build Triggered", "Commit Status Build Start" to --none--  
-Create all three types of "Commit Status Build Result" with --none--  
-  
-On the server:  
-  
-```  
-apt install git build-essential  
-```  
-  
-Install the plugin "CloudBees Docker Custom Build Environment"  
-  
+
+Install the plugin "GitHub pull requests builder"
+Go to ``Manage Jenkins`` -> ``Configure System`` -> ``GitHub pull requests builder`` section.
+
+Click "Create API Token". Log into github.
+
+Update "Commit Status Build Triggered", "Commit Status Build Start" to --none--
+Create all three types of "Commit Status Build Result" with --none--
+
+On the server:
+
+```
+apt install git build-essential
+```
+
+Install the plugin "CloudBees Docker Custom Build Environment"
+
 add Jenkins to docker group
 
 ```
 usermod -a -G docker jenkins
 ```
 
-Restart jenkins.  
+Restart jenkins.
 
 ```
 systemctl restart jenkins
 ```
-  
+
 Install the "S3 publisher plugin"
-  
-In Manage Jenkins->Configure System, go to S3 Profiles, create profile. Assuming the IAM user in AWS is called "example-bot", then create example-bot-profile with the AWS creds. The necessary IAM permissions are covered a bit further down in this document. 
-  
+
+In Manage Jenkins->Configure System, go to S3 Profiles, create profile. Assuming the IAM user in AWS is called "example-bot", then create example-bot-profile with the AWS creds. The necessary IAM permissions are covered a bit further down in this document.
+
 Install the "Post Build Task plugin"
- 
+
 ### Nginx Setup
-  
-Create a wildcard DNS entry at your DNS hosting provider:  
-*.prtest.website.example.com CNAME to jenkins.example.com  
-  
-Create an nginx site for previews:  
-  
-```  
-server {  
-    # Listen on port 80 for all IPs associated with your machine  
-    listen 80 default_server;  
-  
-    # Catch all other server names  
-    server_name _;  
-  
-    if ($host ~* ([0-9]+)\.(.*?)\.(.*)) {  
-        set $pullrequest $1;  
-        set $repo $2;  
-    }  
-  
-    location / {  
-        set $backendserver 'http://example-previews.s3-website-us-east-1.amazonaws.com';  
-  
-        #CUSTOMIZATIONS  
-        if ($repo = "example" ) {  
-          rewrite ^(.*)/something$ $1/something.html ;  
-        }  
-  
-        #FINAL REWRITE  
-        rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break;  
-  
-        # The rewritten request is passed to S3  
-        proxy_pass http://example-previews.s3-website-us-east-1.amazonaws.com;  
-        #proxy_pass $backendserver;  
-        include /etc/nginx/proxy_params;  
-        proxy_redirect /$repo/$pullrequest / ;  
-    }  
-}  
-  
-```  
-  
-### AWS Setup  
-  
-Turn on static web hosting on the bucket.  
-Endpoint is http://example-previews.s3-website-us-east-1.amazonaws.com  
-  
-Add bucket policy  
-  
-```  
-{  
-    "Version": "2012-10-17",  
-    "Statement": [  
-        {  
-            "Sid": "PublicReadGetObject",  
-            "Effect": "Allow",  
-            "Principal": "*",  
-            "Action": "s3:GetObject",  
-            "Resource": "arn:aws:s3:::example-previews/*"  
-        }  
-    ]  
-}  
-```  
-  
+
+Create a wildcard DNS entry at your DNS hosting provider:
+*.prtest.website.example.com CNAME to jenkins.example.com
+
+Create an nginx site for previews:
+
+```
+server {
+    # Listen on port 80 for all IPs associated with your machine
+    listen 80 default_server;
+
+    # Catch all other server names
+    server_name _;
+
+    if ($host ~* ([0-9]+)\.(.*?)\.(.*)) {
+        set $pullrequest $1;
+        set $repo $2;
+    }
+
+    location / {
+        set $backendserver 'http://example-previews.s3-website-us-east-1.amazonaws.com';
+
+        #CUSTOMIZATIONS
+        if ($repo = "example" ) {
+          rewrite ^(.*)/something$ $1/something.html ;
+        }
+
+        #FINAL REWRITE
+        rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break;
+
+        # The rewritten request is passed to S3
+        proxy_pass http://example-previews.s3-website-us-east-1.amazonaws.com;
+        #proxy_pass $backendserver;
+        include /etc/nginx/proxy_params;
+        proxy_redirect /$repo/$pullrequest / ;
+    }
+}
+
+```
+
+### AWS Setup
+
+Turn on static web hosting on the bucket.
+Endpoint is http://example-previews.s3-website-us-east-1.amazonaws.com
+
+Add bucket policy
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::example-previews/*"
+        }
+    ]
+}
+```
+
 Create an IAM user and add these permissions
-  
-```  
-    "Version": "2012-10-17",  
-    "Statement": [  
-        {  
-            "Effect": "Allow",  
-            "Action": [  
-                "s3:GetBucketLocation",  
-                "s3:ListAllMyBuckets"  
-            ],  
-            "Resource": "*"  
-        },  
-        {  
-            "Effect": "Allow",  
-            "Action": [  
-                "s3:ListBucket"  
-            ],  
-            "Resource": [  
-                "arn:aws:s3:::example-previews"  
-            ]  
-        },  
-        {  
-            "Effect": "Allow",  
-            "Action": [  
-                "s3:PutObject",  
-                "s3:GetObject",  
-                "s3:DeleteObject"  
-            ],  
-            "Resource": [  
-                "arn:aws:s3:::example-previews/*"  
-            ]  
-        }  
-    ]  
-}  
-```  
-  
-### JENKINS FREESTYLE PROJECTS   
-  
+
+```
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketLocation",
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-previews"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-previews/*"
+            ]
+        }
+    ]
+}
+```
+
+### JENKINS FREESTYLE PROJECTS
+
 Create a new Freestyle Project
- 
-Github Project (checked)  
-Project URL: https://github.com/yourorg/website/  
-  
-Source Code Management  
-Git (checked)  
+
+Github Project (checked)
+Project URL: https://github.com/yourorg/website/
+
+Source Code Management
+Git (checked)
 Repositories: https://github.com/yourorg/website
 Credentials: github-example-bot (you should add a credential here, that successfully connects to github)
-Advanced:  
-Refspec: +refs/pull/*:refs/remotes/origin/pr/*  
-Branch Specifier: ${ghprbActualCommit}  
-  
-Build Triggers  
-GitHub Pull Request Builder (checked)  
-GitHub API Credentials: mybot  
+Advanced:
+Refspec: +refs/pull/*:refs/remotes/origin/pr/*
+Branch Specifier: ${ghprbActualCommit}
+
+Build Triggers
+GitHub Pull Request Builder (checked)
+GitHub API Credentials: mybot
 
 #Consider whether to enable the following setting.
 #It is optional. You may also approve each PR.
 Advanced:
-Build every pull request automatically without asking.    
-  
-Trigger Setup:    
-Build Status Message:    
-`An automated preview of this PR is available at [http://$ghprbPullId.website.prtest.example.com](http://$ghprbPullId.website.prtest.example.com)`  
-Update Commit Message during build:  
-Commit Status Build Triggered: --none--  
-Commit Status Build Started: --none--  
-Commit Status Build Result: create all types of result, with message --none--  
-  
-Build Environment:  
-Build inside a Docker container (checked)  
-#Note: choose a Docker image that is appropriate for your project   
-Pull docker image from repository: circleci/ruby:2.4-node-browsers-legacy  
- 
-Build:  
-Execute Shell:  
-```  
-#Note: whichever build steps your site requires.
-```  
-  
-Post-build Actions  
-Publish artifacts to S3  
-S3 Profile: example-bot-profile  
-  
-Source: _site/** (set this value as necessary for your code)  
-Destination:  example-previews/example/${ghprbPullId}  
-Bucket Region: us-east-1  
-No upload on build failure (checked)  
+Build every pull request automatically without asking.
 
-#The following part is optional. It will post an alert into a Slack channel.  
-Add Post Build Tasks  
+Trigger Setup:
+Build Status Message:
+`An automated preview of this PR is available at [http://$ghprbPullId.website.prtest.example.com](http://$ghprbPullId.website.prtest.example.com)`
+Update Commit Message during build:
+Commit Status Build Triggered: --none--
+Commit Status Build Started: --none--
+Commit Status Build Result: create all types of result, with message --none--
+
+Build Environment:
+Build inside a Docker container (checked)
+#Note: choose a Docker image that is appropriate for your project
+Pull docker image from repository: circleci/ruby:2.4-node-browsers-legacy
+
+Build:
+Execute Shell:
+```
+#Note: whichever build steps your site requires.
+```
+
+Post-build Actions
+Publish artifacts to S3
+S3 Profile: example-bot-profile
+
+Source: _site/** (set this value as necessary for your code)
+Destination:  example-previews/example/${ghprbPullId}
+Bucket Region: us-east-1
+No upload on build failure (checked)
+
+#The following part is optional. It will post an alert into a Slack channel.
+Add Post Build Tasks
 
 Log Text: GitHub
 
@@ -332,4 +331,4 @@ curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$PREVIEWMES
 
 Check box "Run script only if all previous steps were successful"
 
-In Slack administration, (not in jenkins), create a Slack app. Create a "webhook" for your channel. That webhook goes into the curl command. 
+In Slack administration, (not in jenkins), create a Slack app. Create a "webhook" for your channel. That webhook goes into the curl command.

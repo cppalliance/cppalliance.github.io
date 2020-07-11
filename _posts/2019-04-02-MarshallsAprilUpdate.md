@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's March Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -18,7 +17,7 @@ This month, I spent far more time reviewing other people's code and preparing ta
 
 # Libc++
 
-The big news is: we released LLVM 8 this month! (March 20th). You can get the sources and pre-built binaries from the [LLVM download page](http://releases.llvm.org/download.html#8.0.0), or wait for your system vendor to provide you with an update. 
+The big news is: we released LLVM 8 this month! (March 20th). You can get the sources and pre-built binaries from the [LLVM download page](http://releases.llvm.org/download.html#8.0.0), or wait for your system vendor to provide you with an update.
 
 As the "code owner" for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That's a never-ending task; there are new contributions ever day.
 
@@ -66,12 +65,12 @@ Between now and the next meeting (July), LWG will be working on reviewing papers
 
 I am working on more "cleanup" papers similar to [P1458 - Mandating the Standard Library: Clause 16 - Language support library](https://wg21.link/P1458), and my [P0805 - Comparing Containers](https://wg21.link/P0805) needs an update.
 
-The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review. 
+The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review.
 
 
 # Boost
 
-It's time for another Boost release (1.70), and I am acting as the release manager again. The release calendar is available (as always) on [the Boost website](https://www.boost.org/development). 
+It's time for another Boost release (1.70), and I am acting as the release manager again. The release calendar is available (as always) on [the Boost website](https://www.boost.org/development).
 
 The cut-off for contributions for the release is 3-April, with a release candidate to follow close behind, and the actual release to happen on the 10th.
 
@@ -79,7 +78,7 @@ Once the release is over, I'll be putting some serious time into Boost.Algorithm
 
 # Conferences
 
-I had submitted talk proposals to three conferences, and all three were accepted. 
+I had submitted talk proposals to three conferences, and all three were accepted.
 
 I will be speaking at:
 

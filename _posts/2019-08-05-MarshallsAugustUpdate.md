@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's July Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -39,7 +38,7 @@ As the "code owner" for libc++, I also have to review the contributions of other
 
 ### LLVM bugs resolved this month (definitely incomplete)
 
-<!-- 
+<!--
 * [Bug 36863](https://llvm.org/PR36863)	`basic_string_view(const CharT*, size_type)` constructor shouldn't comment out assert of nullptr and length checks
 * [Bug 42166](https://llvm.org/PR42166)	`to_chars` can puts leading zeros on numbers
  -->

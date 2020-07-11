@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's Combined August and September Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -26,7 +25,7 @@ Many times, bug reports are based on misunderstandings, but require a couple of 
 
 We're working on a major redesign of the "debug mode" for libc++, after we realized that the existing (not widely used) debug mode is useless when you're trying to do things at compile (constexpr) time.
 
-I have been spending a lot of time the last few weeks working on the calendaring stuff in `<chrono>`, specifically the interface with the OS for getting time zone information. It is a surprisingly complicated task. Fortunately for me, I have a friend who has been down this road in the past, and is willing to answer questions. 
+I have been spending a lot of time the last few weeks working on the calendaring stuff in `<chrono>`, specifically the interface with the OS for getting time zone information. It is a surprisingly complicated task. Fortunately for me, I have a friend who has been down this road in the past, and is willing to answer questions.
 
 ### LWG issues resolved in libc++ (almost certainly incomplete)
 

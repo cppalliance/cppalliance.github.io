@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: richard
 title: Richard's April Update
-author: Richard Hodges
 author-id: richard
 ---
 
@@ -21,7 +20,7 @@ Last month I asked the question, "Is it possible to write an asynchronous compos
 
 This month I went a little further with two items that interested me.
 
-The first is whether asio's `async_compose` can be adapted so that we can implement a complex composed operation involving 
+The first is whether asio's `async_compose` can be adapted so that we can implement a complex composed operation involving
 more than one IO object easily using the asio faux `coroutine` mechanism.
 
 The second was whether is was possible to easily implement an async future in Asio.
@@ -160,8 +159,8 @@ For the above code to compile we'd have to add the following trivial transform:
 
 ## Easy Complex Coroutines with async_compose
 
-When your composed operation's intermediate completion handlers are invoked, 
-the underlying `detail::composed_op` provides a mutable reference to itself. A typical completion handler looks like 
+When your composed operation's intermediate completion handlers are invoked,
+the underlying `detail::composed_op` provides a mutable reference to itself. A typical completion handler looks like
 this:
 
 ```cpp
@@ -173,7 +172,7 @@ this:
             yield async_write(sock, buf, std::move(self));  // note that self is moved
         }
     }
-```  
+```
 
 What I wanted was a composed operation where the following is legal:
 
@@ -183,7 +182,7 @@ What I wanted was a composed operation where the following is legal:
     {
         reenter(this) {
             // yields and operations on Self
-            yield 
+            yield
             {
                 async_write(sock, buf, self);
                 timer.async_wait(self);
@@ -193,15 +192,15 @@ What I wanted was a composed operation where the following is legal:
 
             while(writing || sending)
                 yield
-                    // something needs to happen here to reset the flags and handle errors and cancellation. 
+                    // something needs to happen here to reset the flags and handle errors and cancellation.
                 ;
         }
     }
-```  
+```
 
 Which I think looks reasonably clear and easy to follow.
 
-In this work I had to overcome two problems - writing the framework to allow it, and thinking of a maintainable way to 
+In this work I had to overcome two problems - writing the framework to allow it, and thinking of a maintainable way to
 express intent in the interrelationships between the asynchronous operations on the timer and the socket.
 
 Solving the copyable composed_op problem was easy. I did what I always do in situations like this. I cheated.
@@ -369,8 +368,8 @@ This is why we yield and wait for both the socket and the timeout:
                 yield;
 ```
 
-This leads directly to the problem of managing the error_code. Two error_codes will be produced - one for the timer 
-(which we hope to cancel before it times out) and one for the resolve operation. 
+This leads directly to the problem of managing the error_code. Two error_codes will be produced - one for the timer
+(which we hope to cancel before it times out) and one for the resolve operation.
 This means we have to store the first relevant error code somewhere:
 
 ```cpp

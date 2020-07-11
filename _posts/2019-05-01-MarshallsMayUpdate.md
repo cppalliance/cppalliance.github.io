@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: marshall
 title: Marshall's April Update
-author: Marshall Clow
 author-id: marshall
 ---
 
@@ -37,7 +36,7 @@ As the "code owner" for libc++, I also have to review the contributions of other
 * Fixed the implementations of `list::remove_if` and `list::unique` to deal with values or predicates that are elements in the list. Same for `forward_list`. We did this for `remove` already, but now we do it for the other operations as well.
 
 * Added a bunch of new tests for things that we were missing
-** `list::sort` and `forward_list::sort` are required to be stable. 
+** `list::sort` and `forward_list::sort` are required to be stable.
 ** You can't use `match_results` until you've done a regex search. Our tests did this in several places; now we have assertions to prevent that.
 `
 
@@ -67,13 +66,13 @@ There were no WG21 meetings in April. However, LWG held three teleconferences th
 
 I am working on more "cleanup" papers similar to [P1458 - Mandating the Standard Library: Clause 16 - Language support library](https://wg21.link/P1458), and my [P0805 - Comparing Containers](https://wg21.link/P0805) needs an update.
 
-The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review. 
+The goal of the July meeting is to have a "Committee Draft" (CD) of the proposed C++20 standard that can be sent out for review.
 
 Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (`flat_map`, text formatting, etc).
 
 # Boost
 
-We released [Boost 1.70](https://www.boost.org/users/history/version_1_70_0.html) on the 12th of April. 
+We released [Boost 1.70](https://www.boost.org/users/history/version_1_70_0.html) on the 12th of April.
 
 Once again, I was the release manager, which involved a bunch of "process management"; things like assembling the release candidates, packaging up release notes, deciding which problems that came up would be fixed (and which ones would not), and updating the web site (and so on, and so on).
 
@@ -83,7 +82,7 @@ Once again, I was the release manager, which involved a bunch of "process manage
 
 This was a big travel month.  I gave two presentations:
 
-* At the [LLVM European Developer's conference](https://llvm.org/devmtg/2019-04/) in Brussels, I gave a 30 minute overview of the changes that were coming to the standard library for C++20. 
+* At the [LLVM European Developer's conference](https://llvm.org/devmtg/2019-04/) in Brussels, I gave a 30 minute overview of the changes that were coming to the standard library for C++20.
 
 * At [ACCU](https://conference.accu.org/) in Bristol, England, I gave a talk titled ["Navigating the development and evolution of a library"](https://conference.accu.org/2019/sessions.html#XNavigatingthedevelopmentandevolutionofalibrary)
 

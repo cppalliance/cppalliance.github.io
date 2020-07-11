@@ -3,7 +3,6 @@ layout: post
 nav-class: dark
 categories: krystian
 title: Krystian's March Update
-author: Krystian Stasiowski
 author-id: krystian
 ---
 

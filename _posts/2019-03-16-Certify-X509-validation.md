@@ -2,7 +2,6 @@
 layout: post
 nav-class: dark
 categories: company, damian
-author: Damian Jarek
 author-id: damian
 ---
 # Certify - X509 certificate validation
