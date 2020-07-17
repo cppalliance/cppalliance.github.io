@@ -59,7 +59,7 @@ underlying context has outstanding work until the executor's lifetime ends).
 Again, given that `e` is some executor, here's how we spell this:
 
 ```c++
-auto tracked = asio::require(e, asio::execution::outstanding_work::tracked);
+auto tracked = asio::require(e, asio::execution::outstanding_work.tracked);
 ```
 
 After executing this statement, there are now two executors in play. The first, `e` may or may not be "tracking work"
@@ -75,7 +75,7 @@ In this case, we can't use `require` because this will fail to compile if the gi
 `outstanding_work::tracked` property. Therefore we would request the capability rather than require it:
 
 ```c++
-auto maybe_tracked = asio::request(e, asio::execution::outstanding_work::tracked);
+auto maybe_tracked = asio::request(e, asio::execution::outstanding_work.tracked);
 ```  
 
 We can now use `maybe_tracked` as the executor for our operation, and it will "do the right thing" regarding the tracking
@@ -217,7 +217,7 @@ using gcc :   : g++ : <cxxflags>"-Wno-c99-extensions" ;
 
 Then ask b2 to do the rest:
 
-```shell script
+```
 ./b2 --user-config=./user-config.jam \
   toolset=clang,gcc \
   asio.mode=dflt,nodep,nots,ts,nodep-nots,nodep-ts \
