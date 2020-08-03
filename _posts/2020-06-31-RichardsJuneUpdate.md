@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: richard
-title: Richard's June Update
+title: Richard's May/June Update
 author-id: richard
 ---
 
@@ -21,14 +21,14 @@ The changes to Asio have been tracking
 [The Networking TS](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/n4771.pdf) which describes a concept
 of Executor relevant to asynchronous IO.
 
-It happens that there is a competing proposal for Executors circulating, known as 
-[Unified Executors](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0443r11.html). The long and short of which
-is that "a place to execute work" can be thought of as a somewhat more generic idea than merely an IO loop or thread
-pool.
+The [Unified Executors](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p0443r11.html) proposal unifies the 
+concepts of io execution and the general concept of "a place to execute work" - a somewhat more generic idea than merely
+an IO loop or thread pool. Work has been ongoing by the members of WG21 to produce an execution model that 
+serves all parties' needs.
 
-Latest Asio, and Boost.Asio 1.74 has been updated to accommodate both models of executors, with the Unified Executors
-model being the default. It's important to note that most users won't notice the change in API this time around since 
-by default the Asio in 1.74 also includes the 1.73 interface.
+Courtesy of an incredible effort by Chris Kohlhoff, Latest Asio and Boost.Asio 1.74 has been updated to accommodate both 
+models of executors, with the Unified Executors model being the default. It's important to note that most users won't 
+notice the change in API this time around since by default the Asio in 1.74 also includes the 1.73 interface.
 
 There are a number of preprocessor macros that can be defined to change this default behaviour:
 
