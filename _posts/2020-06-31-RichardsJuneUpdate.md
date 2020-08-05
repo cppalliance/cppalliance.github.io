@@ -72,10 +72,11 @@ of execution context it is associated with. However, you do know that *if* the u
 out of work, then we want to prevent it from doing so for the duration of some operation.
 
 In this case, we can't use `require` because this will fail to compile if the given executor does not support the 
-`outstanding_work::tracked` property. Therefore we would request the capability rather than require it:
+`outstanding_work::tracked` property. Therefore we would request (or more correctly, _prefer_) the capability rather 
+than require it:
 
 ```c++
-auto maybe_tracked = asio::request(e, asio::execution::outstanding_work.tracked);
+auto maybe_tracked = asio::prefer(e, asio::execution::outstanding_work.tracked);
 ```  
 
 We can now use `maybe_tracked` as the executor for our operation, and it will "do the right thing" regarding the tracking
