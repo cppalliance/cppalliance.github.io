@@ -4,6 +4,7 @@ nav-class: dark
 title: Latest News | The C++ Alliance
 ---
 
+
 <!-- News -->
 <section class="section news-index">
   <div class="news-container">
@@ -12,8 +13,17 @@ title: Latest News | The C++ Alliance
       <h2 class='header text-xl'>News</h2>
       <h2 class='header-shadow'>News</h2>
     </div>
+    <a class="rss" href="{{ site.baseurl }}/feed.xml">
+      <img alt="RSS feed" class="icon-size" src="{{ site.baseurl }}/images/icons/rss.svg" >
+    </a>
 
-    {% for post in site.posts %}
+    {% if paginator %}
+      {% assign posts = paginator.posts %}
+    {% else %}
+      {% assign posts = site.posts %}
+    {% endif %}
+
+    {% for post in posts %}
     <div class='news-wrapper'>
       <span class='news-date text-xs'>{{ post.date | date: "%m/%d/%Y"}}</span>
       <div class='flex-row'>
@@ -29,5 +39,6 @@ title: Latest News | The C++ Alliance
     </div>
     {% endfor %}
 
+    {% include paginator.html %}
   </div>
 </section>
