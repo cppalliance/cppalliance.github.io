@@ -86,4 +86,4 @@ PNG, BMP, SVG and many others.
 
 Here is an example of a visualisation of a simple execution graph:
 
-![Handler Tracking Output](/images/posts/richard/2020-09-01-handler-tracking.svg)
+<img src="/images/posts/richard/2020-09-01-handler-tracking.svg">
