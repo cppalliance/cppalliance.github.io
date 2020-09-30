@@ -10,7 +10,7 @@ author-id: richard
 
 This month I will be discussing two issues. One of interest to many people who come to us with questions on the 
 [Github Issue Tracker](https://github.com/boostorg/beast/issues) and the #beast channel of 
-(Cpplang Slack)[https://cppalliance.org/slack/].
+[Cpplang Slack](https://cppalliance.org/slack/).
 
 ## Compile Times and Separation of Concerns
  
@@ -42,9 +42,9 @@ Another benefit is that the application can be designed such that application-le
 transport mechanism. Such as when the server can be accessed by multiple means - WSS, WS, long poll, direct connection, 
 unix sockets and so on.
 
-In this blog I will present a simplified implementation of this idea. My thanks to the cpplang Slack user @elegracer
+In this blog I will present a simplified implementation of this idea. My thanks to the cpplang Slack user `@elegracer`
 who most recently asked for guidance on reducing compile times. It was (his/her? Slack is silent on the matter) question
-which prompted me to finally conjure up a demo. @elegracer's problem was needing to connect to multiple cryptocurrency
+which prompted me to finally conjure up a demo. `@elegracer`'s problem was needing to connect to multiple cryptocurrency
 exchanges in the same app over websocket. In this particular example I'll demonstrate a simplified connection to
 the public FMex market data feed since that was the subject of the original question. 
 
@@ -77,7 +77,7 @@ strand internally which will have the type `strand<io_context::executor_type>`. 
 the constructor of any subordinate but otherwise self-contained io objects. The subordinates can then build their own
 strands from this. 
 
-## Step 1 - A Simple Application Framework That Supports ctrl-C
+## Step 1 - A Simple Application Framework That Supports ctrl-c
 
 OK, let's get started and build the framework. Here's a link to 
 [step 1](https://github.com/test-scenarios/boost_beast_websocket_echo/tree/blog-2020-09-step-1/pre-cxx20/blog-2020-09).
@@ -99,7 +99,9 @@ state diagram:
 
 ![sigint_state](/images/posts/richard/2020-09-sigint-state.png)
 
-Rather than reproduce the code here, please refer to the link above to see the source code.
+Rather than reproduce the code here, please refer to 
+[step 1](https://github.com/test-scenarios/boost_beast_websocket_echo/tree/blog-2020-09-step-1/pre-cxx20/blog-2020-09) 
+to see the source code.
 
 At this point the program will run and successfully handle ctrl-c:
 
