@@ -114,3 +114,357 @@ Interrupt unconfirmed. Ignoring
 ^CInterrupt detected. Press ctrl-c again within 5 seconds to exit
 ^CInterrupt confirmed. Shutting down
 ```
+
+## Step 2 - Connecting to an Exchange
+
+Now we need to create our WebSocket transport class and our FMex exchange protocol class that will derive from it.
+For now we won't worry about cancellation - we'll retrofit that in Step 3.
+
+Here is the code for 
+[step 2](https://github.com/test-scenarios/boost_beast_websocket_echo/tree/blog-2020-09-step-2/pre-cxx20/blog-2020-09). 
+
+This section introduces two new main classes - the `wss_transport` and the `fmex_connection`. In addition, the connection
+phase of the wss_transport is expressed as a composed operation for exposition purposes (and in my opinion it actually 
+makes the code easier to read than continuation-passing style code) 
+
+Here is the implementation of the connect coroutine:
+
+```
+    struct wss_transport::connect_op : asio::coroutine
+    {
+        using executor_type = wss_transport::executor_type;
+        using websock       = wss_transport::websock;
+```
+Here we define the _implementation_ of the coroutine - this is an object which will not be moved for the duration of the
+execution of the coroutine. This address stability is important because intermediate asynchronous operations will rely
+on knowing the address of the resolver (and later perhaps other io objects).
+```
+        struct impl_data
+        {
+            impl_data(websock &   ws,
+                      std::string host,
+                      std::string port,
+                      std::string target)
+            : ws(ws)
+            , resolver(ws.get_executor())
+            , host(host)
+            , port(port)
+            , target(target)
+            {
+            }
+
+            layer_0 &
+            tcp_layer() const
+            {
+                return ws.next_layer().next_layer();
+            }
+
+            layer_1 &
+            ssl_layer() const
+            {
+                return ws.next_layer();
+            }
+
+            websock &                            ws;
+            net::ip::tcp::resolver               resolver;
+            net::ip::tcp::resolver::results_type endpoints;
+            std::string                          host, port, target;
+        };
+```
+The constructor merely forwards the arguments to the construction of the `impl_data`.
+```
+        connect_op(websock &   ws,
+                   std::string host,
+                   std::string port,
+                   std::string target)
+        : impl_(std::make_unique< impl_data >(ws, host, port, target))
+        {
+        }
+
+```
+This coroutine is both a composed operation and a completion handler for sub-operations. This means it must have an
+`operator()` interface matching the requirements of each sub-operation. During the lifetime of this coroutine we 
+will be using the resolver and calling `async_connect` on the `tcp_stream`. We therefore provide conforming member
+functions which store or ignore the and forward the `error_code` to the main implementation of the coroutine. 
+```
+        template < class Self >
+        void
+        operator()(Self &                               self,
+                   error_code                           ec,
+                   net::ip::tcp::resolver::results_type results)
+        {
+            impl_->endpoints = results;
+            (*this)(self, ec);
+        }
+
+        template < class Self >
+        void
+        operator()(Self &self, error_code ec, net::ip::tcp::endpoint const &)
+        {
+            (*this)(self, ec);
+        }
+```
+Here is the main implementation of the coroutine. Note that the last two parameters provide defaults. This is in order
+to allow this member function to match the completion handler signatures of:
+* `void()` - invoked during async_compose in order to start the coroutine.
+* `void(error_code)` - invoked by the two functions above and by the async handshakes.
+* `void(error_code, std::size_t)` - invoked by operations such as async_read and async_write although not strictly 
+necessary here. 
+```
+        template < class Self >
+        void operator()(Self &self, error_code ec = {}, std::size_t = 0)
+        {
+```
+Note that here we are checking the error code before re-entering the coroutine. This is a shortcut which allows us to
+omit error checking after each sub-operation. This check will happen on every attempt to re-enter the coroutine, 
+including the first entry (at which time `ec` is guaranteed to be default constructed).
+```
+            if (ec)
+                self.complete(ec);
+
+            auto &impl = *impl_;
+```
+Note the use of the asio yield and unyield headers to create the fake 'keywords' `reenter` and `yield` in avery limited
+scope.
+```
+#include <boost/asio/yield.hpp>
+            reenter(*this)
+            {
+                yield impl.resolver.async_resolve(
+                    impl.host, impl.port, std::move(self));
+
+                impl.tcp_layer().expires_after(15s);
+                yield impl.tcp_layer().async_connect(impl.endpoints,
+                                                     std::move(self));
+
+                if (!SSL_set_tlsext_host_name(impl.ssl_layer().native_handle(),
+                                              impl.host.c_str()))
+                    return self.complete(
+                        error_code(static_cast< int >(::ERR_get_error()),
+                                   net::error::get_ssl_category()));
+
+                impl.tcp_layer().expires_after(15s);
+                yield impl.ssl_layer().async_handshake(ssl::stream_base::client,
+                                                       std::move(self));
+
+                impl.tcp_layer().expires_after(15s);
+                yield impl.ws.async_handshake(
+                    impl.host, impl.target, std::move(self));
+```
+If the coroutine is re-entered here, it must be because there was no error (if there was an error, it would have been
+caught by the pre-reentry error check above). Since execution has resumed here in the completion handler of the 
+`async_handshake` initiating function, we are guaranteed to be executing in the correct executor. Therefore we can
+simply call `complete` directly without needing to post to an executor. Note that the `async_compose` call which will
+encapsulate the use of this class embeds this object into a wrapper which provides the `executor_type` and 
+`get_executor()` mechanism which asio uses to determine on which executor to invoke completion handlers. 
+```
+                impl.tcp_layer().expires_never();
+                yield self.complete(ec);
+            }
+#include <boost/asio/unyield.hpp>
+        }
+
+        std::unique_ptr< impl_data > impl_;
+    };
+```
+
+The `wss_connection` class provides the bare bones required to connect a websocket and maintain the connection. It 
+provides a protected interface so that derived classes can send text frames and it will call private virtual functions
+in order to notify the derived class of:
+* transport up (websocket connection established).
+* frame received.
+* connection error (either during connection or operation).
+* websocket close - the server has requested or agreed to a graceful shutdown.
+
+Connection errors will only be notified once, and once a connection error has been indicated, no other event will reach
+the derived class.
+
+One of the many areas that trips up asio/beast beginners is that care must be taken to ensure that only one `async_write`
+is in progress at a time on the WebSocket (or indeed any async io object). For this reason we implement a simple 
+transmit queue state which can be considered to be an orthogonal region (parallel task) to the read state.
+
+```
+        // send_state - data to control sending data
+
+        std::deque<std::string> send_queue_;
+        enum send_state
+        {
+            not_sending,
+            sending
+        } send_state_ = not_sending;
+```
+
+You will note that I have used a `std::deque` to hold the pending messages. Although a deque has theoretically better
+complexity when inserting or removing items at the ends than a vector, this is not the reason for choosing this data
+structure. The actual reason is that items in a deque are guaranteed to have a stable address, even when other items
+are added or removed. This is useful as it means we don't have to move frames out of the transmit queue in order to
+send them. Remember that during an `async_write`, the data to which the supplied buffer sequence refers must have a 
+stable address.
+
+Here are the functions that deal with the send state transitions.
+```
+    void
+    wss_transport::send_text_frame(std::string frame)
+    {
+        if (state_ != connected)
+            return;
+
+        send_queue_.push_back(std::move(frame));
+        start_sending();
+    }
+
+    void
+    wss_transport::start_sending()
+    {
+        if (state_ == connected && send_state_ == not_sending &&
+            !send_queue_.empty())
+        {
+            send_state_ = sending;
+            websock_.async_write(net::buffer(send_queue_.front()),
+                                 [this](error_code const &ec, std::size_t bt) {
+                                     handle_send(ec, bt);
+                                 });
+        }
+    }
+
+    void
+    wss_transport::handle_send(const error_code &ec, std::size_t)
+    {
+        send_state_ = not_sending;
+
+        send_queue_.pop_front();
+
+        if (ec)
+            event_transport_error(ec);
+        else
+            start_sending();
+    }
+```
+
+Finally, we can implement our specific exchange protocol on top of the `wss_connection`. In this case, FMex eschews 
+the ping/pong built into websockets and requires a json ping/pong to be initiated by the client.
+
+```
+    void
+    fmex_connection::ping_enter_state()
+    {
+        BOOST_ASSERT(ping_state_ == ping_not_started);
+        ping_enter_wait();
+    }
+
+    void
+    fmex_connection::ping_enter_wait()
+    {
+        ping_state_ = ping_wait;
+
+        ping_timer_.expires_after(5s);
+
+        ping_timer_.async_wait([this](error_code const &ec) {
+            if (!ec)
+                ping_event_timeout();
+        });
+    }
+
+    void
+    fmex_connection::ping_event_timeout()
+    {
+        ping_state_ = ping_waiting_pong;
+
+        auto  frame = json::value();
+        auto &o     = frame.emplace_object();
+        o["cmd"]    = "ping";
+        o["id"]     = "my_ping_ident";
+        o["args"].emplace_array().push_back(timestamp());
+        send_text_frame(json::serialize(frame));
+    }
+
+    void
+    fmex_connection::ping_event_pong(json::value const &frame)
+    {
+        ping_enter_wait();
+    }
+```
+
+Note that since we have implementing frame transmission in the base class in terms of a queue, the fmex class has no
+need to worry about ensuring the one-write-at-a-time rule. The base class handles it. This makes the application 
+developer's life easy.
+
+Finally, we implement `on_text_frame` and write a little message parser and switch. Note that this function may throw.
+The base class will catch any exceptions thrown here and ensure that the `on_transport_error` event will be called at
+the appropriate time. Thus again, the application developer's life is improved as he doesn't need to worry about
+handling exceptions in an asynchronous environment.
+```
+    void
+    fmex_connection::on_text_frame(std::string_view frame)
+    try
+    {
+        auto jframe =
+            json::parse(json::string_view(frame.data(), frame.size()));
+
+        // dispatch on frame type
+
+        auto &type = jframe.as_object().at("type");
+        if (type == "hello")
+        {
+            on_hello();
+        }
+        else if (type == "ping")
+        {
+            ping_event_pong(jframe);
+        }
+        else if (type.as_string().starts_with("ticker."))
+        {
+            fmt::print(stdout,
+                       "fmex: tick {} : {}\n",
+                       type.as_string().subview(7),
+                       jframe.as_object().at("ticker"));
+        }
+    }
+    catch (...)
+    {
+        fmt::print(stderr, "text frame is not json : {}\n", frame);
+        throw;
+    }
+```
+
+Compiling and running the program produces output similar to this:
+
+```
+Application starting
+Press ctrl-c to interrupt.
+fmex: initiating connection
+fmex: transport up
+fmex: hello
+fmex: tick btcusd_p : [1.0879E4,1.407E3,1.0879E4,2.28836E5,1.08795E4,1.13E2,1.0701E4,1.0939E4,1.0663E4,2.51888975E8,2.3378048830533768E4]
+fmex: tick btcusd_p : [1.08795E4,1E0,1.0879E4,3.79531E5,1.08795E4,3.518E3,1.0701E4,1.0939E4,1.0663E4,2.51888976E8,2.3378048922449758E4]
+fmex: tick btcusd_p : [1.0879E4,2E0,1.0879E4,3.7747E5,1.08795E4,7.575E3,1.0701E4,1.0939E4,1.0663E4,2.51888978E8,2.3378049106290182E4]
+fmex: tick btcusd_p : [1.0879E4,2E0,1.0879E4,3.77468E5,1.08795E4,9.229E3,1.0701E4,1.0939E4,1.0663E4,2.5188898E8,2.337804929013061E4]
+fmex: tick btcusd_p : [1.0879E4,1E0,1.0879E4,1.0039E4,1.08795E4,2.54203E5,1.0701E4,1.0939E4,1.0663E4,2.51888981E8,2.3378049382050827E4]
+```
+
+Note however, that although pressing ctrl-c is noticed by the application, the fmex feed does not shut down in response.
+This is because we have not wired up a mechanism to communicate the `stop()` event to the implementation of the 
+connection:
+
+```
+$ ./blog_2020_09 
+Application starting
+Press ctrl-c to interrupt.
+fmex: initiating connection
+fmex: transport up
+fmex: hello
+fmex: tick btcusd_p : [1.0859E4,1E0,1.0859E4,6.8663E4,1.08595E4,4.1457E4,1.07125E4,1.0939E4,1.0667E4,2.58585817E8,2.3968266005011003E4]
+^CInterrupt detected. Press ctrl-c again within 5 seconds to exit
+fmex: tick btcusd_p : [1.08595E4,2E0,1.0859E4,5.9942E4,1.08595E4,4.3727E4,1.07125E4,1.0939E4,1.0667E4,2.58585819E8,2.3968266189181537E4]
+^CInterrupt confirmed. Shutting down
+fmex: tick btcusd_p : [1.08595E4,2E0,1.0859E4,5.9932E4,1.08595E4,4.0933E4,1.07125E4,1.0939E4,1.0667E4,2.58585821E8,2.396826637335208E4]
+fmex: tick btcusd_p : [1.0859E4,1E0,1.0859E4,6.2722E4,1.08595E4,4.0943E4,1.07125E4,1.0939E4,1.0667E4,2.58585823E8,2.3968266557531104E4]
+fmex: tick btcusd_p : [1.08595E4,1.58E2,1.0859E4,6.2732E4,1.08595E4,3.7953E4,1.07125E4,1.0939E4,1.0667E4,2.58585981E8,2.3968281107003917E4]
+^Z
+[1]+  Stopped                 ./blog_2020_09
+$ kill %1
+
+[1]+  Stopped                 ./blog_2020_09
+$ 
+[1]+  Terminated              ./blog_2020_09
+```
