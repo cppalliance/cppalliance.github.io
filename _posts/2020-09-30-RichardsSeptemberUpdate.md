@@ -220,7 +220,7 @@ omit error checking after each sub-operation. This check will happen on every at
 including the first entry (at which time `ec` is guaranteed to be default constructed).
 ```
             if (ec)
-                self.complete(ec);
+                return self.complete(ec);
 
             auto &impl = *impl_;
 ```
@@ -468,3 +468,141 @@ $ kill %1
 $ 
 [1]+  Terminated              ./blog_2020_09
 ```
+
+## Step 3 - Re-Enabling Cancellation
+
+You will remember from step 1 that we created a little class called `sigint_state` which notices that the application 
+has received a sigint and checks for a confirming sigint before taking action. We also added a slot to this to pass the 
+signal to the fmex connection:
+
+```
+            fmex_connection_.start();
+            sigint_state_.add_slot([this]{
+                fmex_connection_.stop();
+            });
+```
+
+But we didn't put any code in `wss_transport::stop`. Now all we have to do is provide a function object within 
+`wss_transport` that we can adjust whenever the current state changes:
+
+```
+        // stop signal
+        std::function<void()> stop_signal_;
+```
+
+```
+    void
+    wss_transport::stop()
+    {
+        net::dispatch(get_executor(), [this] {
+            if (auto sig = boost::exchange(stop_signal_, nullptr))
+                sig();
+        });
+    }
+```
+
+We will also need to provide a way for the connect operation to respond to the stop signal (the user might press
+ctrl-c while resolving for example).
+
+The way I have done this here is a simple approach, merely pass a reference to the `wss_transport` into the composed
+operation so that the operation can modify the function directly. There are other more scalable ways to do this, but
+this is good enough for now.
+
+The body of the coroutine then becomes:
+
+```
+            auto &impl = *impl_;
+
+            if(ec)
+                impl.error = ec;
+
+            if (impl.error)
+                return self.complete(impl.error);
+
+#include <boost/asio/yield.hpp>
+            reenter(*this)
+            {
+                transport_->stop_signal_ = [&impl] {
+                    impl.resolver.cancel();
+                    impl.error = net::error::operation_aborted;
+                };
+                yield impl.resolver.async_resolve(
+                    impl.host, impl.port, std::move(self));
+
+                //
+
+                transport_->stop_signal_ = [&impl] {
+                    impl.tcp_layer().cancel();
+                    impl.error = net::error::operation_aborted;
+                };
+
+                impl.tcp_layer().expires_after(15s);
+                yield impl.tcp_layer().async_connect(impl.endpoints,
+                                                     std::move(self));
+
+                //
+
+                if (!SSL_set_tlsext_host_name(impl.ssl_layer().native_handle(),
+                                              impl.host.c_str()))
+                    return self.complete(
+                        error_code(static_cast< int >(::ERR_get_error()),
+                                   net::error::get_ssl_category()));
+
+                //
+
+                impl.tcp_layer().expires_after(15s);
+                yield impl.ssl_layer().async_handshake(ssl::stream_base::client,
+                                                       std::move(self));
+
+                //
+
+                impl.tcp_layer().expires_after(15s);
+                yield impl.ws.async_handshake(
+                    impl.host, impl.target, std::move(self));
+
+                //
+
+                transport_->stop_signal_ = nullptr;
+                impl.tcp_layer().expires_never();
+                yield self.complete(impl.error);
+            }
+#include <boost/asio/unyield.hpp>
+``` 
+
+The final source code for 
+[step 3 is here](https://github.com/test-scenarios/boost_beast_websocket_echo/tree/blog-2020-09-step-3/pre-cxx20/blog-2020-09).
+
+Stopping the program while connecting:
+
+```
+$ ./blog_2020_09 
+Application starting
+Press ctrl-c to interrupt.
+fmex: initiating connection
+^CInterrupt detected. Press ctrl-c again within 5 seconds to exit
+^CInterrupt confirmed. Shutting down
+fmex: transport error : system : 125 : Operation canceled
+```
+
+And stopping the program while connected:
+
+```
+$ ./blog_2020_09 
+Application starting
+Press ctrl-c to interrupt.
+fmex: initiating connection
+fmex: transport up
+fmex: hello
+^CInterrupt detected. Press ctrl-c again within 5 seconds to exit
+fmex: tick btcusd_p : [1.0882E4,1E0,1.0882E4,3.75594E5,1.08825E4,5.103E3,1.07295E4,1.0939E4,1.06785E4,2.58278146E8,2.3907706652603207E4]
+^CInterrupt confirmed. Shutting down
+closing websocket
+fmex: closed
+```
+
+# Future development
+
+Next month I'll refactor the application to use C++20 coroutines and we can see whether this makes developing
+event based systems easier and/or more maintainable.
+
+Thanks for reading.
