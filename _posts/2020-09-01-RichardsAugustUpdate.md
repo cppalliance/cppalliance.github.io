@@ -86,9 +86,7 @@ PNG, BMP, SVG and many others.
 
 Here is an example of a visualisation of a simple execution graph:
 
-{::nomarkdown}
-<img class='card-img' src='/images/posts/richard/2020-09-01-handler-tracking-example.svg' alt='Handler Tracking Output'>
-{:/}
+![](/images/posts/richard/2020-09-01-handler-tracking-example.png)
 
 The tool you need to do this is in the `asio` subproject of the Boost repo. The full path is 
 `libs/asio/tools/handlerviz.pl`. The command is self-documenting but for clarity, the process would be like this:
