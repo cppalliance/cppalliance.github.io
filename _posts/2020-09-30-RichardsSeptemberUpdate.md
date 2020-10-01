@@ -105,7 +105,7 @@ to see the source code.
 
 At this point the program will run and successfully handle ctrl-c:
 
-```
+```shell script
 $ ./blog_2020_09 
 Application starting
 Press ctrl-c to interrupt.
@@ -129,7 +129,7 @@ makes the code easier to read than continuation-passing style code)
 
 Here is the implementation of the connect coroutine:
 
-```
+```cpp
     struct wss_transport::connect_op : asio::coroutine
     {
         using executor_type = wss_transport::executor_type;
@@ -138,7 +138,7 @@ Here is the implementation of the connect coroutine:
 Here we define the _implementation_ of the coroutine - this is an object which will not be moved for the duration of the
 execution of the coroutine. This address stability is important because intermediate asynchronous operations will rely
 on knowing the address of the resolver (and later perhaps other io objects).
-```
+```cpp
         struct impl_data
         {
             impl_data(websock &   ws,
@@ -172,7 +172,7 @@ on knowing the address of the resolver (and later perhaps other io objects).
         };
 ```
 The constructor merely forwards the arguments to the construction of the `impl_data`.
-```
+```cpp
         connect_op(websock &   ws,
                    std::string host,
                    std::string port,
@@ -186,7 +186,7 @@ This coroutine is both a composed operation and a completion handler for sub-ope
 `operator()` interface matching the requirements of each sub-operation. During the lifetime of this coroutine we 
 will be using the resolver and calling `async_connect` on the `tcp_stream`. We therefore provide conforming member
 functions which store or ignore the and forward the `error_code` to the main implementation of the coroutine. 
-```
+```cpp
         template < class Self >
         void
         operator()(Self &                               self,
@@ -210,7 +210,7 @@ to allow this member function to match the completion handler signatures of:
 * `void(error_code)` - invoked by the two functions above and by the async handshakes.
 * `void(error_code, std::size_t)` - invoked by operations such as async_read and async_write although not strictly 
 necessary here. 
-```
+```cpp
         template < class Self >
         void operator()(Self &self, error_code ec = {}, std::size_t = 0)
         {
@@ -218,7 +218,7 @@ necessary here.
 Note that here we are checking the error code before re-entering the coroutine. This is a shortcut which allows us to
 omit error checking after each sub-operation. This check will happen on every attempt to re-enter the coroutine, 
 including the first entry (at which time `ec` is guaranteed to be default constructed).
-```
+```cpp
             if (ec)
                 return self.complete(ec);
 
@@ -226,7 +226,7 @@ including the first entry (at which time `ec` is guaranteed to be default constr
 ```
 Note the use of the asio yield and unyield headers to create the fake 'keywords' `reenter` and `yield` in avery limited
 scope.
-```
+```cpp
 #include <boost/asio/yield.hpp>
             reenter(*this)
             {
@@ -257,7 +257,7 @@ caught by the pre-reentry error check above). Since execution has resumed here i
 simply call `complete` directly without needing to post to an executor. Note that the `async_compose` call which will
 encapsulate the use of this class embeds this object into a wrapper which provides the `executor_type` and 
 `get_executor()` mechanism which asio uses to determine on which executor to invoke completion handlers. 
-```
+```cpp
                 impl.tcp_layer().expires_never();
                 yield self.complete(ec);
             }
@@ -283,7 +283,7 @@ One of the many areas that trips up asio/beast beginners is that care must be ta
 is in progress at a time on the WebSocket (or indeed any async io object). For this reason we implement a simple 
 transmit queue state which can be considered to be an orthogonal region (parallel task) to the read state.
 
-```
+```cpp
         // send_state - data to control sending data
 
         std::deque<std::string> send_queue_;
@@ -302,7 +302,7 @@ send them. Remember that during an `async_write`, the data to which the supplied
 stable address.
 
 Here are the functions that deal with the send state transitions.
-```
+```cpp
     void
     wss_transport::send_text_frame(std::string frame)
     {
@@ -344,7 +344,7 @@ Here are the functions that deal with the send state transitions.
 Finally, we can implement our specific exchange protocol on top of the `wss_connection`. In this case, FMex eschews 
 the ping/pong built into websockets and requires a json ping/pong to be initiated by the client.
 
-```
+```cpp
     void
     fmex_connection::ping_enter_state()
     {
@@ -385,7 +385,7 @@ the ping/pong built into websockets and requires a json ping/pong to be initiate
     }
 ```
 
-Note that since we have implementing frame transmission in the base class in terms of a queue, the fmex class has no
+Note that since we have implemented frame transmission in the base class in terms of a queue, the fmex class has no
 need to worry about ensuring the one-write-at-a-time rule. The base class handles it. This makes the application 
 developer's life easy.
 
@@ -393,7 +393,7 @@ Finally, we implement `on_text_frame` and write a little message parser and swit
 The base class will catch any exceptions thrown here and ensure that the `on_transport_error` event will be called at
 the appropriate time. Thus again, the application developer's life is improved as he doesn't need to worry about
 handling exceptions in an asynchronous environment.
-```
+```cpp
     void
     fmex_connection::on_text_frame(std::string_view frame)
     try
@@ -475,7 +475,7 @@ You will remember from step 1 that we created a little class called `sigint_stat
 has received a sigint and checks for a confirming sigint before taking action. We also added a slot to this to pass the 
 signal to the fmex connection:
 
-```
+```cpp
             fmex_connection_.start();
             sigint_state_.add_slot([this]{
                 fmex_connection_.stop();
@@ -485,12 +485,12 @@ signal to the fmex connection:
 But we didn't put any code in `wss_transport::stop`. Now all we have to do is provide a function object within 
 `wss_transport` that we can adjust whenever the current state changes:
 
-```
+```cpp
         // stop signal
         std::function<void()> stop_signal_;
 ```
 
-```
+```cpp
     void
     wss_transport::stop()
     {
@@ -510,7 +510,7 @@ this is good enough for now.
 
 The body of the coroutine then becomes:
 
-```
+```cpp
             auto &impl = *impl_;
 
             if(ec)
