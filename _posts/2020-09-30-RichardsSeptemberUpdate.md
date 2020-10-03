@@ -105,7 +105,7 @@ to see the source code.
 
 At this point the program will run and successfully handle ctrl-c:
 
-```shell script
+```
 $ ./blog_2020_09 
 Application starting
 Press ctrl-c to interrupt.
