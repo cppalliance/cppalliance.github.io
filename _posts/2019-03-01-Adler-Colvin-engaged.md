@@ -1,7 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: company
+categories: company, louis
+author-id: louis
 title: Adler & Colvin engaged
 ---
 The Alliance engages

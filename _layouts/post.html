@@ -18,14 +18,19 @@ type: article
       <div class="title-section center">
         <h2 class='text-l news-title no-border'>{{ page.title }}</h2>
 
+        {% if page.author-name %}
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+              {{page.author-name}} on
+            </span>
+          </div>
 
-
-        {% if page.author-id %}
+        {% elsif page.author-id %}
         <div class='author d-iblock'>
           <!-- list of all potential authors -->
 
           <span class='text-xxs author-name'>By
-              <a class='link' href='{{ site.baseurl }}/people/{{page.author-id}}'>
+              <a class='link' href="{{ site.baseurl }}/people/{{page.author-id}}">
 
               {% assign people-pages = site.pages %}
               {% assign page_author-id = page.author-id %}
@@ -33,13 +38,11 @@ type: article
 
                 {% if people.id == page_author-id %}
                   {{people.member-name}}
+                  {% break %}
                 {% endif %}
-
               {% endfor %}
 
-              {% if page.author-id %}
               </a> on
-              {% endif %}
           </span>
         </div>
         {% endif %}
@@ -57,7 +60,6 @@ type: article
       <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
     </div>
     <div class='news-content formatted-text'>
-      {% assign posts = site.posts | where:'categories', page.categories %}
       <ul>
         {% for post in site.posts %}
         {% if post.categories == page.categories %}

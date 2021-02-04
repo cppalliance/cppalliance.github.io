@@ -1,7 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: company
+categories: company, louis
+author-id: louis
 ---
 The Alliance engages
 <a href="https://www.incorp.com/">InCorp Services, Inc.</a>
