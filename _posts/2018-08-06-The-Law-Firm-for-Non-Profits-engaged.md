@@ -1,7 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: company
+categories: company, louis
+author-id: louis
 title: The Law Firm for Non-Profits engaged
 ---
 The Alliance engages

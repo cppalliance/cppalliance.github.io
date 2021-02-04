@@ -1,7 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: company
+categories: company, louis
+author-id: louis
 ---
 The board of directors establishes the Technical Committee, whose job
 is to inform the CEO and board on all technical matters such as code

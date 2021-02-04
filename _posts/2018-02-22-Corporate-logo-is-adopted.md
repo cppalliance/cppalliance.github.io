@@ -1,7 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: company
+categories: company, louis
+author-id: louis
 title: Corporate Logo Is Adopted
 hero-image: 2018-02-22-Corporate-logo-is-adopted.png
 ---

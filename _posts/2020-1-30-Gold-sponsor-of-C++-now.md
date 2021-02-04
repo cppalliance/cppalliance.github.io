@@ -1,7 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: company
+categories: company, louis
+author-id: louis
 title: Gold sponsor of C++Now 2020
 ---
 The Alliance is a Gold sponsor for
