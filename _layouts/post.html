@@ -17,34 +17,32 @@ type: article
       <article>
       <div class="title-section center">
         <h2 class='text-l news-title no-border'>{{ page.title }}</h2>
+        
+        {% if page.author-id %}
+                {% assign people-pages = site.pages %}
+                {% assign page_author-id = page.author-id %}
+                {% for people in people-pages %}
+                  {% if people.id == page_author-id %}
+                    {% assign author_name = people.member-name %}
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+        {% endif %}
 
-        {% if page.author-name %}
+        {% if author_name %}
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="{{ site.baseurl }}/people/{{page.author-id}}">
+                  {{author_name}}
+                </a> on
+            </span>
+          </div>
+        {% elsif page.author-name %}
           <div class='author d-iblock'>
             <span class='text-xxs author-name'>By
               {{page.author-name}} on
             </span>
           </div>
-
-        {% elsif page.author-id %}
-        <div class='author d-iblock'>
-          <!-- list of all potential authors -->
-
-          <span class='text-xxs author-name'>By
-              <a class='link' href="{{ site.baseurl }}/people/{{page.author-id}}">
-
-              {% assign people-pages = site.pages %}
-              {% assign page_author-id = page.author-id %}
-              {% for people in people-pages %}
-
-                {% if people.id == page_author-id %}
-                  {{people.member-name}}
-                  {% break %}
-                {% endif %}
-              {% endfor %}
-
-              </a> on
-          </span>
-        </div>
         {% endif %}
         <span class='center'>{{ page.date | date: "%b %-d, %Y"}}</span>
       </div>
