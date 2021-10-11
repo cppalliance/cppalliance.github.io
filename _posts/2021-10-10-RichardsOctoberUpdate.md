@@ -416,6 +416,9 @@ To demonstrate on Windows, you would need to replace the `posix::stream_descript
 with a stream type compatible with Windows, such as a socket or named pipe... or even adapt the example to use a Beast
 `http::async_read` - and presto! You have a ready-made HTTP server which applies a timeout to reading messages.
 
+Update 2021-10-11: I have since modified the example so that on windows a local tcp socket pair is created and a 
+coroutine is spawned to handle the input side of things. The demo now compiles and runs with MSVC2019.
+
 # A Note on Performance
 
 It is important that I point out that this example token has been written with ease of use as the primary motivating 
