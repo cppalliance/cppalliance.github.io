@@ -68,8 +68,8 @@ However, now invocation of _the operation_ has been modified such that:
 We can say that the completion token has implemented a customisation point at both the initiation step and the 
 completion step.
 
-(For great notes on completion step I would recommend reading one of the 
-[many excellent papers](https://isocpp.org/files/papers/P2469R0.pdf) or
+(For great notes on completion step I would recommend reading one of the [many excellent papers](https://isocpp.org/files/papers/P2444R0.pdf), 
+[follow-ups](https://isocpp.org/files/papers/P2469R0.pdf) or
 [videos](https://www.youtube.com/watch?v=icgnqFM-aY4&t=1129s)), published by Chris Kohlhoff - the author of Asio.
 
 Here is another interesting example:
@@ -311,9 +311,9 @@ from `tok`.
 - `initiation` is a function object
 - `args...` is a set of arbitrary arguments
 
-Invoking `async_initiate` will first transform `tok` into a _CompletionHandler_ which we will call `handler`. Then it will
-simply call `initiation(handler, args...)`. i.e. it will invoke the `initiation` with the correct completion handler and
-any other arguments we happen to give it.
+`async_initiate` is a helper function which calls `async_result<>::initiate()`. Calling this will first transform `tok` 
+into a _CompletionHandler_ which we will call `handler`. Then it will simply call `initiation(handler, args...)`. i.e. 
+it will invoke the `initiation` with the correct completion handler and any other arguments we happen to give it.
 
 ```c++
 // Note: this is merely a function object - a lambda.
@@ -432,6 +432,10 @@ The call-site would then look more like this:
 
 Writing it this way would actually result in a simpler initiation and would ensure that the general Asio principle of
 giving the caller control over object lifetimes and allocation strategies is maintained.
+
+Another way to avoid repeated allocations of the timer while retaining the "easy mode" interface is to make use of 
+Asio's execution context service facility. In this way timers would be cached in the service object associated with the 
+associated executor's [`execution_context`](https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/execution_context.html).
 
 Asio was originally designed for highly scalable and latency-sensitive applications such as used in the finance, 
 automotive and defence industries. Out of the box it provides the basic building blocks with which to assemble
