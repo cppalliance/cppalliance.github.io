@@ -12,7 +12,7 @@ Boost.url has been released. And it's [awesome](https://www.boost.org/doc/libs/m
 
 # Json & Describe
 
-Boost.json is now integrated with boost.describe. That means that any `class`, `struct`, or `enum` 
+Boost.json is now integrated with Boost.describe. That means that any `class`, `struct`, or `enum` 
 that has describe annotations can be directly serialized to and from json. 
 
 You can fine examples [here](https://www.boost.org/doc/libs/master/libs/describe/doc/html/describe.html#example_to_json).
