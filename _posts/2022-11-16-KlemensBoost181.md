@@ -242,6 +242,7 @@ auto async_echo(tcp::socket& socket,
 
 Writing this as `async_compose` & `asio::coroutine` would look like this:
 
+{% raw %}
 ```cpp
 struct async_echo_implementation : boost::asio::coroutine
 {
@@ -289,6 +290,7 @@ auto async_echo(tcp::socket& socket,
             token, socket);
 }
 ```
+{% endraw %}
 
 Not only is the state management easier, but it also doesn't need to move the state (i.e. coroutine frame),
 that it can become more performant. 
