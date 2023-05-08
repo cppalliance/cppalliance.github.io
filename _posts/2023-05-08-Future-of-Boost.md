@@ -14,7 +14,7 @@ I took notice of the C++ Standards Committee (“WG21”) while I was writing Bo
 
 Something which should not surprise anyone is that I despise paying taxes. In 2017, I had an idea: create a charitable organization which I can donate pre-tax income to, and then I could hire Christopher Kohlhoff as a “staff engineer” to work full time on C++ standardization, and Boost things! I would find the very best C++ people who are already doing open source work, then hire them full-time so they could focus on their open source C++ open work from home, instead of traveling to a boring job in order to make a living.
 
-#A Few Setbacks
+# A Few Setbacks
 In 2018 I offered this opportunity to Chris and he surprisingly turned it down. He actually liked going into an office and interacting with customers and users. He explained that the evolution of Asio and his WG21 work is not bottlenecked by time. Instead, he prefers to “think deeply about things over a long period, and then write something.” Basically the opposite of my strategy, which is to write a bunch of code quickly and then throw out the bad parts.
 
 This is a setback but I am not so easily deterred so I offered the same opportunity to Peter Dimov, an engineer of immense talent whose libraries are legendary. He also declined, explaining that taking a salary would transform a hobby into an obligation, affecting the quality and enjoyment of the work.
@@ -23,10 +23,10 @@ Now I’m thinking, well this is a disaster! We had the non-profit in operation 
 
 Fast forward and today we have 11 staff members. We have a great CTO/DevOps genius Sam Darwin. And we have Louis Tatta, our CEO that keeps things running smoothly and helps get the most out of every dollar donated. At some point I’ll share a complete list of everything that The C++ Alliance has done since the beginning, but that is the subject of another missive. Today I would like to talk about a vision for Boost.
 
-#The Boost Library Collection
+# The Boost Library Collection
 Long-timers know Boost’s history but for those that don’t, Beman Dawes and Robert Klarer came up with the idea of a website offering curated, high quality C++ libraries in May of 1998. They described the “Formal Review,” a social technology where a group of peers would go over a proposed library at an agreed-upon time. They could interrogate the author about the library on the mailing list, and debate things. The outcome is a collection of posts where each reviewer summarizes their critique of the library, including whether or not to “accept” the library (sometimes with conditions). The founding documenting evokes a feeling of something big:
 
-https://www.boost.org/users/proposal.pdf
+[https://www.boost.org/users/proposal.pdf](https://www.boost.org/users/proposal.pdf)
 
 The collection was named “Boost” and received many great contributions. The authors and reviewers were active in the standardization committee. In December of 2005, Boost.Asio was added after being developed since 2003. In September of 2011 the C++11 standard was published, containing many library components modeled closely or identically to their Boost counterparts. In my opinion, Asio’s efforts at standardization were thwarted by the growth of politics; an inevitable consequence of the bureaucratic ISO structure. 
 
@@ -50,32 +50,32 @@ At this point, a vision for what our non-profit could do crystallized. We would 
 
 We believe Boost faces these obstacles, organized broadly by category:
 
-* Stagnation
+### Stagnation
   * There are fewer new libraries proposed.
   * Formal reviews get less participation.
   * Review managers are typically scarce now.
   * The mailing list volume is thinning; younger folks don’t use lists.
   * There is no second order effect: new libraries rarely use Boost.
 
-* Quality
+### Quality
   * Some libraries are unmaintained and create a negative user experience.
   * Users open issues, and no one replies to them.
   * Pull requests are submitted to abandoned repositories.
   * Scant financial resources for infrastructure or staff.
 
-* Documentation
+### Documentation
   * The quality of documentation varies greatly across libraries.
   * The rendered pages and content of some documentation looks dated.
   * Some toolchains used are obscure and unmaintained.
 
-* Perception
+### Perception
   * Boost causes long compile times.
   * The libraries have too many interdependencies
   * Supporting old C++ versions is a weakness not a strength.
   * The duplication of std components is wasteful and causes friction.
   * The “Monolithic” distribution of Boost is obsolete.
 
-* Messaging
+### Messaging
   * The website is outdated and never receives updates.
   * Boost’s value proposition is not clear (“why use boost?”)
   * There is no clear voice countering misconceptions and irrational phobias.
@@ -84,7 +84,7 @@ We believe Boost faces these obstacles, organized broadly by category:
 
 Users have also weighed in with their thoughts on Boost:
 
-https://www.reddit.com/r/cpp/comments/gfowpq/why_you_dont_use_boost/
+[https://www.reddit.com/r/cpp/comments/gfowpq/why_you_dont_use_boost/]([https://www.reddit.com/r/cpp/comments/gfowpq/why_you_dont_use_boost/)
 
 # A Plan
 
@@ -100,7 +100,7 @@ I have been personally involved in the design, presentation, and execution of th
 
 The Boost website and the site documentation can be illustrated by retaining a talented digital artist to produce custom assets that are unified in style, colors, and messaging, so that the entire site feels purposeful. This artist will also provide imagery used for our social media campaigns such as the announcements we make on Twitter which some of you might have already seen
 
-https://twitter.com/Boost_Libraries.
+[https://twitter.com/Boost_Libraries](https://twitter.com/Boost_Libraries)
 
 I have strived to give every tweet an image to enhance the Boost brand.
 
@@ -112,13 +112,13 @@ Our vision for documentation is to ensure that every Boost library has the optio
 
 After researching the domain extensively (by just asking Peter Dimov) we have discovered that the markdown format Asciidoc is a very popular format with a simple and well maintained toolchain. Several regularly active Boost authors have already switched their libraries to using Asciidoctor. The authors of the Asciidoctor tool are also the authors of “Antora,” a modular, multi-repository documentation site generator:
 
-https://docs.antora.org/antora/latest/
+[https://docs.antora.org/antora/latest/](https://docs.antora.org/antora/latest/)
 
 We have built a new, modern set of additional scripts capable of building the Boost release and documentation, including the capability of rendering “Antora-enabled Boost library repositories” using this Antora system. The results are beautiful and modern, and the Asciidoctor / Antora toolchain holds the promise of being popular and well-maintained for a long time. The use of Asciidoc or Antora is optional; this is just an additional choice.
 
 Peter Turcan is our full-time Senior Technical Writer who is modernizing the instructions for users, maintainers, contributors, and formal review participants. You can see Peter’s work along with the quality of Antora’s output here (note that the user-interface is stock and will be restyled soon):
 
-https://docs.cppalliance.org/
+[https://docs.cppalliance.org/](https://docs.cppalliance.org/)
 
 The website above has a new full-text search feature (try it!). We are investing in a  search experience which includes the site docs, library docs, library references, and even the public header files. We are also investing in the deployment of a large language model (ChatGPT-style AI) trained in Boost and C++ specifics to answer questions for users. We have a new talented and eager staff engineer working full-time exclusively on this, and I don’t want to steal his thunder so I will let him explain further soon.
 
@@ -126,7 +126,7 @@ Some Boost libraries currently generate their documentation reference pages usin
 
 I have begun work on a new command-line tool called MrDox (“mister docs”) which uses the unstable clang libtooling API to extract the documentation comments and declarations from C++ programs, and turn them into beautiful Asciidoc reference pages. You can see that work here:
 
-https://github.com/cppalliance/mrdox
+[https://github.com/cppalliance/mrdox](https://github.com/cppalliance/mrdox)
 
 The core principles of the design of MrDox is to always understand the very latest C++ constructs and extract them with high fidelity. For example it recognizes conditional noexcept, constexpr, deduction guides, all attributes, and many other things that other documentation toolchains cannot fathom. In a nutshell I intend to bring the same level of Boost quality to the documentation toolchain that Boost has brought to the C++ libraries themselves.
 
@@ -138,7 +138,7 @@ Our vision for continuous integration is to bring the most talented individuals 
 
 The infrastructures providing our continuous integration services are the lifeblood of maintaining the high quality of the Boost collection. Library authors test against many versions of C++ and many different compiler versions. And we have many libraries; over 160 of them which all compete for the finite public resources offered by GitHub through GHA, through Azure Pipelines, or Appveyor.
 
-When Travis discontinued its free service, our CTO Sam Darwin deployed Drone (https://www.drone.io/) instances and offered every Boost library a pull request which compiles and runs their tests on our new infrastructure. Although this service is still active and offered today, we are not content to leave it at that. CI services are volatile over time. Some come, some go, and some become overloaded which is the current situation with the public GitHub Actions runners during peak times. The Boost organization GitHub account has over one hundred and sixty libraries each submitting sometimes enormous numbers of jobs which take multiple hours to complete.
+When Travis discontinued its free service, our CTO Sam Darwin deployed Drone ([https://www.drone.io/](https://www.drone.io/)) instances and offered every Boost library a pull request which compiles and runs their tests on our new infrastructure. Although this service is still active and offered today, we are not content to leave it at that. CI services are volatile over time. Some come, some go, and some become overloaded which is the current situation with the public GitHub Actions runners during peak times. The Boost organization GitHub account has over one hundred and sixty libraries each submitting sometimes enormous numbers of jobs which take multiple hours to complete.
 
 Although the GHA environment resources are subjected to recurring oversubscription, we feel that it offers the best framework for composable actions and flexibility. Sam is exploring the possibility of having self-hosted C++ Alliance runners dedicated only to Boost jobs during peak times. Ensuring high availability of CI resources is an ongoing project for us, and we are always evaluating existing and new solutions to provide the best-of-class choices for libraries.
 
