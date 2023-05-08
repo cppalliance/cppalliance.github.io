@@ -15,6 +15,7 @@ I took notice of the C++ Standards Committee (“WG21”) while I was writing Bo
 Something which should not surprise anyone is that I despise paying taxes. In 2017, I had an idea: create a charitable organization which I can donate pre-tax income to, and then I could hire Christopher Kohlhoff as a “staff engineer” to work full time on C++ standardization, and Boost things! I would find the very best C++ people who are already doing open source work, then hire them full-time so they could focus on their open source C++ open work from home, instead of traveling to a boring job in order to make a living.
 
 # A Few Setbacks
+
 In 2018 I offered this opportunity to Chris and he surprisingly turned it down. He actually liked going into an office and interacting with customers and users. He explained that the evolution of Asio and his WG21 work is not bottlenecked by time. Instead, he prefers to “think deeply about things over a long period, and then write something.” Basically the opposite of my strategy, which is to write a bunch of code quickly and then throw out the bad parts.
 
 This is a setback but I am not so easily deterred so I offered the same opportunity to Peter Dimov, an engineer of immense talent whose libraries are legendary. He also declined, explaining that taking a salary would transform a hobby into an obligation, affecting the quality and enjoyment of the work.
@@ -24,6 +25,7 @@ Now I’m thinking, well this is a disaster! We had the non-profit in operation 
 Fast forward and today we have 11 staff members. We have a great CTO/DevOps genius Sam Darwin. And we have Louis Tatta, our CEO that keeps things running smoothly and helps get the most out of every dollar donated. At some point I’ll share a complete list of everything that The C++ Alliance has done since the beginning, but that is the subject of another missive. Today I would like to talk about a vision for Boost.
 
 # The Boost Library Collection
+
 Long-timers know Boost’s history but for those that don’t, Beman Dawes and Robert Klarer came up with the idea of a website offering curated, high quality C++ libraries in May of 1998. They described the “Formal Review,” a social technology where a group of peers would go over a proposed library at an agreed-upon time. They could interrogate the author about the library on the mailing list, and debate things. The outcome is a collection of posts where each reviewer summarizes their critique of the library, including whether or not to “accept” the library (sometimes with conditions). The founding documenting evokes a feeling of something big:
 
 [https://www.boost.org/users/proposal.pdf](https://www.boost.org/users/proposal.pdf)
@@ -108,9 +110,10 @@ Recently an animated discussion on the mailing list took place about adding a fo
 
 The C++ Alliance prioritizes its allocation of resources to ensure not only the website’s completion, but also dedicated staff for ongoing maintenance and improvement. The Boost website will rise over time to the same level of quality expected of every Boost library. Community members should feel free to open issues on the website repository with bugs or features, knowing that every issue will be looked at, triaged, and addressed appropriately.
 Documentation Improvement
-Our vision for documentation is to ensure that every Boost library has the option to adopt a well-maintained toolchain that is easily deployed, produces high-quality output befitting the Boost brand, is itself well-documented and easy to use, and has behind it full-time staff working continuously to make improvements and provide technical support.
 
 # Documentation Improvement
+
+Our vision for documentation is to ensure that every Boost library has the option to adopt a well-maintained toolchain that is easily deployed, produces high-quality output befitting the Boost brand, is itself well-documented and easy to use, and has behind it full-time staff working continuously to make improvements and provide technical support.
 
 After researching the domain extensively (by just asking Peter Dimov) we have discovered that the markdown format Asciidoc is a very popular format with a simple and well maintained toolchain. Several regularly active Boost authors have already switched their libraries to using Asciidoctor. The authors of the Asciidoctor tool are also the authors of “Antora,” a modular, multi-repository documentation site generator:
 
