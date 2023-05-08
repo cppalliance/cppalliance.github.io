@@ -110,6 +110,8 @@ The C++ Alliance prioritizes its allocation of resources to ensure not only the 
 Documentation Improvement
 Our vision for documentation is to ensure that every Boost library has the option to adopt a well-maintained toolchain that is easily deployed, produces high-quality output befitting the Boost brand, is itself well-documented and easy to use, and has behind it full-time staff working continuously to make improvements and provide technical support.
 
+# Documentation Improvement
+
 After researching the domain extensively (by just asking Peter Dimov) we have discovered that the markdown format Asciidoc is a very popular format with a simple and well maintained toolchain. Several regularly active Boost authors have already switched their libraries to using Asciidoctor. The authors of the Asciidoctor tool are also the authors of “Antora,” a modular, multi-repository documentation site generator:
 
 [https://docs.antora.org/antora/latest/](https://docs.antora.org/antora/latest/)
