@@ -14,7 +14,7 @@ This public beta will extend for at least 10 weeks as we finish the last remaini
 
 [https://github.com/cppalliance/boost.org/issues](https://github.com/cppalliance/boost.org/issues)
 
-This is a Django site written and maintained in Python by a great group of folks from [https://www.revsys.com/](https://www.revsys.com/). The project is coordinated by Frank Wiles (https://www.revsys.com/about/bio/frankwiles), who shares the same deep commitment to open source that we Boost people do. We chose Django because it is well understood and supported, and because Python composes well with ease of maintenance. This technology stack allows us to execute on our future plans with confidence.
+This is a Django site written and maintained in Python by a great group of folks from [https://www.revsys.com/](https://www.revsys.com/). The project is coordinated by Frank Wiles ([https://www.revsys.com/about/bio/frankwiles](https://www.revsys.com/about/bio/frankwiles)), who shares the same deep commitment to open source that we Boost people do. We chose Django because it is well understood and supported, and because Python composes well with ease of maintenance. This technology stack allows us to execute on our future plans with confidence.
 
 Some cool things about this website include:
 
