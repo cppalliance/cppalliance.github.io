@@ -94,7 +94,7 @@ I love C++, supporting users, and the Boost author experience. I think these pro
 
 As a library author and contributor, I know that whatever I do will never rise to the same level as the original act of the creation of the Boost Library Collection. But I will be satisfied if I can stoke its fires and bring them back to a roar. To this end the resources of the non-profit are directed into projects we believe will positively affect Boost:
 
-#Website Renovation
+# Website Renovation
 
 Our vision for an updated Boost website is clean and stylish, which speaks to a large and diverse audience. This site will have a design and content that effectively communicates the value proposition of using the Boost Library Collection: that you will write better C++ code, become more productive, and achieve greater success in your career or personal projects. Features will foster participation and revisits, with content updated regularly. The library presentation is elevated with a new visual design language that evokes distinction and appeal, and credits the authors, maintainers, and contributors that bring it to life.
 
