@@ -93,7 +93,9 @@ Users have also weighed in with their thoughts on Boost:
 I love C++, supporting users, and the Boost author experience. I think these problems can be solved. But not by demanding that “everyone who maintains a Boost library must do X.” In Boost culture when you want something done you need to do it yourself, then convince the mailing list of the merits of your proposal.
 
 As a library author and contributor, I know that whatever I do will never rise to the same level as the original act of the creation of the Boost Library Collection. But I will be satisfied if I can stoke its fires and bring them back to a roar. To this end the resources of the non-profit are directed into projects we believe will positively affect Boost:
-Website Renovation
+
+#Website Renovation
+
 Our vision for an updated Boost website is clean and stylish, which speaks to a large and diverse audience. This site will have a design and content that effectively communicates the value proposition of using the Boost Library Collection: that you will write better C++ code, become more productive, and achieve greater success in your career or personal projects. Features will foster participation and revisits, with content updated regularly. The library presentation is elevated with a new visual design language that evokes distinction and appeal, and credits the authors, maintainers, and contributors that bring it to life.
 
 To achieve this vision, you have probably heard that we contracted an outside software firm to build something precisely tailored for our needs. We care too much about Boost to use an ill-fitted, off the shelf product. This website has a lot of software behind it (written in Python as part of a Django framework application) and like most software projects it is late and over budget. I’ll refrain from saying “it’ll be ready soon” and just post a link to the new site instead, hopefully in a few weeks.
@@ -109,7 +111,6 @@ I have strived to give every tweet an image to enhance the Boost brand.
 Recently an animated discussion on the mailing list took place about adding a forum which does not replace the mailing list but is integrated to work with it. Posts in the forum become posts to the mailing list, and vice versa. Users of the mailing list and users of the forum will have no idea they are interacting, even though they are. This can only be possible if we write the software ourselves, from the ground up, with exactly one constraint: the mailing list will continue to operate exactly as it does today, on an unmodified version of Mailman 3. The mailing list users stay happy, and we can attract new people who prefer a web-based interface.
 
 The C++ Alliance prioritizes its allocation of resources to ensure not only the website’s completion, but also dedicated staff for ongoing maintenance and improvement. The Boost website will rise over time to the same level of quality expected of every Boost library. Community members should feel free to open issues on the website repository with bugs or features, knowing that every issue will be looked at, triaged, and addressed appropriately.
-Documentation Improvement
 
 # Documentation Improvement
 
