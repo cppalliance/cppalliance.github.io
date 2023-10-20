@@ -24,11 +24,11 @@ This talk from Andreas Weis helped to continue fueling my interest in C++ module
 
 Speaking of old code, I absolutely loved Laura Savino's talk. Thankfully this talk was a plenary, so I didn't need to make any hard choices and skip anything else. I enjoyed how Laura intertwined the stories of legacy code with the stories of home improvement. Sometimes, a $25 bandaid fix that saves you $5000 in the future is exactly the type of fix you need. We shouldn't feel ashamed that it's not the most "correct" fix, we should instead feel proud that we're able to save the $5000. This also applies to legacy code and "letting things go", instead of only settling for the most perfect solution. Sometimes there are bigger fish to fry.
 
-I liked Laura's focus on the more human aspects of software development. Something I often say is, "we don't work *with* code, we work *on* code *with* people", and I felt this same idea in the talk. There can be more important things than work, like spending time with family. More specifically, it was refreshing to hear Laura talk about fathers taking time off work and spending time with their children. I think there's nothing more important, and I'm glad to hear this same sentiment shared in a plenary talk. This one is already available on YouTube as I'm writing this, and I highly recommend it. (https://youtu.be/qyz6sOVON68)
+I liked Laura's focus on the more human aspects of software development. Something I often say is, "we don't work *with* code, we work *on* code *with* people", and I felt this same idea in the talk. There can be more important things than work, like spending time with family. More specifically, it was refreshing to hear Laura talk about fathers taking time off work and spending time with their children. I think there's nothing more important, and I'm glad to hear this same sentiment shared in a plenary talk. This one is already [available on YouTube](https://youtu.be/qyz6sOVON68) as I'm writing this, and I highly recommend it.
 
 # My Lightning Talk
 
-The lightning talks, if you haven't heard of them, are rapid-fire 5 minute talks. They'll be released on YouTube as individual videos, but in real life they were back-to-back, on 2 of the nights
+The lightning talks, if you haven't heard of them, are rapid-fire 5 minute talks. They'll be released on YouTube as individual videos, but in real life they were back-to-back, on 2 of the nights.
 
 I gave a lightning talk! It was one of the most exciting parts of the conference, standing up in front of a few hundred people (I assume) and giving a talk on something I'm passionate about.
 
