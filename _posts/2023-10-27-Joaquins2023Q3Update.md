@@ -41,11 +41,11 @@ to construct containers in shared memory (target Boost 1.84).
 iterator types (target Boost 1.84).
 * Solved issue [#205](https://github.com/boostorg/unordered/issues/205).
 * Added `boost::concurrent_flat_set` (target Boost 1.84).
-* Reviewed PR #215 (https://github.com/boostorg/unordered/pull/215) for
+* Reviewed PR [#215](https://github.com/boostorg/unordered/pull/215) for
 code clean-up after upgrading from C++03 to C++11 as our new minimum
 for closed-addressing containers.
 
 ### CppCon 2023
 
-* With the help and feedback of many, I've prepared a poster and a brochure
-to help publicize the latest development of Boost a this event.
+* With the help and feedback from many, I've prepared a poster and a brochure
+to help publicize the latest developments of Boost at this event.
