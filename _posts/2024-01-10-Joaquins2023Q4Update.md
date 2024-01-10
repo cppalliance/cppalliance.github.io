@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: joaquin
-title: Joaquín's Q3 2023 Update
+title: Joaquín's Q4 2023 Update
 author-id: joaquin
 author-name: Joaquín M López Muñoz
 ---
@@ -17,7 +17,7 @@ visits a bunch of elements at once, so instead of writing:
 ...
 for(const auto& key: keys) {
   m.visit(key, [](auto& x) { ++x.second; });
-}</pre><br/><br/>
+}</pre>
 we can do this:
 <pre>
 m.visit(keys.begin(), keys.end(), [](auto& x) { ++x.second; });</pre>
