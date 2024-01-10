@@ -12,15 +12,15 @@ During Q4 2023, I've been working (mostly in collaboration with Chris) in the fo
 ### Boost.Unordered
 
 * Implemented _bulk visitation_ for `boost::concurrent_flat_[map|set]`.  In short, bulk visitation
-visits a bunch of elements at once, so instead of writing:</br></br>
+visits a bunch of elements at once, so instead of writing:
 <pre>std::array<int, N> keys;
 ...
 for(const auto& key: keys) {
   m.visit(key, [](auto& x) { ++x.second; });
 }</pre><br/><br/>
-we can do this:</br></br>
+we can do this:
 <pre>
-m.visit(keys.begin(), keys.end(), [](auto& x) { ++x.second; });</pre><br/><br/>
+m.visit(keys.begin(), keys.end(), [](auto& x) { ++x.second; });</pre>
 This functionality is not provided for mere syntactic convenience: Boost.Unordered speeds up
 the entire process by pipelining the different internal stages of each individual visitation,
 which results in performance improvements of 40% and more. The article
