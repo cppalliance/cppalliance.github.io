@@ -49,7 +49,7 @@ very good performance for massively parallel scenarios (dozens of cores) thanks 
 smart latch-free design based on [epochs](http://csng.cs.toronto.edu/publication_files/0000/0159/jpdc07.pdf)
 for the reclamation of erased elements. The design imposes some limitations not present
 in `boost::concurrent_flat_map`, most notably that elements must be immutable, but
-its excellent performance has spurred us to begin exploratory work towards adopting similar
+its excellent performance has spurred Fernando and I to begin exploratory work towards adopting similar
 techniques in the open-addressing context we use. It's currently too early to know if this
 work will result in the addition of new concurrent containers to Boost.Unordered. As a
 spin-off of this activity, a variant of `boost::concurrent_flat_map` with
