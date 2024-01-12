@@ -1,8 +1,8 @@
 ---
 layout: post
 nav-class: dark
-categories: q3_update
-title: Mohammad's Q3 Update
+categories: mohammad
+title: Mohammad's Q3 2023 Update
 author-id: mohammad
 ---
 
