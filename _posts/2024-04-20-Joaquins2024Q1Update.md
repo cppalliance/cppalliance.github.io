@@ -14,7 +14,7 @@ During Q1 2024, I've been working in the following areas:
 * Reviewed Braden's work on optimization of `emplace(k, v)` calls ([PR#230](https://github.com/boostorg/unordered/pull/230),
 released in [Boost 1.85.0](https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0)).
 With this optimization, statements such as:
-<pre>m.emplace(0,"zero");</pre>
+<pre><code>m.emplace(0,"zero");</code></pre>
 won't create a temporary `(0, "zero")` value if the element with key 0 already exists. This is particularly relevant
 when dynamic memory allocation is involved (for instance, if `mapped_type` is `std::string` in the example above).
 The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation.
