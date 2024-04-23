@@ -1,9 +1,15 @@
-version: 2
+version: 2.1
+orbs:
+  queue: eddiewebb/queue@volatile
 jobs:
   test:
     docker:
       - image: circleci/ruby:2.4-node-browsers-legacy
     steps:
+      - queue/until_front_of_line:
+          block-workflow: true
+          max-wait-time: '60'
+          my-pipeline: << pipeline.number >>
       - checkout
       - run: |
           bundle install
@@ -28,7 +34,7 @@ jobs:
           git commit --allow-empty -m "$(git log develop -1 --pretty=%B)"
           git push -f origin HEAD:master
 workflows:
-  version: 2
+  version: 2.1
   build_and_deploy:
     jobs:
       - test:
