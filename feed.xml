@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.8.7">Jekyll</generator><link href="http://cppalliance.org/feed.xml" rel="self" type="application/atom+xml" /><link href="http://cppalliance.org/" rel="alternate" type="text/html" /><updated>2024-07-01T20:15:46+00:00</updated><id>http://cppalliance.org/feed.xml</id><title type="html">The C++ Alliance</title><subtitle>The C++ Alliance is dedicated to helping the C++ programming language evolve. We see it developing as an ecosystem of open source libraries and as a growing community of those who contribute to those libraries..</subtitle><entry><title type="html">Alan’s Q1 Update 2024</title><link href="http://cppalliance.org/alan/2024/05/07/AlanQ1Update.html" rel="alternate" type="text/html" title="Alan’s Q1 Update 2024" /><published>2024-05-07T00:00:00+00:00</published><updated>2024-05-07T00:00:00+00:00</updated><id>http://cppalliance.org/alan/2024/05/07/AlanQ1Update</id><content type="html" xml:base="http://cppalliance.org/alan/2024/05/07/AlanQ1Update.html">&lt;h1 id=&quot;summary&quot;&gt;Summary&lt;/h1&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;#mrdocs&quot;&gt;MrDocs&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#boost-libraries&quot;&gt;Boost Libraries&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#boost-release-tools&quot;&gt;Boost Release Tools&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#boost-website&quot;&gt;Boost Website&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;mrdocs&quot;&gt;MrDocs&lt;/h2&gt;
+
+&lt;p&gt;Over the last quarter, we continued our work on &lt;a href=&quot;https://github.com/cppalliance/mrdocs&quot;&gt;MrDocs&lt;/a&gt;, a
+documentation generator for C++ projects. I have been overseeing and reviewing all the work done by the other
+contributors
+to the project. Besides the work done by Krystian and Fernando, George H. (an author
+of https://github.com/hdoc/hdoc[HDoc])
+also joined the project as a contributor.&lt;/p&gt;
+
+&lt;p&gt;We have been working on making the project at least as competitive as the &lt;a href=&quot;https://www.doxygen.nl/&quot;&gt;Doxygen&lt;/a&gt; with
+&lt;a href=&quot;https://github.com/boostorg/docca&quot;&gt;Docca&lt;/a&gt; we have been using with other libraries. The goal is to use it in a
+subset of Boost libraries that will also use &lt;a href=&quot;https://antora.org/&quot;&gt;Antora&lt;/a&gt; for their documentation.
+In this process, we have also been improving usability and documentation, considering the feedback we received.&lt;/p&gt;
+
+&lt;h3 id=&quot;features&quot;&gt;Features&lt;/h3&gt;
+
+&lt;p&gt;In particular, work in Q1/2024 included:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Updating the LLVM version we have been using and adapting the project to the new version&lt;/li&gt;
+  &lt;li&gt;Updating CI workflows to use official releases for all dependencies, which is an essential step in the direction of
+making the project more stable for user instructions, CI, and standalone binaries&lt;/li&gt;
+  &lt;li&gt;Improve the documentation to provide more straightforward installation instructions and examples.&lt;/li&gt;
+  &lt;li&gt;New Antora plugins were included to make the documentation more interactive and easier to navigate.&lt;/li&gt;
+  &lt;li&gt;A new CI workflow that builds and caches LLVM from source, making it easier to update the LLVM versions and
+deprecate the old workflow that required manual intervention to update binaries on the MrDocs website&lt;/li&gt;
+  &lt;li&gt;Custom scripts and presets for dependencies that do not provide them, such as Duktape and LLVM&lt;/li&gt;
+  &lt;li&gt;Adjust CI to replicate the instructions in the documentation and vice-versa precisely.&lt;/li&gt;
+  &lt;li&gt;CMake Presets updated to improve the build time and reflect the documentation instructions&lt;/li&gt;
+  &lt;li&gt;Work on sanitizing references in Javadoc commands that need to know whether the first argument is an identifier.
+Clang often provides these references as simple text.&lt;/li&gt;
+  &lt;li&gt;Support for multi-node HTML tags: Clang represents several HTML tags by multiple nodes. MrDocs simply ignored these
+tags, but now they are correctly represented in the DOM.&lt;/li&gt;
+  &lt;li&gt;Support for several new Javadoc and (“throws”, “details”, “see”) HTML tags (“br”, “img”, “input”, “hr”,
+“meta”, “link”, “base”, “area”, “col”, “command”, “embed”, “keygen”, “param”, “source”, “track”, “wbr”). These tags
+were already present in the Boost.URL documentation, but MrDocs did not support them.&lt;/li&gt;
+  &lt;li&gt;Simplify the ASTVisitor by generalizing the traverse function.&lt;/li&gt;
+  &lt;li&gt;Provide demos with their mrdocs.yml files and use them instead of generating new ones. This change allows the
+projects to handle their custom parameters instead of relying on the global configuration.&lt;/li&gt;
+  &lt;li&gt;Support input filters to include or exclude files according to their paths.&lt;/li&gt;
+  &lt;li&gt;Create a bash argument parser so that mrdocs.yml parameters that represent CMake options can use the
+same syntax used to call CMake from the command line.&lt;/li&gt;
+  &lt;li&gt;Support for automatic CMake execution by MrDocs to generate the &lt;code&gt;compile_commands.json&lt;/code&gt; file. This feature was
+implemented over many commits.&lt;/li&gt;
+  &lt;li&gt;Support for C source files.&lt;/li&gt;
+  &lt;li&gt;Filter sanitizer flags in the command database.&lt;/li&gt;
+  &lt;li&gt;A number of improvements to the &lt;a href=&quot;#c-github-actions&quot;&gt;C++ Actions&lt;/a&gt; project directed at benefiting MrDocs.&lt;/li&gt;
+  &lt;li&gt;Dozens of minor bug fixes and improvements to the implementation&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;binaries&quot;&gt;Binaries&lt;/h3&gt;
+
+&lt;p&gt;While working on these concrete issues, I have also explored strategies to generate stable standalone binaries
+for MrDocs. The motivation is that it is time-consuming to build MrDocs, so the way MrDocs is supposed to be most
+commonly used is with scripts that download portable executables and run the tool. These scripts will usually be run
+in CI on some Ubuntu-X container.&lt;/p&gt;
+
+&lt;p&gt;The problem is we are using recent versions of Ubuntu (Ubuntu 23.04 now) to originally build MrDocs because of the C++
+features we need. However, users (including the &lt;a href=&quot;https://github.com/boostorg/release-tools&quot;&gt;Boost Release Tools&lt;/a&gt;)
+usually use earlier versions of Ubuntu (usually from 18.04 to 22.04) for various reasons. Binaries built on
+Ubuntu X (say 23.04) does not work under Ubuntu &amp;lt;X (say 20.04). For this reason, we need to provide portable executables
+that people can use.&lt;/p&gt;
+
+&lt;p&gt;I have researched many complex strategies to solve the problem and have been experimenting with each of them
+for weeks.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Solutions based on &lt;code&gt;-static&lt;/code&gt;/&lt;code&gt;-static-libgcc&lt;/code&gt; did not work because they still depend on the kernel for libc.&lt;/li&gt;
+  &lt;li&gt;Using &lt;a href=&quot;https://wiki.musl-libc.org/&quot;&gt;musl&lt;/a&gt; also did not work because using Musl with C++ is complex, and there needs to
+be a
+toolchain for the compilers we need. The latest C++/Musl toolchain is GCC 11.&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/jart/cosmopolitan&quot;&gt;Cosmopolitan&lt;/a&gt; turned out to be inappropriate for our needs. It is very
+experimental and attempts to be much more general than we need.&lt;/li&gt;
+  &lt;li&gt;GCC &lt;code&gt;-ffreestanding&lt;/code&gt; compile mode limits the standard libraries available, which is not an option for MrDocs.&lt;/li&gt;
+  &lt;li&gt;A combination of MrDocs downgrading Ubuntu and Boost release tools upgrading Ubuntu. We have already implemented that,
+but
+the solution is still not portable enough for Boost let alone other workflows. There is also a limit on how much we
+can
+downgrade Ubuntu because of the C++ features we need. For instance, downgrading to 20.04 would require us to compile
+another compiler from source before building MrDocs: this is overly complex, hard to maintain, slow to test, not
+general enough, and just failed to work in practice.&lt;/li&gt;
+  &lt;li&gt;ApBuild (a gcc wrapper that enforces GLIB_C version and does a few other binary compatibility tricks) was&lt;br /&gt;
+a solution somewhat similar to a wrapper overriding system libraries (see below). However, it has not been maintained
+, and a custom wrapper is likely to work better.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The solution I’m currently exploring
+is &lt;a href=&quot;https://blog.gibson.sh/2017/11/26/creating-portable-linux-binaries/#a-wrapper-that-selectively-overrides-system-libs&quot;&gt;a wrapper overriding system libs&lt;/a&gt;.
+Considering the limitations of the other ideas we have tried, I will explore a strategy
+similar to APBuild, but one that is manual and more stable. It is also similar to how CMake provides its binaries.
+It consists of patching the release so that:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;The libraries required by MrDocs are identified and bundled with the MrDocs release in subdirectories of &lt;code&gt;lib&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;bin/mrdocs&lt;/code&gt; is renamed &lt;code&gt;mrdocs.real&lt;/code&gt; (or something to this end)&lt;/li&gt;
+  &lt;li&gt;A C wrapper is compiled to replace the original &lt;code&gt;bin/mrdocs&lt;/code&gt;. This wrapper adjusts the library paths and calls
+&lt;code&gt;mrdocs.real&lt;/code&gt;. It should be compiled with a very old version of GCC and Ubuntu. The wrapper can be compiled once or
+in CI.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;This wrapper approach has the following benefits:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;This wrapper also seemed like a complex solution at first, but it turned out to be much simpler and more effective
+than
+the other solutions we tried.&lt;/li&gt;
+  &lt;li&gt;It is easy to maintain. We can use the same logic and wrapper no matter what version of Ubuntu we initially
+used to compile MrDocs. This simplicity also means we have more freedom to upgrade the MrDocs toolchain and use more
+recent C++
+standards.&lt;/li&gt;
+  &lt;li&gt;Testing is much easier because these binaries require no specific workflow. The releases would be a patched version of
+the same
+binaries we have produced. Also, it involves no custom-built compilers.&lt;/li&gt;
+  &lt;li&gt;It is a much more general solution. We can build MrDocs on Ubuntu 23.04 and use the release binaries on Ubuntu 16.04
+if
+we have to.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;integrations&quot;&gt;Integrations&lt;/h3&gt;
+
+&lt;p&gt;As Boost.URL keeps integrating MrDocs, it has been inspiring the features we need in MrDocs and is temporarily
+generating the documentation with both Doxygen+Docca and Antora+MrDocs. The same workflow has also been implemented
+in &lt;a href=&quot;https://github.com/cppalliance/buffers&quot;&gt;Boost.Buffers&lt;/a&gt;, which is now inspiring new feature requests, such
+as the identification of &lt;a href=&quot;https://github.com/cppalliance/mrdocs/issues/564&quot;&gt;Niebloids&lt;/a&gt; and
+&lt;a href=&quot;https://github.com/cppalliance/mrdocs/issues/565&quot;&gt;SFINAE constraints&lt;/a&gt; in the documentation.&lt;/p&gt;
+
+&lt;h3 id=&quot;general-work&quot;&gt;General work&lt;/h3&gt;
+
+&lt;p&gt;In general, I’ve been responsible in MrDocs for:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;setting up and maintaining CI for the project;&lt;/li&gt;
+  &lt;li&gt;MrDocs and LLVM release binaries;&lt;/li&gt;
+  &lt;li&gt;build scripts;&lt;/li&gt;
+  &lt;li&gt;setting up and integrating dependencies;&lt;/li&gt;
+  &lt;li&gt;setting up and deploying the Antora toolchains and documentation to the project website;&lt;/li&gt;
+  &lt;li&gt;working on supporting libraries;&lt;/li&gt;
+  &lt;li&gt;supervising and reviewing the work done by other contributors (Krystian, Fernando, and George H.); and&lt;/li&gt;
+  &lt;li&gt;fixing bugs.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;handlebars&quot;&gt;Handlebars&lt;/h3&gt;
+
+&lt;p&gt;The MrDocs also includes a support library that reimplements the &lt;a href=&quot;https://handlebarsjs.com/&quot;&gt;Handlebars&lt;/a&gt; template engine
+in C++.
+This module is used to generate documentation from templates. The Handlebars library has achieved a stable state and is
+now used in
+MrDocs to generate the documentation. It includes C++/JavaScript bindings that work both ways so that users can
+provide helpers for their templates. We may consider splitting Handlebars into a separate project.&lt;/p&gt;
+
+&lt;h2 id=&quot;boost-libraries&quot;&gt;Boost Libraries&lt;/h2&gt;
+
+&lt;p&gt;As in other quarters, the Boost Library I have been investing most of my time
+in is &lt;a href=&quot;https://github.com/boostorg/url&quot;&gt;Boost.URL&lt;/a&gt;. The library is in maintenance mode since our focus shifted to
+MrDocs,
+but there is a constant demand for work fixing bugs and improving the documentation:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Multiple commits related to the Antora+MrDocs workflow.&lt;/li&gt;
+  &lt;li&gt;Many new tests have been included to improve the library’s coverage, which is now at 99%.&lt;/li&gt;
+  &lt;li&gt;Dozens of minor bug fixes and improvements to the implementation, documentation, and CI workflows&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Many improvements had to be coordinated with the &lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt; project, which implemented new
+features for these use cases. Many bugs in the actions were also revealed by
+&lt;a href=&quot;https://github.com/cppalliance/http_proto&quot;&gt;Boost.HTTP&lt;/a&gt; now uses the actions in its CI.&lt;/p&gt;
+
+&lt;p&gt;In general, I have been responsible for:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;upgrading CI, primarily coordinating with the &lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt;;&lt;/li&gt;
+  &lt;li&gt;maintaining, simplifying, and updating build scripts;&lt;/li&gt;
+  &lt;li&gt;integrating more spec tests, such as the Ada tests included more recently;&lt;/li&gt;
+  &lt;li&gt;including more examples, such as the more recent sanitize-URL example;&lt;/li&gt;
+  &lt;li&gt;fixing documentation content out of date; and&lt;/li&gt;
+  &lt;li&gt;fixing bugs.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Besides Boost.URL, as usual, I have been overseeing and fixing smaller issues with other boost libraries. I have been
+also helping &lt;a href=&quot;https://github.com/cppalliance/http_proto&quot;&gt;Boost.HTTP&lt;/a&gt;
+and &lt;a href=&quot;https://github.com/cppalliance/buffers&quot;&gt;Boost.Buffers&lt;/a&gt;
+in their efforts to improve CI and integrate MrDocs.&lt;/p&gt;
+
+&lt;h2 id=&quot;boost-release-tools&quot;&gt;Boost Release Tools&lt;/h2&gt;
+
+&lt;p&gt;I have been working on the integration of toolchains I developed into the Boost Release Tools to add support for
+features
+desired for the new Boost website.&lt;/p&gt;
+
+&lt;p&gt;We needed many improvements to the workflow for Antora support in the release tools, as bugs and inconveniences
+have been identified since the official Boost release 1.84.0. Antora directories are now patched and moved to another
+location.&lt;/p&gt;
+
+&lt;p&gt;We also kept working on an initiative to support archive variants in the release tools. This pull request is
+still under review and will be considered for inclusion in a period between Boost releases when priority
+moves from the &lt;a href=&quot;#boost-website&quot;&gt;Boost website&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;boost-website&quot;&gt;Boost Website&lt;/h2&gt;
+
+&lt;p&gt;Among the many support projects for the new Boost website, I have been helping the most on
+&lt;a href=&quot;https://github.com/boostorg/website-v2-docs&quot;&gt;&lt;code&gt;website-v2-docs&lt;/code&gt;&lt;/a&gt;, which includes the Boost website documentation as
+an Antora project.
+Its components represent the website’s “User Guide,” “Contributor Guide,” and “Formal Review” sections.&lt;/p&gt;
+
+&lt;p&gt;Since the beginning of the project, I have been overseeing and reviewing the work of the other contributors.&lt;/p&gt;
+
+&lt;p&gt;In general, I continue to be responsible for:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;reviewing and merging all pull requests to the project;&lt;/li&gt;
+  &lt;li&gt;setting up and maintaining CI for the project;&lt;/li&gt;
+  &lt;li&gt;coordinating with the website project on content uploaded to AWS buckets;&lt;/li&gt;
+  &lt;li&gt;build scripts to be reused by the release tools and previews;&lt;/li&gt;
+  &lt;li&gt;writing sections of the documentation that require technical knowledge;&lt;/li&gt;
+  &lt;li&gt;developing custom Boost/Antora extensions, such as the Boost Macro extension;&lt;/li&gt;
+  &lt;li&gt;maintaining the Antora toolchain and templates; and&lt;/li&gt;
+  &lt;li&gt;adjusted Boost libraries to match formats expected by the website.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;c-github-actions&quot;&gt;C++ Github Actions&lt;/h2&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/alandefreitas/cpp-actions&quot;&gt;C++ Github Actions&lt;/a&gt; is a project I have maintained
+since 2023. It is a collection of composable, independent, and reusable GitHub Actions for any C++ project
+that needs to be tested on various compilers and environments.&lt;/p&gt;
+
+&lt;p&gt;MrDocs, Boost.URL, Boost.HTTP, and Boost.Buffers are currently using these actions in their CI. All of these projects
+have been allowing us to get more feedback and improve the actions.&lt;/p&gt;
+
+&lt;p&gt;The project includes actions to:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Generate a Github Actions Matrix for C++ projects;&lt;/li&gt;
+  &lt;li&gt;Setup C++ compilers;&lt;/li&gt;
+  &lt;li&gt;Install and setup packages;&lt;/li&gt;
+  &lt;li&gt;Clone Boost modules;&lt;/li&gt;
+  &lt;li&gt;Run complete CMake and &lt;code&gt;b2&lt;/code&gt; workflows;&lt;/li&gt;
+  &lt;li&gt;Generate changelogs from conventional commits;&lt;/li&gt;
+  &lt;li&gt;Generate summaries; and&lt;/li&gt;
+  &lt;li&gt;Generate time-trace reports and flame graphs&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;One notable problem with GitHub actions in Q1/2024 is that GitHub decided to update the base version of Node.js to 20.
+Because Node.Js is not statically linked, this change &lt;a href=&quot;https://github.com/actions/setup-node/issues/922&quot;&gt;broke&lt;/a&gt; many
+actions that depended on it. All projects that depend on older containers now get an error related to the appropriate
+&lt;code&gt;glic&lt;/code&gt; version not being found. Attempting to use older versions of Node.js still works temporarily, but it also emits
+a warning. This &lt;a href=&quot;https://github.com/actions/runner/issues/2906&quot;&gt;bug&lt;/a&gt; will need to be addressed in the
+future.&lt;/p&gt;
+
+&lt;p&gt;In particular, a number of new features were added to the C++ Actions project in Q1 2024.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Boost optimistic caching is now disabled by default. Caching is optional.
+Expressions in the main workflow to override these parameters.&lt;/li&gt;
+  &lt;li&gt;Cmake workflow includes a complete bash command line parser for the CMake arguments. It makes the workflow more
+reliable as commands are now properly passed through to CMake in a way that matches the user’s expectations.&lt;/li&gt;
+  &lt;li&gt;Cmake workflow supports combinatorial variants of extra arguments. For instance, this could be used in integration
+tests (as has been implemented in Boost.URL) where the same workflow is run with slightly different arguments.&lt;/li&gt;
+  &lt;li&gt;CMake setup is cached in the GitHub Actions tool cache. The binary is also added to PATH.&lt;/li&gt;
+  &lt;li&gt;All C++ Matrix suggestions are now customizable for ranges of compiler versions. This feature eliminates the need for
+expressions to override matrix options.&lt;/li&gt;
+  &lt;li&gt;C++ Matrix supports custom images.&lt;/li&gt;
+  &lt;li&gt;C++ Matrix has a new option for combinatorial factors. Unlike other factors that apply to the latest or an
+intermediary version of a toolset, combinatorial factors duplicate all entries for a compiler and set a new flag
+to identify that kind of test. For instance, it could be used to test clang with libc++ and libstdc++ in parallel
+for each clang version.&lt;/li&gt;
+  &lt;li&gt;C++ Matrix includes flags for intermediary compiler versions. These flags are handy when a test does not need
+to occur in intermediary versions of a compiler that have no unique factors applied to it.&lt;/li&gt;
+  &lt;li&gt;C++ Matrix supports composite factors. Composite factors allow two factors to be determined at once for a test.
+For instance, the factor &lt;code&gt;TSan+Asan&lt;/code&gt; will set the flags for both TSan and Asan in the same test, with having to create
+a test for each. This type of factor is useful when the factors are mutually exclusive.&lt;/li&gt;
+  &lt;li&gt;The C++ Matrix uses containers by default when appropriate. In particular, this eliminates errors with Clang, which
+often picks up an uncommon version of stdlibc++ when running tests. This choice is often an incompatible version that
+does not
+represent the most common use case by the user.&lt;/li&gt;
+  &lt;li&gt;B2 workflow supports versioned toolsets. For instance, a toolset &lt;code&gt;gcc-13&lt;/code&gt; would appropriately set only &lt;code&gt;gcc&lt;/code&gt; in
+&lt;code&gt;user-config.jam&lt;/code&gt; while calling &lt;code&gt;b2&lt;/code&gt; with the appropriate complete flag.&lt;/li&gt;
+  &lt;li&gt;B2 workflow support for dozens of options specific to B2. These include options supported by B2 that do not apply to
+CMake: &lt;code&gt;clean&lt;/code&gt;, &lt;code&gt;clean-all&lt;/code&gt;, &lt;code&gt;abbreviate-paths&lt;/code&gt; (default is &lt;code&gt;true&lt;/code&gt;), &lt;code&gt;hash&lt;/code&gt;, &lt;code&gt;rebuild-all&lt;/code&gt;, &lt;code&gt;dry-run&lt;/code&gt;,
+&lt;code&gt;stop-on-error&lt;/code&gt;, &lt;code&gt;config&lt;/code&gt;, &lt;code&gt;site-config&lt;/code&gt;, &lt;code&gt;user-config&lt;/code&gt;, &lt;code&gt;project-config&lt;/code&gt;, &lt;code&gt;debug-configuration&lt;/code&gt;, &lt;code&gt;debug-building&lt;/code&gt;,
+&lt;code&gt;debug-generators&lt;/code&gt;, &lt;code&gt;include&lt;/code&gt;, &lt;code&gt;define&lt;/code&gt;, and &lt;code&gt;runtime-link&lt;/code&gt;. A number of these options have been necessary in other
+Boost projects using these actions.&lt;/li&gt;
+  &lt;li&gt;Package-Install supports &lt;code&gt;add-architecture&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;Dozens of other minor improvements, bug fixes, and updates to the documentation.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;In addition to new features, most work has been done to fix issues revealed by testing the actions in new environments.
+About ~50 bugs with various levels of severity have been fixed in Q1/2024.&lt;/p&gt;</content><author><name></name></author><category term="alan" /><summary type="html">Summary MrDocs Boost Libraries Boost Release Tools Boost Website C++ Github Actions MrDocs Over the last quarter, we continued our work on MrDocs, a documentation generator for C++ projects. I have been overseeing and reviewing all the work done by the other contributors to the project. Besides the work done by Krystian and Fernando, George H. (an author of https://github.com/hdoc/hdoc[HDoc]) also joined the project as a contributor. We have been working on making the project at least as competitive as the Doxygen with Docca we have been using with other libraries. The goal is to use it in a subset of Boost libraries that will also use Antora for their documentation. In this process, we have also been improving usability and documentation, considering the feedback we received. Features In particular, work in Q1/2024 included: Updating the LLVM version we have been using and adapting the project to the new version Updating CI workflows to use official releases for all dependencies, which is an essential step in the direction of making the project more stable for user instructions, CI, and standalone binaries Improve the documentation to provide more straightforward installation instructions and examples. New Antora plugins were included to make the documentation more interactive and easier to navigate. A new CI workflow that builds and caches LLVM from source, making it easier to update the LLVM versions and deprecate the old workflow that required manual intervention to update binaries on the MrDocs website Custom scripts and presets for dependencies that do not provide them, such as Duktape and LLVM Adjust CI to replicate the instructions in the documentation and vice-versa precisely. CMake Presets updated to improve the build time and reflect the documentation instructions Work on sanitizing references in Javadoc commands that need to know whether the first argument is an identifier. Clang often provides these references as simple text. Support for multi-node HTML tags: Clang represents several HTML tags by multiple nodes. MrDocs simply ignored these tags, but now they are correctly represented in the DOM. Support for several new Javadoc and (“throws”, “details”, “see”) HTML tags (“br”, “img”, “input”, “hr”, “meta”, “link”, “base”, “area”, “col”, “command”, “embed”, “keygen”, “param”, “source”, “track”, “wbr”). These tags were already present in the Boost.URL documentation, but MrDocs did not support them. Simplify the ASTVisitor by generalizing the traverse function. Provide demos with their mrdocs.yml files and use them instead of generating new ones. This change allows the projects to handle their custom parameters instead of relying on the global configuration. Support input filters to include or exclude files according to their paths. Create a bash argument parser so that mrdocs.yml parameters that represent CMake options can use the same syntax used to call CMake from the command line. Support for automatic CMake execution by MrDocs to generate the compile_commands.json file. This feature was implemented over many commits. Support for C source files. Filter sanitizer flags in the command database. A number of improvements to the C++ Actions project directed at benefiting MrDocs. Dozens of minor bug fixes and improvements to the implementation Binaries While working on these concrete issues, I have also explored strategies to generate stable standalone binaries for MrDocs. The motivation is that it is time-consuming to build MrDocs, so the way MrDocs is supposed to be most commonly used is with scripts that download portable executables and run the tool. These scripts will usually be run in CI on some Ubuntu-X container. The problem is we are using recent versions of Ubuntu (Ubuntu 23.04 now) to originally build MrDocs because of the C++ features we need. However, users (including the Boost Release Tools) usually use earlier versions of Ubuntu (usually from 18.04 to 22.04) for various reasons. Binaries built on Ubuntu X (say 23.04) does not work under Ubuntu &amp;lt;X (say 20.04). For this reason, we need to provide portable executables that people can use. I have researched many complex strategies to solve the problem and have been experimenting with each of them for weeks. Solutions based on -static/-static-libgcc did not work because they still depend on the kernel for libc. Using musl also did not work because using Musl with C++ is complex, and there needs to be a toolchain for the compilers we need. The latest C++/Musl toolchain is GCC 11. Cosmopolitan turned out to be inappropriate for our needs. It is very experimental and attempts to be much more general than we need. GCC -ffreestanding compile mode limits the standard libraries available, which is not an option for MrDocs. A combination of MrDocs downgrading Ubuntu and Boost release tools upgrading Ubuntu. We have already implemented that, but the solution is still not portable enough for Boost let alone other workflows. There is also a limit on how much we can downgrade Ubuntu because of the C++ features we need. For instance, downgrading to 20.04 would require us to compile another compiler from source before building MrDocs: this is overly complex, hard to maintain, slow to test, not general enough, and just failed to work in practice. ApBuild (a gcc wrapper that enforces GLIB_C version and does a few other binary compatibility tricks) was a solution somewhat similar to a wrapper overriding system libraries (see below). However, it has not been maintained , and a custom wrapper is likely to work better. The solution I’m currently exploring is a wrapper overriding system libs. Considering the limitations of the other ideas we have tried, I will explore a strategy similar to APBuild, but one that is manual and more stable. It is also similar to how CMake provides its binaries. It consists of patching the release so that: The libraries required by MrDocs are identified and bundled with the MrDocs release in subdirectories of lib bin/mrdocs is renamed mrdocs.real (or something to this end) A C wrapper is compiled to replace the original bin/mrdocs. This wrapper adjusts the library paths and calls mrdocs.real. It should be compiled with a very old version of GCC and Ubuntu. The wrapper can be compiled once or in CI. This wrapper approach has the following benefits: This wrapper also seemed like a complex solution at first, but it turned out to be much simpler and more effective than the other solutions we tried. It is easy to maintain. We can use the same logic and wrapper no matter what version of Ubuntu we initially used to compile MrDocs. This simplicity also means we have more freedom to upgrade the MrDocs toolchain and use more recent C++ standards. Testing is much easier because these binaries require no specific workflow. The releases would be a patched version of the same binaries we have produced. Also, it involves no custom-built compilers. It is a much more general solution. We can build MrDocs on Ubuntu 23.04 and use the release binaries on Ubuntu 16.04 if we have to. Integrations As Boost.URL keeps integrating MrDocs, it has been inspiring the features we need in MrDocs and is temporarily generating the documentation with both Doxygen+Docca and Antora+MrDocs. The same workflow has also been implemented in Boost.Buffers, which is now inspiring new feature requests, such as the identification of Niebloids and SFINAE constraints in the documentation. General work In general, I’ve been responsible in MrDocs for: setting up and maintaining CI for the project; MrDocs and LLVM release binaries; build scripts; setting up and integrating dependencies; setting up and deploying the Antora toolchains and documentation to the project website; working on supporting libraries; supervising and reviewing the work done by other contributors (Krystian, Fernando, and George H.); and fixing bugs. Handlebars The MrDocs also includes a support library that reimplements the Handlebars template engine in C++. This module is used to generate documentation from templates. The Handlebars library has achieved a stable state and is now used in MrDocs to generate the documentation. It includes C++/JavaScript bindings that work both ways so that users can provide helpers for their templates. We may consider splitting Handlebars into a separate project. Boost Libraries As in other quarters, the Boost Library I have been investing most of my time in is Boost.URL. The library is in maintenance mode since our focus shifted to MrDocs, but there is a constant demand for work fixing bugs and improving the documentation: Multiple commits related to the Antora+MrDocs workflow. Many new tests have been included to improve the library’s coverage, which is now at 99%. Dozens of minor bug fixes and improvements to the implementation, documentation, and CI workflows Many improvements had to be coordinated with the C++ Github Actions project, which implemented new features for these use cases. Many bugs in the actions were also revealed by Boost.HTTP now uses the actions in its CI. In general, I have been responsible for: upgrading CI, primarily coordinating with the C++ Github Actions; maintaining, simplifying, and updating build scripts; integrating more spec tests, such as the Ada tests included more recently; including more examples, such as the more recent sanitize-URL example; fixing documentation content out of date; and fixing bugs. Besides Boost.URL, as usual, I have been overseeing and fixing smaller issues with other boost libraries. I have been also helping Boost.HTTP and Boost.Buffers in their efforts to improve CI and integrate MrDocs. Boost Release Tools I have been working on the integration of toolchains I developed into the Boost Release Tools to add support for features desired for the new Boost website. We needed many improvements to the workflow for Antora support in the release tools, as bugs and inconveniences have been identified since the official Boost release 1.84.0. Antora directories are now patched and moved to another location. We also kept working on an initiative to support archive variants in the release tools. This pull request is still under review and will be considered for inclusion in a period between Boost releases when priority moves from the Boost website. Boost Website Among the many support projects for the new Boost website, I have been helping the most on website-v2-docs, which includes the Boost website documentation as an Antora project. Its components represent the website’s “User Guide,” “Contributor Guide,” and “Formal Review” sections. Since the beginning of the project, I have been overseeing and reviewing the work of the other contributors. In general, I continue to be responsible for: reviewing and merging all pull requests to the project; setting up and maintaining CI for the project; coordinating with the website project on content uploaded to AWS buckets; build scripts to be reused by the release tools and previews; writing sections of the documentation that require technical knowledge; developing custom Boost/Antora extensions, such as the Boost Macro extension; maintaining the Antora toolchain and templates; and adjusted Boost libraries to match formats expected by the website. C++ Github Actions C++ Github Actions is a project I have maintained since 2023. It is a collection of composable, independent, and reusable GitHub Actions for any C++ project that needs to be tested on various compilers and environments. MrDocs, Boost.URL, Boost.HTTP, and Boost.Buffers are currently using these actions in their CI. All of these projects have been allowing us to get more feedback and improve the actions. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs One notable problem with GitHub actions in Q1/2024 is that GitHub decided to update the base version of Node.js to 20. Because Node.Js is not statically linked, this change broke many actions that depended on it. All projects that depend on older containers now get an error related to the appropriate glic version not being found. Attempting to use older versions of Node.js still works temporarily, but it also emits a warning. This bug will need to be addressed in the future. In particular, a number of new features were added to the C++ Actions project in Q1 2024. Boost optimistic caching is now disabled by default. Caching is optional. Expressions in the main workflow to override these parameters. Cmake workflow includes a complete bash command line parser for the CMake arguments. It makes the workflow more reliable as commands are now properly passed through to CMake in a way that matches the user’s expectations. Cmake workflow supports combinatorial variants of extra arguments. For instance, this could be used in integration tests (as has been implemented in Boost.URL) where the same workflow is run with slightly different arguments. CMake setup is cached in the GitHub Actions tool cache. The binary is also added to PATH. All C++ Matrix suggestions are now customizable for ranges of compiler versions. This feature eliminates the need for expressions to override matrix options. C++ Matrix supports custom images. C++ Matrix has a new option for combinatorial factors. Unlike other factors that apply to the latest or an intermediary version of a toolset, combinatorial factors duplicate all entries for a compiler and set a new flag to identify that kind of test. For instance, it could be used to test clang with libc++ and libstdc++ in parallel for each clang version. C++ Matrix includes flags for intermediary compiler versions. These flags are handy when a test does not need to occur in intermediary versions of a compiler that have no unique factors applied to it. C++ Matrix supports composite factors. Composite factors allow two factors to be determined at once for a test. For instance, the factor TSan+Asan will set the flags for both TSan and Asan in the same test, with having to create a test for each. This type of factor is useful when the factors are mutually exclusive. The C++ Matrix uses containers by default when appropriate. In particular, this eliminates errors with Clang, which often picks up an uncommon version of stdlibc++ when running tests. This choice is often an incompatible version that does not represent the most common use case by the user. B2 workflow supports versioned toolsets. For instance, a toolset gcc-13 would appropriately set only gcc in user-config.jam while calling b2 with the appropriate complete flag. B2 workflow support for dozens of options specific to B2. These include options supported by B2 that do not apply to CMake: clean, clean-all, abbreviate-paths (default is true), hash, rebuild-all, dry-run, stop-on-error, config, site-config, user-config, project-config, debug-configuration, debug-building, debug-generators, include, define, and runtime-link. A number of these options have been necessary in other Boost projects using these actions. Package-Install supports add-architecture. Dozens of other minor improvements, bug fixes, and updates to the documentation. In addition to new features, most work has been done to fix issues revealed by testing the actions in new environments. About ~50 bugs with various levels of severity have been fixed in Q1/2024.</summary></entry><entry><title type="html">Dmitry’s Q1 2024 Update</title><link href="http://cppalliance.org/dmitry/2024/04/29/dmitrys-q1-update.html" rel="alternate" type="text/html" title="Dmitry’s Q1 2024 Update" /><published>2024-04-29T00:00:00+00:00</published><updated>2024-04-29T00:00:00+00:00</updated><id>http://cppalliance.org/dmitry/2024/04/29/dmitrys-q1-update</id><content type="html" xml:base="http://cppalliance.org/dmitry/2024/04/29/dmitrys-q1-update.html">&lt;p&gt;In the first quarter of 2024 I mostly continued with work on direct
+serialization, cleanup work in Boost.JSON, and experiments with its JSON parser
+and serialiser. The experiments have resulted in discovery of a significant
+performance pessimization in the parser. The fix will soon be merged into the
+project.&lt;/p&gt;
+
+&lt;p&gt;Another experiment that will eventually bring significant performance
+improvement is replacing JSON’s number serialisation code with usage of
+the Charconv library, which was recently accepted into Boost. That library has
+functions for efficient parsing and serialisation of numbers, but Boost.JSON
+can’t use the parsing code for its default number parsing mode due to several
+requirements, the main one being streaming parsing. The precise number parsing
+mode, on the other hand, is already using an earlier embedded version of
+Charconv. The addition of dependency on Charconv has been delayed, though, due
+to it not supporting a few old compilers which are supported by JSON. This
+summer a major user of those compilers (an old Red Hat version) goes EOL, and I
+decided to wait until that point to deprecate support for those compilers.&lt;/p&gt;
+
+&lt;p&gt;One small but important change was replacing internal configuration for
+endianness and instead relying on Boost.Endian for that. The original reason
+Boost.JSON had such internal configuration to begin with was the standalone
+mode, which was removed a while ago. But other changes were of higher priority
+and thus, I only got around to this now.&lt;/p&gt;
+
+&lt;p&gt;One interesting JSON issue fixed was related to conversion of
+&lt;code&gt;filesystem::path&lt;/code&gt; objects (https://github.com/boostorg/json/issues/975). Due
+to unfortunate decisions made many years ago a &lt;code&gt;path&lt;/code&gt; is a sequence of itself.
+Treating paths as sequences thus results in infinite recursion. The fix added
+dedicated handling for paths and just in case forbade recursive sequences
+altogether.&lt;/p&gt;</content><author><name></name></author><category term="dmitry" /><summary type="html">In the first quarter of 2024 I mostly continued with work on direct serialization, cleanup work in Boost.JSON, and experiments with its JSON parser and serialiser. The experiments have resulted in discovery of a significant performance pessimization in the parser. The fix will soon be merged into the project. Another experiment that will eventually bring significant performance improvement is replacing JSON’s number serialisation code with usage of the Charconv library, which was recently accepted into Boost. That library has functions for efficient parsing and serialisation of numbers, but Boost.JSON can’t use the parsing code for its default number parsing mode due to several requirements, the main one being streaming parsing. The precise number parsing mode, on the other hand, is already using an earlier embedded version of Charconv. The addition of dependency on Charconv has been delayed, though, due to it not supporting a few old compilers which are supported by JSON. This summer a major user of those compilers (an old Red Hat version) goes EOL, and I decided to wait until that point to deprecate support for those compilers. One small but important change was replacing internal configuration for endianness and instead relying on Boost.Endian for that. The original reason Boost.JSON had such internal configuration to begin with was the standalone mode, which was removed a while ago. But other changes were of higher priority and thus, I only got around to this now. One interesting JSON issue fixed was related to conversion of filesystem::path objects (https://github.com/boostorg/json/issues/975). Due to unfortunate decisions made many years ago a path is a sequence of itself. Treating paths as sequences thus results in infinite recursion. The fix added dedicated handling for paths and just in case forbade recursive sequences altogether.</summary></entry><entry><title type="html">Fernando’s Q1 Update</title><link href="http://cppalliance.org/fernando/2024/04/28/FernandoQ1Update.html" rel="alternate" type="text/html" title="Fernando’s Q1 Update" /><published>2024-04-28T00:00:00+00:00</published><updated>2024-04-28T00:00:00+00:00</updated><id>http://cppalliance.org/fernando/2024/04/28/FernandoQ1Update</id><content type="html" xml:base="http://cppalliance.org/fernando/2024/04/28/FernandoQ1Update.html">&lt;p&gt;The first quarter of 2024 has been a period of deepening engagement and significant contributions to two major areas: the development of MrDocs and supporting enhancements in Boost Unordered’s concurrent map capabilities.&lt;/p&gt;
+
+&lt;h3 id=&quot;further-enhancements-to-mrdocs&quot;&gt;Further Enhancements to MrDocs&lt;/h3&gt;
+
+&lt;h4 id=&quot;key-developments-in-mrdocs&quot;&gt;Key Developments in MrDocs:&lt;/h4&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Advancing Code Understanding&lt;/strong&gt;: My recent work has focused on enhancing MrDocs’ ability to parse and analyze complex C++ code constructs. This includes the implementation of using directives, using declarations, and namespace aliases which significantly improve the tool’s ability to handle advanced C++ features.
+    &lt;ul&gt;
+      &lt;li&gt;&lt;strong&gt;PR #545&lt;/strong&gt;: Implements using directives, using declarations, and namespace aliases. &lt;a href=&quot;https://github.com/cppalliance/mrdocs/pull/545&quot;&gt;View PR&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;strong&gt;PR #541&lt;/strong&gt;: Implementing “deducing this” enhances MrDocs’ capability to understand and document modern C++ idioms. &lt;a href=&quot;https://github.com/cppalliance/mrdocs/pull/541&quot;&gt;View PR&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Integration with CMake&lt;/strong&gt;: I’ve also worked on integrating CMake more deeply into the workflow of MrDocs to streamline the generation of necessary build and configuration files:
+    &lt;ul&gt;
+      &lt;li&gt;&lt;strong&gt;PR #539&lt;/strong&gt;: Refactors to fallback to &lt;code&gt;cmake --system-information&lt;/code&gt; when needed. &lt;a href=&quot;https://github.com/cppalliance/mrdocs/pull/539&quot;&gt;View PR&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;strong&gt;PR #532&lt;/strong&gt;: Executes CMake to directly obtain system configuration data, simplifying setup for users. &lt;a href=&quot;https://github.com/cppalliance/mrdocs/pull/532&quot;&gt;View PR&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Enhancing Accessibility and Usability&lt;/strong&gt;: To further improve the user experience, I’ve focused on the automatic detection of compiler default include paths, which simplifies the configuration process and ensures that MrDocs works seamlessly across different environments.
+    &lt;ul&gt;
+      &lt;li&gt;&lt;strong&gt;PR #515&lt;/strong&gt;: Uses compiler default include paths to enhance cross-platform compatibility. &lt;a href=&quot;https://github.com/cppalliance/mrdocs/pull/515&quot;&gt;View PR&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;These enhancements are designed to make MrDocs not only more user-friendly but also more powerful in handling complex C++ projects, thereby supporting the C++ community in creating better-documented and more maintainable code bases.&lt;/p&gt;
+
+&lt;h3 id=&quot;collaborative-work-on-boost-unordered&quot;&gt;Collaborative Work on Boost Unordered&lt;/h3&gt;
+
+&lt;h4 id=&quot;supporting-advanced-concurrent-data-structures&quot;&gt;Supporting Advanced Concurrent Data Structures:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Benchmarking and Testing&lt;/strong&gt;: I have been collaborating closely with Joaquín on advancing the performance of Boost Unordered’s concurrent map to handle high concurrency levels effectively. This work involves rigorous testing and benchmarking to identify and resolve performance bottlenecks.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Learning and Applying Advanced Techniques&lt;/strong&gt;: Inspired by the advanced concurrency techniques used in ParlayHash, our focus has been on exploring and implementing similar strategies within Boost. Although progress has been challenging due to the need for extensive testing on many-core machines, this work is crucial for enhancing the scalability of Boost libraries in parallel computing environments.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;reflections-on-remote-collaboration&quot;&gt;Reflections on Remote Collaboration&lt;/h3&gt;
+
+&lt;p&gt;Collaborating with the C++ Alliance has continued to be a rewarding experience. The flexibility to collaborate across different time zones and the ability to work asynchronously on open-source projects have significantly contributed to my personal growth and professional development. The support and dynamic collaboration within the community not only foster innovation but also enhance our collective capability to tackle complex technical challenges.&lt;/p&gt;
+
+&lt;h3 id=&quot;looking-forward&quot;&gt;Looking Forward&lt;/h3&gt;
+
+&lt;p&gt;As we move into the next quarter, I am excited about the potential for further advancements in both MrDocs and Boost Unordered. The ongoing projects not only highlight our commitment to the Boost community but also demonstrate our leadership in driving C++ innovation forward. I look forward to continuing my contributions and sharing my experiences with the community.&lt;/p&gt;</content><author><name></name></author><category term="fernando" /><summary type="html">The first quarter of 2024 has been a period of deepening engagement and significant contributions to two major areas: the development of MrDocs and supporting enhancements in Boost Unordered’s concurrent map capabilities. Further Enhancements to MrDocs Key Developments in MrDocs: Advancing Code Understanding: My recent work has focused on enhancing MrDocs’ ability to parse and analyze complex C++ code constructs. This includes the implementation of using directives, using declarations, and namespace aliases which significantly improve the tool’s ability to handle advanced C++ features. PR #545: Implements using directives, using declarations, and namespace aliases. View PR PR #541: Implementing “deducing this” enhances MrDocs’ capability to understand and document modern C++ idioms. View PR Integration with CMake: I’ve also worked on integrating CMake more deeply into the workflow of MrDocs to streamline the generation of necessary build and configuration files: PR #539: Refactors to fallback to cmake --system-information when needed. View PR PR #532: Executes CMake to directly obtain system configuration data, simplifying setup for users. View PR Enhancing Accessibility and Usability: To further improve the user experience, I’ve focused on the automatic detection of compiler default include paths, which simplifies the configuration process and ensures that MrDocs works seamlessly across different environments. PR #515: Uses compiler default include paths to enhance cross-platform compatibility. View PR These enhancements are designed to make MrDocs not only more user-friendly but also more powerful in handling complex C++ projects, thereby supporting the C++ community in creating better-documented and more maintainable code bases. Collaborative Work on Boost Unordered Supporting Advanced Concurrent Data Structures: Benchmarking and Testing: I have been collaborating closely with Joaquín on advancing the performance of Boost Unordered’s concurrent map to handle high concurrency levels effectively. This work involves rigorous testing and benchmarking to identify and resolve performance bottlenecks. Learning and Applying Advanced Techniques: Inspired by the advanced concurrency techniques used in ParlayHash, our focus has been on exploring and implementing similar strategies within Boost. Although progress has been challenging due to the need for extensive testing on many-core machines, this work is crucial for enhancing the scalability of Boost libraries in parallel computing environments. Reflections on Remote Collaboration Collaborating with the C++ Alliance has continued to be a rewarding experience. The flexibility to collaborate across different time zones and the ability to work asynchronously on open-source projects have significantly contributed to my personal growth and professional development. The support and dynamic collaboration within the community not only foster innovation but also enhance our collective capability to tackle complex technical challenges. Looking Forward As we move into the next quarter, I am excited about the potential for further advancements in both MrDocs and Boost Unordered. The ongoing projects not only highlight our commitment to the Boost community but also demonstrate our leadership in driving C++ innovation forward. I look forward to continuing my contributions and sharing my experiences with the community.</summary></entry><entry><title type="html">Krystian’s Q1 2024 Update</title><link href="http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update.html" rel="alternate" type="text/html" title="Krystian’s Q1 2024 Update" /><published>2024-04-22T00:00:00+00:00</published><updated>2024-04-22T00:00:00+00:00</updated><id>http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update</id><content type="html" xml:base="http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update.html">&lt;p&gt;My primary focus this quarter was on clang – in particular, C++ standards conformance (including implementing resolutions to defect reports I’ve submitted), bug fixes, and various refactoring of the AST. I was also granted write access to the LLVM project repository this quarter, which has allowed me to significantly increase my output. To that end, I submitted/merged a number of patches:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;#89618 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/89618&quot;&gt;[Clang][Sema] Remove unused function after #88731&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#89605 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/89605&quot;&gt;[libc++][NFC] Fix unparenthesized comma expression in mem-initializer&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#89377 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/89377&quot;&gt;[libc++] Fix usage of ‘exclude_from_explicit_instantiation’ attribute on local class members&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#89300 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/89300&quot;&gt;[Clang][Sema] Diagnose explicit specializations with object parameters that do not match their primary template&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88974 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88974&quot;&gt;[Clang][Parse] Diagnose requires expressions with explicit object parameters&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88963 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88963&quot;&gt;[Clang][Sema] Improve support for explicit specializations of constrained member functions &amp;amp; member function templates&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88777 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88777&quot;&gt;[Clang][Sema] Warn when ‘exclude_from_explicit_instantiation’ attribute is used on local classes and members thereof&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88731 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88731&quot;&gt;Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541, #88311)”&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88417 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88417&quot;&gt;[lldb] Fix call to TemplateTemplateParmDecl::Create after #88139&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88311 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88311&quot;&gt;Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541)”&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88264 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88264&quot;&gt;Revert “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function”&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88146 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88146&quot;&gt;[Clang][AST][NFC] Fix printing of dependent PackIndexTypes&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88139 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88139&quot;&gt;[Clang][AST] Track whether template template parameters used the ‘typename’ keyword&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#88042 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/88042&quot;&gt;[Clang][Sema] Implement approved resolution for CWG2858&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#87541 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/87541&quot;&gt;[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#86817 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/86817&quot;&gt;[Clang][Sema] Fix explicit specializations of member function templates with a deduced return type&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#86682 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/86682&quot;&gt;[Clang][AST][NFC] Move template argument dependence computations for MemberExpr to computeDependence&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#86678 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/86678&quot;&gt;[Clang][AST][NFC] MemberExpr stores NestedNameSpecifierLoc and DeclAccessPair separately&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#84457 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/84457&quot;&gt;Revert “[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments (#83842)”&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#84050 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/84050&quot;&gt;[Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#83842 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/83842&quot;&gt;[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#83024 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/83024&quot;&gt;[Clang][Sema] Fix crash when MS dependent base class lookup occurs in an incomplete context&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#82417 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/82417&quot;&gt;[Clang][Sema] Defer instantiation of exception specification until after partial ordering when determining primary template&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#82277 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/82277&quot;&gt;[Clang][Sema] Convert warning for extraneous template parameter lists to an extension warning&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#81642 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/81642&quot;&gt;[Clang] Unify interface for accessing template arguments as written for class/variable template specializations&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#81171 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/81171&quot;&gt;[clang-tidy] Fix failing test after #80864&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#80899 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/80899&quot;&gt;[Clang][Sema] Implement proposed resolution for CWG2847&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#80864 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/80864&quot;&gt;[Clang][Sema] Abbreviated function templates do not append invented parameters to empty template parameter lists&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#80842 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/80842&quot;&gt;[Clang][Sema] Diagnose declarative nested-name-specifiers naming alias templates&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#80359 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/80359&quot;&gt;[Clang][Sema] Correctly look up primary template for variable template specializations&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#80171 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/80171&quot;&gt;[Clang][Sema] Diagnose friend declarations with enum elaborated-type-specifier in all language modes&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#79760 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/79760&quot;&gt;[Clang][NFC] Remove TemplateArgumentList::OnStack&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#79683 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/79683&quot;&gt;Reapply “[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters (#78274)”&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#78720 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/78720&quot;&gt;[Clang][Sema] Allow elaborated-type-specifiers that declare member class template explict specializations&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#78595 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/78595&quot;&gt;[Clang][Sema] Diagnose use of template keyword after declarative nested-name-specifiers&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#78325 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/78325&quot;&gt;[Clang][Sema][NFC] Remove unused Scope* parameter from Sema::GetTypeForDeclarator and Sema::ActOnTypeName&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#78274 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/78274&quot;&gt;[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;#78243 &lt;a href=&quot;https://github.com/llvm/llvm-project/pull/78243&quot;&gt;[Clang][Parse] Diagnose member template declarations with multiple declarators&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="krystian" /><summary type="html">My primary focus this quarter was on clang – in particular, C++ standards conformance (including implementing resolutions to defect reports I’ve submitted), bug fixes, and various refactoring of the AST. I was also granted write access to the LLVM project repository this quarter, which has allowed me to significantly increase my output. To that end, I submitted/merged a number of patches: #89618 [Clang][Sema] Remove unused function after #88731 #89605 [libc++][NFC] Fix unparenthesized comma expression in mem-initializer #89377 [libc++] Fix usage of ‘exclude_from_explicit_instantiation’ attribute on local class members #89300 [Clang][Sema] Diagnose explicit specializations with object parameters that do not match their primary template #88974 [Clang][Parse] Diagnose requires expressions with explicit object parameters #88963 [Clang][Sema] Improve support for explicit specializations of constrained member functions &amp;amp; member function templates #88777 [Clang][Sema] Warn when ‘exclude_from_explicit_instantiation’ attribute is used on local classes and members thereof #88731 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541, #88311)” #88417 [lldb] Fix call to TemplateTemplateParmDecl::Create after #88139 #88311 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541)” #88264 Revert “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function” #88146 [Clang][AST][NFC] Fix printing of dependent PackIndexTypes #88139 [Clang][AST] Track whether template template parameters used the ‘typename’ keyword #88042 [Clang][Sema] Implement approved resolution for CWG2858 #87541 [Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function #86817 [Clang][Sema] Fix explicit specializations of member function templates with a deduced return type #86682 [Clang][AST][NFC] Move template argument dependence computations for MemberExpr to computeDependence #86678 [Clang][AST][NFC] MemberExpr stores NestedNameSpecifierLoc and DeclAccessPair separately #84457 Revert “[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments (#83842)” #84050 [Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes #83842 [Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments #83024 [Clang][Sema] Fix crash when MS dependent base class lookup occurs in an incomplete context #82417 [Clang][Sema] Defer instantiation of exception specification until after partial ordering when determining primary template #82277 [Clang][Sema] Convert warning for extraneous template parameter lists to an extension warning #81642 [Clang] Unify interface for accessing template arguments as written for class/variable template specializations #81171 [clang-tidy] Fix failing test after #80864 #80899 [Clang][Sema] Implement proposed resolution for CWG2847 #80864 [Clang][Sema] Abbreviated function templates do not append invented parameters to empty template parameter lists #80842 [Clang][Sema] Diagnose declarative nested-name-specifiers naming alias templates #80359 [Clang][Sema] Correctly look up primary template for variable template specializations #80171 [Clang][Sema] Diagnose friend declarations with enum elaborated-type-specifier in all language modes #79760 [Clang][NFC] Remove TemplateArgumentList::OnStack #79683 Reapply “[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters (#78274)” #78720 [Clang][Sema] Allow elaborated-type-specifiers that declare member class template explict specializations #78595 [Clang][Sema] Diagnose use of template keyword after declarative nested-name-specifiers #78325 [Clang][Sema][NFC] Remove unused Scope* parameter from Sema::GetTypeForDeclarator and Sema::ActOnTypeName #78274 [Clang][Sema] Diagnose function/variable templates that shadow their own template parameters #78243 [Clang][Parse] Diagnose member template declarations with multiple declarators</summary></entry><entry><title type="html">Matt’s Q1 2024 Update</title><link href="http://cppalliance.org/matt/2024/04/22/MattsQ1Update.html" rel="alternate" type="text/html" title="Matt’s Q1 2024 Update" /><published>2024-04-22T00:00:00+00:00</published><updated>2024-04-22T00:00:00+00:00</updated><id>http://cppalliance.org/matt/2024/04/22/MattsQ1Update</id><content type="html" xml:base="http://cppalliance.org/matt/2024/04/22/MattsQ1Update.html">&lt;p&gt;Over the past few months I have been working on libraries that are in various stages of the boost lifecycle:&lt;/p&gt;
+
+&lt;h2 id=&quot;newly-accepted-libraries&quot;&gt;Newly Accepted Libraries&lt;/h2&gt;
+
+&lt;h3 id=&quot;charconv&quot;&gt;Charconv&lt;/h3&gt;
+
+&lt;p&gt;Charconv (https://github.com/boostorg/charconv) had it’s review period from 15 - 25 Jan 2024.
+The review manager for this review was Chris Kormanyos, and he did an excellent job.
+I want to thank the boost community because I received a lot of good feedback during the review period, and a number of bugs were squashed.
+The first release of the library was Boost 1.85, and it seems like a number of boost libraries will use it internally in coming releases.
+Discussion of this library can be found on the Cpplang slack at &lt;code&gt;#boost-charconv&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;libraries-for-proposal&quot;&gt;Libraries for Proposal&lt;/h2&gt;
+
+&lt;h3 id=&quot;decimal&quot;&gt;Decimal&lt;/h3&gt;
+
+&lt;p&gt;Decimal (https://github.com/cppalliance/decimal) is a ground-up implementation of the IEEE 754 Decimal Floating Point types in C++14, and is co-authored by Chris Kormanyos.
+The library continued to make progress this quarter with most of the heavy machinery of &lt;code&gt;&amp;lt;cmath&amp;gt;&lt;/code&gt; and &lt;code&gt;&amp;lt;charconv&amp;gt;&lt;/code&gt; being added.
+We have also started optimizing portions of the library such as as completely replacing the basis for &lt;code&gt;decimal128&lt;/code&gt; which increased performance by up to a factor of 100.
+While not totally feature complete Chris and I believe the library is in a good position for a beta, so look forward to that announcement early in the first-half of Q2.
+Discussion of this library can be found on the Cpplang slack at &lt;code&gt;#boost-decimal&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;multi&quot;&gt;Multi&lt;/h3&gt;
+
+&lt;p&gt;Multi (https://github.com/correaa/Boost-Multi) is a modern C++ library that provides access and manipulation of data in multidimensional arrays, for both CPU and GPU memory.
+This is a high-quality library developed by Alfredo Correa (https://github.com/correaa).
+I will be serving as the review manager, and helping Alfredo to “boostify” the library beforehand.
+Look for an announcement for the review of this exciting library during Q2 and don’t hesitate to start investigating the library now.
+The author can be found on the Cpplang slack at &lt;code&gt;#boost&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;existing-libraries&quot;&gt;Existing Libraries&lt;/h2&gt;
+
+&lt;h3 id=&quot;math&quot;&gt;Math&lt;/h3&gt;
+
+&lt;p&gt;New in Boost 1.85 is a number of optimization algorithms (https://www.boost.org/doc/libs/1_85_0/libs/math/doc/html/optimization.html) developed by Nick Thompson.
+This sub-library contains both classical (random_search), and novel (jSO) algorithms.
+I was able to assist him in the development and debugging of multi-threaded code which is never an easy task.&lt;/p&gt;</content><author><name></name></author><category term="matt" /><summary type="html">Over the past few months I have been working on libraries that are in various stages of the boost lifecycle: Newly Accepted Libraries Charconv Charconv (https://github.com/boostorg/charconv) had it’s review period from 15 - 25 Jan 2024. The review manager for this review was Chris Kormanyos, and he did an excellent job. I want to thank the boost community because I received a lot of good feedback during the review period, and a number of bugs were squashed. The first release of the library was Boost 1.85, and it seems like a number of boost libraries will use it internally in coming releases. Discussion of this library can be found on the Cpplang slack at #boost-charconv. Libraries for Proposal Decimal Decimal (https://github.com/cppalliance/decimal) is a ground-up implementation of the IEEE 754 Decimal Floating Point types in C++14, and is co-authored by Chris Kormanyos. The library continued to make progress this quarter with most of the heavy machinery of &amp;lt;cmath&amp;gt; and &amp;lt;charconv&amp;gt; being added. We have also started optimizing portions of the library such as as completely replacing the basis for decimal128 which increased performance by up to a factor of 100. While not totally feature complete Chris and I believe the library is in a good position for a beta, so look forward to that announcement early in the first-half of Q2. Discussion of this library can be found on the Cpplang slack at #boost-decimal. Multi Multi (https://github.com/correaa/Boost-Multi) is a modern C++ library that provides access and manipulation of data in multidimensional arrays, for both CPU and GPU memory. This is a high-quality library developed by Alfredo Correa (https://github.com/correaa). I will be serving as the review manager, and helping Alfredo to “boostify” the library beforehand. Look for an announcement for the review of this exciting library during Q2 and don’t hesitate to start investigating the library now. The author can be found on the Cpplang slack at #boost. Existing Libraries Math New in Boost 1.85 is a number of optimization algorithms (https://www.boost.org/doc/libs/1_85_0/libs/math/doc/html/optimization.html) developed by Nick Thompson. This sub-library contains both classical (random_search), and novel (jSO) algorithms. I was able to assist him in the development and debugging of multi-threaded code which is never an easy task.</summary></entry><entry><title type="html">Mohammad’s Q1 2024 Update</title><link href="http://cppalliance.org/mohammad/2024/04/22/MohammadsQ1Update.html" rel="alternate" type="text/html" title="Mohammad’s Q1 2024 Update" /><published>2024-04-22T00:00:00+00:00</published><updated>2024-04-22T00:00:00+00:00</updated><id>http://cppalliance.org/mohammad/2024/04/22/MohammadsQ1Update</id><content type="html" xml:base="http://cppalliance.org/mohammad/2024/04/22/MohammadsQ1Update.html">&lt;p&gt;The following is an overview of some projects I have been working on in the last few months:&lt;/p&gt;
+
+&lt;h3 id=&quot;boostbeast&quot;&gt;Boost.Beast&lt;/h3&gt;
+
+&lt;p&gt;Aside from addressing user issues and typical bug fixes within the project, this quarter I primarily focused on:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Resolving platform and compiler specific warnings.&lt;/li&gt;
+  &lt;li&gt;Rectifying SSL builds in CI.&lt;/li&gt;
+  &lt;li&gt;Documenting certain pitfalls and subtleties in some operations.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;boosthttpproto-and-boostbuffers&quot;&gt;Boost.Http.Proto and Boost.Buffers&lt;/h3&gt;
+
+&lt;p&gt;I’ve recently started contributing to the &lt;a href=&quot;https://github.com/cppalliance/http_proto&quot;&gt;Http.Proto&lt;/a&gt; project. My contributions focus on refining the serializer’s handling of algorithms capable of generating body contents directly within the serializer’s internal buffer in one or multiple steps, for example, for sending the contents of a file as an HTTP message without relying on an external buffer. Additionally, I’ve converted the documentation in Boost.Buffers to Asciidoc format and leveraged &lt;a href=&quot;https://github.com/cppalliance/mrdocs&quot;&gt;MrDocs&lt;/a&gt; for documentation generation instead of Doxygen.&lt;/p&gt;
+
+&lt;h3 id=&quot;boost-gecko&quot;&gt;Boost-Gecko&lt;/h3&gt;
+
+&lt;p&gt;I’ve made some changes to &lt;a href=&quot;https://github.com/cppalliance/boost-gecko&quot;&gt;Boost-Gecko&lt;/a&gt; so it can utilize all the cores on the machine that is running on, which made the crawling operation way faster. In the next step, I added a Github workflow for the indexing operation, so now it can automatically crawl the latest version of Boost libraries documentation and upload them to Algolia.&lt;/p&gt;</content><author><name></name></author><category term="mohammad" /><summary type="html">The following is an overview of some projects I have been working on in the last few months: Boost.Beast Aside from addressing user issues and typical bug fixes within the project, this quarter I primarily focused on: Resolving platform and compiler specific warnings. Rectifying SSL builds in CI. Documenting certain pitfalls and subtleties in some operations. Boost.Http.Proto and Boost.Buffers I’ve recently started contributing to the Http.Proto project. My contributions focus on refining the serializer’s handling of algorithms capable of generating body contents directly within the serializer’s internal buffer in one or multiple steps, for example, for sending the contents of a file as an HTTP message without relying on an external buffer. Additionally, I’ve converted the documentation in Boost.Buffers to Asciidoc format and leveraged MrDocs for documentation generation instead of Doxygen. Boost-Gecko I’ve made some changes to Boost-Gecko so it can utilize all the cores on the machine that is running on, which made the crawling operation way faster. In the next step, I added a Github workflow for the indexing operation, so now it can automatically crawl the latest version of Boost libraries documentation and upload them to Algolia.</summary></entry><entry><title type="html">Christian’s Q1 2024 Update</title><link href="http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update.html" rel="alternate" type="text/html" title="Christian’s Q1 2024 Update" /><published>2024-04-20T00:00:00+00:00</published><updated>2024-04-20T00:00:00+00:00</updated><id>http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update</id><content type="html" xml:base="http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update.html">&lt;p&gt;In the past few months, I’ve been busy getting up to speed on the slate of proposed-for-Boost libraries:
+Boost.Buffers and Boost.Http.Proto.&lt;/p&gt;
+
+&lt;p&gt;The first real task was getting the CI setup for that and we chose to use an in-house solution. I was never really an
+expert in GitHub Actions nor CI so there was a definite learning curve in how to debug CI issues and what’s an effective
+use of time versus not.&lt;/p&gt;
+
+&lt;p&gt;But more importantly I was able to discern what was and what wasn’t important to automate in the CI pipeline. The actual
+actions you can define in GHA are incredibly powerful and as someone who’s well-versed in JavaScript, I find them quite
+nice and easy to use.&lt;/p&gt;
+
+&lt;p&gt;The in-house tools we use are called cpp-actions, available &lt;a href=&quot;https://github.com/alandefreitas/cpp-actions&quot;&gt;here&lt;/a&gt; if
+one is interested or wants to try them out. I’d say they’re all good except for the one that generates the actual
+build matrix. This is something I learned via trial by fire.&lt;/p&gt;
+
+&lt;p&gt;This gist of actions is that they’re essentially functions with inputs and outputs. An action that generates your inputs
+for you such as compiler and compiler flags inverts the benefits and turns actions into a burden instead of a boon. This
+is because not every project will aim to support the same compilers and the same flags. Some entries of the build matrix
+will have even more special requirements than others so being able to edit the matrix and add flags or other configuration
+options becomes paramount.&lt;/p&gt;
+
+&lt;p&gt;The action can attempt to accomodate these use-cases but the resulting syntax is likely to be poor and more trouble than
+it’s worth. I noted a stark improvement in my CI experience once I was fully in control of the inputs and simply treated
+actions like an opaque functional pipeline. The ability to just add a new field to a matrix entry was a huge convenience
+in comparison to the process it took to update the matrix-building action which requires updating a separate repo and then
+a SHA in the repo actually being tested.&lt;/p&gt;
+
+&lt;p&gt;But CI is worth it. We introduce all this complexity in our development pipelines because taking some C++ and compiling
+it on as many platforms as we can is the best way to root out undefined behavior and other bugs. I found GitHub Actions
+to be an enjoyable experience but there’s caveats. Most Boost libraries use ad hoc CI configuration so I laud the work
+that’s been done to abstract all this. The wisdom here is that not all forms of automation are free and there’s
+different requirements and costs to be considered. Sometimes, rote copy-paste with inline editing just wins out and it’s
+only through experience that we get a sense of when this is the case.&lt;/p&gt;
+
+&lt;p&gt;As for buffer operations and HTTP, they’re still being actively developed and worked on. Good progress has been made on
+that front. The container types and serialization routines have received a lot of love and are that much closer to being
+fully production-ready. CI took a long time to understand and setup so the next quarter will be more focused on actual
+C++ and the pedantry of HTTP RFCs.&lt;/p&gt;</content><author><name></name></author><category term="christian" /><summary type="html">In the past few months, I’ve been busy getting up to speed on the slate of proposed-for-Boost libraries: Boost.Buffers and Boost.Http.Proto. The first real task was getting the CI setup for that and we chose to use an in-house solution. I was never really an expert in GitHub Actions nor CI so there was a definite learning curve in how to debug CI issues and what’s an effective use of time versus not. But more importantly I was able to discern what was and what wasn’t important to automate in the CI pipeline. The actual actions you can define in GHA are incredibly powerful and as someone who’s well-versed in JavaScript, I find them quite nice and easy to use. The in-house tools we use are called cpp-actions, available here if one is interested or wants to try them out. I’d say they’re all good except for the one that generates the actual build matrix. This is something I learned via trial by fire. This gist of actions is that they’re essentially functions with inputs and outputs. An action that generates your inputs for you such as compiler and compiler flags inverts the benefits and turns actions into a burden instead of a boon. This is because not every project will aim to support the same compilers and the same flags. Some entries of the build matrix will have even more special requirements than others so being able to edit the matrix and add flags or other configuration options becomes paramount. The action can attempt to accomodate these use-cases but the resulting syntax is likely to be poor and more trouble than it’s worth. I noted a stark improvement in my CI experience once I was fully in control of the inputs and simply treated actions like an opaque functional pipeline. The ability to just add a new field to a matrix entry was a huge convenience in comparison to the process it took to update the matrix-building action which requires updating a separate repo and then a SHA in the repo actually being tested. But CI is worth it. We introduce all this complexity in our development pipelines because taking some C++ and compiling it on as many platforms as we can is the best way to root out undefined behavior and other bugs. I found GitHub Actions to be an enjoyable experience but there’s caveats. Most Boost libraries use ad hoc CI configuration so I laud the work that’s been done to abstract all this. The wisdom here is that not all forms of automation are free and there’s different requirements and costs to be considered. Sometimes, rote copy-paste with inline editing just wins out and it’s only through experience that we get a sense of when this is the case. As for buffer operations and HTTP, they’re still being actively developed and worked on. Good progress has been made on that front. The container types and serialization routines have received a lot of love and are that much closer to being fully production-ready. CI took a long time to understand and setup so the next quarter will be more focused on actual C++ and the pedantry of HTTP RFCs.</summary></entry><entry><title type="html">Joaquín’s Q1 2024 Update</title><link href="http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update.html" rel="alternate" type="text/html" title="Joaquín’s Q1 2024 Update" /><published>2024-04-20T00:00:00+00:00</published><updated>2024-04-20T00:00:00+00:00</updated><id>http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update</id><content type="html" xml:base="http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update.html">&lt;p&gt;During Q1 2024, I’ve been working in the following areas:&lt;/p&gt;
+
+&lt;h3 id=&quot;boostunordered&quot;&gt;Boost.Unordered&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Reviewed Braden’s work on optimization of &lt;code&gt;emplace(k, v)&lt;/code&gt; calls (&lt;a href=&quot;https://github.com/boostorg/unordered/pull/230&quot;&gt;PR#230&lt;/a&gt;,
+released in &lt;a href=&quot;https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0&quot;&gt;Boost 1.85.0&lt;/a&gt;).
+With this optimization, statements such as:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code&gt;m.emplace(0,&quot;zero&quot;);&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;won’t create a temporary &lt;code&gt;(0, &quot;zero&quot;)&lt;/code&gt; value if the element with key 0 already exists. This is particularly relevant
+when dynamic memory allocation is involved (for instance, if &lt;code&gt;mapped_type&lt;/code&gt; is &lt;code&gt;std::string&lt;/code&gt; in the example above).
+The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation.&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Fixed support for allocators with explicit copy constructors (&lt;a href=&quot;https://github.com/boostorg/unordered/pull/234&quot;&gt;PR#234&lt;/a&gt;,
+released in &lt;a href=&quot;https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0&quot;&gt;Boost 1.85.0&lt;/a&gt;).&lt;/li&gt;
+  &lt;li&gt;Fixed bug in the const version of &lt;code&gt;unordered_multimap::find(k, hash, eq)&lt;/code&gt; (&lt;a href=&quot;https://github.com/boostorg/unordered/pull/238&quot;&gt;PR#238&lt;/a&gt;,
+released in &lt;a href=&quot;https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0&quot;&gt;Boost 1.85.0&lt;/a&gt;).&lt;/li&gt;
+  &lt;li&gt;Reviewed Braden’s work on addition of &lt;code&gt;boost::unordered::pmr aliases&lt;/code&gt; for Boost.Unordered containers using
+&lt;code&gt;std::pmr::polymorphic_allocator&lt;/code&gt; (&lt;a href=&quot;https://github.com/boostorg/unordered/pull/239&quot;&gt;PR#239&lt;/a&gt;, to be released in Boost 1.86.0).&lt;/li&gt;
+  &lt;li&gt;I’ve continued working on learning about advanced concurrency techniques implemented by
+&lt;a href=&quot;https://github.com/cmuparlay/parlayhash&quot;&gt;ParlayHash&lt;/a&gt; with a view towards leveraging them for the
+improvement of &lt;code&gt;boost::concurrent_flat_map&lt;/code&gt; in massively parallel scenarios. Latest research has
+focused on implementing (emulated) &lt;a href=&quot;https://github.com/boostorg/unordered/compare/687a446784da8592f8795f1068328e9de041f63b...a4a5a3e12790df7236f1e38b3ec29cdc0463b6cc&quot;&gt;load-link/store-conditional techniques&lt;/a&gt;,
+but results are still well below those achieved by ParlayHash. Advance is hampered by the need to
+access a many-core machine for benchmarking, which slows down turnaround times.&lt;/li&gt;
+  &lt;li&gt;On April 25, I’m giving a talk on perfect hashing at &lt;a href=&quot;https://eventos.uc3m.es/105614/programme/using-std-cpp-2024.html&quot;&gt;using std::cpp 2024&lt;/a&gt;.
+I’ve been preparing the presentation and associated material, which will be made public shortly after the talk.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;boostbimap&quot;&gt;Boost.Bimap&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Fixed heterogeneous lookup for side collections (&lt;a href=&quot;https://github.com/boostorg/bimap/pull/42&quot;&gt;PR#42&lt;/a&gt;,
+released in &lt;a href=&quot;https://www.boost.org/doc/libs/1_85_0/libs/bimap/doc/html/boost_bimap/release_notes.html#boost_bimap.release_notes.boost_1_85_release&quot;&gt;Boost 1.85.0&lt;/a&gt;).
+Boost.Bimap is in need of a maintainer, if you’d like to take over this role please step in!&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;boost-promotion-and-new-website&quot;&gt;Boost promotion and new website&lt;/h3&gt;
+
+&lt;p&gt;As of lately, I’m devoting more time to Boost-related tasks outside of actual programming:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;I’ve authored several promotional tweets such as &lt;a href=&quot;https://x.com/Boost_Libraries/status/1750559787220099577&quot;&gt;this&lt;/a&gt;,
+&lt;a href=&quot;https://x.com/Boost_Libraries/status/1755277784824344943&quot;&gt;this&lt;/a&gt; and
+&lt;a href=&quot;https://x.com/Boost_Libraries/status/1768833941341896756&quot;&gt;this&lt;/a&gt;: the art was commisioned to
+the amazing &lt;a href=&quot;https://www.bobostrom.com/&quot;&gt;Bob Ostrom&lt;/a&gt;.&lt;/li&gt;
+  &lt;li&gt;Starting in late March, I’m managing the project to complete the proposed &lt;a href=&quot;https://www.boost.io/&quot;&gt;new website for Boost&lt;/a&gt;.
+We should be ready for launch early in Q2 2024. If you’re curious, you can take a look at
+the project backlogs &lt;a href=&quot;https://github.com/boostorg/website-v2/issues&quot;&gt;here&lt;/a&gt; and &lt;a href=&quot;https://github.com/boostorg/website-v2-docs/issues&quot;&gt;here&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;a-new-golden-era-for-boost&quot;&gt;A new golden era for Boost?&lt;/h3&gt;
+
+&lt;p&gt;I’ve been a contributor and keen observer of Boost for more than 20 years, back from the day when
+the project was spearheading the community initiatives to provide high-quality libraries for
+eventual standardization. After crucially contributing to the watershed upgrade of the
+standard library in C++11, Boost popularity waned, partially because of its success
+in getting many of its key components standardized, but also due to external and internal
+factors (appearance of excellent, lighter alternatives to some of its libraries,
+lack of modernization, monolithicity, etc.) In the last couple of years or so, however,
+I’ve noticed a resurgence in the interest for Boost: I can’t provide hard data yet (I
+will eventually), but I’m following some proxy signs (presence and feedback on social media,
+mainly) that may indicate we’re back on track towards better serving the C++ community. Some concrete
+initiatives that I think are helping improve the public perception of the project are:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Better package management support from Conan and vcpkg.&lt;/li&gt;
+  &lt;li&gt;Modularization efforts both with &lt;a href=&quot;https://github.com/boostorg/cmake&quot;&gt;CMake&lt;/a&gt; and &lt;a href=&quot;https://github.com/grafikrobot/boostorg.boost&quot;&gt;B2&lt;/a&gt;.&lt;/li&gt;
+  &lt;li&gt;Deprecation of C++03 support by many Boost libraries.&lt;/li&gt;
+  &lt;li&gt;Ongoing work and conversations around the proposed new website and potential &lt;a href=&quot;https://anarthal.github.io/cppblog/modules&quot;&gt;module support&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;I’m no postmodernist, but I recognize the power of narratives and good PR strategies
+even in the supposedly objetive world of software development. Backed by its diverse
+catalog of high-quality libraries and resources,
+I’d like to contribute what little I can to communicating the current and future benefits of
+Boost to the C++ community.&lt;/p&gt;</content><author><name></name></author><category term="joaquin" /><summary type="html">During Q1 2024, I’ve been working in the following areas: Boost.Unordered Reviewed Braden’s work on optimization of emplace(k, v) calls (PR#230, released in Boost 1.85.0). With this optimization, statements such as: m.emplace(0,&quot;zero&quot;); won’t create a temporary (0, &quot;zero&quot;) value if the element with key 0 already exists. This is particularly relevant when dynamic memory allocation is involved (for instance, if mapped_type is std::string in the example above). The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation. Fixed support for allocators with explicit copy constructors (PR#234, released in Boost 1.85.0). Fixed bug in the const version of unordered_multimap::find(k, hash, eq) (PR#238, released in Boost 1.85.0). Reviewed Braden’s work on addition of boost::unordered::pmr aliases for Boost.Unordered containers using std::pmr::polymorphic_allocator (PR#239, to be released in Boost 1.86.0). I’ve continued working on learning about advanced concurrency techniques implemented by ParlayHash with a view towards leveraging them for the improvement of boost::concurrent_flat_map in massively parallel scenarios. Latest research has focused on implementing (emulated) load-link/store-conditional techniques, but results are still well below those achieved by ParlayHash. Advance is hampered by the need to access a many-core machine for benchmarking, which slows down turnaround times. On April 25, I’m giving a talk on perfect hashing at using std::cpp 2024. I’ve been preparing the presentation and associated material, which will be made public shortly after the talk. Boost.Bimap Fixed heterogeneous lookup for side collections (PR#42, released in Boost 1.85.0). Boost.Bimap is in need of a maintainer, if you’d like to take over this role please step in! Boost promotion and new website As of lately, I’m devoting more time to Boost-related tasks outside of actual programming: I’ve authored several promotional tweets such as this, this and this: the art was commisioned to the amazing Bob Ostrom. Starting in late March, I’m managing the project to complete the proposed new website for Boost. We should be ready for launch early in Q2 2024. If you’re curious, you can take a look at the project backlogs here and here. A new golden era for Boost? I’ve been a contributor and keen observer of Boost for more than 20 years, back from the day when the project was spearheading the community initiatives to provide high-quality libraries for eventual standardization. After crucially contributing to the watershed upgrade of the standard library in C++11, Boost popularity waned, partially because of its success in getting many of its key components standardized, but also due to external and internal factors (appearance of excellent, lighter alternatives to some of its libraries, lack of modernization, monolithicity, etc.) In the last couple of years or so, however, I’ve noticed a resurgence in the interest for Boost: I can’t provide hard data yet (I will eventually), but I’m following some proxy signs (presence and feedback on social media, mainly) that may indicate we’re back on track towards better serving the C++ community. Some concrete initiatives that I think are helping improve the public perception of the project are: Better package management support from Conan and vcpkg. Modularization efforts both with CMake and B2. Deprecation of C++03 support by many Boost libraries. Ongoing work and conversations around the proposed new website and potential module support. I’m no postmodernist, but I recognize the power of narratives and good PR strategies even in the supposedly objetive world of software development. Backed by its diverse catalog of high-quality libraries and resources, I’d like to contribute what little I can to communicating the current and future benefits of Boost to the C++ community.</summary></entry><entry><title type="html">Peter Turcan Q1 2024 Status</title><link href="http://cppalliance.org/peter/2024/04/19/PeterTurcan-Q1-2024.html" rel="alternate" type="text/html" title="Peter Turcan Q1 2024 Status" /><published>2024-04-19T00:00:00+00:00</published><updated>2024-04-19T00:00:00+00:00</updated><id>http://cppalliance.org/peter/2024/04/19/PeterTurcan-Q1-2024</id><content type="html" xml:base="http://cppalliance.org/peter/2024/04/19/PeterTurcan-Q1-2024.html">&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;Added a Contributors FAQ to the Contributor Guide, then updated it with a series of questions and answers on Security - based on what I thought many new developers might ask about Security. Added a Licensing section covering questions on the BSL,  migrating and updating a legacy topic. This FAQ currently has 35 questions and answers.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Reviewed and provided detailed feedback on the documentation for the candidate Boost Parsing library.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Migrated an In-memoriam topic for Beman Dawes.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;In the User Guide section added a Boost Discussion Policy page,  migrating and updating a legacy topic.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Added a Modular Boost section to both the User Guide FAQ and Contributor Guide FAQ, with questions and answers particular to the audience.  The User Guide FAQ currently has 57 questions and answers.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Wrote a Test Matrix topic, migrating and updating a legacy topic.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Based on feedback - always welcome - updated the User Guide and Contributor Guide with more appropriate links and improved information.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;In the Formal Reviews section added Managing a Review and Writing a Review topics, migrating and updating legacy topics. Currently working on more updates to the Formal Reviews section.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="peter" /><summary type="html">Added a Contributors FAQ to the Contributor Guide, then updated it with a series of questions and answers on Security - based on what I thought many new developers might ask about Security. Added a Licensing section covering questions on the BSL, migrating and updating a legacy topic. This FAQ currently has 35 questions and answers. Reviewed and provided detailed feedback on the documentation for the candidate Boost Parsing library. Migrated an In-memoriam topic for Beman Dawes. In the User Guide section added a Boost Discussion Policy page, migrating and updating a legacy topic. Added a Modular Boost section to both the User Guide FAQ and Contributor Guide FAQ, with questions and answers particular to the audience. The User Guide FAQ currently has 57 questions and answers. Wrote a Test Matrix topic, migrating and updating a legacy topic. Based on feedback - always welcome - updated the User Guide and Contributor Guide with more appropriate links and improved information. In the Formal Reviews section added Managing a Review and Writing a Review topics, migrating and updating legacy topics. Currently working on more updates to the Formal Reviews section.</summary></entry><entry><title type="html">Ruben’s Q1 2024 Update</title><link href="http://cppalliance.org/q1_update/2024/04/19/RubenQ1.html" rel="alternate" type="text/html" title="Ruben’s Q1 2024 Update" /><published>2024-04-19T00:00:00+00:00</published><updated>2024-04-19T00:00:00+00:00</updated><id>http://cppalliance.org/q1_update/2024/04/19/RubenQ1</id><content type="html" xml:base="http://cppalliance.org/q1_update/2024/04/19/RubenQ1.html">&lt;h2 id=&quot;client-side-sql-formatting&quot;&gt;Client-side SQL formatting&lt;/h2&gt;
+
+&lt;p&gt;A new grand feature has arrived to Boost.MySQL’s city: &lt;a href=&quot;https://www.boost.org/doc/libs/master/libs/mysql/doc/html/mysql/sql_formatting.html&quot;&gt;client-side SQL formatting&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;If you’ve worked with MySQL C API before, you may be familiar with &lt;a href=&quot;https://dev.mysql.com/doc/c-api/8.0/en/mysql-real-escape-string.html&quot;&gt;&lt;code&gt;mysql_real_escape_string&lt;/code&gt;&lt;/a&gt;: a function that takes a string and escapes it, enabling the user to compose queries dynamically without the risk of running into SQL injection vulnerabilities. We didn’t have a matching function in Boost.MySQL… until now.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;mysql_real_escape_string&lt;/code&gt; is a pretty low-level construct. While we have an equivalent function, I also wanted to build higher-level functionality to allow composing dynamic SQL queries in a simple way.&lt;/p&gt;
+
+&lt;p&gt;Let’s say you want to insert a bunch of employee records into a table. Until now, the only way to go was use prepared statements, like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;asio::awaitable&amp;lt;void&amp;gt; insert_employees(
+    mysql::any_connection&amp;amp; conn,
+    span&amp;lt;const employee&amp;gt; employees
+)
+{
+    assert(!employees.empty());
+
+    // Prepare a statement
+    auto stmt = co_await conn.async_prepare_statement(&quot;INSERT INTO employee (name, company) VALUES (?, ?)&quot;, asio::deferred);
+
+    // Execute it as many times as records we want to insert.
+    // Note that this performs a round-trip to the server for each record
+    for (const auto&amp;amp; emp: employees)
+    {
+        co_await conn.async_execute(stmt.bind(emp.name, emp.company), asio::deferred);
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This can be pretty inefficient, as we’re inserting records one by one. If you’re experienced with SQL, you may be thinking: “why don’t you batch the inserts in a single query”? We can’t do this with prepared statements. But if we had a way to securely compose a query client-side… Fortunately, we now have this!&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;asio::awaitable&amp;lt;void&amp;gt; insert_employees(
+    mysql::any_connection&amp;amp; conn,
+    span&amp;lt;const employee&amp;gt; employees
+)
+{
+    assert(!employees.empty());
+
+    // Compose a query string client-side, using fmtlib-like format strings.
+    // Formatting will take care of escaping your string values
+    mysql::format_context ctx(opts);
+    ctx.append_raw(&quot;INSERT INTO employee (name, company) VALUES &quot;);
+    bool is_first = true;
+    for (const auto&amp;amp; emp : employees)
+    {
+        // Comma separator
+        if (!is_first) ctx.append_raw(&quot;, &quot;);
+        is_first = false;
+
+        // Actual record
+        mysql::format_sql_to(ctx, &quot;({}, {})&quot;, emp.name, emp.company);
+    }
+    std::string query = std::move(ctx).get().value();
+
+    co_await conn.async_execute(query, asio::use_awaitable);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And if you’re issuing simple queries, you may be able to avoid prepared statements altogether:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;asio::awaitable&amp;lt;employee&amp;gt; get_employee_by_id(
+    mysql::any_connection&amp;amp; conn,
+    std::int64_t id
+)
+{
+    mysql::static_results&amp;lt;employee&amp;gt; r;
+    co_await conn.async_execute(
+        mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM employee WHERE id = {}&quot;, id),
+        asio::deferred
+    );
+    co_return std::move(r.rows().at(0));
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This feature enables lots of other complex use cases, like dynamic filters, patch-like updates and pipelining.&lt;/p&gt;
+
+&lt;h2 id=&quot;boostpfr-integration-and-maintenance-work&quot;&gt;Boost.PFR integration and maintenance work&lt;/h2&gt;
+
+&lt;p&gt;Boost.PFR users may be happy to know that &lt;code&gt;static_results&lt;/code&gt; and friends now support PFR types! This will become available in Boost 1.86.&lt;/p&gt;
+
+&lt;p&gt;Additionally, I’ve been doing some extra maintenance work to attempt to deliver a Boost 1.85 as high-quality as possible.&lt;/p&gt;
+
+&lt;h2 id=&quot;boostcharconv&quot;&gt;Boost.Charconv&lt;/h2&gt;
+
+&lt;p&gt;Many of you may have heard that Boost.Charconv, by Matt Borland, is now a proud member of Boost! Charconv is a high-quality polyfill library that provides functionality like &lt;code&gt;std::to_chars&lt;/code&gt; and &lt;code&gt;std::from_chars&lt;/code&gt; in C++11. I desperately needed this for Boost.MySQL, as text queries parse ints and doubles, and client-side formatting serializes them. Locale-independence is particularly important for the latter, as &lt;code&gt;SELECT 4.2&lt;/code&gt; is valid SQL, while &lt;code&gt;SELECT 4,2&lt;/code&gt; may open the door to a SQL injection vulnerability. Not fun.&lt;/p&gt;
+
+&lt;p&gt;I feel that just reading the documentation and playing with a library is sometimes not enough to emit a useful review. I thought I could do better this time, and took a different approach to the review: I’d try to use the library in Boost.MySQL and report my experience.&lt;/p&gt;
+
+&lt;p&gt;I’m pretty satisfied with the results, as focusing on a real use case avoids bike-shedding and provides good feedback. As Boost.MySQL has an extensive test suite, rewriting part of it makes the library build and run under many different scenarios, usually uncovering subtle integration issues (e.g. with CMake files). I’ve been very happy with the quality of the library and the author’s response to my feedback, and I’ve decided to be an early adopter - Boost.MySQL 1.85 uses Charconv extensively.&lt;/p&gt;
+
+&lt;h2 id=&quot;boostparser&quot;&gt;Boost.Parser&lt;/h2&gt;
+
+&lt;p&gt;Since the new review approach had worked great, I decided to repeat it for Boost.Parser. I rewrote the client-side SQL formatting feature, which parses format strings, using Boost.Parser. Again, it by uncovering a couple of issues.&lt;/p&gt;
+
+&lt;p&gt;I can’t use Boost.Parser in MySQL because it requires C++17 (and is an overshot, considering my simple use case). But I feel the review was helpful for Boost’s overall quality.&lt;/p&gt;
+
+&lt;h2 id=&quot;other-contributions&quot;&gt;Other contributions&lt;/h2&gt;
+
+&lt;p&gt;I’ve also helped Boost.Redis’ author to set up part of his integration testing CI, following what I learnt setting up Boost.MySQL CIs. I’ve also refactored MySQL’s build scripts to be more compliant with Boost best-practices, which has provided me some exposure to Boost’s internal machinery.&lt;/p&gt;</content><author><name></name></author><category term="q1_update" /><summary type="html">Client-side SQL formatting A new grand feature has arrived to Boost.MySQL’s city: client-side SQL formatting. If you’ve worked with MySQL C API before, you may be familiar with mysql_real_escape_string: a function that takes a string and escapes it, enabling the user to compose queries dynamically without the risk of running into SQL injection vulnerabilities. We didn’t have a matching function in Boost.MySQL… until now. mysql_real_escape_string is a pretty low-level construct. While we have an equivalent function, I also wanted to build higher-level functionality to allow composing dynamic SQL queries in a simple way. Let’s say you want to insert a bunch of employee records into a table. Until now, the only way to go was use prepared statements, like this: asio::awaitable&amp;lt;void&amp;gt; insert_employees( mysql::any_connection&amp;amp; conn, span&amp;lt;const employee&amp;gt; employees ) { assert(!employees.empty()); // Prepare a statement auto stmt = co_await conn.async_prepare_statement(&quot;INSERT INTO employee (name, company) VALUES (?, ?)&quot;, asio::deferred); // Execute it as many times as records we want to insert. // Note that this performs a round-trip to the server for each record for (const auto&amp;amp; emp: employees) { co_await conn.async_execute(stmt.bind(emp.name, emp.company), asio::deferred); } } This can be pretty inefficient, as we’re inserting records one by one. If you’re experienced with SQL, you may be thinking: “why don’t you batch the inserts in a single query”? We can’t do this with prepared statements. But if we had a way to securely compose a query client-side… Fortunately, we now have this! asio::awaitable&amp;lt;void&amp;gt; insert_employees( mysql::any_connection&amp;amp; conn, span&amp;lt;const employee&amp;gt; employees ) { assert(!employees.empty()); // Compose a query string client-side, using fmtlib-like format strings. // Formatting will take care of escaping your string values mysql::format_context ctx(opts); ctx.append_raw(&quot;INSERT INTO employee (name, company) VALUES &quot;); bool is_first = true; for (const auto&amp;amp; emp : employees) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual record mysql::format_sql_to(ctx, &quot;({}, {})&quot;, emp.name, emp.company); } std::string query = std::move(ctx).get().value(); co_await conn.async_execute(query, asio::use_awaitable); } And if you’re issuing simple queries, you may be able to avoid prepared statements altogether: asio::awaitable&amp;lt;employee&amp;gt; get_employee_by_id( mysql::any_connection&amp;amp; conn, std::int64_t id ) { mysql::static_results&amp;lt;employee&amp;gt; r; co_await conn.async_execute( mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM employee WHERE id = {}&quot;, id), asio::deferred ); co_return std::move(r.rows().at(0)); } This feature enables lots of other complex use cases, like dynamic filters, patch-like updates and pipelining. Boost.PFR integration and maintenance work Boost.PFR users may be happy to know that static_results and friends now support PFR types! This will become available in Boost 1.86. Additionally, I’ve been doing some extra maintenance work to attempt to deliver a Boost 1.85 as high-quality as possible. Boost.Charconv Many of you may have heard that Boost.Charconv, by Matt Borland, is now a proud member of Boost! Charconv is a high-quality polyfill library that provides functionality like std::to_chars and std::from_chars in C++11. I desperately needed this for Boost.MySQL, as text queries parse ints and doubles, and client-side formatting serializes them. Locale-independence is particularly important for the latter, as SELECT 4.2 is valid SQL, while SELECT 4,2 may open the door to a SQL injection vulnerability. Not fun. I feel that just reading the documentation and playing with a library is sometimes not enough to emit a useful review. I thought I could do better this time, and took a different approach to the review: I’d try to use the library in Boost.MySQL and report my experience. I’m pretty satisfied with the results, as focusing on a real use case avoids bike-shedding and provides good feedback. As Boost.MySQL has an extensive test suite, rewriting part of it makes the library build and run under many different scenarios, usually uncovering subtle integration issues (e.g. with CMake files). I’ve been very happy with the quality of the library and the author’s response to my feedback, and I’ve decided to be an early adopter - Boost.MySQL 1.85 uses Charconv extensively. Boost.Parser Since the new review approach had worked great, I decided to repeat it for Boost.Parser. I rewrote the client-side SQL formatting feature, which parses format strings, using Boost.Parser. Again, it by uncovering a couple of issues. I can’t use Boost.Parser in MySQL because it requires C++17 (and is an overshot, considering my simple use case). But I feel the review was helpful for Boost’s overall quality. Other contributions I’ve also helped Boost.Redis’ author to set up part of his integration testing CI, following what I learnt setting up Boost.MySQL CIs. I’ve also refactored MySQL’s build scripts to be more compliant with Boost best-practices, which has provided me some exposure to Boost’s internal machinery.</summary></entry><entry><title type="html">Sam’s Q1 2024 Update</title><link href="http://cppalliance.org/sam/2024/04/05/SamsQ1Update.html" rel="alternate" type="text/html" title="Sam’s Q1 2024 Update" /><published>2024-04-05T00:00:00+00:00</published><updated>2024-04-05T00:00:00+00:00</updated><id>http://cppalliance.org/sam/2024/04/05/SamsQ1Update</id><content type="html" xml:base="http://cppalliance.org/sam/2024/04/05/SamsQ1Update.html">&lt;p&gt;Here’s an overview of some projects I have been working on the last few months.&lt;/p&gt;
+
+&lt;h3 id=&quot;boost-downloads&quot;&gt;Boost Downloads&lt;/h3&gt;
+
+&lt;p&gt;Set up an AWS Cloudfront CDN at archives.boost.io to host the Boost releases during an outage. JFrog is planning to cancel the account, and the outage was an unintentional (or intentional) warning. Extensive experimentation using a Fastly CDN in conjunction with JFrog, however they are sending S3 redirects which prevent this configuration. Installed another origin server and a load balancer. Debugged nginx. Added TLS. archives.boost.io has now been migrated from AWS Cloudfront to Fastly, with our own origin servers being the source rather than JFrog. 50TB of traffic each month even when not advertised on boost.org. The download traffic is mostly from the React open source project.&lt;/p&gt;
+
+&lt;h3 id=&quot;boost-website-boostorgwebsite-v2&quot;&gt;Boost website boostorg/website-v2&lt;/h3&gt;
+
+&lt;p&gt;Configured and tested TLS certificates in GCP. Increased cpu/mem on production. Composed a runbook for go-live steps of the boost website. Worked on automating this as much as possible, for example, a sticking point was that Social Auth (google, github) was locked to only one DNS domain. It would not respond on preview and www simultaneously. Solving that took many detours into other components, the Django “sites” framework and the allauth codebase. Worked with Lacey on a number of github issues, the main one being the problem that previous versions of boost libraries use inconsistent documentation paths. Each exception should be handled individually. Developed comprehensive script to sync boost.io production to staging (database + S3 files). Researching postgres backup/restore topics. Migrated preview.boost.org to www.boost.io. Some issues with transition to boostorg github. Solved trailing-slash bug: website links are missing the final slash character needed for a directory.&lt;/p&gt;
+
+&lt;p&gt;Created a static html mirror of boost.org: boost.org.cpp.al.&lt;/p&gt;
+
+&lt;h3 id=&quot;boostorgrelease-tools&quot;&gt;boostorg/release-tools&lt;/h3&gt;
+
+&lt;p&gt;Sent a PR to boostorg/boost with an updated release docker image. Refactored multiple scripts to be able to support Github Releases if that option is needed in the future. Consider options to reduce the size of the releases, such as a source-only distribution. Still in the planning stages with Alan, not done. Discussion about extra Antora files in the release artifact. Developed new scripts so published releases will sync to the new CDN. Created S3 bucket boost-archives, copying files from JFrog.&lt;/p&gt;
+
+&lt;p&gt;Debugging boostorg/cobalt docs build, sent image files to Klemens.&lt;/p&gt;
+
+&lt;h3 id=&quot;mailman-project&quot;&gt;Mailman project&lt;/h3&gt;
+
+&lt;p&gt;Set up new test mailman servers for each environment (production, stage, etc). VMs, mailgun account, DNS, databases. Imported previous archives. Updated Ansible role to support Elasticsearch. Opened tickets with Hyperkitty about search results, display formats. Refactored ansible-mailman settings.py file to use an .env file instead of ansible variables, so it can integrate more easily with external dev environments. Created another github repo to collaborate on mailman. Checking on mailman cronjobs. Upgraded Hyperkitty.&lt;/p&gt;
+
+&lt;h3 id=&quot;wowbagger&quot;&gt;wowbagger&lt;/h3&gt;
+
+&lt;p&gt;Early in January, engaged in discussions with the Boost Foundation about the condition of wowbagger, its relevance, list of services, issues in upgrading it.&lt;/p&gt;
+
+&lt;h3 id=&quot;jenkins&quot;&gt;Jenkins&lt;/h3&gt;
+
+&lt;p&gt;Reconfigure certain jobs to use their own node_modules directories, not a shared directory.&lt;/p&gt;
+
+&lt;h3 id=&quot;drone&quot;&gt;Drone&lt;/h3&gt;
+
+&lt;p&gt;Investigated and solved FreeBSD b2 crash. Deleted gcc symlink, only gcc11 remains. Advising tzlaine/parser about Drone integration.&lt;/p&gt;</content><author><name></name></author><category term="sam" /><summary type="html">Here’s an overview of some projects I have been working on the last few months. Boost Downloads Set up an AWS Cloudfront CDN at archives.boost.io to host the Boost releases during an outage. JFrog is planning to cancel the account, and the outage was an unintentional (or intentional) warning. Extensive experimentation using a Fastly CDN in conjunction with JFrog, however they are sending S3 redirects which prevent this configuration. Installed another origin server and a load balancer. Debugged nginx. Added TLS. archives.boost.io has now been migrated from AWS Cloudfront to Fastly, with our own origin servers being the source rather than JFrog. 50TB of traffic each month even when not advertised on boost.org. The download traffic is mostly from the React open source project. Boost website boostorg/website-v2 Configured and tested TLS certificates in GCP. Increased cpu/mem on production. Composed a runbook for go-live steps of the boost website. Worked on automating this as much as possible, for example, a sticking point was that Social Auth (google, github) was locked to only one DNS domain. It would not respond on preview and www simultaneously. Solving that took many detours into other components, the Django “sites” framework and the allauth codebase. Worked with Lacey on a number of github issues, the main one being the problem that previous versions of boost libraries use inconsistent documentation paths. Each exception should be handled individually. Developed comprehensive script to sync boost.io production to staging (database + S3 files). Researching postgres backup/restore topics. Migrated preview.boost.org to www.boost.io. Some issues with transition to boostorg github. Solved trailing-slash bug: website links are missing the final slash character needed for a directory. Created a static html mirror of boost.org: boost.org.cpp.al. boostorg/release-tools Sent a PR to boostorg/boost with an updated release docker image. Refactored multiple scripts to be able to support Github Releases if that option is needed in the future. Consider options to reduce the size of the releases, such as a source-only distribution. Still in the planning stages with Alan, not done. Discussion about extra Antora files in the release artifact. Developed new scripts so published releases will sync to the new CDN. Created S3 bucket boost-archives, copying files from JFrog. Debugging boostorg/cobalt docs build, sent image files to Klemens. Mailman project Set up new test mailman servers for each environment (production, stage, etc). VMs, mailgun account, DNS, databases. Imported previous archives. Updated Ansible role to support Elasticsearch. Opened tickets with Hyperkitty about search results, display formats. Refactored ansible-mailman settings.py file to use an .env file instead of ansible variables, so it can integrate more easily with external dev environments. Created another github repo to collaborate on mailman. Checking on mailman cronjobs. Upgraded Hyperkitty. wowbagger Early in January, engaged in discussions with the Boost Foundation about the condition of wowbagger, its relevance, list of services, issues in upgrading it. Jenkins Reconfigure certain jobs to use their own node_modules directories, not a shared directory. Drone Investigated and solved FreeBSD b2 crash. Deleted gcc symlink, only gcc11 remains. Advising tzlaine/parser about Drone integration.</summary></entry><entry><title type="html">Alan’s Q4 Update 2023</title><link href="http://cppalliance.org/alan/2024/01/12/AlanQ4Update.html" rel="alternate" type="text/html" title="Alan’s Q4 Update 2023" /><published>2024-01-12T00:00:00+00:00</published><updated>2024-01-12T00:00:00+00:00</updated><id>http://cppalliance.org/alan/2024/01/12/AlanQ4Update</id><content type="html" xml:base="http://cppalliance.org/alan/2024/01/12/AlanQ4Update.html">&lt;h1 id=&quot;summary&quot;&gt;Summary&lt;/h1&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;#mrdocs&quot;&gt;MrDocs&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#handlebars&quot;&gt;Handlebars&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#boost-libraries&quot;&gt;Boost Libraries&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#boost-release-tools&quot;&gt;Boost Release Tools&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#boost-website&quot;&gt;Boost Website&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;mrdocs&quot;&gt;MrDocs&lt;/h2&gt;
+
+&lt;p&gt;Over the last quarter, we continued to work intensely on &lt;a href=&quot;https://github.com/cppalliance/mrdocs&quot;&gt;MrDocs&lt;/a&gt;, a
+documentation generator for C++ projects. I’ve been overseeing and reviewing all the work done by the other contributors
+in the project. Besides the work done by Krystian, Fernando also joined the project as a contributor.&lt;/p&gt;
+
+&lt;p&gt;We’ve been working on making the project at least as competitive as Doxygen + Docca, so we can start using it in a
+subset of Boost libraries. In this process, we have also been improving usability and documentation, considering
+feedback we received.&lt;/p&gt;
+
+&lt;p&gt;In particular, work in Q4 included:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Improvements to the documentation, both in javadocs and exposition&lt;/li&gt;
+  &lt;li&gt;Reducing technical debt, including extending APIs and problems with handlebars templates&lt;/li&gt;
+  &lt;li&gt;Updating CI workflows in coordination with the &lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt; project&lt;/li&gt;
+  &lt;li&gt;Usability improvements, including tools relative to installed executable and many new features for templates&lt;/li&gt;
+  &lt;li&gt;Fixes and improvements to installation procedure&lt;/li&gt;
+  &lt;li&gt;Features such as symbols with links to repositories and many new sections in templates&lt;/li&gt;
+  &lt;li&gt;Auxiliary utilities, such as a complete implementation of &lt;code&gt;std::expected&lt;/code&gt; for the project&lt;/li&gt;
+  &lt;li&gt;Generating binaries for the new LLVM version and updating the documentation&lt;/li&gt;
+  &lt;li&gt;Improvements to build scripts with CMake presets and vcpkg manifest files&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;In parallel, Boost.URL has integrated MrDocs, and is temporarily generating the documentation with both
+Doxygen+Docca and Antora+MrDocs. The documentation includes an extension to collect reference pages
+generated by MrDocs and include them in the Antora documentation. A preview of the documentation
+generated by MrDocs is available at https://792.urlantora.prtest2.cppalliance.org/site/url/index.html.&lt;/p&gt;
+
+&lt;p&gt;In general, I’ve been responsible for:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;setting up and maintaining CI for the project;&lt;/li&gt;
+  &lt;li&gt;MrDocs and LLVM release binaries;&lt;/li&gt;
+  &lt;li&gt;build scripts;&lt;/li&gt;
+  &lt;li&gt;setting up and integrating dependencies;&lt;/li&gt;
+  &lt;li&gt;setting up and deploying the Antora toolchains and documentation to the project website;&lt;/li&gt;
+  &lt;li&gt;working on supporting libraries; and&lt;/li&gt;
+  &lt;li&gt;supervising and reviewing the work done by other contributors (Krystian and Fernando);&lt;/li&gt;
+  &lt;li&gt;fixing bugs.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;handlebars&quot;&gt;Handlebars&lt;/h2&gt;
+
+&lt;p&gt;MrDocs includes a support library that reimplements the &lt;a href=&quot;https://handlebarsjs.com/&quot;&gt;Handlebars&lt;/a&gt; template engine in C++.
+This module is used to generate documentation from templates. This continued to be the MrDocs support
+library in which I have been investing most of my time.&lt;/p&gt;
+
+&lt;p&gt;MrDocs also includes a support library called “DOM” that provides a C++ interface to type-erased property trees, such as
+JSON and Javascript Objects. This module is used by MrDocs to create opaque representations of property trees that can
+be used by the Handlebars engine and other library functions. Such representations can come from a variety of sources,
+including JSON files, Javascript objects, and internal C++ objects with information parsed by MrDocs.&lt;/p&gt;
+
+&lt;p&gt;In Q4, a number of improvements relevant to MrDocs were made to the Handlebars and DOM libraries. The main
+feature is the addition of complete bindings for Javascript objects, arrays, and functions. The C++/JavaScript
+bindings work both ways, so that C++ objects can be used in Javascript and Javascript objects can be used in C++.
+Unit tests for the DOM were also included to complement the Handlebars unit tests.&lt;/p&gt;
+
+&lt;p&gt;These changes enabled the original implementation of handlebars.js to be completely removed from the project.&lt;/p&gt;
+
+&lt;h2 id=&quot;boost-libraries&quot;&gt;Boost Libraries&lt;/h2&gt;
+
+&lt;p&gt;As in other quarters, the Boost Library in which I have been investing most of my time
+is &lt;a href=&quot;https://github.com/boostorg/url&quot;&gt;Boost.URL&lt;/a&gt;. The library is in maintenance mode since our focus shifted to MrDocs,
+but there is a constant demand for work fixing bugs and improving the documentation.&lt;/p&gt;
+
+&lt;p&gt;In Q4, Boost.URL has integrated MrDocs, and is temporarily generating the documentation with both
+Doxygen+Docca and Antora+MrDocs:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;All the content in the QuickBook documentation has been rewritten in asciidoc format. Alternatives have been
+developed to replace special QuickBook features, such as snippets.&lt;/li&gt;
+  &lt;li&gt;The Boost.URL repository now includes an extension to automatically find or
+download MrDocs and use it to collect reference pages generated by MrDocs. The reference pages are aggregates
+as logical files in the Antora system, which includes them in the Antora documentation.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;A preview of the documentation generated by MrDocs is available
+at https://792.urlantora.prtest2.cppalliance.org/site/url/index.html.&lt;/p&gt;
+
+&lt;p&gt;Besides the integration with MrDocs, work in Q4 included:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Improvements, simplifications, and a number of extensions to CI&lt;/li&gt;
+  &lt;li&gt;Fixed previous design choices that were incompatible with the super-project&lt;/li&gt;
+  &lt;li&gt;Fixes to build scripts to support for more compilers&lt;/li&gt;
+  &lt;li&gt;Extended integration tests to cover all cases described by the super-project CMake scripts&lt;/li&gt;
+  &lt;li&gt;Fixes to algorithms, such as the &lt;code&gt;parse_query&lt;/code&gt; and &lt;code&gt;format&lt;/code&gt; functions&lt;/li&gt;
+  &lt;li&gt;GDB pretty printers are now provided&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Many improvements had to be coordinated with the &lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt; project, which had new
+features implemented for these use cases.&lt;/p&gt;
+
+&lt;p&gt;In general, I’ve been responsible for:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;upgrading CI, mostly coordinating with the &lt;a href=&quot;#c-github-actions&quot;&gt;C++ Github Actions&lt;/a&gt;;&lt;/li&gt;
+  &lt;li&gt;maintaining, simplifying, and updating build scripts;&lt;/li&gt;
+  &lt;li&gt;integrating more spec tests, such as the Ada tests included more recently;&lt;/li&gt;
+  &lt;li&gt;including more examples, such as the more recent sanitize-URL example;&lt;/li&gt;
+  &lt;li&gt;fixing documentation content that is out of date; and&lt;/li&gt;
+  &lt;li&gt;fixing bugs.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Besides Boost.URL, as usual, I’ve been overseeing and fixing smaller issues with other boost libraries. In Q4,
+only some small work in Boost.StaticString was necessary.&lt;/p&gt;
+
+&lt;h2 id=&quot;boost-release-tools&quot;&gt;Boost Release Tools&lt;/h2&gt;
+
+&lt;p&gt;Over the last quarter, I’ve been working on the integration of toolchains I developed into the Boost Release Tools to
+add support for features desired for the new website. In Q3, I previously included Antora support in the release tools
+and this has already been deployed in the official Boost release 1.84.0.&lt;/p&gt;
+
+&lt;p&gt;In Q4, I opened a pull request to include support for archive variants in the release tools. This pull request is
+currently under review and will be considered for inclusion in a period between Boost releases when priority
+moves from the &lt;a href=&quot;#boost-website&quot;&gt;Boost website&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;boost-website&quot;&gt;Boost Website&lt;/h2&gt;
+
+&lt;p&gt;Among the many support projects for the new Boost website, I’ve been helping the most on
+&lt;a href=&quot;https://github.com/cppalliance/site-docs&quot;&gt;&lt;code&gt;cppalliance/site-docs&lt;/code&gt;&lt;/a&gt;, which includes the Boost website documentation as
+an Antora project.
+Its components represent the “User Guide”, “Contributor Guide”, and “Formal Review” sections of the website.&lt;/p&gt;
+
+&lt;p&gt;Since the inception of the project, I’ve been overseeing and reviewing all the work done by the other contributors to
+the project.&lt;/p&gt;
+
+&lt;p&gt;In general, I continue to be responsible for:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;reviewing and merging all pull requests to the project;&lt;/li&gt;
+  &lt;li&gt;setting up and maintaining CI for the project;&lt;/li&gt;
+  &lt;li&gt;coordinating with the website project on content uploaded to AWS buckets;&lt;/li&gt;
+  &lt;li&gt;build scripts to be reused by the release tools and previews;&lt;/li&gt;
+  &lt;li&gt;writing sections of the documentation that require technical knowledge;&lt;/li&gt;
+  &lt;li&gt;developing custom Boost/Antora extensions, such as the Boost Macro extension;&lt;/li&gt;
+  &lt;li&gt;maintaining the Antora toolchain and templates; and&lt;/li&gt;
+  &lt;li&gt;adjusted Boost libraries to match formats expected by the website.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;c-github-actions&quot;&gt;C++ Github Actions&lt;/h2&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/alandefreitas/cpp-actions&quot;&gt;C++ Github Actions&lt;/a&gt; is a project I created and have been maintaining
+since Q3. It is a collection of compasable, independent, and reusable Github Actions for any C++ project that needs to
+be tested on a variety of compilers and environments.&lt;/p&gt;
+
+&lt;p&gt;Both MrDocs are Boost.URL are currently using these actions in their CI. Boost.Http is now also using these actions
+in its CI, which gave us the opportunity to get more feedback and improve the actions.&lt;/p&gt;
+
+&lt;p&gt;The project includes actions to:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Generate a Github Actions Matrix for C++ projects;&lt;/li&gt;
+  &lt;li&gt;Setup C++ compilers;&lt;/li&gt;
+  &lt;li&gt;Install and setup packages;&lt;/li&gt;
+  &lt;li&gt;Clone Boost modules;&lt;/li&gt;
+  &lt;li&gt;Run complete CMake and &lt;code&gt;b2&lt;/code&gt; workflows;&lt;/li&gt;
+  &lt;li&gt;Generate changelogs from conventional commits;&lt;/li&gt;
+  &lt;li&gt;Generate summaries; and&lt;/li&gt;
+  &lt;li&gt;Generate time-trace reports and flame graphs&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;In particular, a number of new features have been added to the project in Q4.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;The matrix has been adapted to include multiple extra flags and values over time.&lt;/li&gt;
+  &lt;li&gt;Actions that generate summaries included improvements and new sections.&lt;/li&gt;
+  &lt;li&gt;Actions can now identify many new types of warnings that should be emitted.&lt;/li&gt;
+  &lt;li&gt;CMake and B2 workflows included more options and features.&lt;/li&gt;
+  &lt;li&gt;The matrix new support composite factors, combinatorial factors, and custom containers.&lt;/li&gt;
+  &lt;li&gt;Documentation has been improved to also use the collector Antora extension.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Besides new features, most work went into fixing issues that were revealed by testing the actions in new environments.
+About ~50 bugs with various levels of severity have been fixed in Q4.&lt;/p&gt;</content><author><name></name></author><category term="alan" /><summary type="html">Summary MrDocs Handlebars Boost Libraries Boost Release Tools Boost Website C++ Github Actions MrDocs Over the last quarter, we continued to work intensely on MrDocs, a documentation generator for C++ projects. I’ve been overseeing and reviewing all the work done by the other contributors in the project. Besides the work done by Krystian, Fernando also joined the project as a contributor. We’ve been working on making the project at least as competitive as Doxygen + Docca, so we can start using it in a subset of Boost libraries. In this process, we have also been improving usability and documentation, considering feedback we received. In particular, work in Q4 included: Improvements to the documentation, both in javadocs and exposition Reducing technical debt, including extending APIs and problems with handlebars templates Updating CI workflows in coordination with the C++ Github Actions project Usability improvements, including tools relative to installed executable and many new features for templates Fixes and improvements to installation procedure Features such as symbols with links to repositories and many new sections in templates Auxiliary utilities, such as a complete implementation of std::expected for the project Generating binaries for the new LLVM version and updating the documentation Improvements to build scripts with CMake presets and vcpkg manifest files In parallel, Boost.URL has integrated MrDocs, and is temporarily generating the documentation with both Doxygen+Docca and Antora+MrDocs. The documentation includes an extension to collect reference pages generated by MrDocs and include them in the Antora documentation. A preview of the documentation generated by MrDocs is available at https://792.urlantora.prtest2.cppalliance.org/site/url/index.html. In general, I’ve been responsible for: setting up and maintaining CI for the project; MrDocs and LLVM release binaries; build scripts; setting up and integrating dependencies; setting up and deploying the Antora toolchains and documentation to the project website; working on supporting libraries; and supervising and reviewing the work done by other contributors (Krystian and Fernando); fixing bugs. Handlebars MrDocs includes a support library that reimplements the Handlebars template engine in C++. This module is used to generate documentation from templates. This continued to be the MrDocs support library in which I have been investing most of my time. MrDocs also includes a support library called “DOM” that provides a C++ interface to type-erased property trees, such as JSON and Javascript Objects. This module is used by MrDocs to create opaque representations of property trees that can be used by the Handlebars engine and other library functions. Such representations can come from a variety of sources, including JSON files, Javascript objects, and internal C++ objects with information parsed by MrDocs. In Q4, a number of improvements relevant to MrDocs were made to the Handlebars and DOM libraries. The main feature is the addition of complete bindings for Javascript objects, arrays, and functions. The C++/JavaScript bindings work both ways, so that C++ objects can be used in Javascript and Javascript objects can be used in C++. Unit tests for the DOM were also included to complement the Handlebars unit tests. These changes enabled the original implementation of handlebars.js to be completely removed from the project. Boost Libraries As in other quarters, the Boost Library in which I have been investing most of my time is Boost.URL. The library is in maintenance mode since our focus shifted to MrDocs, but there is a constant demand for work fixing bugs and improving the documentation. In Q4, Boost.URL has integrated MrDocs, and is temporarily generating the documentation with both Doxygen+Docca and Antora+MrDocs: All the content in the QuickBook documentation has been rewritten in asciidoc format. Alternatives have been developed to replace special QuickBook features, such as snippets. The Boost.URL repository now includes an extension to automatically find or download MrDocs and use it to collect reference pages generated by MrDocs. The reference pages are aggregates as logical files in the Antora system, which includes them in the Antora documentation. A preview of the documentation generated by MrDocs is available at https://792.urlantora.prtest2.cppalliance.org/site/url/index.html. Besides the integration with MrDocs, work in Q4 included: Improvements, simplifications, and a number of extensions to CI Fixed previous design choices that were incompatible with the super-project Fixes to build scripts to support for more compilers Extended integration tests to cover all cases described by the super-project CMake scripts Fixes to algorithms, such as the parse_query and format functions GDB pretty printers are now provided Many improvements had to be coordinated with the C++ Github Actions project, which had new features implemented for these use cases. In general, I’ve been responsible for: upgrading CI, mostly coordinating with the C++ Github Actions; maintaining, simplifying, and updating build scripts; integrating more spec tests, such as the Ada tests included more recently; including more examples, such as the more recent sanitize-URL example; fixing documentation content that is out of date; and fixing bugs. Besides Boost.URL, as usual, I’ve been overseeing and fixing smaller issues with other boost libraries. In Q4, only some small work in Boost.StaticString was necessary. Boost Release Tools Over the last quarter, I’ve been working on the integration of toolchains I developed into the Boost Release Tools to add support for features desired for the new website. In Q3, I previously included Antora support in the release tools and this has already been deployed in the official Boost release 1.84.0. In Q4, I opened a pull request to include support for archive variants in the release tools. This pull request is currently under review and will be considered for inclusion in a period between Boost releases when priority moves from the Boost website. Boost Website Among the many support projects for the new Boost website, I’ve been helping the most on cppalliance/site-docs, which includes the Boost website documentation as an Antora project. Its components represent the “User Guide”, “Contributor Guide”, and “Formal Review” sections of the website. Since the inception of the project, I’ve been overseeing and reviewing all the work done by the other contributors to the project. In general, I continue to be responsible for: reviewing and merging all pull requests to the project; setting up and maintaining CI for the project; coordinating with the website project on content uploaded to AWS buckets; build scripts to be reused by the release tools and previews; writing sections of the documentation that require technical knowledge; developing custom Boost/Antora extensions, such as the Boost Macro extension; maintaining the Antora toolchain and templates; and adjusted Boost libraries to match formats expected by the website. C++ Github Actions C++ Github Actions is a project I created and have been maintaining since Q3. It is a collection of compasable, independent, and reusable Github Actions for any C++ project that needs to be tested on a variety of compilers and environments. Both MrDocs are Boost.URL are currently using these actions in their CI. Boost.Http is now also using these actions in its CI, which gave us the opportunity to get more feedback and improve the actions. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs In particular, a number of new features have been added to the project in Q4. The matrix has been adapted to include multiple extra flags and values over time. Actions that generate summaries included improvements and new sections. Actions can now identify many new types of warnings that should be emitted. CMake and B2 workflows included more options and features. The matrix new support composite factors, combinatorial factors, and custom containers. Documentation has been improved to also use the collector Antora extension. Besides new features, most work went into fixing issues that were revealed by testing the actions in new environments. About ~50 bugs with various levels of severity have been fixed in Q4.</summary></entry><entry><title type="html">Krystian’s Q4 Update</title><link href="http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update.html" rel="alternate" type="text/html" title="Krystian’s Q4 Update" /><published>2024-01-12T00:00:00+00:00</published><updated>2024-01-12T00:00:00+00:00</updated><id>http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update</id><content type="html" xml:base="http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update.html">&lt;p&gt;Much like the last, my primary focus this quarter was on MrDocs, with some additional work done on Boost.StaticString and clang.&lt;/p&gt;
+
+&lt;h2 id=&quot;mrdocs&quot;&gt;MrDocs&lt;/h2&gt;
+
+&lt;p&gt;The last significant feature MrDocs needed in order to produce documentation on par with Docca was the ability to render overload set. At a glance this may appear trivial, but MrDocs was designed to render documentation on a per-declaration basis: each declaration would result in a single documentation section being emitted by a generator. This is problematic for overload sets, as an overload sets are not declarations. I ended implementing them as a “view” of the lookup table for a particular scope.&lt;/p&gt;
+
+&lt;p&gt;Besides implementing support for rendering overload sets, I further expanded the kinds of declarations supported by MrDocs to include friend declarations, deduction guides, and enumerators. Previously, enumerators were stored as a non-&lt;code&gt;Info&lt;/code&gt; type, meaning they could not be found by the name lookup mechanism when referenced with &lt;code&gt;@ref&lt;/code&gt;/&lt;code&gt;@copydoc&lt;/code&gt;. Adding support for friend declarations also had its own set of challenges due to a lack of support by the clang USR generator. As an interim solution, I’m generating pseudo-USRs for friends by concatenating the USR of their lexical scope with the USR of the referenced declaration or type. While this is sufficient for now, it will ultimately be necessary to submit patches to clang to fix the plethora of bugs in USR generation, as well as add support for newer C++ features such as constraints.&lt;/p&gt;
+
+&lt;p&gt;Another problem area I addressed was the representation of qualified names for symbols that were not extracted. Previously, three different kinds of &lt;code&gt;TypeInfo&lt;/code&gt; were used to represent “terminal” types (i.e. typenames): &lt;code&gt;BuiltinTypeInfo&lt;/code&gt; for builtin types, &lt;code&gt;TagTypeInfo&lt;/code&gt; for class and enumeration types, and &lt;code&gt;SpecializationTypeInfo&lt;/code&gt; for class template specializations. These types were awkward to work with, required a non-trivial amount of boilerplate, and were incapable of representing a typename that was qualified by a nested-name-specifier that named a symbol that was not extracted. To remedy this, I created a &lt;code&gt;SymbolName&lt;/code&gt; type that can represent a qualified-id naming any symbol and replaced the three terminal &lt;code&gt;TypeInfo&lt;/code&gt; kinds with &lt;code&gt;NamedTypeInfo&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;clang&quot;&gt;Clang&lt;/h2&gt;
+
+&lt;p&gt;On the clang side of things, I continued work on fixing C++ conformance issues. This included diagnosing friend function specialization definitions (e.g. &lt;code&gt;friend void f&amp;lt;int&amp;gt;() { }&lt;/code&gt;), diagnosing unexpanded packs in function template explicit specializations (e.g. &lt;code&gt;template&amp;lt;&amp;gt; void f&amp;lt;Ts&amp;gt;();&lt;/code&gt; where &lt;code&gt;Ts&lt;/code&gt; is a pack), and improving diagnostics for unexpanded packs in class/variable template partial/explicit specializations.&lt;/p&gt;
+
+&lt;p&gt;In terms of in-progress patches, I am currently working on a patch that will significantly improve dependent name lookup – both in terms of conformance and diagnostics. Currently, even obviously ill-formed constructs such as:&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-cpp&quot;&gt;template&amp;lt;typename T&amp;gt;
+struct A
+{
+    auto f()
+    {
+        return this-&amp;gt;x;
+    }
+};
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;are not diagnosed until the template is instantiated. Although this behavior is conforming, in less contrived scenarios, it would be far better to avoid an avalanche of diagnositic messages by diagnosing this at the point of definition. This is possible primarily due to &lt;a href=&quot;http://eel.is/c++draft/temp.dep.type#6&quot;&gt;[temp.dep.type] p6&lt;/a&gt;:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;If, for a given set of template arguments, a specialization of a template is instantiated that refers to a member of the current instantiation with a qualified name, the name is looked up in the template instantiation context.
+If the result of this lookup differs from the result of name lookup in the template definition context, name lookup is ambiguous.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;and &lt;a href=&quot;http://eel.is/c++draft/temp.dep.type#5&quot;&gt;[temp.dep.type] p5&lt;/a&gt;:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;A qualified name is dependent if&lt;/p&gt;
+  &lt;ul&gt;
+    &lt;li&gt;[…]&lt;/li&gt;
+    &lt;li&gt;its lookup context is the current instantiation and has at least one dependent base class, and qualified name lookup for the name finds nothing&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;This guarantees that, within the definition of a template, if the
+lookup context of a qualified name is that that template:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;if lookup finds any member of the template, then the result of lookup in the instantiation context must also find that member, or&lt;/li&gt;
+  &lt;li&gt;if lookup finds nothing, then the program is ill-formed unless the name is found in a dependent base class.&lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="krystian" /><summary type="html">Much like the last, my primary focus this quarter was on MrDocs, with some additional work done on Boost.StaticString and clang. MrDocs The last significant feature MrDocs needed in order to produce documentation on par with Docca was the ability to render overload set. At a glance this may appear trivial, but MrDocs was designed to render documentation on a per-declaration basis: each declaration would result in a single documentation section being emitted by a generator. This is problematic for overload sets, as an overload sets are not declarations. I ended implementing them as a “view” of the lookup table for a particular scope. Besides implementing support for rendering overload sets, I further expanded the kinds of declarations supported by MrDocs to include friend declarations, deduction guides, and enumerators. Previously, enumerators were stored as a non-Info type, meaning they could not be found by the name lookup mechanism when referenced with @ref/@copydoc. Adding support for friend declarations also had its own set of challenges due to a lack of support by the clang USR generator. As an interim solution, I’m generating pseudo-USRs for friends by concatenating the USR of their lexical scope with the USR of the referenced declaration or type. While this is sufficient for now, it will ultimately be necessary to submit patches to clang to fix the plethora of bugs in USR generation, as well as add support for newer C++ features such as constraints. Another problem area I addressed was the representation of qualified names for symbols that were not extracted. Previously, three different kinds of TypeInfo were used to represent “terminal” types (i.e. typenames): BuiltinTypeInfo for builtin types, TagTypeInfo for class and enumeration types, and SpecializationTypeInfo for class template specializations. These types were awkward to work with, required a non-trivial amount of boilerplate, and were incapable of representing a typename that was qualified by a nested-name-specifier that named a symbol that was not extracted. To remedy this, I created a SymbolName type that can represent a qualified-id naming any symbol and replaced the three terminal TypeInfo kinds with NamedTypeInfo. Clang On the clang side of things, I continued work on fixing C++ conformance issues. This included diagnosing friend function specialization definitions (e.g. friend void f&amp;lt;int&amp;gt;() { }), diagnosing unexpanded packs in function template explicit specializations (e.g. template&amp;lt;&amp;gt; void f&amp;lt;Ts&amp;gt;(); where Ts is a pack), and improving diagnostics for unexpanded packs in class/variable template partial/explicit specializations. In terms of in-progress patches, I am currently working on a patch that will significantly improve dependent name lookup – both in terms of conformance and diagnostics. Currently, even obviously ill-formed constructs such as: template&amp;lt;typename T&amp;gt; struct A { auto f() { return this-&amp;gt;x; } }; are not diagnosed until the template is instantiated. Although this behavior is conforming, in less contrived scenarios, it would be far better to avoid an avalanche of diagnositic messages by diagnosing this at the point of definition. This is possible primarily due to [temp.dep.type] p6: If, for a given set of template arguments, a specialization of a template is instantiated that refers to a member of the current instantiation with a qualified name, the name is looked up in the template instantiation context. If the result of this lookup differs from the result of name lookup in the template definition context, name lookup is ambiguous. and [temp.dep.type] p5: A qualified name is dependent if […] its lookup context is the current instantiation and has at least one dependent base class, and qualified name lookup for the name finds nothing This guarantees that, within the definition of a template, if the lookup context of a qualified name is that that template: if lookup finds any member of the template, then the result of lookup in the instantiation context must also find that member, or if lookup finds nothing, then the program is ill-formed unless the name is found in a dependent base class.</summary></entry><entry><title type="html">Dmitry’s Q4 2023 Update</title><link href="http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update.html" rel="alternate" type="text/html" title="Dmitry’s Q4 2023 Update" /><published>2024-01-12T00:00:00+00:00</published><updated>2024-01-12T00:00:00+00:00</updated><id>http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update</id><content type="html" xml:base="http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update.html">&lt;p&gt;In the fourth quarter of 2023 the functionality for direct parsing in JSON was
+finalised and the code was merged into the mainline and then released in
+Boost 1.84.0. Thus, I’ve moved to the natural opposite of direct parsing:
+direct serialisation. Boost.JSON’s serialisation is less customisable then
+parsing, since the demand for custom serialisation is significantly lower. As
+a result, the design of the serialiser is quite different from that of the
+parser, and hence a different approach had to be taken to implement direct
+serialisation. That approach, in my opinion, has a big benefit for the user:
+there’s no need for a dedicated direct serializer type, it can be done with
+the regular &lt;code&gt;boost::json::serializer&lt;/code&gt;. On the other hand, it presents a
+different challenge: making changes to &lt;code&gt;serializer&lt;/code&gt; in a way that does not
+negatively affect its performance too much.&lt;/p&gt;
+
+&lt;p&gt;This fight for performance has occupied most of my time in the last quarter.
+And it also provided me an opportunity to experiment with different potential
+optimisations to the serializer. I would also like to comment that different
+C++ implementations sometimes have directly opposite view on what’s better or
+worse for performance, which poses quite a conundrum in such line of work. And
+finally, this work was greatly influenced by the availability of continous
+integration infrastructure set up by the C++ Alliance, and automatic
+benchmarking in particular.&lt;/p&gt;
+
+&lt;p&gt;Another positive effect of C++ Alliance’s CI is due to coverage reporting.
+As I was striving to never decrease the rate of code coverage, I’ve discovered
+code in the serializer that used to perform a function, but have since become
+unnecessary due to refactoring.&lt;/p&gt;
+
+&lt;p&gt;Overall the work on serializer has vastly increased my understanding on how
+JSON’s serializer works under the hood. I plan to finish the feature of direct
+serialization before the next Boost release.&lt;/p&gt;</content><author><name></name></author><category term="dmitry" /><summary type="html">In the fourth quarter of 2023 the functionality for direct parsing in JSON was finalised and the code was merged into the mainline and then released in Boost 1.84.0. Thus, I’ve moved to the natural opposite of direct parsing: direct serialisation. Boost.JSON’s serialisation is less customisable then parsing, since the demand for custom serialisation is significantly lower. As a result, the design of the serialiser is quite different from that of the parser, and hence a different approach had to be taken to implement direct serialisation. That approach, in my opinion, has a big benefit for the user: there’s no need for a dedicated direct serializer type, it can be done with the regular boost::json::serializer. On the other hand, it presents a different challenge: making changes to serializer in a way that does not negatively affect its performance too much. This fight for performance has occupied most of my time in the last quarter. And it also provided me an opportunity to experiment with different potential optimisations to the serializer. I would also like to comment that different C++ implementations sometimes have directly opposite view on what’s better or worse for performance, which poses quite a conundrum in such line of work. And finally, this work was greatly influenced by the availability of continous integration infrastructure set up by the C++ Alliance, and automatic benchmarking in particular. Another positive effect of C++ Alliance’s CI is due to coverage reporting. As I was striving to never decrease the rate of code coverage, I’ve discovered code in the serializer that used to perform a function, but have since become unnecessary due to refactoring. Overall the work on serializer has vastly increased my understanding on how JSON’s serializer works under the hood. I plan to finish the feature of direct serialization before the next Boost release.</summary></entry><entry><title type="html">Peter Turcan Q4 2023 Status</title><link href="http://cppalliance.org/peter/2024/01/11/PeterTurcan-Q4-2023.html" rel="alternate" type="text/html" title="Peter Turcan Q4 2023 Status" /><published>2024-01-11T00:00:00+00:00</published><updated>2024-01-11T00:00:00+00:00</updated><id>http://cppalliance.org/peter/2024/01/11/PeterTurcan-Q4-2023</id><content type="html" xml:base="http://cppalliance.org/peter/2024/01/11/PeterTurcan-Q4-2023.html">&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;Wrote a section on the Super-project, based on some legacy Wiki pages that needed considerable updating, and the boostdep tool steps as this covered installing the necessary components. Covered four main topics: the Super-project layout, Getting Started, Library Maintenance and Library Workflow.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Wrote a Best-Practices section on Beneficial Dependencies - the dependencies used by the most libraries of Boost. These include Boost.Config, Boost.Core, Boost.Assert, Boost.StaticAssert, Boost.ThrowException, and for metaprogramming Boost.MP11.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Added a section to the Boost History topic covering the BoostCon/C++ Now conference. The location of the conference in Aspen, Colorado comes with some colorful twists:  “Mild-mannered black bears live in the area. Please close doors behind you in the evenings.”&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Updated the Documentation and Requirements sections with some good information for organization requirements, library metadata and documentation guidelines.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Added a Site-docs Style Guide, based on an existing style guide that was outside of the documentation, covering some basic color, wording, URL and image guidelines.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Improved some navigation linking issues.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Improved some headline text, bringing the headlines into line with our standards.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Provided some detailed blog post feedback.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Working on a number of topics that have yet to be completed, including the B2 and CMake build systems, the developers FAQ, the Boost Test Matrix, Advanced Builds, and others.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="peter" /><summary type="html">Wrote a section on the Super-project, based on some legacy Wiki pages that needed considerable updating, and the boostdep tool steps as this covered installing the necessary components. Covered four main topics: the Super-project layout, Getting Started, Library Maintenance and Library Workflow. Wrote a Best-Practices section on Beneficial Dependencies - the dependencies used by the most libraries of Boost. These include Boost.Config, Boost.Core, Boost.Assert, Boost.StaticAssert, Boost.ThrowException, and for metaprogramming Boost.MP11. Added a section to the Boost History topic covering the BoostCon/C++ Now conference. The location of the conference in Aspen, Colorado comes with some colorful twists: “Mild-mannered black bears live in the area. Please close doors behind you in the evenings.” Updated the Documentation and Requirements sections with some good information for organization requirements, library metadata and documentation guidelines. Added a Site-docs Style Guide, based on an existing style guide that was outside of the documentation, covering some basic color, wording, URL and image guidelines. Improved some navigation linking issues. Improved some headline text, bringing the headlines into line with our standards. Provided some detailed blog post feedback. Working on a number of topics that have yet to be completed, including the B2 and CMake build systems, the developers FAQ, the Boost Test Matrix, Advanced Builds, and others.</summary></entry></feed>
