@@ -33,7 +33,7 @@ This is an ongoing project that won't stop after launch, so your feedback is mos
 
 I try to help Boost authors and users in those areas where I have some expertise. In particular:
 
-* I've been reviwewing and discussing Alfredo Correa's [Boost.Multi](https://gitlab.com/correaa/boost-multi) upcoming proposal. I hope Alfredo will get a review slot very soon.
+* I've been reviewing and discussing Alfredo Correa's [Boost.Multi](https://gitlab.com/correaa/boost-multi) upcoming proposal. I hope Alfredo will get a review slot very soon.
 * Ion Gaztañaga is writing a [development plan](https://docs.google.com/document/d/1VdMTheFUczC946dP3VKPseOoUq3sVKjU73oMvK8FE3o/edit#heading=h.3i7eohxxi73i) for Boost.Container to which I have provided some minor contributions.
 
 ### WG21, Boost, and the ways of standardization 
