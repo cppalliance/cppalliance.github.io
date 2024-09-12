@@ -1,7 +1,7 @@
 ---
 layout: post
 nav-class: dark
-categories: company, vinnie
+categories: vinnie
 title: Safe C++ Partnership
 author-id: vinnie
 ---
