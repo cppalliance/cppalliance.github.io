@@ -58,7 +58,7 @@ in favor of Boost.Mp11. Stay tuned.
 
 * Authored the Boost 1.86 announcement [tweet](https://x.com/BoostLibraries/status/1823783597792485433).
 * I've served as the PM for the new Boost website project (preview at [boost.io](https://boost.io)).
-On September 24 I transferred PM responsibilities to Rob Beeston, who's beeing doing
+On September 24 I transferred PM responsibilities to Rob Beeston, who's been doing
 an awesome job at it since. I'll be keeping an eye to this project, though, and will
 help any way I can.
 
