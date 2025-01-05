@@ -15,7 +15,7 @@ During Q4 2024, I've been working in the following areas:
 [PR#296](https://github.com/boostorg/unordered/pull/296),
 [PR#297](https://github.com/boostorg/unordered/pull/297),
 [PR#298](https://github.com/boostorg/unordered/pull/298)).
-* Prepared a private document for Peter Dimov and Braden Gantsky discussing
+* Prepared a private document for Peter Dimov and Braden Ganetsky discussing
 massively parallel scenarios where [ParlayHash](https://github.com/cmuparlay/parlayhash)
 has better performance than `boost::concurrent_flat_map`. We haven't been able
 to progress much further than that in Q4 2024, mainly because of my lack
