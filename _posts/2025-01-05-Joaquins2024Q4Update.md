@@ -20,6 +20,11 @@ massively parallel scenarios where [ParlayHash](https://github.com/cmuparlay/par
 has better performance than `boost::concurrent_flat_map`. We haven't been able
 to progress much further than that in Q4 2024, mainly because of my lack
 of availablity for this specific task.
+* I've set up and run [benchmarks](https://github.com/boostorg/boost_unordered_benchmarks/tree/boost_unordered_aggregate_indivi)
+comparing [`indivi::flat_umap`](https://github.com/gaujay/indivi_collection)
+with `boost::unordered_flat_map`. Although Indivi is generally slower,
+a [conversation](https://www.reddit.com/r/cpp/comments/1g2oso8/introducing_flat_umap_a_fast_simdbased_unordered/lrqqsi7/)
+with the author led to some interesting design aspects that may be worth exploring further.
 * After the last [major update in Boost 1.87.0](https://www.boost.org/libs/unordered/doc/html/unordered.html#changes_release_1_87_0_major_update),
 the backlog for Boost.Unordered is basically cleared. This means that the library
 will likely enter into maintenance mode, except if new requests show up
@@ -67,3 +72,35 @@ on this functionality from Boost.MPL.
 ([PR#100](https://github.com/boostorg/mp11/pull/100), released in Boost 1.87.0) to
 achieve some rather noticeable compile-time improvements.
 
+### Boost.MultiIndex, Boost.Flyweight
+
+* Updated CI support ([PR#75](https://github.com/boostorg/multi_index/pull/75),
+[PR#78](https://github.com/boostorg/multi_index/pull/78),
+[PR#20](https://github.com/boostorg/flyweight/pull/20)).
+* Investigated issue with Boost.Interprocess
+([#236](https://github.com/boostorg/interprocess/issues/236)) that was
+causing Boost.Flyweight tests to fail in GCC/MinGW.
+
+### Boost promotion and new website
+
+* Authored the Boost 1.87 announcement [tweet](https://x.com/Boost_Libraries/status/1873826841653633076), and
+the Boost.Hash2 acceptance [tweet](https://x.com/Boost_Libraries/status/1873826841653633076).
+* Held some meetings with Rob's team on Asciidoc display problems and a new `latest` URL scheme for
+doc publication. I'm very excited about the latter, as this addition will likely help
+us improve SEO and fight outdated archived links to the libraries docs: for instance, the
+link [https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html](https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html)
+will _always_ point to the latest published version of Boost.Asio documentation,
+unlike version-specific links such as
+[https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html](https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html).
+* Filed some issues ([#1549](https://github.com/boostorg/website-v2/issues/1549),
+[#1576](https://github.com/boostorg/website-v2/issues/1576),
+[#1577](https://github.com/boostorg/website-v2/issues/1577)).
+
+### Support to the community
+
+* I've proofread Braden Ganetsky's article on [Natvis testing](https://blog.ganets.ky/NatvisTesting/).
+* As a member of the Fiscal Sponsorhip Committee (FSC), we're having conversations with
+[For Purpose Law Group](https://www.fplglaw.com/) to finalize the writing of the Boost/C++ Alliance Fiscal Sponsor Agreement (FSA),
+and with the Boost Foundation to help them complete the transfer of
+the assets to be controlled by such FSA, most importantly the ownership of the
+boost.org domain. Both tracks are making progress, albeit at a lower pace than desired.
