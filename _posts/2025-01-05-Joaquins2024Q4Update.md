@@ -83,7 +83,7 @@ causing Boost.Flyweight tests to fail in GCC/MinGW.
 
 ### Boost promotion and new website
 
-* Authored the Boost 1.87 announcement [tweet](https://x.com/Boost_Libraries/status/1873826841653633076), and
+* Authored the Boost 1.87 announcement [tweet](https://x.com/Boost_Libraries/status/1867161745661583556), and
 the Boost.Hash2 acceptance [tweet](https://x.com/Boost_Libraries/status/1873826841653633076).
 * Held some meetings with Rob's team on Asciidoc display problems and a new `latest` URL scheme for
 doc publication. I'm very excited about the latter, as this addition will likely help
