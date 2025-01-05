@@ -42,10 +42,10 @@ storing the same alternative type are grouped together. For instance, the follow
 ```cpp
 boost::variant_collection_of<int, double, std::string> c;
 // ...
-for(const auto& x:c) {
+for(const auto& v: c) {
   visit(
     [](const auto& x) { std::cout << x << "\n"; },
-    x);
+    v);
 }
 ```
 will print first the `int`s in the collection, then the `double`s, and finally
