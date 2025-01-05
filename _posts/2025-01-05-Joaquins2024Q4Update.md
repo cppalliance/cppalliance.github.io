@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: joaquin
-title: Joaquín's Q4 2024 Update
+title: New container in Boost.PolyCollection, additions to Boost.Mp11 and more
 author-id: joaquin
 author-name: Joaquín M López Muñoz
 ---
@@ -24,7 +24,7 @@ of availablity for this specific task.
 comparing [`indivi::flat_umap`](https://github.com/gaujay/indivi_collection)
 with `boost::unordered_flat_map`. Although Indivi is generally slower,
 a [conversation](https://www.reddit.com/r/cpp/comments/1g2oso8/introducing_flat_umap_a_fast_simdbased_unordered/lrqqsi7/)
-with the author led to some interesting design aspects that may be worth exploring further.
+with the author led to some interesting design discussions that may be worth exploring further.
 * After the last [major update in Boost 1.87.0](https://www.boost.org/libs/unordered/doc/html/unordered.html#changes_release_1_87_0_major_update),
 the backlog for Boost.Unordered is basically cleared. This means that the library
 will likely enter into maintenance mode, except if new requests show up
