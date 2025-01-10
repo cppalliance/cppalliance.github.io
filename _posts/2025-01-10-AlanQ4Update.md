@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: [ alan ]
-title: Alan's Q2 Update 2024
+title: Alan's Q4 Update 2024
 author-id: alan
 ---
 
