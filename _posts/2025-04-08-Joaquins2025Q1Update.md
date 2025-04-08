@@ -13,8 +13,8 @@ During Q1 2025, I've been working in the following areas:
 
 During the entire quarter I've been working on a Boost proposal around Bloom filters:
 
-Repo: https://github.com/joaquintides/bloom</br>
-Docs: https://master.bloom.cpp.al/
+* Repo: [https://github.com/joaquintides/bloom](https://github.com/joaquintides/bloom)
+* Docs: [https://master.bloom.cpp.al/](https://master.bloom.cpp.al/)
 
 Class template `boost::bloom::filter` can be configured to implement a classical Bloom filter
 as well as variations discussed in the literature such as block filters, multiblock filters, and more.
@@ -58,7 +58,7 @@ download and install candidate Boost.Bloom and dependencies with minimal hassle 
 I prepared and presented the talk "Push is Faster" at the using std::cpp 2025 conference
 in Madrid, March 19-21:
 
-https://github.com/joaquintides/usingstdcpp2025
+[https://github.com/joaquintides/usingstdcpp2025](https://github.com/joaquintides/usingstdcpp2025)
 
 (The video of the talk will be publicly available in a few weeks.) We discussed
 push and pull paradigms for sequential data processing, why C++ ranges are
