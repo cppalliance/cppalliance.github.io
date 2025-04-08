@@ -75,7 +75,7 @@ and generally much nicer looking. Great work, Chris!
 * Retouched some aspects of the new Antora docs ([PR#303](https://github.com/boostorg/unordered/pull/303))
 and filed some pending issues ([#304](https://github.com/boostorg/unordered/issues/304)).
 
-### Boost.Promotion
+### Boost promotion
 
 * Posted a [tweet](https://x.com/Boost_Libraries/status/1884899485186400442) publicizing
 Rubén Pérez's work on module support for Boost.
