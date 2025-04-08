@@ -50,7 +50,7 @@ int main()
 }
 ```
 The library is ready for official review, which I plan to ask for in April. Chris Mazakas
-is helping with a very useful vckpg registry so that future reviewers can
+is helping with a very useful vcpkg registry so that future reviewers can
 download and install candidate Boost.Bloom and dependencies with minimal hassle via vcpkg.
 
 ### Presentation at using std::cpp 2025
