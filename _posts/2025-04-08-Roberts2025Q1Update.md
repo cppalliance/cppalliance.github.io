@@ -17,4 +17,4 @@ And speaking of community...
 
  We’re excited to share that Boost is a proud sponsor of the June 2025 WG21 Standards Committee meeting in Sofia, Bulgaria! If you're attending, be sure to stop by — we’ll be giving out some truly amazing t-shirts. We’d love to meet you and talk all things C++ and Boost!
 
-The future is bright, the community is strong, and we’re just getting started.
+The future is bright, the community is strong, and we’re just getting started. 
