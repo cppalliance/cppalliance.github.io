@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: joaquin
-title: Boost.Bloom to be shipped in Boost 1.89
+title: Boost.Bloom ready for shipping in Boost 1.89
 author-id: joaquin
 author-name: Joaquín M López Muñoz
 ---
@@ -15,7 +15,7 @@ The acceptance review for [Boost.Bloom](https://github.com/boostorg/bloom)
 took place between the 13th and 22nd of May,
 and the final verdict was [acceptance into Boost](https://lists.boost.org/archives/list/boost@lists.boost.org/message/L4X3LREHFIZXNJRL7XLMC4NPOLWXXVCA/).
 Arnauld Becheler did an awesome job at managing the review, which was one of the most
-productive I remember in recent years. Incorporating the feedback from the review
+lively and productive I remember in recent years. Incorporating the feedback from the review
 took me the last five weeks of this quarter, but everything's ready for shipping with Boost 1.89 (Aug 2025):
 
 * [Review feedback as compiled by Arnauld](https://github.com/boostorg/bloom/issues?q=is%3Aissue%20state%3Aclosed%20author%3ABecheler)
@@ -40,7 +40,7 @@ Boost.Bloom also uses it.
 ### Boost.MultiIndex
 
 * CI maintenance work ([PR#82](https://github.com/boostorg/multi_index/pull/82)).
-* Address an user-filed issue ([#81](https://github.com/boostorg/multi_index/issues/81)).
+* Addressed a user-filed issue ([#81](https://github.com/boostorg/multi_index/issues/81)).
 
 ### Boost.Flyweight
 
@@ -49,6 +49,14 @@ Boost.Bloom also uses it.
 ### Boost.PolyCollection
 
 * CI maintenance work ([PR#31](https://github.com/boostorg/poly_collection/pull/31)).
+
+### Boost.Interprocess
+
+* Filed some issues ([#258](https://github.com/boostorg/interprocess/issues/258), [#259](https://github.com/boostorg/interprocess/issues/259)).
+
+### Boost website
+
+* Filed some issues ([#1760](https://github.com/boostorg/website-v2/issues/1760), [#1792](https://github.com/boostorg/website-v2/issues/1792), [#1832](https://github.com/boostorg/website-v2/issues/1832)).
 
 ### Boost promotion
 
@@ -69,3 +77,12 @@ Boost.Bloom also uses it.
   * [Boost.Math](https://x.com/Boost_Libraries/status/1935757341934186575)
   * [Boost.Unordered](https://x.com/Boost_Libraries/status/1936092537032159615)
   * [Boost.MQTT5](https://x.com/Boost_Libraries/status/1936451629118521502)
+
+### Support to the community
+
+* [Reviewed](https://lists.boost.org/archives/list/boost@lists.boost.org/message/5L6ZCDS2DBUUZSBZYALCEPIFRAKNP25O/) Jean-Louis Leroy's Boost.OpenMethod proposal.
+* Did a small theoretical analysis of [Boost.OpenMethod's perfect hashing algorithm](https://github.com/joaquintides/perfect_range_hash).
+* Did some [`c2.py`](https://github.com/cmazakas/boost/blob/c2py/c2.py) testing for Chris Mazakas.
+* Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC).
+The asset transfer from the Boost Foundation to the C++ Alliance was finally completed this quarter,
+which has enabled the launch of the long-awaited new website.
