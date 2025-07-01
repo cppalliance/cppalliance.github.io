@@ -82,7 +82,7 @@ Boost.Bloom also uses it.
 
 * [Reviewed](https://lists.boost.org/archives/list/boost@lists.boost.org/message/5L6ZCDS2DBUUZSBZYALCEPIFRAKNP25O/) Jean-Louis Leroy's Boost.OpenMethod proposal.
 * Did a small theoretical analysis of [Boost.OpenMethod's perfect hashing algorithm](https://github.com/joaquintides/perfect_range_hash).
-* Did some [`c2.py`](https://github.com/cmazakas/boost/blob/c2py/c2.py) testing for Chris Mazakas.
+* Did some [`c2.py`](https://github.com/cmazakas/c2) testing for Chris Mazakas.
 * Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC).
 The asset transfer from the Boost Foundation to the C++ Alliance was finally completed this quarter,
 which has enabled the launch of the long-awaited new website.
