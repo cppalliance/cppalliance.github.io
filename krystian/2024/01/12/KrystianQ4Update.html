@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's Q4 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s Q4 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s Q4 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Much like the last, my primary focus this quarter was on MrDocs, with some additional work done on Boost.StaticString and clang. MrDocs The last significant feature MrDocs needed in order to produce documentation on par with Docca was the ability to render overload set. At a glance this may appear trivial, but MrDocs was designed to render documentation on a per-declaration basis: each declaration would result in a single documentation section being emitted by a generator. This is problematic for overload sets, as an overload sets are not declarations. I ended implementing them as a “view” of the lookup table for a particular scope. Besides implementing support for rendering overload sets, I further expanded the kinds of declarations supported by MrDocs to include friend declarations, deduction guides, and enumerators. Previously, enumerators were stored as a non-Info type, meaning they could not be found by the name lookup mechanism when referenced with @ref/@copydoc. Adding support for friend declarations also had its own set of challenges due to a lack of support by the clang USR generator. As an interim solution, I’m generating pseudo-USRs for friends by concatenating the USR of their lexical scope with the USR of the referenced declaration or type. While this is sufficient for now, it will ultimately be necessary to submit patches to clang to fix the plethora of bugs in USR generation, as well as add support for newer C++ features such as constraints. Another problem area I addressed was the representation of qualified names for symbols that were not extracted. Previously, three different kinds of TypeInfo were used to represent “terminal” types (i.e. typenames): BuiltinTypeInfo for builtin types, TagTypeInfo for class and enumeration types, and SpecializationTypeInfo for class template specializations. These types were awkward to work with, required a non-trivial amount of boilerplate, and were incapable of representing a typename that was qualified by a nested-name-specifier that named a symbol that was not extracted. To remedy this, I created a SymbolName type that can represent a qualified-id naming any symbol and replaced the three terminal TypeInfo kinds with NamedTypeInfo. Clang On the clang side of things, I continued work on fixing C++ conformance issues. This included diagnosing friend function specialization definitions (e.g. friend void f&lt;int&gt;() { }), diagnosing unexpanded packs in function template explicit specializations (e.g. template&lt;&gt; void f&lt;Ts&gt;(); where Ts is a pack), and improving diagnostics for unexpanded packs in class/variable template partial/explicit specializations. In terms of in-progress patches, I am currently working on a patch that will significantly improve dependent name lookup – both in terms of conformance and diagnostics. Currently, even obviously ill-formed constructs such as: template&lt;typename T&gt; struct A { auto f() { return this-&gt;x; } }; are not diagnosed until the template is instantiated. Although this behavior is conforming, in less contrived scenarios, it would be far better to avoid an avalanche of diagnositic messages by diagnosing this at the point of definition. This is possible primarily due to [temp.dep.type] p6: If, for a given set of template arguments, a specialization of a template is instantiated that refers to a member of the current instantiation with a qualified name, the name is looked up in the template instantiation context. If the result of this lookup differs from the result of name lookup in the template definition context, name lookup is ambiguous. and [temp.dep.type] p5: A qualified name is dependent if […] its lookup context is the current instantiation and has at least one dependent base class, and qualified name lookup for the name finds nothing This guarantees that, within the definition of a template, if the lookup context of a qualified name is that that template: if lookup finds any member of the template, then the result of lookup in the instantiation context must also find that member, or if lookup finds nothing, then the program is ill-formed unless the name is found in a dependent base class." />
+<meta property="og:description" content="Much like the last, my primary focus this quarter was on MrDocs, with some additional work done on Boost.StaticString and clang. MrDocs The last significant feature MrDocs needed in order to produce documentation on par with Docca was the ability to render overload set. At a glance this may appear trivial, but MrDocs was designed to render documentation on a per-declaration basis: each declaration would result in a single documentation section being emitted by a generator. This is problematic for overload sets, as an overload sets are not declarations. I ended implementing them as a “view” of the lookup table for a particular scope. Besides implementing support for rendering overload sets, I further expanded the kinds of declarations supported by MrDocs to include friend declarations, deduction guides, and enumerators. Previously, enumerators were stored as a non-Info type, meaning they could not be found by the name lookup mechanism when referenced with @ref/@copydoc. Adding support for friend declarations also had its own set of challenges due to a lack of support by the clang USR generator. As an interim solution, I’m generating pseudo-USRs for friends by concatenating the USR of their lexical scope with the USR of the referenced declaration or type. While this is sufficient for now, it will ultimately be necessary to submit patches to clang to fix the plethora of bugs in USR generation, as well as add support for newer C++ features such as constraints. Another problem area I addressed was the representation of qualified names for symbols that were not extracted. Previously, three different kinds of TypeInfo were used to represent “terminal” types (i.e. typenames): BuiltinTypeInfo for builtin types, TagTypeInfo for class and enumeration types, and SpecializationTypeInfo for class template specializations. These types were awkward to work with, required a non-trivial amount of boilerplate, and were incapable of representing a typename that was qualified by a nested-name-specifier that named a symbol that was not extracted. To remedy this, I created a SymbolName type that can represent a qualified-id naming any symbol and replaced the three terminal TypeInfo kinds with NamedTypeInfo. Clang On the clang side of things, I continued work on fixing C++ conformance issues. This included diagnosing friend function specialization definitions (e.g. friend void f&lt;int&gt;() { }), diagnosing unexpanded packs in function template explicit specializations (e.g. template&lt;&gt; void f&lt;Ts&gt;(); where Ts is a pack), and improving diagnostics for unexpanded packs in class/variable template partial/explicit specializations. In terms of in-progress patches, I am currently working on a patch that will significantly improve dependent name lookup – both in terms of conformance and diagnostics. Currently, even obviously ill-formed constructs such as: template&lt;typename T&gt; struct A { auto f() { return this-&gt;x; } }; are not diagnosed until the template is instantiated. Although this behavior is conforming, in less contrived scenarios, it would be far better to avoid an avalanche of diagnositic messages by diagnosing this at the point of definition. This is possible primarily due to [temp.dep.type] p6: If, for a given set of template arguments, a specialization of a template is instantiated that refers to a member of the current instantiation with a qualified name, the name is looked up in the template instantiation context. If the result of this lookup differs from the result of name lookup in the template definition context, name lookup is ambiguous. and [temp.dep.type] p5: A qualified name is dependent if […] its lookup context is the current instantiation and has at least one dependent base class, and qualified name lookup for the name finds nothing This guarantees that, within the definition of a template, if the lookup context of a qualified name is that that template: if lookup finds any member of the template, then the result of lookup in the instantiation context must also find that member, or if lookup finds nothing, then the program is ill-formed unless the name is found in a dependent base class." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-01-12T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s Q4 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Much like the last, my primary focus this quarter was on MrDocs, with some additional work done on Boost.StaticString and clang. MrDocs The last significant feature MrDocs needed in order to produce documentation on par with Docca was the ability to render overload set. At a glance this may appear trivial, but MrDocs was designed to render documentation on a per-declaration basis: each declaration would result in a single documentation section being emitted by a generator. This is problematic for overload sets, as an overload sets are not declarations. I ended implementing them as a “view” of the lookup table for a particular scope. Besides implementing support for rendering overload sets, I further expanded the kinds of declarations supported by MrDocs to include friend declarations, deduction guides, and enumerators. Previously, enumerators were stored as a non-Info type, meaning they could not be found by the name lookup mechanism when referenced with @ref/@copydoc. Adding support for friend declarations also had its own set of challenges due to a lack of support by the clang USR generator. As an interim solution, I’m generating pseudo-USRs for friends by concatenating the USR of their lexical scope with the USR of the referenced declaration or type. While this is sufficient for now, it will ultimately be necessary to submit patches to clang to fix the plethora of bugs in USR generation, as well as add support for newer C++ features such as constraints. Another problem area I addressed was the representation of qualified names for symbols that were not extracted. Previously, three different kinds of TypeInfo were used to represent “terminal” types (i.e. typenames): BuiltinTypeInfo for builtin types, TagTypeInfo for class and enumeration types, and SpecializationTypeInfo for class template specializations. These types were awkward to work with, required a non-trivial amount of boilerplate, and were incapable of representing a typename that was qualified by a nested-name-specifier that named a symbol that was not extracted. To remedy this, I created a SymbolName type that can represent a qualified-id naming any symbol and replaced the three terminal TypeInfo kinds with NamedTypeInfo. Clang On the clang side of things, I continued work on fixing C++ conformance issues. This included diagnosing friend function specialization definitions (e.g. friend void f&lt;int&gt;() { }), diagnosing unexpanded packs in function template explicit specializations (e.g. template&lt;&gt; void f&lt;Ts&gt;(); where Ts is a pack), and improving diagnostics for unexpanded packs in class/variable template partial/explicit specializations. In terms of in-progress patches, I am currently working on a patch that will significantly improve dependent name lookup – both in terms of conformance and diagnostics. Currently, even obviously ill-formed constructs such as: template&lt;typename T&gt; struct A { auto f() { return this-&gt;x; } }; are not diagnosed until the template is instantiated. Although this behavior is conforming, in less contrived scenarios, it would be far better to avoid an avalanche of diagnositic messages by diagnosing this at the point of definition. This is possible primarily due to [temp.dep.type] p6: If, for a given set of template arguments, a specialization of a template is instantiated that refers to a member of the current instantiation with a qualified name, the name is looked up in the template instantiation context. If the result of this lookup differs from the result of name lookup in the template definition context, name lookup is ambiguous. and [temp.dep.type] p5: A qualified name is dependent if […] its lookup context is the current instantiation and has at least one dependent base class, and qualified name lookup for the name finds nothing This guarantees that, within the definition of a template, if the lookup context of a qualified name is that that template: if lookup finds any member of the template, then the result of lookup in the instantiation context must also find that member, or if lookup finds nothing, then the program is ill-formed unless the name is found in a dependent base class.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update.html","headline":"Krystian’s Q4 Update","dateModified":"2024-01-12T00:00:00+00:00","datePublished":"2024-01-12T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2024/01/12/KrystianQ4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's Q4 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 12, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Much like the last, my primary focus this quarter was on MrDocs, with some additional work done on Boost.StaticString and clang.</p>
+
+<h2 id="mrdocs">MrDocs</h2>
+
+<p>The last significant feature MrDocs needed in order to produce documentation on par with Docca was the ability to render overload set. At a glance this may appear trivial, but MrDocs was designed to render documentation on a per-declaration basis: each declaration would result in a single documentation section being emitted by a generator. This is problematic for overload sets, as an overload sets are not declarations. I ended implementing them as a “view” of the lookup table for a particular scope.</p>
+
+<p>Besides implementing support for rendering overload sets, I further expanded the kinds of declarations supported by MrDocs to include friend declarations, deduction guides, and enumerators. Previously, enumerators were stored as a non-<code>Info</code> type, meaning they could not be found by the name lookup mechanism when referenced with <code>@ref</code>/<code>@copydoc</code>. Adding support for friend declarations also had its own set of challenges due to a lack of support by the clang USR generator. As an interim solution, I’m generating pseudo-USRs for friends by concatenating the USR of their lexical scope with the USR of the referenced declaration or type. While this is sufficient for now, it will ultimately be necessary to submit patches to clang to fix the plethora of bugs in USR generation, as well as add support for newer C++ features such as constraints.</p>
+
+<p>Another problem area I addressed was the representation of qualified names for symbols that were not extracted. Previously, three different kinds of <code>TypeInfo</code> were used to represent “terminal” types (i.e. typenames): <code>BuiltinTypeInfo</code> for builtin types, <code>TagTypeInfo</code> for class and enumeration types, and <code>SpecializationTypeInfo</code> for class template specializations. These types were awkward to work with, required a non-trivial amount of boilerplate, and were incapable of representing a typename that was qualified by a nested-name-specifier that named a symbol that was not extracted. To remedy this, I created a <code>SymbolName</code> type that can represent a qualified-id naming any symbol and replaced the three terminal <code>TypeInfo</code> kinds with <code>NamedTypeInfo</code>.</p>
+
+<h2 id="clang">Clang</h2>
+
+<p>On the clang side of things, I continued work on fixing C++ conformance issues. This included diagnosing friend function specialization definitions (e.g. <code>friend void f&lt;int&gt;() { }</code>), diagnosing unexpanded packs in function template explicit specializations (e.g. <code>template&lt;&gt; void f&lt;Ts&gt;();</code> where <code>Ts</code> is a pack), and improving diagnostics for unexpanded packs in class/variable template partial/explicit specializations.</p>
+
+<p>In terms of in-progress patches, I am currently working on a patch that will significantly improve dependent name lookup – both in terms of conformance and diagnostics. Currently, even obviously ill-formed constructs such as:</p>
+<pre><code class="language-cpp">template&lt;typename T&gt;
+struct A
+{
+    auto f()
+    {
+        return this-&gt;x;
+    }
+};
+</code></pre>
+<p>are not diagnosed until the template is instantiated. Although this behavior is conforming, in less contrived scenarios, it would be far better to avoid an avalanche of diagnositic messages by diagnosing this at the point of definition. This is possible primarily due to <a href="http://eel.is/c++draft/temp.dep.type#6">[temp.dep.type] p6</a>:</p>
+
+<blockquote>
+  <p>If, for a given set of template arguments, a specialization of a template is instantiated that refers to a member of the current instantiation with a qualified name, the name is looked up in the template instantiation context.
+If the result of this lookup differs from the result of name lookup in the template definition context, name lookup is ambiguous.</p>
+</blockquote>
+
+<p>and <a href="http://eel.is/c++draft/temp.dep.type#5">[temp.dep.type] p5</a>:</p>
+
+<blockquote>
+  <p>A qualified name is dependent if</p>
+  <ul>
+    <li>[…]</li>
+    <li>its lookup context is the current instantiation and has at least one dependent base class, and qualified name lookup for the name finds nothing</li>
+  </ul>
+</blockquote>
+
+<p>This guarantees that, within the definition of a template, if the
+lookup context of a qualified name is that that template:</p>
+<ul>
+  <li>if lookup finds any member of the template, then the result of lookup in the instantiation context must also find that member, or</li>
+  <li>if lookup finds nothing, then the program is ill-formed unless the name is found in a dependent base class.</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

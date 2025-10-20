@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's Q3 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s Q3 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s Q3 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Throughout Q3 2024, my work was primarily focused on two projects: MrDocs, and Clang. MrDocs Most of my work in MrDocs was centered around fixing bugs and refactoring. To that end, I resolved numerous bugs, mostly relating to AST extraction. On the refactoring side of things, I (finally) removed the bitcode serialization component from MrDocs. This greatly simplifies the project architecture and eliminates most of the boilerplate that was needed when modifying the representation used by MrDocs to represent AST nodes. Supporting Concepts and Constraints In addition to housekeeping tasks, I added support for concepts (and constraints) to MrDocs! Although the implementation is still in its infancy, all kinds of possible constraints are supported. MrDocs relies on the Clang USR (universal symbol reference) generator to create unique identifiers for C++ entities. Since the Clang USR generator does not support constrained declarations, the implementation of concepts requires additional data appended as to uniquely identify declarations which only differ in constraints. For example: template&lt;int N&gt; void f() requires (N &lt;= 4); template&lt;int N&gt; void f() requires (N &gt; 4); In the interest of saving time, the “extra data” appended to the USR is obtained by computing the “ODR hash” of the constraint-expressions from each function. For context, an “ODR hash” is a hash value used by Clang to identify ODR violations when using modules. Despite it working for trivial cases like the one above, relying on the ODR hash results in more problems, leading us to what I’ve been working on in Clang. Clang In Clang, template parameters are identified via depth and index. Across redeclarations, the depth of template parameters may vary. Consider the following: template&lt;typename T&gt; struct A { template&lt;bool U&gt; void f() requires U; // #1 }; template&lt;&gt; template&lt;bool U&gt; void A&lt;int&gt;::f() requires U; // #2 In #1, the depth of U is 1. In #2. the depth of U is 0. If we compared the constraint-expressions of the trailing requires-clauses of #1 and #2 as written, we would deem them not equivalent, which is obviously incorrect! So, before we compare the constraint-expressions, we must first adjust the depths of any referenced template parameters (which Clang already does). Let’s see what happens when we compile with Clang 19: error: out-of-line declaration of ‘f’ does not match any declaration in ‘A&#39; .. it doesn’t work! This begs the question… why doesn’t it work? In C++, there are three constructs for which instantiation is deferred: noexcept-specifiers, default arguments, and constraints Therefore, we must know the template arguments of any enclosing templates when substituting into these constructs. Of these, the most problematic is constraints, as they affect declaration matching. This led me to write a patch which ensures Clang will always collect the right set of template arguments for any enclosing templates. This not only resolved the USR generation problems in MrDocs, but also fixed significant number of declaration matching issues in Clang." />
+<meta property="og:description" content="Throughout Q3 2024, my work was primarily focused on two projects: MrDocs, and Clang. MrDocs Most of my work in MrDocs was centered around fixing bugs and refactoring. To that end, I resolved numerous bugs, mostly relating to AST extraction. On the refactoring side of things, I (finally) removed the bitcode serialization component from MrDocs. This greatly simplifies the project architecture and eliminates most of the boilerplate that was needed when modifying the representation used by MrDocs to represent AST nodes. Supporting Concepts and Constraints In addition to housekeeping tasks, I added support for concepts (and constraints) to MrDocs! Although the implementation is still in its infancy, all kinds of possible constraints are supported. MrDocs relies on the Clang USR (universal symbol reference) generator to create unique identifiers for C++ entities. Since the Clang USR generator does not support constrained declarations, the implementation of concepts requires additional data appended as to uniquely identify declarations which only differ in constraints. For example: template&lt;int N&gt; void f() requires (N &lt;= 4); template&lt;int N&gt; void f() requires (N &gt; 4); In the interest of saving time, the “extra data” appended to the USR is obtained by computing the “ODR hash” of the constraint-expressions from each function. For context, an “ODR hash” is a hash value used by Clang to identify ODR violations when using modules. Despite it working for trivial cases like the one above, relying on the ODR hash results in more problems, leading us to what I’ve been working on in Clang. Clang In Clang, template parameters are identified via depth and index. Across redeclarations, the depth of template parameters may vary. Consider the following: template&lt;typename T&gt; struct A { template&lt;bool U&gt; void f() requires U; // #1 }; template&lt;&gt; template&lt;bool U&gt; void A&lt;int&gt;::f() requires U; // #2 In #1, the depth of U is 1. In #2. the depth of U is 0. If we compared the constraint-expressions of the trailing requires-clauses of #1 and #2 as written, we would deem them not equivalent, which is obviously incorrect! So, before we compare the constraint-expressions, we must first adjust the depths of any referenced template parameters (which Clang already does). Let’s see what happens when we compile with Clang 19: error: out-of-line declaration of ‘f’ does not match any declaration in ‘A&#39; .. it doesn’t work! This begs the question… why doesn’t it work? In C++, there are three constructs for which instantiation is deferred: noexcept-specifiers, default arguments, and constraints Therefore, we must know the template arguments of any enclosing templates when substituting into these constructs. Of these, the most problematic is constraints, as they affect declaration matching. This led me to write a patch which ensures Clang will always collect the right set of template arguments for any enclosing templates. This not only resolved the USR generation problems in MrDocs, but also fixed significant number of declaration matching issues in Clang." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2024/10/25/KrystiansQ3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2024/10/25/KrystiansQ3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-10-25T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s Q3 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Throughout Q3 2024, my work was primarily focused on two projects: MrDocs, and Clang. MrDocs Most of my work in MrDocs was centered around fixing bugs and refactoring. To that end, I resolved numerous bugs, mostly relating to AST extraction. On the refactoring side of things, I (finally) removed the bitcode serialization component from MrDocs. This greatly simplifies the project architecture and eliminates most of the boilerplate that was needed when modifying the representation used by MrDocs to represent AST nodes. Supporting Concepts and Constraints In addition to housekeeping tasks, I added support for concepts (and constraints) to MrDocs! Although the implementation is still in its infancy, all kinds of possible constraints are supported. MrDocs relies on the Clang USR (universal symbol reference) generator to create unique identifiers for C++ entities. Since the Clang USR generator does not support constrained declarations, the implementation of concepts requires additional data appended as to uniquely identify declarations which only differ in constraints. For example: template&lt;int N&gt; void f() requires (N &lt;= 4); template&lt;int N&gt; void f() requires (N &gt; 4); In the interest of saving time, the “extra data” appended to the USR is obtained by computing the “ODR hash” of the constraint-expressions from each function. For context, an “ODR hash” is a hash value used by Clang to identify ODR violations when using modules. Despite it working for trivial cases like the one above, relying on the ODR hash results in more problems, leading us to what I’ve been working on in Clang. Clang In Clang, template parameters are identified via depth and index. Across redeclarations, the depth of template parameters may vary. Consider the following: template&lt;typename T&gt; struct A { template&lt;bool U&gt; void f() requires U; // #1 }; template&lt;&gt; template&lt;bool U&gt; void A&lt;int&gt;::f() requires U; // #2 In #1, the depth of U is 1. In #2. the depth of U is 0. If we compared the constraint-expressions of the trailing requires-clauses of #1 and #2 as written, we would deem them not equivalent, which is obviously incorrect! So, before we compare the constraint-expressions, we must first adjust the depths of any referenced template parameters (which Clang already does). Let’s see what happens when we compile with Clang 19: error: out-of-line declaration of ‘f’ does not match any declaration in ‘A&#39; .. it doesn’t work! This begs the question… why doesn’t it work? In C++, there are three constructs for which instantiation is deferred: noexcept-specifiers, default arguments, and constraints Therefore, we must know the template arguments of any enclosing templates when substituting into these constructs. Of these, the most problematic is constraints, as they affect declaration matching. This led me to write a patch which ensures Clang will always collect the right set of template arguments for any enclosing templates. This not only resolved the USR generation problems in MrDocs, but also fixed significant number of declaration matching issues in Clang.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2024/10/25/KrystiansQ3Update.html","headline":"Krystian’s Q3 2024 Update","dateModified":"2024-10-25T00:00:00+00:00","datePublished":"2024-10-25T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2024/10/25/KrystiansQ3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's Q3 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 25, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Throughout Q3 2024, my work was primarily focused on two projects: MrDocs, and Clang.</p>
+
+<h1 id="mrdocs">MrDocs</h1>
+
+<p>Most of my work in MrDocs was centered around fixing bugs and refactoring. To that end, I resolved numerous bugs, mostly relating to AST extraction. On the refactoring side of things, I (finally) removed the bitcode serialization component from MrDocs. This <em>greatly</em> simplifies the project architecture and eliminates most of the boilerplate that was needed when modifying the representation used by MrDocs to represent AST nodes.</p>
+
+<h2 id="supporting-concepts-and-constraints">Supporting Concepts and Constraints</h2>
+
+<p>In addition to housekeeping tasks, I added support for concepts (and constraints) to MrDocs! Although the implementation is still in its infancy, all kinds of possible constraints are supported.</p>
+
+<p>MrDocs relies on the Clang USR (universal symbol reference) generator to create unique identifiers for C++ entities. Since the Clang USR generator does not support constrained declarations, the implementation of concepts requires additional data appended as to uniquely identify declarations which only differ in constraints. For example:</p>
+
+<pre><code class="language-cpp">template&lt;int N&gt;
+void f() requires (N &lt;= 4);
+
+template&lt;int N&gt;
+void f() requires (N &gt; 4);
+</code></pre>
+
+<p>In the interest of saving time, the “extra data” appended to the USR is obtained by computing the “ODR hash” of the <em>constraint-expressions</em> from each function. For context, an “ODR hash” is a hash value used by Clang to identify ODR violations when using modules. Despite it working for trivial cases like the one above, relying on the ODR hash results in more problems, leading us to what I’ve been working on in Clang.</p>
+
+<h1 id="clang">Clang</h1>
+
+<p>In Clang, template parameters are identified via <em>depth</em> and <em>index</em>. Across redeclarations, the depth of template parameters may vary. Consider the following:</p>
+
+<pre><code class="language-cpp">template&lt;typename T&gt;
+struct A
+{
+    template&lt;bool U&gt;
+    void f() requires U; // #1
+};
+
+template&lt;&gt;
+template&lt;bool U&gt;
+void A&lt;int&gt;::f() requires U; // #2
+</code></pre>
+
+<p>In <code>#1</code>, the depth of <code>U</code> is <code>1</code>. In <code>#2</code>. the depth of <code>U</code> is <code>0</code>. If we compared the <em>constraint-expressions</em> of the trailing <em>requires-clauses</em> of <code>#1</code> and <code>#2</code> as written, we would deem them not equivalent, which is obviously incorrect! So, before we compare the <em>constraint-expressions</em>, we must first adjust the depths of any referenced template parameters (which Clang already does). Let’s see what happens when we compile with Clang 19:</p>
+
+<blockquote>
+  <p>error: out-of-line declaration of ‘f’ does not match any declaration in ‘A<int>'</int></p>
+</blockquote>
+
+<p>.. it doesn’t work! This begs the question… why doesn’t it work?</p>
+
+<p>In C++, there are three constructs for which instantiation is deferred:</p>
+<ul>
+  <li><em>noexcept-specifiers</em>,</li>
+  <li>default arguments, and</li>
+  <li>constraints</li>
+</ul>
+
+<p>Therefore, we must know the template arguments of any enclosing templates when substituting into these constructs. Of these, the most problematic is constraints, as they affect declaration matching. This led me to <a href="https://github.com/llvm/llvm-project/pull/106585">write a patch</a> which ensures Clang will always collect the right set of template arguments for any enclosing templates. This not only resolved the USR generation problems in MrDocs, but also fixed significant number of declaration matching issues in Clang.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

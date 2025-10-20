@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's Q4 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s Q4 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s Q4 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Clang This quarter, I continued working on the fourth iteration of my refactoring of multi-level template argument list collection (#112381, #114258 and #114569 related), fixed support for the @relates command, made improvements to C++ conformance, amongst other things. Multi-level template argument list collection (again) My initial patch that refactored multi-level template argument list collection proved to have some nasty bugs relating to instantiation order. The following is a reduction of a reported regression when compiling QT: template&lt;int N&gt; struct A { template&lt;typename T&gt; static constexpr bool f(); }; template&lt;&gt; template&lt;typename T&gt; constexpr bool A&lt;0&gt;::f() { return A&lt;1&gt;::f&lt;T&gt;(); // note: undefined function &#39;f&lt;int&gt;&#39; cannot be used in a constant expression } template&lt;&gt; template&lt;typename T&gt; constexpr bool A&lt;1&gt;::f() { return true; } static_assert(A&lt;0&gt;::f&lt;int&gt;()); // error: static assertion expression is not an integral constant expression I initially thought Clang was correct to complain here, since the member specialization A&lt;1&gt;::f does not precede its first use (lexically), ergo IFNDR per [temp.expl.spec] p7: If a template, a member template or a member of a class template is explicitly specialized, a declaration of that specialization shall be reachable from every use of that specialization that would cause an implicit instantiation to take place, in every translation unit in which such a use occurs; no diagnostic is required. However, the declaration of the member specialization is reachable from a point in the instantiation context of the definition of A&lt;0&gt;::f&lt;int&gt; (that being, immediately prior to the static_assert-declaration), so this example is indeed valid. Explicit specialization of members of partial specializations On the C++ conformance side of things, I landed a patch implementing [temp.spec.partial.member] p2: If the primary member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the partial specializations of the member template are ignored for this specialization of the enclosing class template. If a partial specialization of the member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the primary member template and its other partial specializations are still considered for this specialization of the enclosing class template. Its meaning can be illustrated via the following: template&lt;typename T&gt; struct A { template&lt;typename U&gt; struct B { static constexpr int x = 0; // #1 }; template&lt;typename U&gt; struct B&lt;U*&gt; { static constexpr int x = 1; // #2 }; }; template&lt;&gt; template&lt;typename U&gt; struct A&lt;long&gt;::B { static constexpr int x = 2; // #3 }; static_assert(A&lt;short&gt;::B&lt;int&gt;::y == 0); // uses #1 static_assert(A&lt;short&gt;::B&lt;int*&gt;::y == 1); // uses #2 static_assert(A&lt;long&gt;::B&lt;int&gt;::y == 2); // uses #3 static_assert(A&lt;long&gt;::B&lt;int*&gt;::y == 2); // uses #3 Since the primary member template A&lt;long&gt;::B is explicitly specialized for a given (implicit) specialization of its enclosing class template, the partial specialization B&lt;U*&gt; will be ignored when instantiating a specialization of B." />
+<meta property="og:description" content="Clang This quarter, I continued working on the fourth iteration of my refactoring of multi-level template argument list collection (#112381, #114258 and #114569 related), fixed support for the @relates command, made improvements to C++ conformance, amongst other things. Multi-level template argument list collection (again) My initial patch that refactored multi-level template argument list collection proved to have some nasty bugs relating to instantiation order. The following is a reduction of a reported regression when compiling QT: template&lt;int N&gt; struct A { template&lt;typename T&gt; static constexpr bool f(); }; template&lt;&gt; template&lt;typename T&gt; constexpr bool A&lt;0&gt;::f() { return A&lt;1&gt;::f&lt;T&gt;(); // note: undefined function &#39;f&lt;int&gt;&#39; cannot be used in a constant expression } template&lt;&gt; template&lt;typename T&gt; constexpr bool A&lt;1&gt;::f() { return true; } static_assert(A&lt;0&gt;::f&lt;int&gt;()); // error: static assertion expression is not an integral constant expression I initially thought Clang was correct to complain here, since the member specialization A&lt;1&gt;::f does not precede its first use (lexically), ergo IFNDR per [temp.expl.spec] p7: If a template, a member template or a member of a class template is explicitly specialized, a declaration of that specialization shall be reachable from every use of that specialization that would cause an implicit instantiation to take place, in every translation unit in which such a use occurs; no diagnostic is required. However, the declaration of the member specialization is reachable from a point in the instantiation context of the definition of A&lt;0&gt;::f&lt;int&gt; (that being, immediately prior to the static_assert-declaration), so this example is indeed valid. Explicit specialization of members of partial specializations On the C++ conformance side of things, I landed a patch implementing [temp.spec.partial.member] p2: If the primary member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the partial specializations of the member template are ignored for this specialization of the enclosing class template. If a partial specialization of the member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the primary member template and its other partial specializations are still considered for this specialization of the enclosing class template. Its meaning can be illustrated via the following: template&lt;typename T&gt; struct A { template&lt;typename U&gt; struct B { static constexpr int x = 0; // #1 }; template&lt;typename U&gt; struct B&lt;U*&gt; { static constexpr int x = 1; // #2 }; }; template&lt;&gt; template&lt;typename U&gt; struct A&lt;long&gt;::B { static constexpr int x = 2; // #3 }; static_assert(A&lt;short&gt;::B&lt;int&gt;::y == 0); // uses #1 static_assert(A&lt;short&gt;::B&lt;int*&gt;::y == 1); // uses #2 static_assert(A&lt;long&gt;::B&lt;int&gt;::y == 2); // uses #3 static_assert(A&lt;long&gt;::B&lt;int*&gt;::y == 2); // uses #3 Since the primary member template A&lt;long&gt;::B is explicitly specialized for a given (implicit) specialization of its enclosing class template, the partial specialization B&lt;U*&gt; will be ignored when instantiating a specialization of B." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2025/01/11/KrystiansQ4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2025/01/11/KrystiansQ4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-11T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s Q4 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Clang This quarter, I continued working on the fourth iteration of my refactoring of multi-level template argument list collection (#112381, #114258 and #114569 related), fixed support for the @relates command, made improvements to C++ conformance, amongst other things. Multi-level template argument list collection (again) My initial patch that refactored multi-level template argument list collection proved to have some nasty bugs relating to instantiation order. The following is a reduction of a reported regression when compiling QT: template&lt;int N&gt; struct A { template&lt;typename T&gt; static constexpr bool f(); }; template&lt;&gt; template&lt;typename T&gt; constexpr bool A&lt;0&gt;::f() { return A&lt;1&gt;::f&lt;T&gt;(); // note: undefined function &#39;f&lt;int&gt;&#39; cannot be used in a constant expression } template&lt;&gt; template&lt;typename T&gt; constexpr bool A&lt;1&gt;::f() { return true; } static_assert(A&lt;0&gt;::f&lt;int&gt;()); // error: static assertion expression is not an integral constant expression I initially thought Clang was correct to complain here, since the member specialization A&lt;1&gt;::f does not precede its first use (lexically), ergo IFNDR per [temp.expl.spec] p7: If a template, a member template or a member of a class template is explicitly specialized, a declaration of that specialization shall be reachable from every use of that specialization that would cause an implicit instantiation to take place, in every translation unit in which such a use occurs; no diagnostic is required. However, the declaration of the member specialization is reachable from a point in the instantiation context of the definition of A&lt;0&gt;::f&lt;int&gt; (that being, immediately prior to the static_assert-declaration), so this example is indeed valid. Explicit specialization of members of partial specializations On the C++ conformance side of things, I landed a patch implementing [temp.spec.partial.member] p2: If the primary member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the partial specializations of the member template are ignored for this specialization of the enclosing class template. If a partial specialization of the member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the primary member template and its other partial specializations are still considered for this specialization of the enclosing class template. Its meaning can be illustrated via the following: template&lt;typename T&gt; struct A { template&lt;typename U&gt; struct B { static constexpr int x = 0; // #1 }; template&lt;typename U&gt; struct B&lt;U*&gt; { static constexpr int x = 1; // #2 }; }; template&lt;&gt; template&lt;typename U&gt; struct A&lt;long&gt;::B { static constexpr int x = 2; // #3 }; static_assert(A&lt;short&gt;::B&lt;int&gt;::y == 0); // uses #1 static_assert(A&lt;short&gt;::B&lt;int*&gt;::y == 1); // uses #2 static_assert(A&lt;long&gt;::B&lt;int&gt;::y == 2); // uses #3 static_assert(A&lt;long&gt;::B&lt;int*&gt;::y == 2); // uses #3 Since the primary member template A&lt;long&gt;::B is explicitly specialized for a given (implicit) specialization of its enclosing class template, the partial specialization B&lt;U*&gt; will be ignored when instantiating a specialization of B.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2025/01/11/KrystiansQ4Update.html","headline":"Krystian’s Q4 2024 Update","dateModified":"2025-01-11T00:00:00+00:00","datePublished":"2025-01-11T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2025/01/11/KrystiansQ4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's Q4 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 11, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="clang">Clang</h1>
+
+<p>This quarter, I continued working on the <em>fourth</em> iteration of my <a href="https://github.com/llvm/llvm-project/pull/111852">refactoring of multi-level template argument list collection</a> (<a href="https://github.com/llvm/llvm-project/pull/112381">#112381</a>, <a href="https://github.com/llvm/llvm-project/pull/114258">#114258</a> and <a href="https://github.com/llvm/llvm-project/pull/114569">#114569</a> related), fixed support for the <code>@relates</code> command, made improvements to C++ conformance, amongst other things.</p>
+
+<h2 id="multi-level-template-argument-list-collection-again">Multi-level template argument list collection (again)</h2>
+
+<p><a href="https://github.com/llvm/llvm-project/pull/106585">My initial patch</a> that refactored multi-level template argument list collection proved to have some nasty bugs relating to instantiation order. The following is a reduction of a reported regression when compiling QT:</p>
+
+<pre><code class="language-cpp">template&lt;int N&gt;
+struct A
+{
+    template&lt;typename T&gt;
+    static constexpr bool f();
+};
+
+template&lt;&gt;
+template&lt;typename T&gt;
+constexpr bool A&lt;0&gt;::f()
+{
+    return A&lt;1&gt;::f&lt;T&gt;(); // note: undefined function 'f&lt;int&gt;' cannot be used in a constant expression
+}
+
+template&lt;&gt;
+template&lt;typename T&gt;
+constexpr bool A&lt;1&gt;::f()
+{
+    return true;
+}
+
+static_assert(A&lt;0&gt;::f&lt;int&gt;()); // error: static assertion expression is not an integral constant expression
+</code></pre>
+
+<p>I initially thought Clang was correct to complain here, since the member specialization <code>A&lt;1&gt;::f</code> does not precede its first use (lexically), ergo IFNDR per <a href="http://eel.is/c++draft/temp.expl.spec#7">[temp.expl.spec] p7</a>:</p>
+<blockquote>
+  <p>If a template, a member template or a member of a class template is explicitly specialized, a declaration of that specialization shall be reachable from every use of that specialization that would cause an implicit instantiation to take place, in every translation unit in which such a use occurs; no diagnostic is required.</p>
+</blockquote>
+
+<p>However, the declaration of the member specialization is reachable from a point in the <em>instantiation context</em> of the definition of <code>A&lt;0&gt;::f&lt;int&gt;</code> (that being, immediately prior to the <em>static_assert-declaration</em>), so this example is indeed valid.</p>
+
+<h2 id="explicit-specialization-of-members-of-partial-specializations">Explicit specialization of members of partial specializations</h2>
+
+<p>On the C++ conformance side of things, I landed a <a href="https://github.com/llvm/llvm-project/pull/113464">patch</a> implementing <a href="http://eel.is/c++draft/temp.spec.partial.member#2">[temp.spec.partial.member] p2</a>:</p>
+<blockquote>
+  <p>If the primary member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the partial specializations of the member template are ignored for this specialization of the enclosing class template.
+If a partial specialization of the member template is explicitly specialized for a given (implicit) specialization of the enclosing class template, the primary member template and its other partial specializations are still considered for this specialization of the enclosing class template.</p>
+</blockquote>
+
+<p>Its meaning can be illustrated via the following:</p>
+<pre><code class="language-cpp">template&lt;typename T&gt;
+struct A
+{
+    template&lt;typename U&gt;
+    struct B
+    {
+        static constexpr int x = 0; // #1
+    };
+
+    template&lt;typename U&gt;
+    struct B&lt;U*&gt;
+    {
+        static constexpr int x = 1; // #2
+    };
+};
+
+template&lt;&gt;
+template&lt;typename U&gt;
+struct A&lt;long&gt;::B
+{
+    static constexpr int x = 2; // #3
+};
+
+static_assert(A&lt;short&gt;::B&lt;int&gt;::y == 0); // uses #1
+static_assert(A&lt;short&gt;::B&lt;int*&gt;::y == 1); // uses #2
+
+static_assert(A&lt;long&gt;::B&lt;int&gt;::y == 2); // uses #3
+static_assert(A&lt;long&gt;::B&lt;int*&gt;::y == 2); // uses #3
+</code></pre>
+
+<p>Since the primary member template <code>A&lt;long&gt;::B</code> is explicitly specialized for a given (implicit) specialization of its enclosing class template, the partial specialization <code>B&lt;U*&gt;</code> will be ignored when instantiating a specialization of <code>B</code>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

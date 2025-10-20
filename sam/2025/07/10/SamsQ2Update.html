@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mailman3 and Website-V2 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Mailman3 and Website-V2 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Mailman3 and Website-V2" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Mailman3 Deployment The Boost mailing list has been in place for around 25 years. During at least the last 3 years we have been exploring an upgrade to mailman3 which is a completely new framework based on Django and multiple other components. The new server finally went live in June 2025 at the same URL: https://lists.boost.org. Mail archives going back to 2004 were imported into the new system. Static file copies of all archives are also hosted at listarchives.boost.org. Thanks to some organizational delays, there was more time to ensure a technically stable migration, discover potential problems and interact with the upstream open-source project maintainers. I was able to contribute documentation to the official Mailman Suite docs, switch the search engine from Elastic Search to Xapian (which they recommend), convert the cache to Redis, find a qcluster misconfiguration, submit a fix about an archive import bug, create new shell wrapper scripts for CLI execution, install logrotate, and more. Hopefully the new server is more enjoyable to interact with than mailman2. It solves certain issues: posts appear almost instantly on lists.boost.org and they are emailed out quickly. UTF-8 characters render correctly. New features can be added. Boost website boostorg/website-v2 The new boost.org went live! After nearly 4 years of development. A major milestone. Switched over DNS. Also, Enabled IPv6. Installed horizontal pod autoscaler (HPA). Nginx redirect from boost.io to boost.org. Adjusted Fastly CDN settings for ‘latest’. Fixing Fastly VCL commands to process 404s. Opened ticket, re-organized the order of the expressions. Created QA environment. Actually using the cppal-dev environment. Re-DNS servers. Discussing and planning a feature in website-v2 to improve doc page load times by a factor of 4, by caching doc pages in postgresql instead of always loading them across the network from S3. Improved the install scripts for local developer workstations, specifically the logic and steps of the Linux install. Doc Previews and Doc Builds A few Boost libraries depend on Antora, and the number will expand in the future. An existing problem with Antora is that the component isomorphic-git doesn’t support submodules, while all Boost libraries are submodules. I have opened a draft pull request on isomorphic-git to include a subset of submodule capabilities, allowing it to operating on already-checked-out submodules. That would be sufficient to handle most cases of doc builds. Since the original author of isomorphic-git departed, there is at most a part-time maintainer. Review processes are somewhat slow. Further work needs to be done. But it’s progressing and doesn’t appear to be blocked, although there is a hurdle that a correct isomorphic-git update for submodules will need to modify 60+ git commands, each of which has a test suite and varying source code files. boost-ci Nearly all CI jobs that use boost-ci set B2_CI_VERSION=1. We’re now working on eliminating the need for this variable by making it a default. That will avoid an error when the variable isn’t set properly. CI configuration becomes one step easier. Running reports to find which repos are affected. In-process. Infrastructure Monitoring The upstream Ansible roles to deploy Prometheus and Grafana were redesigned, and migrated from a ‘role’ to a ‘collection’. In order to stay up-to-date and use the latest pip packages, I converted the Alliance’s Prometheus/Grafana server to the new system and re-wrote the ‘node exporter’ modules which are customized to install on multiple operating systems, windows/macos/linux. Deployed new server. Further monitoring of Drone (number of runners). Postgresql (all db statistics). Jenkins The latest Jenkins jobs send email notifications on failure. Working on designing adjustments to those steps to remove false-positives, which are caused by plugin bugs. It’s valuable to receive accurate email notifications, allowing prompt investigation of the job issues. Debugging Bloom. Added Decimal. Int128. Upgraded all plugins, server. Boost release process boostorg/release-tools Boost release 1.88.0. Worked with release managers to debug the publish scripts. Opened issues on website-v2 about the release process. Helped multiple boost authors with various docs errors affecting superproject builds. Drone Rebuilt vs2022 runners. IBM invoicing issues. not uncommon. IBM password expirations issues due to their configuration defaults. Disabled hyperthreading on runners. GHA Rebuilt windows-2025 runners. Benchmarks New dedicated benchmark runners for boostorg/bloom." />
+<meta property="og:description" content="Mailman3 Deployment The Boost mailing list has been in place for around 25 years. During at least the last 3 years we have been exploring an upgrade to mailman3 which is a completely new framework based on Django and multiple other components. The new server finally went live in June 2025 at the same URL: https://lists.boost.org. Mail archives going back to 2004 were imported into the new system. Static file copies of all archives are also hosted at listarchives.boost.org. Thanks to some organizational delays, there was more time to ensure a technically stable migration, discover potential problems and interact with the upstream open-source project maintainers. I was able to contribute documentation to the official Mailman Suite docs, switch the search engine from Elastic Search to Xapian (which they recommend), convert the cache to Redis, find a qcluster misconfiguration, submit a fix about an archive import bug, create new shell wrapper scripts for CLI execution, install logrotate, and more. Hopefully the new server is more enjoyable to interact with than mailman2. It solves certain issues: posts appear almost instantly on lists.boost.org and they are emailed out quickly. UTF-8 characters render correctly. New features can be added. Boost website boostorg/website-v2 The new boost.org went live! After nearly 4 years of development. A major milestone. Switched over DNS. Also, Enabled IPv6. Installed horizontal pod autoscaler (HPA). Nginx redirect from boost.io to boost.org. Adjusted Fastly CDN settings for ‘latest’. Fixing Fastly VCL commands to process 404s. Opened ticket, re-organized the order of the expressions. Created QA environment. Actually using the cppal-dev environment. Re-DNS servers. Discussing and planning a feature in website-v2 to improve doc page load times by a factor of 4, by caching doc pages in postgresql instead of always loading them across the network from S3. Improved the install scripts for local developer workstations, specifically the logic and steps of the Linux install. Doc Previews and Doc Builds A few Boost libraries depend on Antora, and the number will expand in the future. An existing problem with Antora is that the component isomorphic-git doesn’t support submodules, while all Boost libraries are submodules. I have opened a draft pull request on isomorphic-git to include a subset of submodule capabilities, allowing it to operating on already-checked-out submodules. That would be sufficient to handle most cases of doc builds. Since the original author of isomorphic-git departed, there is at most a part-time maintainer. Review processes are somewhat slow. Further work needs to be done. But it’s progressing and doesn’t appear to be blocked, although there is a hurdle that a correct isomorphic-git update for submodules will need to modify 60+ git commands, each of which has a test suite and varying source code files. boost-ci Nearly all CI jobs that use boost-ci set B2_CI_VERSION=1. We’re now working on eliminating the need for this variable by making it a default. That will avoid an error when the variable isn’t set properly. CI configuration becomes one step easier. Running reports to find which repos are affected. In-process. Infrastructure Monitoring The upstream Ansible roles to deploy Prometheus and Grafana were redesigned, and migrated from a ‘role’ to a ‘collection’. In order to stay up-to-date and use the latest pip packages, I converted the Alliance’s Prometheus/Grafana server to the new system and re-wrote the ‘node exporter’ modules which are customized to install on multiple operating systems, windows/macos/linux. Deployed new server. Further monitoring of Drone (number of runners). Postgresql (all db statistics). Jenkins The latest Jenkins jobs send email notifications on failure. Working on designing adjustments to those steps to remove false-positives, which are caused by plugin bugs. It’s valuable to receive accurate email notifications, allowing prompt investigation of the job issues. Debugging Bloom. Added Decimal. Int128. Upgraded all plugins, server. Boost release process boostorg/release-tools Boost release 1.88.0. Worked with release managers to debug the publish scripts. Opened issues on website-v2 about the release process. Helped multiple boost authors with various docs errors affecting superproject builds. Drone Rebuilt vs2022 runners. IBM invoicing issues. not uncommon. IBM password expirations issues due to their configuration defaults. Disabled hyperthreading on runners. GHA Rebuilt windows-2025 runners. Benchmarks New dedicated benchmark runners for boostorg/bloom." />
+<link rel="canonical" href="http://cppalliance.org/sam/2025/07/10/SamsQ2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2025/07/10/SamsQ2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-07-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Mailman3 and Website-V2" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Mailman3 Deployment The Boost mailing list has been in place for around 25 years. During at least the last 3 years we have been exploring an upgrade to mailman3 which is a completely new framework based on Django and multiple other components. The new server finally went live in June 2025 at the same URL: https://lists.boost.org. Mail archives going back to 2004 were imported into the new system. Static file copies of all archives are also hosted at listarchives.boost.org. Thanks to some organizational delays, there was more time to ensure a technically stable migration, discover potential problems and interact with the upstream open-source project maintainers. I was able to contribute documentation to the official Mailman Suite docs, switch the search engine from Elastic Search to Xapian (which they recommend), convert the cache to Redis, find a qcluster misconfiguration, submit a fix about an archive import bug, create new shell wrapper scripts for CLI execution, install logrotate, and more. Hopefully the new server is more enjoyable to interact with than mailman2. It solves certain issues: posts appear almost instantly on lists.boost.org and they are emailed out quickly. UTF-8 characters render correctly. New features can be added. Boost website boostorg/website-v2 The new boost.org went live! After nearly 4 years of development. A major milestone. Switched over DNS. Also, Enabled IPv6. Installed horizontal pod autoscaler (HPA). Nginx redirect from boost.io to boost.org. Adjusted Fastly CDN settings for ‘latest’. Fixing Fastly VCL commands to process 404s. Opened ticket, re-organized the order of the expressions. Created QA environment. Actually using the cppal-dev environment. Re-DNS servers. Discussing and planning a feature in website-v2 to improve doc page load times by a factor of 4, by caching doc pages in postgresql instead of always loading them across the network from S3. Improved the install scripts for local developer workstations, specifically the logic and steps of the Linux install. Doc Previews and Doc Builds A few Boost libraries depend on Antora, and the number will expand in the future. An existing problem with Antora is that the component isomorphic-git doesn’t support submodules, while all Boost libraries are submodules. I have opened a draft pull request on isomorphic-git to include a subset of submodule capabilities, allowing it to operating on already-checked-out submodules. That would be sufficient to handle most cases of doc builds. Since the original author of isomorphic-git departed, there is at most a part-time maintainer. Review processes are somewhat slow. Further work needs to be done. But it’s progressing and doesn’t appear to be blocked, although there is a hurdle that a correct isomorphic-git update for submodules will need to modify 60+ git commands, each of which has a test suite and varying source code files. boost-ci Nearly all CI jobs that use boost-ci set B2_CI_VERSION=1. We’re now working on eliminating the need for this variable by making it a default. That will avoid an error when the variable isn’t set properly. CI configuration becomes one step easier. Running reports to find which repos are affected. In-process. Infrastructure Monitoring The upstream Ansible roles to deploy Prometheus and Grafana were redesigned, and migrated from a ‘role’ to a ‘collection’. In order to stay up-to-date and use the latest pip packages, I converted the Alliance’s Prometheus/Grafana server to the new system and re-wrote the ‘node exporter’ modules which are customized to install on multiple operating systems, windows/macos/linux. Deployed new server. Further monitoring of Drone (number of runners). Postgresql (all db statistics). Jenkins The latest Jenkins jobs send email notifications on failure. Working on designing adjustments to those steps to remove false-positives, which are caused by plugin bugs. It’s valuable to receive accurate email notifications, allowing prompt investigation of the job issues. Debugging Bloom. Added Decimal. Int128. Upgraded all plugins, server. Boost release process boostorg/release-tools Boost release 1.88.0. Worked with release managers to debug the publish scripts. Opened issues on website-v2 about the release process. Helped multiple boost authors with various docs errors affecting superproject builds. Drone Rebuilt vs2022 runners. IBM invoicing issues. not uncommon. IBM password expirations issues due to their configuration defaults. Disabled hyperthreading on runners. GHA Rebuilt windows-2025 runners. Benchmarks New dedicated benchmark runners for boostorg/bloom.","@type":"BlogPosting","url":"http://cppalliance.org/sam/2025/07/10/SamsQ2Update.html","headline":"Mailman3 and Website-V2","dateModified":"2025-07-10T00:00:00+00:00","datePublished":"2025-07-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2025/07/10/SamsQ2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Mailman3 and Website-V2</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 10, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h3 id="mailman3-deployment">Mailman3 Deployment</h3>
+
+<p>The Boost mailing list has been in place for around 25 years. During at least the last 3 years we have been exploring an upgrade to mailman3 which is a completely new framework based on Django and multiple other components. The new server finally went live in June 2025 at the same URL: https://lists.boost.org.</p>
+
+<p>Mail archives going back to 2004 were imported into the new system. Static file copies of all archives are also hosted at listarchives.boost.org.</p>
+
+<p>Thanks to some organizational delays, there was more time to ensure a technically stable migration, discover potential problems and interact with the upstream open-source project maintainers. I was able to contribute documentation to the official Mailman Suite docs, switch the search engine from Elastic Search to Xapian (which they recommend), convert the cache to Redis, find a qcluster misconfiguration, submit a fix about an archive import bug, create new shell wrapper scripts for CLI execution, install logrotate, and more.</p>
+
+<p>Hopefully the new server is more enjoyable to interact with than mailman2. It solves certain issues: posts appear almost instantly on lists.boost.org and they are emailed out quickly. UTF-8 characters render correctly. New features can be added.</p>
+
+<h3 id="boost-website-boostorgwebsite-v2">Boost website boostorg/website-v2</h3>
+
+<p>The new boost.org went live! After nearly 4 years of development. A major milestone. Switched over DNS.</p>
+
+<p>Also,</p>
+
+<p>Enabled IPv6.<br />
+Installed horizontal pod autoscaler (HPA).<br />
+Nginx redirect from boost.io to boost.org.  <br />
+Adjusted Fastly CDN settings for ‘latest’. Fixing Fastly VCL commands to process 404s. Opened ticket, re-organized the order of the expressions.<br />
+Created QA environment. Actually using the cppal-dev environment. Re-DNS servers.<br />
+Discussing and planning a feature in website-v2 to improve doc page load times by a factor of 4, by caching doc pages in postgresql instead of always loading them across the network from S3.<br />
+Improved the install scripts for local developer workstations, specifically the logic and steps of the Linux install.</p>
+
+<h3 id="doc-previews-and-doc-builds">Doc Previews and Doc Builds</h3>
+
+<p>A few Boost libraries depend on <a href="https://antora.org/">Antora</a>, and the number will expand in the future. An existing problem with Antora is that the component isomorphic-git doesn’t support submodules, while all Boost libraries are submodules.</p>
+
+<p>I have opened a draft pull request on isomorphic-git to include a subset of submodule capabilities, allowing it to operating on already-checked-out submodules. That would be sufficient to handle most cases of doc builds. Since the original author of isomorphic-git departed, there is at most a part-time maintainer. Review processes are somewhat slow. Further work needs to be done. But it’s progressing and doesn’t appear to be blocked, although there is a hurdle that a correct isomorphic-git update for submodules will need to modify 60+ git commands, each of which has a test suite and varying source code files.</p>
+
+<h3 id="boost-ci">boost-ci</h3>
+
+<p>Nearly all CI jobs that use boost-ci set B2_CI_VERSION=1. We’re now working on eliminating the need for this variable by making it a default. That will avoid an error when the variable isn’t set properly. CI configuration becomes one step easier. Running reports to find which repos are affected. In-process.</p>
+
+<h3 id="infrastructure-monitoring">Infrastructure Monitoring</h3>
+
+<p>The upstream Ansible roles to deploy Prometheus and Grafana were redesigned, and migrated from a ‘role’ to a ‘collection’. In order to stay up-to-date and use the latest pip packages, I converted the Alliance’s Prometheus/Grafana server to the new system and re-wrote the ‘node exporter’ modules which are customized to install on multiple operating systems, windows/macos/linux.</p>
+
+<p>Deployed new server.</p>
+
+<p>Further monitoring of Drone (number of runners). Postgresql (all db statistics).</p>
+
+<h3 id="jenkins">Jenkins</h3>
+
+<p>The latest Jenkins jobs send email notifications on failure. Working on designing adjustments to those steps to remove false-positives, which are caused by plugin bugs. It’s valuable to receive accurate email notifications, allowing prompt investigation of the job issues.</p>
+
+<p>Debugging Bloom. Added Decimal. Int128.</p>
+
+<p>Upgraded all plugins, server.</p>
+
+<h3 id="boost-release-process-boostorgrelease-tools">Boost release process boostorg/release-tools</h3>
+
+<p>Boost release 1.88.0.<br />
+Worked with release managers to debug the publish scripts. Opened issues on website-v2 about the release process.<br />
+Helped multiple boost authors with various docs errors affecting superproject builds.</p>
+
+<h3 id="drone">Drone</h3>
+
+<ul>
+  <li>Rebuilt vs2022 runners.</li>
+  <li>IBM invoicing issues. not uncommon.</li>
+  <li>IBM password expirations issues due to their configuration defaults.</li>
+  <li>Disabled hyperthreading on runners.</li>
+</ul>
+
+<h3 id="gha">GHA</h3>
+
+<p>Rebuilt windows-2025 runners.</p>
+
+<h3 id="benchmarks">Benchmarks</h3>
+<p>New dedicated benchmark runners for boostorg/bloom.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

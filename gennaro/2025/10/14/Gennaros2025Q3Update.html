@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++ | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++ | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Over the past three months, I’ve been immersed in a deep and wide-ranging overhaul of the Boost.DynamicBitset library. What started as a few targeted improvements quickly evolved into a full-scale modernization effort—touching everything from the underlying container to iterator concepts, from test coverage to documentation style. More than 170 commits later, the library is leaner, more flexible, and better aligned with modern C++ practices. Making the core more flexible The most transformative change this quarter was allowing users to choose the underlying container type for dynamic_bitset. Until now, the implementation assumed std::vector, which limited optimization opportunities and imposed certain behaviors. By lifting that restriction, developers can now use alternatives like boost::container::small_vector, enabling small buffer optimization and more control over memory layout. This change had ripple effects throughout the codebase. I had to revisit assumptions about contiguous storage, update operators like &lt;&lt;=, &gt;&gt;=, and ensure that reference stability and iterator behavior were correctly handled. Introducing C++20 iterators One of the more exciting additions this quarter was support for C++20-style iterators. These new iterators conform to the standard iterator concepts, making dynamic_bitset more interoperable with modern algorithms and range-based utilities. I added assertions to ensure that both the underlying container and dynamic_bitset itself meet the requirements for bidirectional iteration. These checks are enabled only when compiling with C++20 or later, and they help catch subtle mismatches early—especially when users plug in custom containers. Saying goodbye to legacy workarounds With modern compilers and standard libraries, many old workarounds are no longer needed. I removed the max_size_workaround() after confirming that major implementations now correctly account for allocators in max_size(). I also dropped support for obsolete compilers like MSVC 6 and CodeWarrior 8.3, and for pre-standard iostreams, cleaned up outdated macros, and removed compatibility layers for pre-C++11 environments. These removals weren’t just cosmetic—they simplified the code and made it easier to reason about. In many places, I replaced legacy constructs with standard features like noexcept and std::move(). constexpr support When it is compiled as C++20 or later, almost all functions in DynamicBitset are now constexpr. Dropping obsolete dependencies As part of the cleanup effort, I also removed several outdated dependencies that were no longer justified. These included Boost.Integer (previously used by lowest_bit()), core/allocator_access.hpp, and various compatibility headers tied to pre-C++11 environments. This not only reduces compile-time overhead and cognitive load, but also makes the library easier to audit and maintain. Strengthening the test suite A part of this quarter’s work was expanding and refining the test coverage. I added new tests for flip(), resize(), swap(), and operator!=(). I also ensured that input iterators are properly supported in append(), and verified that std::hash behaves correctly even when two bitsets share the same underlying container but differ in size. Along the way, I cleaned up misleading comments, shortened overly complex conditions, and removed legacy test code that no longer reflected the current behavior of the library. The result is a test suite that’s more robust, more meaningful, and easier to maintain. Documentation that speaks clearly I’ve always believed that documentation should be treated as part of the design, not an afterthought. This quarter, I ported the existing documentation to MrDocs and Antora, while fixing and improving a few bits in the process. This uncovered a few MrDocs bugs, some of which remain—but I’m hopeful. I also spent time harmonizing the style and structure of the library’s comments and docstrings. I chose to document iterator categories rather than exposing concrete types, which keeps the interface clean and focused on behavior rather than implementation details. New member functions and smarter implementations This quarter also introduced several new member functions that expand the expressiveness and utility of dynamic_bitset: push_front() and pop_front() allow bit-level manipulation at the front of the bitset, complementing the existing back-oriented operations. find_first_off() and find_next_off() provide symmetric functionality to their find_first() counterparts, making it easier to locate unset bits. A constructor from basic_string_view was added for C++17 and later, improving interoperability with modern string APIs. Alongside these additions, I revisited the implementation of several existing members to improve performance and clarity: push_back() and pop_back() were streamlined for better efficiency. all() and lowest_bit() were simplified and optimized, with the latter also shedding its dependency on Boost.Integer. append() was fixed to properly support input iterators and avoid redundant checks. Minor but impactful cleanups A large number of small edits improved correctness, readability, and maintainability: Fixed the stream inserter to set badbit if an exception is thrown during output. Changed the stream extractor to rethrow any exceptions coming from the underlying container. Reordered and cleaned up all #include sections to use the “” form for Boost includes where appropriate and to keep include groups sorted. Removed an example timing benchmark that was misleading and a number of unneeded comments and minor typos across code and docs. These edits reduce noise and make code reviews and maintenance more pleasant. Reflections Looking back, this quarter reminded me of the value of revisiting assumptions. Many of the workarounds and constraints that once made sense are now obsolete. By embracing modern C++ features and simplifying where possible, we can make libraries like dynamic_bitset more powerful and more approachable. It also reinforced the importance of clarity—both in code and in documentation. Whether it’s a test case, a comment, or a public API, precision and consistency go a long way. The work continues, but the foundation is stronger than ever. If you’re using dynamic_bitset or thinking about integrating it into your project, I’d love to hear your feedback." />
+<meta property="og:description" content="Over the past three months, I’ve been immersed in a deep and wide-ranging overhaul of the Boost.DynamicBitset library. What started as a few targeted improvements quickly evolved into a full-scale modernization effort—touching everything from the underlying container to iterator concepts, from test coverage to documentation style. More than 170 commits later, the library is leaner, more flexible, and better aligned with modern C++ practices. Making the core more flexible The most transformative change this quarter was allowing users to choose the underlying container type for dynamic_bitset. Until now, the implementation assumed std::vector, which limited optimization opportunities and imposed certain behaviors. By lifting that restriction, developers can now use alternatives like boost::container::small_vector, enabling small buffer optimization and more control over memory layout. This change had ripple effects throughout the codebase. I had to revisit assumptions about contiguous storage, update operators like &lt;&lt;=, &gt;&gt;=, and ensure that reference stability and iterator behavior were correctly handled. Introducing C++20 iterators One of the more exciting additions this quarter was support for C++20-style iterators. These new iterators conform to the standard iterator concepts, making dynamic_bitset more interoperable with modern algorithms and range-based utilities. I added assertions to ensure that both the underlying container and dynamic_bitset itself meet the requirements for bidirectional iteration. These checks are enabled only when compiling with C++20 or later, and they help catch subtle mismatches early—especially when users plug in custom containers. Saying goodbye to legacy workarounds With modern compilers and standard libraries, many old workarounds are no longer needed. I removed the max_size_workaround() after confirming that major implementations now correctly account for allocators in max_size(). I also dropped support for obsolete compilers like MSVC 6 and CodeWarrior 8.3, and for pre-standard iostreams, cleaned up outdated macros, and removed compatibility layers for pre-C++11 environments. These removals weren’t just cosmetic—they simplified the code and made it easier to reason about. In many places, I replaced legacy constructs with standard features like noexcept and std::move(). constexpr support When it is compiled as C++20 or later, almost all functions in DynamicBitset are now constexpr. Dropping obsolete dependencies As part of the cleanup effort, I also removed several outdated dependencies that were no longer justified. These included Boost.Integer (previously used by lowest_bit()), core/allocator_access.hpp, and various compatibility headers tied to pre-C++11 environments. This not only reduces compile-time overhead and cognitive load, but also makes the library easier to audit and maintain. Strengthening the test suite A part of this quarter’s work was expanding and refining the test coverage. I added new tests for flip(), resize(), swap(), and operator!=(). I also ensured that input iterators are properly supported in append(), and verified that std::hash behaves correctly even when two bitsets share the same underlying container but differ in size. Along the way, I cleaned up misleading comments, shortened overly complex conditions, and removed legacy test code that no longer reflected the current behavior of the library. The result is a test suite that’s more robust, more meaningful, and easier to maintain. Documentation that speaks clearly I’ve always believed that documentation should be treated as part of the design, not an afterthought. This quarter, I ported the existing documentation to MrDocs and Antora, while fixing and improving a few bits in the process. This uncovered a few MrDocs bugs, some of which remain—but I’m hopeful. I also spent time harmonizing the style and structure of the library’s comments and docstrings. I chose to document iterator categories rather than exposing concrete types, which keeps the interface clean and focused on behavior rather than implementation details. New member functions and smarter implementations This quarter also introduced several new member functions that expand the expressiveness and utility of dynamic_bitset: push_front() and pop_front() allow bit-level manipulation at the front of the bitset, complementing the existing back-oriented operations. find_first_off() and find_next_off() provide symmetric functionality to their find_first() counterparts, making it easier to locate unset bits. A constructor from basic_string_view was added for C++17 and later, improving interoperability with modern string APIs. Alongside these additions, I revisited the implementation of several existing members to improve performance and clarity: push_back() and pop_back() were streamlined for better efficiency. all() and lowest_bit() were simplified and optimized, with the latter also shedding its dependency on Boost.Integer. append() was fixed to properly support input iterators and avoid redundant checks. Minor but impactful cleanups A large number of small edits improved correctness, readability, and maintainability: Fixed the stream inserter to set badbit if an exception is thrown during output. Changed the stream extractor to rethrow any exceptions coming from the underlying container. Reordered and cleaned up all #include sections to use the “” form for Boost includes where appropriate and to keep include groups sorted. Removed an example timing benchmark that was misleading and a number of unneeded comments and minor typos across code and docs. These edits reduce noise and make code reviews and maintenance more pleasant. Reflections Looking back, this quarter reminded me of the value of revisiting assumptions. Many of the workarounds and constraints that once made sense are now obsolete. By embracing modern C++ features and simplifying where possible, we can make libraries like dynamic_bitset more powerful and more approachable. It also reinforced the importance of clarity—both in code and in documentation. Whether it’s a test case, a comment, or a public API, precision and consistency go a long way. The work continues, but the foundation is stronger than ever. If you’re using dynamic_bitset or thinking about integrating it into your project, I’d love to hear your feedback." />
+<link rel="canonical" href="http://cppalliance.org/gennaro/2025/10/14/Gennaros2025Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/gennaro/2025/10/14/Gennaros2025Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-14T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Over the past three months, I’ve been immersed in a deep and wide-ranging overhaul of the Boost.DynamicBitset library. What started as a few targeted improvements quickly evolved into a full-scale modernization effort—touching everything from the underlying container to iterator concepts, from test coverage to documentation style. More than 170 commits later, the library is leaner, more flexible, and better aligned with modern C++ practices. Making the core more flexible The most transformative change this quarter was allowing users to choose the underlying container type for dynamic_bitset. Until now, the implementation assumed std::vector, which limited optimization opportunities and imposed certain behaviors. By lifting that restriction, developers can now use alternatives like boost::container::small_vector, enabling small buffer optimization and more control over memory layout. This change had ripple effects throughout the codebase. I had to revisit assumptions about contiguous storage, update operators like &lt;&lt;=, &gt;&gt;=, and ensure that reference stability and iterator behavior were correctly handled. Introducing C++20 iterators One of the more exciting additions this quarter was support for C++20-style iterators. These new iterators conform to the standard iterator concepts, making dynamic_bitset more interoperable with modern algorithms and range-based utilities. I added assertions to ensure that both the underlying container and dynamic_bitset itself meet the requirements for bidirectional iteration. These checks are enabled only when compiling with C++20 or later, and they help catch subtle mismatches early—especially when users plug in custom containers. Saying goodbye to legacy workarounds With modern compilers and standard libraries, many old workarounds are no longer needed. I removed the max_size_workaround() after confirming that major implementations now correctly account for allocators in max_size(). I also dropped support for obsolete compilers like MSVC 6 and CodeWarrior 8.3, and for pre-standard iostreams, cleaned up outdated macros, and removed compatibility layers for pre-C++11 environments. These removals weren’t just cosmetic—they simplified the code and made it easier to reason about. In many places, I replaced legacy constructs with standard features like noexcept and std::move(). constexpr support When it is compiled as C++20 or later, almost all functions in DynamicBitset are now constexpr. Dropping obsolete dependencies As part of the cleanup effort, I also removed several outdated dependencies that were no longer justified. These included Boost.Integer (previously used by lowest_bit()), core/allocator_access.hpp, and various compatibility headers tied to pre-C++11 environments. This not only reduces compile-time overhead and cognitive load, but also makes the library easier to audit and maintain. Strengthening the test suite A part of this quarter’s work was expanding and refining the test coverage. I added new tests for flip(), resize(), swap(), and operator!=(). I also ensured that input iterators are properly supported in append(), and verified that std::hash behaves correctly even when two bitsets share the same underlying container but differ in size. Along the way, I cleaned up misleading comments, shortened overly complex conditions, and removed legacy test code that no longer reflected the current behavior of the library. The result is a test suite that’s more robust, more meaningful, and easier to maintain. Documentation that speaks clearly I’ve always believed that documentation should be treated as part of the design, not an afterthought. This quarter, I ported the existing documentation to MrDocs and Antora, while fixing and improving a few bits in the process. This uncovered a few MrDocs bugs, some of which remain—but I’m hopeful. I also spent time harmonizing the style and structure of the library’s comments and docstrings. I chose to document iterator categories rather than exposing concrete types, which keeps the interface clean and focused on behavior rather than implementation details. New member functions and smarter implementations This quarter also introduced several new member functions that expand the expressiveness and utility of dynamic_bitset: push_front() and pop_front() allow bit-level manipulation at the front of the bitset, complementing the existing back-oriented operations. find_first_off() and find_next_off() provide symmetric functionality to their find_first() counterparts, making it easier to locate unset bits. A constructor from basic_string_view was added for C++17 and later, improving interoperability with modern string APIs. Alongside these additions, I revisited the implementation of several existing members to improve performance and clarity: push_back() and pop_back() were streamlined for better efficiency. all() and lowest_bit() were simplified and optimized, with the latter also shedding its dependency on Boost.Integer. append() was fixed to properly support input iterators and avoid redundant checks. Minor but impactful cleanups A large number of small edits improved correctness, readability, and maintainability: Fixed the stream inserter to set badbit if an exception is thrown during output. Changed the stream extractor to rethrow any exceptions coming from the underlying container. Reordered and cleaned up all #include sections to use the “” form for Boost includes where appropriate and to keep include groups sorted. Removed an example timing benchmark that was misleading and a number of unneeded comments and minor typos across code and docs. These edits reduce noise and make code reviews and maintenance more pleasant. Reflections Looking back, this quarter reminded me of the value of revisiting assumptions. Many of the workarounds and constraints that once made sense are now obsolete. By embracing modern C++ features and simplifying where possible, we can make libraries like dynamic_bitset more powerful and more approachable. It also reinforced the importance of clarity—both in code and in documentation. Whether it’s a test case, a comment, or a public API, precision and consistency go a long way. The work continues, but the foundation is stronger than ever. If you’re using dynamic_bitset or thinking about integrating it into your project, I’d love to hear your feedback.","@type":"BlogPosting","url":"http://cppalliance.org/gennaro/2025/10/14/Gennaros2025Q3Update.html","headline":"DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++","dateModified":"2025-10-14T00:00:00+00:00","datePublished":"2025-10-14T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/gennaro/2025/10/14/Gennaros2025Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/gennaro">
+                  Gennaro Prota
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 14, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Over the past three months, I’ve been immersed in a deep and wide-ranging
+overhaul of the Boost.DynamicBitset library. What started as a few targeted
+improvements quickly evolved into a full-scale modernization effort—touching
+everything from the underlying container to iterator concepts, from test
+coverage to documentation style. More than 170 commits later, the library is
+leaner, more flexible, and better aligned with modern C++ practices.</p>
+
+<h2 id="making-the-core-more-flexible">Making the core more flexible</h2>
+
+<p>The most transformative change this quarter was allowing users to choose the
+underlying container type for <code>dynamic_bitset</code>. Until now, the implementation
+assumed <code>std::vector</code>, which limited optimization opportunities and imposed
+certain behaviors. By lifting that restriction, developers can now use
+alternatives like <code>boost::container::small_vector</code>, enabling small buffer
+optimization and more control over memory layout.</p>
+
+<p>This change had ripple effects throughout the codebase. I had to revisit
+assumptions about contiguous storage, update operators like <code>&lt;&lt;=</code>, <code>&gt;&gt;=</code>, and
+ensure that reference stability and iterator behavior were correctly handled.</p>
+
+<h2 id="introducing-c20-iterators">Introducing C++20 iterators</h2>
+
+<p>One of the more exciting additions this quarter was support for C++20-style
+iterators. These new iterators conform to the standard iterator concepts, making
+<code>dynamic_bitset</code> more interoperable with modern algorithms and range-based
+utilities.</p>
+
+<p>I added assertions to ensure that both the underlying container and
+<code>dynamic_bitset</code> itself meet the requirements for bidirectional iteration. These
+checks are enabled only when compiling with C++20 or later, and they help catch
+subtle mismatches early—especially when users plug in custom containers.</p>
+
+<h2 id="saying-goodbye-to-legacy-workarounds">Saying goodbye to legacy workarounds</h2>
+
+<p>With modern compilers and standard libraries, many old workarounds are no longer
+needed. I removed the <code>max_size_workaround()</code> after confirming that major
+implementations now correctly account for allocators in <code>max_size()</code>. I also
+dropped support for obsolete compilers like MSVC 6 and CodeWarrior 8.3, and for
+pre-standard iostreams, cleaned up outdated macros, and removed compatibility
+layers for pre-C++11 environments.</p>
+
+<p>These removals weren’t just cosmetic—they simplified the code and made it easier
+to reason about. In many places, I replaced legacy constructs with standard
+features like <code>noexcept</code> and <code>std::move()</code>.</p>
+
+<h2 id="constexpr-support">constexpr support</h2>
+
+<p>When it is compiled as C++20 or later, almost all functions in DynamicBitset are
+now <code>constexpr</code>.</p>
+
+<h2 id="dropping-obsolete-dependencies">Dropping obsolete dependencies</h2>
+
+<p>As part of the cleanup effort, I also removed several outdated dependencies that
+were no longer justified. These included Boost.Integer (previously used by
+<code>lowest_bit()</code>), <code>core/allocator_access.hpp</code>, and various compatibility headers
+tied to pre-C++11 environments. This not only reduces compile-time overhead and
+cognitive load, but also makes the library easier to audit and maintain.</p>
+
+<h2 id="strengthening-the-test-suite">Strengthening the test suite</h2>
+
+<p>A part of this quarter’s work was expanding and refining the test coverage. I
+added new tests for <code>flip()</code>, <code>resize()</code>, <code>swap()</code>, and <code>operator!=()</code>. I also
+ensured that input iterators are properly supported in <code>append()</code>, and verified
+that <code>std::hash</code> behaves correctly even when two bitsets share the same
+underlying container but differ in size.</p>
+
+<p>Along the way, I cleaned up misleading comments, shortened overly complex
+conditions, and removed legacy test code that no longer reflected the current
+behavior of the library. The result is a test suite that’s more robust, more
+meaningful, and easier to maintain.</p>
+
+<h2 id="documentation-that-speaks-clearly">Documentation that speaks clearly</h2>
+
+<p>I’ve always believed that documentation should be treated as part of the design,
+not an afterthought. This quarter, I ported the existing documentation to MrDocs
+and Antora, while fixing and improving a few bits in the process. This uncovered
+a few MrDocs bugs, some of which remain—but I’m hopeful.</p>
+
+<p>I also spent time harmonizing the style and structure of the library’s comments
+and docstrings.</p>
+
+<p>I chose to document iterator categories rather than exposing concrete types,
+which keeps the interface clean and focused on behavior rather than
+implementation details.</p>
+
+<h2 id="new-member-functions-and-smarter-implementations">New member functions and smarter implementations</h2>
+
+<p>This quarter also introduced several new member functions that expand the
+expressiveness and utility of <code>dynamic_bitset</code>:</p>
+
+<ul>
+  <li><code>push_front()</code> and <code>pop_front()</code> allow bit-level manipulation at the front of
+the bitset, complementing the existing back-oriented operations.</li>
+  <li><code>find_first_off()</code> and <code>find_next_off()</code> provide symmetric functionality to
+their <code>find_first()</code> counterparts, making it easier to locate unset bits.</li>
+  <li>A constructor from <code>basic_string_view</code> was added for C++17 and later,
+improving interoperability with modern string APIs.</li>
+</ul>
+
+<p>Alongside these additions, I revisited the implementation of several existing
+members to improve performance and clarity:</p>
+
+<ul>
+  <li><code>push_back()</code> and <code>pop_back()</code> were streamlined for better efficiency.</li>
+  <li><code>all()</code> and <code>lowest_bit()</code> were simplified and optimized, with the latter also
+shedding its dependency on Boost.Integer.</li>
+  <li><code>append()</code> was fixed to properly support input iterators and avoid redundant
+checks.</li>
+</ul>
+
+<h2 id="minor-but-impactful-cleanups">Minor but impactful cleanups</h2>
+
+<p>A large number of small edits improved correctness, readability, and
+maintainability:</p>
+
+<ul>
+  <li>Fixed the stream inserter to set <code>badbit</code> if an exception is thrown during
+output.</li>
+  <li>Changed the stream extractor to rethrow any exceptions coming from the
+underlying container.</li>
+  <li>Reordered and cleaned up all #include sections to use the “” form for Boost
+includes where appropriate and to keep include groups sorted.</li>
+  <li>Removed an example timing benchmark that was misleading and a number of
+unneeded comments and minor typos across code and docs.</li>
+</ul>
+
+<p>These edits reduce noise and make code reviews and maintenance more pleasant.</p>
+
+<h2 id="reflections">Reflections</h2>
+
+<p>Looking back, this quarter reminded me of the value of revisiting assumptions.
+Many of the workarounds and constraints that once made sense are now obsolete.
+By embracing modern C++ features and simplifying where possible, we can make
+libraries like <code>dynamic_bitset</code> more powerful and more approachable.</p>
+
+<p>It also reinforced the importance of clarity—both in code and in documentation.
+Whether it’s a test case, a comment, or a public API, precision and consistency
+go a long way.</p>
+
+<p>The work continues, but the foundation is stronger than ever. If you’re using
+<code>dynamic_bitset</code> or thinking about integrating it into your project, I’d love to
+hear your feedback.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/14/2025</span>
+          <a class='text-l news-title link' href="/gennaro/2025/10/14/Gennaros2025Q3Update.html">DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

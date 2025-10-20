@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost.Http.Io and Boost.Http.Proto Project Highlights | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Boost.Http.Io and Boost.Http.Proto Project Highlights | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Boost.Http.Io and Boost.Http.Proto Project Highlights" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Here’s a look at some recent projects I’ve been focusing on: Boost.Http.Io burl project We’ve recently started adding a new example to the http-io library called burl. This is a relatively large example application designed to serve as a drop-in replacement for Curl’s HTTP functionality. The primary goal of the project is to ensure that http-proto and http-io provide all the necessary features for building a curl-like application. It also aims to demonstrate how these libraries can be leveraged to perform common HTTP tasks. The project has made excellent progress so far, with support for around 90 Curl command-line options, covering nearly all HTTP and TLS-related features provided by Curl. During development, we identified the need for three additional libraries (or http-proto services) that could benefit users: Multipart/form-data Library: A container and parser/serializer for working with form data on both the client and server sides. CookieJar Library: A utility for storing cookies and tracking modifications made to the jar. Public Suffix List Library: A library that utilizes Mozilla’s Public Suffix List to accurately and efficiently identify a domain suffix. This is crucial for enhancing the CookieJar implementation by preventing supercookie vulnerabilities and proper validation of wildcard SSL/TLS certificates. Boost.Http.Proto Different Styles of Body Attachment in the Parser Interface The http-proto library is a sans-IO implementation of the HTTP protocol. It is designed to facilitate the reception of HTTP message bodies with minimal bookkeeping required from the user at the call site. Currently, the library supports three distinct styles of body attachment: In-Place Body This style allows users to leverage the parser’s internal buffer to read the body either in chunks or as a complete view if it fits entirely within the internal buffer. This approach is efficient for scenarios where the body size is known to be small or when incremental processing is required. read_header(stream, parser); // When the entire body fits in the internal buffer read(stream, parser); string_view body = parser.body(); // Reading the body in chunks while (!parser.is_complete()) { read_some(stream, parser); auto buf = parser.pull_body(); parser.consume_body(buffer::buffer_size(buf)); } Sink Body The sink body style allows users to process body content directly from the parser’s internal buffer, either in one step or through multiple iterations. This method is particularly useful for writing body data to external storage, such as a file. The parser takes ownership of the sink object, driving the processing logic by invoking its virtual interfaces. This style is ideal for streaming large bodies directly to a sink without needing to hold the entire body in memory. read_header(stream, parser); http_proto::file file; system::error_code ec; file.open(&quot;./index.html&quot;, file_mode::write_new, ec); if (ec.failed()) return ec; parser.set_body&lt;file_body&gt;(std::move(file)); read(stream, parser); Dynamic Buffer The dynamic buffer interface allows the parser to write body content directly into a user-provided buffer or container, reducing the need for additional copying and intermediate buffering. read_header(stream, parser); std::string body; parser.set_body(buffers::dynamic_for(body)); read(stream, parser);" />
+<meta property="og:description" content="Here’s a look at some recent projects I’ve been focusing on: Boost.Http.Io burl project We’ve recently started adding a new example to the http-io library called burl. This is a relatively large example application designed to serve as a drop-in replacement for Curl’s HTTP functionality. The primary goal of the project is to ensure that http-proto and http-io provide all the necessary features for building a curl-like application. It also aims to demonstrate how these libraries can be leveraged to perform common HTTP tasks. The project has made excellent progress so far, with support for around 90 Curl command-line options, covering nearly all HTTP and TLS-related features provided by Curl. During development, we identified the need for three additional libraries (or http-proto services) that could benefit users: Multipart/form-data Library: A container and parser/serializer for working with form data on both the client and server sides. CookieJar Library: A utility for storing cookies and tracking modifications made to the jar. Public Suffix List Library: A library that utilizes Mozilla’s Public Suffix List to accurately and efficiently identify a domain suffix. This is crucial for enhancing the CookieJar implementation by preventing supercookie vulnerabilities and proper validation of wildcard SSL/TLS certificates. Boost.Http.Proto Different Styles of Body Attachment in the Parser Interface The http-proto library is a sans-IO implementation of the HTTP protocol. It is designed to facilitate the reception of HTTP message bodies with minimal bookkeeping required from the user at the call site. Currently, the library supports three distinct styles of body attachment: In-Place Body This style allows users to leverage the parser’s internal buffer to read the body either in chunks or as a complete view if it fits entirely within the internal buffer. This approach is efficient for scenarios where the body size is known to be small or when incremental processing is required. read_header(stream, parser); // When the entire body fits in the internal buffer read(stream, parser); string_view body = parser.body(); // Reading the body in chunks while (!parser.is_complete()) { read_some(stream, parser); auto buf = parser.pull_body(); parser.consume_body(buffer::buffer_size(buf)); } Sink Body The sink body style allows users to process body content directly from the parser’s internal buffer, either in one step or through multiple iterations. This method is particularly useful for writing body data to external storage, such as a file. The parser takes ownership of the sink object, driving the processing logic by invoking its virtual interfaces. This style is ideal for streaming large bodies directly to a sink without needing to hold the entire body in memory. read_header(stream, parser); http_proto::file file; system::error_code ec; file.open(&quot;./index.html&quot;, file_mode::write_new, ec); if (ec.failed()) return ec; parser.set_body&lt;file_body&gt;(std::move(file)); read(stream, parser); Dynamic Buffer The dynamic buffer interface allows the parser to write body content directly into a user-provided buffer or container, reducing the need for additional copying and intermediate buffering. read_header(stream, parser); std::string body; parser.set_body(buffers::dynamic_for(body)); read(stream, parser);" />
+<link rel="canonical" href="http://cppalliance.org/mohammad/2025/01/10/MohammadsQ4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/mohammad/2025/01/10/MohammadsQ4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Boost.Http.Io and Boost.Http.Proto Project Highlights" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Here’s a look at some recent projects I’ve been focusing on: Boost.Http.Io burl project We’ve recently started adding a new example to the http-io library called burl. This is a relatively large example application designed to serve as a drop-in replacement for Curl’s HTTP functionality. The primary goal of the project is to ensure that http-proto and http-io provide all the necessary features for building a curl-like application. It also aims to demonstrate how these libraries can be leveraged to perform common HTTP tasks. The project has made excellent progress so far, with support for around 90 Curl command-line options, covering nearly all HTTP and TLS-related features provided by Curl. During development, we identified the need for three additional libraries (or http-proto services) that could benefit users: Multipart/form-data Library: A container and parser/serializer for working with form data on both the client and server sides. CookieJar Library: A utility for storing cookies and tracking modifications made to the jar. Public Suffix List Library: A library that utilizes Mozilla’s Public Suffix List to accurately and efficiently identify a domain suffix. This is crucial for enhancing the CookieJar implementation by preventing supercookie vulnerabilities and proper validation of wildcard SSL/TLS certificates. Boost.Http.Proto Different Styles of Body Attachment in the Parser Interface The http-proto library is a sans-IO implementation of the HTTP protocol. It is designed to facilitate the reception of HTTP message bodies with minimal bookkeeping required from the user at the call site. Currently, the library supports three distinct styles of body attachment: In-Place Body This style allows users to leverage the parser’s internal buffer to read the body either in chunks or as a complete view if it fits entirely within the internal buffer. This approach is efficient for scenarios where the body size is known to be small or when incremental processing is required. read_header(stream, parser); // When the entire body fits in the internal buffer read(stream, parser); string_view body = parser.body(); // Reading the body in chunks while (!parser.is_complete()) { read_some(stream, parser); auto buf = parser.pull_body(); parser.consume_body(buffer::buffer_size(buf)); } Sink Body The sink body style allows users to process body content directly from the parser’s internal buffer, either in one step or through multiple iterations. This method is particularly useful for writing body data to external storage, such as a file. The parser takes ownership of the sink object, driving the processing logic by invoking its virtual interfaces. This style is ideal for streaming large bodies directly to a sink without needing to hold the entire body in memory. read_header(stream, parser); http_proto::file file; system::error_code ec; file.open(&quot;./index.html&quot;, file_mode::write_new, ec); if (ec.failed()) return ec; parser.set_body&lt;file_body&gt;(std::move(file)); read(stream, parser); Dynamic Buffer The dynamic buffer interface allows the parser to write body content directly into a user-provided buffer or container, reducing the need for additional copying and intermediate buffering. read_header(stream, parser); std::string body; parser.set_body(buffers::dynamic_for(body)); read(stream, parser);","@type":"BlogPosting","url":"http://cppalliance.org/mohammad/2025/01/10/MohammadsQ4Update.html","headline":"Boost.Http.Io and Boost.Http.Proto Project Highlights","dateModified":"2025-01-10T00:00:00+00:00","datePublished":"2025-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/mohammad/2025/01/10/MohammadsQ4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Boost.Http.Io and Boost.Http.Proto Project Highlights</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/mohammad">
+                  Mohammad Nejati
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Here’s a look at some recent projects I’ve been focusing on:</p>
+
+<h2 id="boosthttpio">Boost.Http.Io</h2>
+
+<h3 id="burl-project"><code>burl</code> project</h3>
+
+<p>We’ve recently started adding a new example to the
+<a href="https://github.com/cppalliance/http_io">http-io</a> library called
+<a href="https://github.com/cppalliance/http_io/tree/develop/example/client/burl">burl</a>.
+This is a relatively large example application designed to serve as a drop-in
+replacement for Curl’s HTTP functionality.</p>
+
+<p>The primary goal of the project is to ensure that
+<a href="https://github.com/cppalliance/http_proto">http-proto</a> and
+<a href="https://github.com/cppalliance/http_io">http-io</a> provide all the necessary
+features for building a curl-like application. It also aims to demonstrate how
+these libraries can be leveraged to perform common HTTP tasks. The project has
+made excellent progress so far, with support for around 90 Curl command-line
+options, covering nearly all HTTP and TLS-related features provided by Curl.</p>
+
+<p>During development, we identified the need for three additional libraries (or
+http-proto services) that could benefit users:</p>
+
+<ul>
+  <li><strong>Multipart/form-data Library</strong>: A container and parser/serializer for working
+with form data on both the client and server sides.</li>
+  <li><strong>CookieJar Library</strong>: A utility for storing cookies and tracking
+modifications made to the jar.</li>
+  <li><strong>Public Suffix List Library</strong>: A library that utilizes Mozilla’s Public
+Suffix List to accurately and efficiently identify a domain suffix. This is
+crucial for enhancing the CookieJar implementation by preventing supercookie
+vulnerabilities and proper validation of wildcard SSL/TLS certificates.</li>
+</ul>
+
+<h2 id="boosthttpproto">Boost.Http.Proto</h2>
+
+<h3 id="different-styles-of-body-attachment-in-the-parser-interface">Different Styles of Body Attachment in the Parser Interface</h3>
+
+<p>The <a href="https://github.com/cppalliance/http_proto">http-proto</a> library is a sans-IO
+implementation of the HTTP protocol. It is designed to facilitate the reception
+of HTTP message bodies with minimal bookkeeping required from the user at the
+call site.</p>
+
+<p>Currently, the library supports three distinct styles of body attachment:</p>
+
+<h4 id="in-place-body">In-Place Body</h4>
+
+<p>This style allows users to leverage the parser’s internal buffer to read the
+body either in chunks or as a complete view if it fits entirely within the
+internal buffer. This approach is efficient for scenarios where the body size is
+known to be small or when incremental processing is required.</p>
+
+<pre><code class="language-C++">read_header(stream, parser);
+
+// When the entire body fits in the internal buffer
+read(stream, parser);
+string_view body = parser.body();
+
+// Reading the body in chunks
+while (!parser.is_complete())
+{
+    read_some(stream, parser);
+    auto buf = parser.pull_body();
+    parser.consume_body(buffer::buffer_size(buf));
+}
+</code></pre>
+
+<h4 id="sink-body">Sink Body</h4>
+
+<p>The sink body style allows users to process body content directly from the
+parser’s internal buffer, either in one step or through multiple iterations.
+This method is particularly useful for writing body data to external storage,
+such as a file. The parser takes ownership of the sink object, driving the
+processing logic by invoking its virtual interfaces. This style is ideal for
+streaming large bodies directly to a sink without needing to hold the entire
+body in memory.</p>
+
+<pre><code class="language-C++">read_header(stream, parser);
+
+http_proto::file file;
+system::error_code ec;
+file.open("./index.html", file_mode::write_new, ec);
+if (ec.failed())
+    return ec;
+
+parser.set_body&lt;file_body&gt;(std::move(file));
+
+read(stream, parser);
+</code></pre>
+
+<h4 id="dynamic-buffer">Dynamic Buffer</h4>
+
+<p>The dynamic buffer interface allows the parser to write body content directly
+into a user-provided buffer or container, reducing the need for additional
+copying and intermediate buffering.</p>
+
+<pre><code class="language-C++">read_header(stream, parser);
+
+std::string body;
+parser.set_body(buffers::dynamic_for(body));
+
+read(stream, parser);
+</code></pre>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/16/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/07/16/MohammadsQ2Update.html">Boost.RunTimeServices: The Glue for Optional Runtime Features</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/01/10/MohammadsQ4Update.html">Boost.Http.Io and Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/10/25/MohammadsQ3Update.html">Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/07/10/MohammadsQ2Update.html">Mohammad's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/04/22/MohammadsQ1Update.html">Mohammad's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/01/10/MohammadsQ4Update.html">Mohammad's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/mohammad/2023/10/27/MohammadsQ3Update.html">Mohammad's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

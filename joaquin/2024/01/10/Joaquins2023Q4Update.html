@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joaquín's Q4 2023 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Joaquín’s Q4 2023 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Joaquín’s Q4 2023 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q4 2023, I’ve been working (mostly in collaboration with Chris) in the following areas: Boost.Unordered Implemented bulk visitation for boost::concurrent_flat_[map|set]. In short, bulk visitation visits a bunch of elements at once, so instead of writing: std::array&lt;int, N&gt; keys; ... for(const auto&amp; key: keys) { m.visit(key, [](auto&amp; x) { ++x.second; }); } we can do this: m.visit(keys.begin(), keys.end(), [](auto&amp; x) { ++x.second; }); This functionality is not provided for mere syntactic convenience: Boost.Unordered speeds up the entire process by pipelining the different internal stages of each individual visitation, which results in performance improvements of 40% and more. The article “Bulk visitation in boost::concurrent_flat_map” discusses this new feature in much detail. Removed some unneeded using declarations (removal of unneeded using declarations), contributed some hardening code, revamped the repo’s README.md. Shipped Boost.Unordered 1.84. Begun exploratory work towards adding new containers based on perfect hashing. The key idea behind a perfect hashmap is that its elements are known in advance at initialization time, which allows for the construction of an ad hoc hash function guaranteeing zero collisions (for the given set of elements). There’s a tradeoff between lookup times (which can be extremely fast based on the zero-collision assumption) and construction times (typically much larger than for a classical hashmap), and moreover elements can’t be inserted and deleted once the map is built. We have explored so far two well-known techniques from the literature for the generation of the associated perfect hash function: Hash, Displace and Compress (without the compress part) and the algorithm from Fredman, Komlós and Szemerédi (FKS), with promising results. Progress, however, has been slower than expected, so the target for new perfect containers in Boost.Unordered is Boost 1.86 (Aug 2024). After our launch of boost::concurrent_flat_map, a new contender called ParlayHash has arisen. ParlayHash achieves very good performance for massively parallel scenarios (dozens of cores) thanks to its smart latch-free design based on epochs for the reclamation of erased elements. The design imposes some limitations not present in boost::concurrent_flat_map, most notably that elements must be immutable, but its excellent performance has spurred Fernando and I to begin exploratory work towards adopting similar techniques in the open-addressing context we use. It’s currently too early to know if this work will result in the addition of new concurrent containers to Boost.Unordered. As a spin-off of this activity, a variant of boost::concurrent_flat_map with almost-latch-free insertion has been implemented —the decision is pending whether this will be officially merged. New website I’ve contributed a small section on tweet proposals. Although the presence of Boost in social media has increased notably in the last few years, I think much more need to be done, and has to be done with contributions from the entire community. Looking back and forward I began collaborating with the C++ Alliance almost two years ago, when I was gently hooked by Vinnie and Peter to work on the evolution project for Boost.Unordered alongide my colleague Chris Mazakas. The experience so far has been a joyous one, and I’ve had the opportunity to meet and work with a group of outstanding professionals from all over the globe. Braden Ganetsky recently joined the Boost.Unordered maintainance team, and it’s been my pleasure to guide him through the onboarding process. Going forward, I feel that most of the goals for Boost.Unordered put forth by Peter Dimov in 2022 have been met, and it’s only natural that the activitiy in this library will decrease along this year. I’m totally open to new challenges for the evolution of Boost, particularly if they’re math-oriented and can advance the state of the art for C++ in general —drop me a line if you have an idea in mind!" />
+<meta property="og:description" content="During Q4 2023, I’ve been working (mostly in collaboration with Chris) in the following areas: Boost.Unordered Implemented bulk visitation for boost::concurrent_flat_[map|set]. In short, bulk visitation visits a bunch of elements at once, so instead of writing: std::array&lt;int, N&gt; keys; ... for(const auto&amp; key: keys) { m.visit(key, [](auto&amp; x) { ++x.second; }); } we can do this: m.visit(keys.begin(), keys.end(), [](auto&amp; x) { ++x.second; }); This functionality is not provided for mere syntactic convenience: Boost.Unordered speeds up the entire process by pipelining the different internal stages of each individual visitation, which results in performance improvements of 40% and more. The article “Bulk visitation in boost::concurrent_flat_map” discusses this new feature in much detail. Removed some unneeded using declarations (removal of unneeded using declarations), contributed some hardening code, revamped the repo’s README.md. Shipped Boost.Unordered 1.84. Begun exploratory work towards adding new containers based on perfect hashing. The key idea behind a perfect hashmap is that its elements are known in advance at initialization time, which allows for the construction of an ad hoc hash function guaranteeing zero collisions (for the given set of elements). There’s a tradeoff between lookup times (which can be extremely fast based on the zero-collision assumption) and construction times (typically much larger than for a classical hashmap), and moreover elements can’t be inserted and deleted once the map is built. We have explored so far two well-known techniques from the literature for the generation of the associated perfect hash function: Hash, Displace and Compress (without the compress part) and the algorithm from Fredman, Komlós and Szemerédi (FKS), with promising results. Progress, however, has been slower than expected, so the target for new perfect containers in Boost.Unordered is Boost 1.86 (Aug 2024). After our launch of boost::concurrent_flat_map, a new contender called ParlayHash has arisen. ParlayHash achieves very good performance for massively parallel scenarios (dozens of cores) thanks to its smart latch-free design based on epochs for the reclamation of erased elements. The design imposes some limitations not present in boost::concurrent_flat_map, most notably that elements must be immutable, but its excellent performance has spurred Fernando and I to begin exploratory work towards adopting similar techniques in the open-addressing context we use. It’s currently too early to know if this work will result in the addition of new concurrent containers to Boost.Unordered. As a spin-off of this activity, a variant of boost::concurrent_flat_map with almost-latch-free insertion has been implemented —the decision is pending whether this will be officially merged. New website I’ve contributed a small section on tweet proposals. Although the presence of Boost in social media has increased notably in the last few years, I think much more need to be done, and has to be done with contributions from the entire community. Looking back and forward I began collaborating with the C++ Alliance almost two years ago, when I was gently hooked by Vinnie and Peter to work on the evolution project for Boost.Unordered alongide my colleague Chris Mazakas. The experience so far has been a joyous one, and I’ve had the opportunity to meet and work with a group of outstanding professionals from all over the globe. Braden Ganetsky recently joined the Boost.Unordered maintainance team, and it’s been my pleasure to guide him through the onboarding process. Going forward, I feel that most of the goals for Boost.Unordered put forth by Peter Dimov in 2022 have been met, and it’s only natural that the activitiy in this library will decrease along this year. I’m totally open to new challenges for the evolution of Boost, particularly if they’re math-oriented and can advance the state of the art for C++ in general —drop me a line if you have an idea in mind!" />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2024/01/10/Joaquins2023Q4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2024/01/10/Joaquins2023Q4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Joaquín’s Q4 2023 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q4 2023, I’ve been working (mostly in collaboration with Chris) in the following areas: Boost.Unordered Implemented bulk visitation for boost::concurrent_flat_[map|set]. In short, bulk visitation visits a bunch of elements at once, so instead of writing: std::array&lt;int, N&gt; keys; ... for(const auto&amp; key: keys) { m.visit(key, [](auto&amp; x) { ++x.second; }); } we can do this: m.visit(keys.begin(), keys.end(), [](auto&amp; x) { ++x.second; }); This functionality is not provided for mere syntactic convenience: Boost.Unordered speeds up the entire process by pipelining the different internal stages of each individual visitation, which results in performance improvements of 40% and more. The article “Bulk visitation in boost::concurrent_flat_map” discusses this new feature in much detail. Removed some unneeded using declarations (removal of unneeded using declarations), contributed some hardening code, revamped the repo’s README.md. Shipped Boost.Unordered 1.84. Begun exploratory work towards adding new containers based on perfect hashing. The key idea behind a perfect hashmap is that its elements are known in advance at initialization time, which allows for the construction of an ad hoc hash function guaranteeing zero collisions (for the given set of elements). There’s a tradeoff between lookup times (which can be extremely fast based on the zero-collision assumption) and construction times (typically much larger than for a classical hashmap), and moreover elements can’t be inserted and deleted once the map is built. We have explored so far two well-known techniques from the literature for the generation of the associated perfect hash function: Hash, Displace and Compress (without the compress part) and the algorithm from Fredman, Komlós and Szemerédi (FKS), with promising results. Progress, however, has been slower than expected, so the target for new perfect containers in Boost.Unordered is Boost 1.86 (Aug 2024). After our launch of boost::concurrent_flat_map, a new contender called ParlayHash has arisen. ParlayHash achieves very good performance for massively parallel scenarios (dozens of cores) thanks to its smart latch-free design based on epochs for the reclamation of erased elements. The design imposes some limitations not present in boost::concurrent_flat_map, most notably that elements must be immutable, but its excellent performance has spurred Fernando and I to begin exploratory work towards adopting similar techniques in the open-addressing context we use. It’s currently too early to know if this work will result in the addition of new concurrent containers to Boost.Unordered. As a spin-off of this activity, a variant of boost::concurrent_flat_map with almost-latch-free insertion has been implemented —the decision is pending whether this will be officially merged. New website I’ve contributed a small section on tweet proposals. Although the presence of Boost in social media has increased notably in the last few years, I think much more need to be done, and has to be done with contributions from the entire community. Looking back and forward I began collaborating with the C++ Alliance almost two years ago, when I was gently hooked by Vinnie and Peter to work on the evolution project for Boost.Unordered alongide my colleague Chris Mazakas. The experience so far has been a joyous one, and I’ve had the opportunity to meet and work with a group of outstanding professionals from all over the globe. Braden Ganetsky recently joined the Boost.Unordered maintainance team, and it’s been my pleasure to guide him through the onboarding process. Going forward, I feel that most of the goals for Boost.Unordered put forth by Peter Dimov in 2022 have been met, and it’s only natural that the activitiy in this library will decrease along this year. I’m totally open to new challenges for the evolution of Boost, particularly if they’re math-oriented and can advance the state of the art for C++ in general —drop me a line if you have an idea in mind!","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2024/01/10/Joaquins2023Q4Update.html","headline":"Joaquín’s Q4 2023 Update","dateModified":"2024-01-10T00:00:00+00:00","datePublished":"2024-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2024/01/10/Joaquins2023Q4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Joaquín's Q4 2023 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q4 2023, I’ve been working (mostly in collaboration with Chris) in the following areas:</p>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Implemented <em>bulk visitation</em> for <code>boost::concurrent_flat_[map|set]</code>.  In short, bulk visitation
+visits a bunch of elements at once, so instead of writing:</li>
+</ul>
+<pre>std::array&lt;int, N&gt; keys;
+...
+for(const auto&amp; key: keys) {
+  m.visit(key, [](auto&amp; x) { ++x.second; });
+}</pre>
+<p>we can do this:</p>
+<pre>
+m.visit(keys.begin(), keys.end(), [](auto&amp; x) { ++x.second; });</pre>
+<p>This functionality is not provided for mere syntactic convenience: Boost.Unordered speeds up
+the entire process by pipelining the different internal stages of each individual visitation,
+which results in performance improvements of 40% and more. The article
+<a href="https://bannalia.blogspot.com/2023/10/bulk-visitation-in-boostconcurrentflatm.html">“Bulk visitation in <code>boost::concurrent_flat_map</code>”</a>
+discusses this new feature in much detail.</p>
+<ul>
+  <li><a href="https://github.com/boostorg/unordered/pull/218">Removed some unneeded using declarations</a> (removal of unneeded
+using declarations), contributed some <a href="https://github.com/boostorg/unordered/commit/dbe93c765c56cb242c99a3801828f9d506fbb658">hardening code</a>,
+<a href="https://github.com/boostorg/unordered/pull/219">revamped the repo’s README.md</a>.</li>
+  <li>Shipped <a href="https://www.boost.org/doc/libs/1_84_0/libs/unordered/doc/html/unordered.html#changes_release_1_84_0_major_update">Boost.Unordered 1.84</a>.</li>
+  <li>Begun exploratory work towards adding new containers based on
+<a href="https://en.wikipedia.org/wiki/Perfect_hash_function"><em>perfect hashing</em></a>. The key idea behind
+a perfect hashmap is that its elements are known in advance at initialization time, which
+allows for the construction of an ad hoc hash function guaranteeing <em>zero collisions</em> (for
+the given set of elements). There’s a tradeoff between lookup times (which can be extremely
+fast based on the zero-collision assumption) and construction times (typically much larger
+than for a classical hashmap), and moreover elements can’t be inserted and deleted once
+the map is built. We have explored so far two well-known techniques from the literature for
+the generation of the associated perfect hash function:
+<a href="https://cmph.sourceforge.net/papers/esa09.pdf">Hash, Displace and Compress</a> (without the compress part)
+and the algorithm from <a href="https://dl.acm.org/doi/pdf/10.1145/828.1884">Fredman, Komlós and Szemerédi</a>
+(FKS), with promising results. Progress, however, has been slower than expected, so the
+target for new perfect containers in Boost.Unordered is Boost 1.86 (Aug 2024).</li>
+  <li>After our launch of <code>boost::concurrent_flat_map</code>, a new contender 
+called <a href="https://github.com/cmuparlay/parlayhash">ParlayHash</a> has arisen. ParlayHash achieves
+very good performance for massively parallel scenarios (dozens of cores) thanks to its
+smart latch-free design based on <a href="http://csng.cs.toronto.edu/publication_files/0000/0159/jpdc07.pdf">epochs</a>
+for the reclamation of erased elements. The design imposes some limitations not present
+in <code>boost::concurrent_flat_map</code>, most notably that elements must be immutable, but
+its excellent performance has spurred Fernando and I to begin exploratory work towards adopting similar
+techniques in the open-addressing context we use. It’s currently too early to know if this
+work will result in the addition of new concurrent containers to Boost.Unordered. As a
+spin-off of this activity, a variant of <code>boost::concurrent_flat_map</code> with
+<a href="https://github.com/boostorg/unordered/tree/feature/cfoa_alf_insert">almost-latch-free insertion</a>
+has been implemented —the decision is pending whether this will be officially merged.</li>
+</ul>
+
+<h3 id="new-website">New website</h3>
+
+<ul>
+  <li>I’ve contributed a small section on <a href="https://www.preview.boost.org/doc/contributor-guide/tweeting.html">tweet proposals</a>.
+Although the presence of Boost in social media has increased notably in the last few years,
+I think much more need to be done, and has to be done with contributions from the entire community.</li>
+</ul>
+
+<h3 id="looking-back-and-forward">Looking back and forward</h3>
+
+<p>I began collaborating with the C++ Alliance almost two years ago, when I was gently hooked by
+Vinnie and Peter to work on the evolution project for Boost.Unordered alongide my colleague
+Chris Mazakas. The experience so far has been a joyous one, and I’ve had the opportunity
+to meet and work with a group of outstanding professionals from all over the globe.
+Braden Ganetsky recently joined the Boost.Unordered maintainance team,
+and it’s been my pleasure to guide him through the onboarding process.</p>
+
+<p>Going forward, I feel that most of the <a href="https://pdimov.github.io/articles/unordered_dev_plan.html">goals for Boost.Unordered</a>
+put forth by Peter Dimov in 2022 have been met, and it’s only natural that the activitiy
+in this library will decrease along this year. I’m totally open to new challenges for
+the evolution of Boost, particularly if they’re math-oriented and can advance the state of
+the art for C++ in general —drop me a line if you have an idea in mind!</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

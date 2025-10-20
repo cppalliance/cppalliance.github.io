@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruben's January update: presenting Boost.MySQL's new pool! | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Ruben’s January update: presenting Boost.MySQL’s new pool! | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Ruben’s January update: presenting Boost.MySQL’s new pool!" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In spite of it being winter here, Boost.MySQL is presenting a new pool this year! This was one of the most requested features in the library, and will finally be generally available as an experimental feature in Boost 1.85. Connection pools manage tasks that are easy to get wrong, like reconnections, health checks and session cleanup. As they reuse physical connections, they also provide a nice efficiency boost. Using a pool is as simple as: boost::asio::awaitable&lt;std::int64_t&gt; get_num_employees(boost::mysql::connection_pool&amp; pool) { // Get a fresh connection from the pool auto conn = co_await pool.async_get_connection(boost::asio::use_awaitable); // Use the connection. It will be returned to the pool on scope exit results result; co_await conn-&gt;async_execute(&quot;SELECT COUNT(*) FROM employee&quot;, result, boost::asio::use_awaitable); co_return result.rows().at(0).at(0).as_int64(); } Despite its simple interface, implementing connection_pool has been a long and hard task that has taken me a considerable effort. In the process, I’ve been able to learn in-depth many things about Boost.Asio which I thought I knew, but it turns out I did not. For instance, I’ve finally understood the Asio property system, and wrote a blog post on it, hoping that others will find it easier to understand. I’ve also managed to make connection_pool easy to use in multi-threaded contexts using strands. I’ve found many subtle pitfalls here that are easy to get wrong. Thread-sanitizer for the win! In any case, I’ve been able to get help from other knowledgeable Asio developers, both from inside and outside the C++ Alliance, which has been really helpful to get this done. I’m also pretty happy with the role that Boost ServerTech chat has played in this task. ServerTech chat is a project to showcase how Boost libraries can be used together, and a place to innovate. Thanks to it, I’ve had an almost real-world environment to battle-test my API in. Type-erased connections With connection_pool, Boost.MySQL is getting a new type-erased connection type, any_connection, with much easier connection establishment semantics. Connection pooling relies on such semantics to provide better efficiency. any_connection is currently experimental, but I expect it to become the default connection type once it becomes stable. Boost.Redis finally released! Boost.Redis finally got its first release with Boost 1.84. I’m proud to have helped the author integrate this library into Boost. Boost integration is not a trivial process. Most novice authors only have CMake experience, but Boost builds require some parts to use B2. Even with CMake, some parts need to adhere to certain conventions to integrate with the Boost superproject. I’ve recently gone through this, so I’ve been able to help here. I’m also pretty happy about my teammate’s efforts on documenting these processes in the contributor guide. Sans-io all the things Up to Boost 1.84, all network algorithms in Boost.MySQL are internally implemented as layered functions calling Boost.Asio primitives. As an overly simplistic example, connection::execute calls two functions, write_request and read_response, which end up in socket calls. While this is the obvious way to implement such a library, it generates a lot of duplication. There is connection::execute and connection::async_execute, which yields two versions of every underlying function. It’s also slow to compile (Asio async code is full of heavy templates) and hard to test. Starting from Boost 1.85, all network algorithms are implemented as state machines. Such algorithms are called sans-io, because they don’t directly invoke any I/O functions. A thin layer of Asio code connects such algorithms to I/O, yielding the same interface as before. These algorithms are currently an implementation detail, and not exposed to the public. This change has made the library much simpler and enjoyable to test. Even if you’re not planning to support sync functions, consider going sans-io - your unit tests will thank you. Next steps: SQL query formatting The next big step is supporting client-side query composition. This makes use cases like dynamic filters much easier to implement, and can increase efficiency by saving round-trips to the server. I’m currently examining the great fmt library as a source of inspiration." />
+<meta property="og:description" content="In spite of it being winter here, Boost.MySQL is presenting a new pool this year! This was one of the most requested features in the library, and will finally be generally available as an experimental feature in Boost 1.85. Connection pools manage tasks that are easy to get wrong, like reconnections, health checks and session cleanup. As they reuse physical connections, they also provide a nice efficiency boost. Using a pool is as simple as: boost::asio::awaitable&lt;std::int64_t&gt; get_num_employees(boost::mysql::connection_pool&amp; pool) { // Get a fresh connection from the pool auto conn = co_await pool.async_get_connection(boost::asio::use_awaitable); // Use the connection. It will be returned to the pool on scope exit results result; co_await conn-&gt;async_execute(&quot;SELECT COUNT(*) FROM employee&quot;, result, boost::asio::use_awaitable); co_return result.rows().at(0).at(0).as_int64(); } Despite its simple interface, implementing connection_pool has been a long and hard task that has taken me a considerable effort. In the process, I’ve been able to learn in-depth many things about Boost.Asio which I thought I knew, but it turns out I did not. For instance, I’ve finally understood the Asio property system, and wrote a blog post on it, hoping that others will find it easier to understand. I’ve also managed to make connection_pool easy to use in multi-threaded contexts using strands. I’ve found many subtle pitfalls here that are easy to get wrong. Thread-sanitizer for the win! In any case, I’ve been able to get help from other knowledgeable Asio developers, both from inside and outside the C++ Alliance, which has been really helpful to get this done. I’m also pretty happy with the role that Boost ServerTech chat has played in this task. ServerTech chat is a project to showcase how Boost libraries can be used together, and a place to innovate. Thanks to it, I’ve had an almost real-world environment to battle-test my API in. Type-erased connections With connection_pool, Boost.MySQL is getting a new type-erased connection type, any_connection, with much easier connection establishment semantics. Connection pooling relies on such semantics to provide better efficiency. any_connection is currently experimental, but I expect it to become the default connection type once it becomes stable. Boost.Redis finally released! Boost.Redis finally got its first release with Boost 1.84. I’m proud to have helped the author integrate this library into Boost. Boost integration is not a trivial process. Most novice authors only have CMake experience, but Boost builds require some parts to use B2. Even with CMake, some parts need to adhere to certain conventions to integrate with the Boost superproject. I’ve recently gone through this, so I’ve been able to help here. I’m also pretty happy about my teammate’s efforts on documenting these processes in the contributor guide. Sans-io all the things Up to Boost 1.84, all network algorithms in Boost.MySQL are internally implemented as layered functions calling Boost.Asio primitives. As an overly simplistic example, connection::execute calls two functions, write_request and read_response, which end up in socket calls. While this is the obvious way to implement such a library, it generates a lot of duplication. There is connection::execute and connection::async_execute, which yields two versions of every underlying function. It’s also slow to compile (Asio async code is full of heavy templates) and hard to test. Starting from Boost 1.85, all network algorithms are implemented as state machines. Such algorithms are called sans-io, because they don’t directly invoke any I/O functions. A thin layer of Asio code connects such algorithms to I/O, yielding the same interface as before. These algorithms are currently an implementation detail, and not exposed to the public. This change has made the library much simpler and enjoyable to test. Even if you’re not planning to support sync functions, consider going sans-io - your unit tests will thank you. Next steps: SQL query formatting The next big step is supporting client-side query composition. This makes use cases like dynamic filters much easier to implement, and can increase efficiency by saving round-trips to the server. I’m currently examining the great fmt library as a source of inspiration." />
+<link rel="canonical" href="http://cppalliance.org/q4_update/2024/01/10/RubenQ4.html" />
+<meta property="og:url" content="http://cppalliance.org/q4_update/2024/01/10/RubenQ4.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Ruben’s January update: presenting Boost.MySQL’s new pool!" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In spite of it being winter here, Boost.MySQL is presenting a new pool this year! This was one of the most requested features in the library, and will finally be generally available as an experimental feature in Boost 1.85. Connection pools manage tasks that are easy to get wrong, like reconnections, health checks and session cleanup. As they reuse physical connections, they also provide a nice efficiency boost. Using a pool is as simple as: boost::asio::awaitable&lt;std::int64_t&gt; get_num_employees(boost::mysql::connection_pool&amp; pool) { // Get a fresh connection from the pool auto conn = co_await pool.async_get_connection(boost::asio::use_awaitable); // Use the connection. It will be returned to the pool on scope exit results result; co_await conn-&gt;async_execute(&quot;SELECT COUNT(*) FROM employee&quot;, result, boost::asio::use_awaitable); co_return result.rows().at(0).at(0).as_int64(); } Despite its simple interface, implementing connection_pool has been a long and hard task that has taken me a considerable effort. In the process, I’ve been able to learn in-depth many things about Boost.Asio which I thought I knew, but it turns out I did not. For instance, I’ve finally understood the Asio property system, and wrote a blog post on it, hoping that others will find it easier to understand. I’ve also managed to make connection_pool easy to use in multi-threaded contexts using strands. I’ve found many subtle pitfalls here that are easy to get wrong. Thread-sanitizer for the win! In any case, I’ve been able to get help from other knowledgeable Asio developers, both from inside and outside the C++ Alliance, which has been really helpful to get this done. I’m also pretty happy with the role that Boost ServerTech chat has played in this task. ServerTech chat is a project to showcase how Boost libraries can be used together, and a place to innovate. Thanks to it, I’ve had an almost real-world environment to battle-test my API in. Type-erased connections With connection_pool, Boost.MySQL is getting a new type-erased connection type, any_connection, with much easier connection establishment semantics. Connection pooling relies on such semantics to provide better efficiency. any_connection is currently experimental, but I expect it to become the default connection type once it becomes stable. Boost.Redis finally released! Boost.Redis finally got its first release with Boost 1.84. I’m proud to have helped the author integrate this library into Boost. Boost integration is not a trivial process. Most novice authors only have CMake experience, but Boost builds require some parts to use B2. Even with CMake, some parts need to adhere to certain conventions to integrate with the Boost superproject. I’ve recently gone through this, so I’ve been able to help here. I’m also pretty happy about my teammate’s efforts on documenting these processes in the contributor guide. Sans-io all the things Up to Boost 1.84, all network algorithms in Boost.MySQL are internally implemented as layered functions calling Boost.Asio primitives. As an overly simplistic example, connection::execute calls two functions, write_request and read_response, which end up in socket calls. While this is the obvious way to implement such a library, it generates a lot of duplication. There is connection::execute and connection::async_execute, which yields two versions of every underlying function. It’s also slow to compile (Asio async code is full of heavy templates) and hard to test. Starting from Boost 1.85, all network algorithms are implemented as state machines. Such algorithms are called sans-io, because they don’t directly invoke any I/O functions. A thin layer of Asio code connects such algorithms to I/O, yielding the same interface as before. These algorithms are currently an implementation detail, and not exposed to the public. This change has made the library much simpler and enjoyable to test. Even if you’re not planning to support sync functions, consider going sans-io - your unit tests will thank you. Next steps: SQL query formatting The next big step is supporting client-side query composition. This makes use cases like dynamic filters much easier to implement, and can increase efficiency by saving round-trips to the server. I’m currently examining the great fmt library as a source of inspiration.","@type":"BlogPosting","url":"http://cppalliance.org/q4_update/2024/01/10/RubenQ4.html","headline":"Ruben’s January update: presenting Boost.MySQL’s new pool!","dateModified":"2024-01-10T00:00:00+00:00","datePublished":"2024-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/q4_update/2024/01/10/RubenQ4.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Ruben's January update: presenting Boost.MySQL's new pool!</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In spite of it being winter here, Boost.MySQL is presenting a new pool this year!
+This was one of the most requested features in the library, and will finally be generally
+available as an experimental feature in Boost 1.85.</p>
+
+<p>Connection pools manage tasks that are easy to get wrong, like reconnections,
+health checks and session cleanup. As they reuse physical connections,
+they also provide <a href="https://www.boost.org/doc/libs/master/libs/mysql/doc/html/mysql/connection_pool.html#mysql.connection_pool.benchmarks">a nice efficiency boost</a>.</p>
+
+<p>Using a pool is as simple as:</p>
+
+<pre><code>boost::asio::awaitable&lt;std::int64_t&gt; get_num_employees(boost::mysql::connection_pool&amp; pool)
+{
+   // Get a fresh connection from the pool
+   auto conn = co_await pool.async_get_connection(boost::asio::use_awaitable);
+
+   // Use the connection. It will be returned to the pool on scope exit
+   results result;
+   co_await conn-&gt;async_execute("SELECT COUNT(*) FROM employee", result, boost::asio::use_awaitable);
+   co_return result.rows().at(0).at(0).as_int64();
+}
+</code></pre>
+
+<p>Despite its simple interface, implementing <code>connection_pool</code> has been a long and hard
+task that has taken me a considerable effort. In the process, I’ve been able to
+learn in-depth many things about Boost.Asio which I thought I knew, but it turns out I did not.</p>
+
+<p>For instance, I’ve finally understood the Asio property system, and wrote
+<a href="https://anarthal.github.io/cppblog/asio-props.html">a blog post on it</a>, hoping
+that others will find it easier to understand. I’ve also managed to make <code>connection_pool</code>
+easy to use in multi-threaded contexts using strands. I’ve found many subtle pitfalls
+here that are easy to get wrong. Thread-sanitizer for the win!</p>
+
+<p>In any case, I’ve been able to get help from other knowledgeable Asio
+developers, both from inside and outside the C++ Alliance, which has been
+really helpful to get this done.</p>
+
+<p>I’m also pretty happy with the role that <a href="https://github.com/anarthal/servertech-chat">Boost ServerTech chat</a>
+has played in this task. ServerTech chat is a project to showcase how Boost libraries can be used
+together, and a place to innovate. Thanks to it, I’ve had an almost real-world environment
+to battle-test my API in.</p>
+
+<h2 id="type-erased-connections">Type-erased connections</h2>
+
+<p>With <code>connection_pool</code>, Boost.MySQL is getting a new type-erased connection
+type, <code>any_connection</code>, with much easier connection establishment semantics.
+Connection pooling relies on such semantics to provide better efficiency.</p>
+
+<p><code>any_connection</code> is currently experimental, but I expect it to become the
+default connection type once it becomes stable.</p>
+
+<h2 id="boostredis-finally-released">Boost.Redis finally released!</h2>
+
+<p>Boost.Redis finally got its first release with Boost 1.84. I’m proud to have
+helped the author integrate this library into Boost.</p>
+
+<p>Boost integration is not a trivial process. Most novice authors only have CMake
+experience, but Boost builds require some parts to use B2. Even with CMake,
+some parts need to adhere to certain conventions to integrate with the Boost
+superproject. I’ve recently gone through this, so I’ve been able to help here.</p>
+
+<p>I’m also pretty happy about my teammate’s efforts on documenting these
+processes in the <a href="https://docs.cppalliance.org/contributor-guide/index.html">contributor guide</a>.</p>
+
+<h2 id="sans-io-all-the-things">Sans-io all the things</h2>
+
+<p>Up to Boost 1.84, all network algorithms in Boost.MySQL are internally
+implemented as layered functions calling Boost.Asio primitives. As an overly
+simplistic example, <code>connection::execute</code> calls two functions, <code>write_request</code>
+and <code>read_response</code>, which end up in socket calls.</p>
+
+<p>While this is the obvious way to implement such a library, it generates a lot of
+duplication. There is <code>connection::execute</code> and <code>connection::async_execute</code>,
+which yields two versions of every underlying function. It’s also slow
+to compile (Asio async code is full of heavy templates) and hard to test.</p>
+
+<p>Starting from Boost 1.85, all network algorithms are implemented as state machines.
+Such algorithms are called sans-io, because they don’t directly invoke any I/O functions.
+A thin layer of Asio code connects such algorithms to I/O, yielding the same interface
+as before. These algorithms are currently an implementation detail, and not exposed to the public.
+This change has made the library much simpler and enjoyable to test. Even if
+you’re not planning to support sync functions, consider going sans-io - your unit tests will thank you.</p>
+
+<h2 id="next-steps-sql-query-formatting">Next steps: SQL query formatting</h2>
+
+<p>The next big step is supporting client-side query composition. This makes use cases
+like dynamic filters much easier to implement, and can increase efficiency by
+saving round-trips to the server. I’m currently examining the great <a href="https://github.com/fmtlib/fmt">fmt</a>
+library as a source of inspiration.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/q4_update/2024/01/10/RubenQ4.html">Ruben's January update: presenting Boost.MySQL's new pool!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

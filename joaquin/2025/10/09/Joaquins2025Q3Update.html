@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Working on Boost.Bloom roadmap | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Working on Boost.Bloom roadmap | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Working on Boost.Bloom roadmap" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q3 2025, I’ve been working in the following areas: Boost.Bloom Boost.Bloom has been officially released in Boost 1.89. I’ve continued working on a number of roadmap features: Originally, some subfilters (block, fast_multiblock32 and fast_multiblock64) implemented lookup in a branchful or early-exit way: as soon as a bit checks to zero, lookup terminates (with result false). After extensive benchmarks, I’ve changed these subfilters to branchless execution for somewhat better performance (PR#42). Note that boost::bloom::filter&lt;T, K, ...&gt; is still branchful for K (the number of subfilter operations per element): in this case, branchless execution involves too much extra work and does not compensate for the removed branch speculation. Ivan Matek helped with this investigation. Added bulk-mode operations following a similar approach to what we did with Boost.Unordered concurrent containers (PR#42). I’ve been also working on a proof of concept for a dynamic filter where the k and/or k’ values can be specified at run time. As expected, the dynamic filter is slower than its static counterpart, but benchmarks show that execution times can increase by up to 2x for lookup and even more for insertion, which makes me undecided as to whether to launch this feature. An alternative approach is to have a dynamic_filter&lt;T&gt; be a wrapper over a virtual interface whose implementation is selected at run time from a static table of implementations based on static filter&lt;T, K&gt; with K between 1 and some maximum value (this type erasure technique is described, among other places, in slides 157-205 of Sean Parent’s C++ Seasoning talk): performance is much better, but this approach also has drawbacks of its own. Reviewed a contribution fom Braden Ganetsky to make the project’s CMakeLists.txt more Visual Studio-friendly (PR#33). Boost.Unordered Reviewed PR#316. Boost.MultiIndex Reviewed PR#83, PR#84. Boost.Flyweight Fixed an internal compile error that manifested with newer compilers implementing P0522R0 (PR#23). Reviewed PR#22. Boost.PolyCollection Reviewed PR#32. Boost website Filed issues #1845, #1846, #1851, #1858, #1900, #1927, #1936, #1937. Helped with the transition of the global release notes procedure to one based on the new website repo exclusively (PR#508, PR#510). This procedure is expected to launch in time for the upcoming Boost 1.90 release. Boost promotion Prepared and posted around 10 messages on Boost’s X account and Reddit. The activity on social media has grown considerably thanks to the dedication of Rob Beeston and others. Support to the community Helped Jean-Louis Leroy get Drone support for the upcoming Boost.OpenMethod library (PR#39). Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC)." />
+<meta property="og:description" content="During Q3 2025, I’ve been working in the following areas: Boost.Bloom Boost.Bloom has been officially released in Boost 1.89. I’ve continued working on a number of roadmap features: Originally, some subfilters (block, fast_multiblock32 and fast_multiblock64) implemented lookup in a branchful or early-exit way: as soon as a bit checks to zero, lookup terminates (with result false). After extensive benchmarks, I’ve changed these subfilters to branchless execution for somewhat better performance (PR#42). Note that boost::bloom::filter&lt;T, K, ...&gt; is still branchful for K (the number of subfilter operations per element): in this case, branchless execution involves too much extra work and does not compensate for the removed branch speculation. Ivan Matek helped with this investigation. Added bulk-mode operations following a similar approach to what we did with Boost.Unordered concurrent containers (PR#42). I’ve been also working on a proof of concept for a dynamic filter where the k and/or k’ values can be specified at run time. As expected, the dynamic filter is slower than its static counterpart, but benchmarks show that execution times can increase by up to 2x for lookup and even more for insertion, which makes me undecided as to whether to launch this feature. An alternative approach is to have a dynamic_filter&lt;T&gt; be a wrapper over a virtual interface whose implementation is selected at run time from a static table of implementations based on static filter&lt;T, K&gt; with K between 1 and some maximum value (this type erasure technique is described, among other places, in slides 157-205 of Sean Parent’s C++ Seasoning talk): performance is much better, but this approach also has drawbacks of its own. Reviewed a contribution fom Braden Ganetsky to make the project’s CMakeLists.txt more Visual Studio-friendly (PR#33). Boost.Unordered Reviewed PR#316. Boost.MultiIndex Reviewed PR#83, PR#84. Boost.Flyweight Fixed an internal compile error that manifested with newer compilers implementing P0522R0 (PR#23). Reviewed PR#22. Boost.PolyCollection Reviewed PR#32. Boost website Filed issues #1845, #1846, #1851, #1858, #1900, #1927, #1936, #1937. Helped with the transition of the global release notes procedure to one based on the new website repo exclusively (PR#508, PR#510). This procedure is expected to launch in time for the upcoming Boost 1.90 release. Boost promotion Prepared and posted around 10 messages on Boost’s X account and Reddit. The activity on social media has grown considerably thanks to the dedication of Rob Beeston and others. Support to the community Helped Jean-Louis Leroy get Drone support for the upcoming Boost.OpenMethod library (PR#39). Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC)." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2025/10/09/Joaquins2025Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2025/10/09/Joaquins2025Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-09T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Working on Boost.Bloom roadmap" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q3 2025, I’ve been working in the following areas: Boost.Bloom Boost.Bloom has been officially released in Boost 1.89. I’ve continued working on a number of roadmap features: Originally, some subfilters (block, fast_multiblock32 and fast_multiblock64) implemented lookup in a branchful or early-exit way: as soon as a bit checks to zero, lookup terminates (with result false). After extensive benchmarks, I’ve changed these subfilters to branchless execution for somewhat better performance (PR#42). Note that boost::bloom::filter&lt;T, K, ...&gt; is still branchful for K (the number of subfilter operations per element): in this case, branchless execution involves too much extra work and does not compensate for the removed branch speculation. Ivan Matek helped with this investigation. Added bulk-mode operations following a similar approach to what we did with Boost.Unordered concurrent containers (PR#42). I’ve been also working on a proof of concept for a dynamic filter where the k and/or k’ values can be specified at run time. As expected, the dynamic filter is slower than its static counterpart, but benchmarks show that execution times can increase by up to 2x for lookup and even more for insertion, which makes me undecided as to whether to launch this feature. An alternative approach is to have a dynamic_filter&lt;T&gt; be a wrapper over a virtual interface whose implementation is selected at run time from a static table of implementations based on static filter&lt;T, K&gt; with K between 1 and some maximum value (this type erasure technique is described, among other places, in slides 157-205 of Sean Parent’s C++ Seasoning talk): performance is much better, but this approach also has drawbacks of its own. Reviewed a contribution fom Braden Ganetsky to make the project’s CMakeLists.txt more Visual Studio-friendly (PR#33). Boost.Unordered Reviewed PR#316. Boost.MultiIndex Reviewed PR#83, PR#84. Boost.Flyweight Fixed an internal compile error that manifested with newer compilers implementing P0522R0 (PR#23). Reviewed PR#22. Boost.PolyCollection Reviewed PR#32. Boost website Filed issues #1845, #1846, #1851, #1858, #1900, #1927, #1936, #1937. Helped with the transition of the global release notes procedure to one based on the new website repo exclusively (PR#508, PR#510). This procedure is expected to launch in time for the upcoming Boost 1.90 release. Boost promotion Prepared and posted around 10 messages on Boost’s X account and Reddit. The activity on social media has grown considerably thanks to the dedication of Rob Beeston and others. Support to the community Helped Jean-Louis Leroy get Drone support for the upcoming Boost.OpenMethod library (PR#39). Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC).","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2025/10/09/Joaquins2025Q3Update.html","headline":"Working on Boost.Bloom roadmap","dateModified":"2025-10-09T00:00:00+00:00","datePublished":"2025-10-09T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2025/10/09/Joaquins2025Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Working on Boost.Bloom roadmap</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 9, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q3 2025, I’ve been working in the following areas:</p>
+
+<h3 id="boostbloom">Boost.Bloom</h3>
+
+<p><a href="https://www.boost.org/doc/libs/latest/libs/bloom/doc/html/bloom.html">Boost.Bloom</a> has been officially
+released in Boost 1.89. I’ve continued working on a number of roadmap features:</p>
+
+<ul>
+  <li>Originally, some subfilters (<code>block</code>, <code>fast_multiblock32</code> and <code>fast_multiblock64)</code>
+implemented lookup in a branchful or early-exit way: as soon as a bit checks to zero, lookup
+terminates (with result <code>false</code>). After extensive benchmarks, I’ve changed these subfilters
+to branchless execution for somewhat better performance (<a href="https://github.com/boostorg/bloom/pull/42">PR#42</a>).
+Note that <code>boost::bloom::filter&lt;T, K, ...&gt;</code> is still
+branchful for <code>K</code> (the number of subfilter operations per element): in this case, branchless
+execution involves too much extra work and does not compensate for the removed branch speculation.
+Ivan Matek helped with this investigation.</li>
+  <li>Added <a href="https://www.boost.org/doc/libs/develop/libs/bloom/doc/html/bloom.html#tutorial_bulk_operations">bulk-mode operations</a>
+following a similar approach to what we did with Boost.Unordered concurrent containers
+(<a href="https://github.com/boostorg/bloom/pull/43">PR#42</a>).</li>
+  <li>I’ve been also working on a proof of concept for a dynamic filter where the <em>k</em> and/or <em>k’</em> values
+can be specified at run time. As expected, the dynamic filter is slower than its static
+counterpart, but benchmarks show that execution times can increase by up to 2x for lookup and
+even more for insertion, which makes me undecided as to whether to launch this feature.
+An alternative approach is to have a <code>dynamic_filter&lt;T&gt;</code> be a wrapper over a virtual interface
+whose implementation is selected at run time from a static table of implementations
+based on static <code>filter&lt;T, K&gt;</code> with
+<code>K</code> between 1 and some maximum value (this type erasure technique is described, among
+other places, in slides 157-205 of Sean Parent’s
+<a href="https://raw.githubusercontent.com/wiki/sean-parent/sean-parent.github.io/presentations/2013-09-11-cpp-seasoning/cpp-seasoning.pdf">C++ Seasoning</a>
+talk): performance is much better, but this approach also has drawbacks of its own.</li>
+  <li>Reviewed a contribution fom Braden Ganetsky to make the project’s <code>CMakeLists.txt</code>
+more Visual Studio-friendly (<a href="https://github.com/boostorg/bloom/pull/33">PR#33</a>).</li>
+</ul>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Reviewed <a href="https://github.com/boostorg/unordered/pull/316">PR#316</a>.</li>
+</ul>
+
+<h3 id="boostmultiindex">Boost.MultiIndex</h3>
+
+<ul>
+  <li>Reviewed <a href="https://github.com/boostorg/multi_index/pull/83">PR#83</a>, <a href="https://github.com/boostorg/multi_index/pull/84">PR#84</a>.</li>
+</ul>
+
+<h3 id="boostflyweight">Boost.Flyweight</h3>
+
+<ul>
+  <li>Fixed an internal compile error that manifested with newer compilers implementing
+<a href="https://wg21.link/p0522r0">P0522R0</a>
+(<a href="https://github.com/boostorg/flyweight/pull/23">PR#23</a>).</li>
+  <li>Reviewed <a href="https://github.com/boostorg/flyweight/pull/22">PR#22</a>.</li>
+</ul>
+
+<h3 id="boostpolycollection">Boost.PolyCollection</h3>
+
+<ul>
+  <li>Reviewed <a href="https://github.com/boostorg/poly_collection/pull/32">PR#32</a>.</li>
+</ul>
+
+<h3 id="boost-website">Boost website</h3>
+
+<ul>
+  <li>Filed issues
+<a href="https://github.com/boostorg/website-v2/issues/1845">#1845</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1846">#1846</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1851">#1851</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1858">#1858</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1900">#1900</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1927">#1927</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1936">#1936</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1937">#1937</a>.</li>
+  <li>Helped with the transition of the global release notes procedure to one
+based on the new website repo exclusively
+(<a href="https://github.com/boostorg/website-v2-docs/pull/508">PR#508</a>,
+<a href="https://github.com/boostorg/website-v2-docs/pull/510">PR#510</a>). This procedure is
+expected to launch in time for the upcoming Boost 1.90 release.</li>
+</ul>
+
+<h3 id="boost-promotion">Boost promotion</h3>
+
+<ul>
+  <li>Prepared and posted around 10 messages on Boost’s X account and Reddit.
+The activity on social media has grown considerably thanks to the dedication of
+Rob Beeston and others.</li>
+</ul>
+
+<h3 id="support-to-the-community">Support to the community</h3>
+
+<ul>
+  <li>Helped Jean-Louis Leroy get Drone support for the upcoming
+Boost.OpenMethod library (<a href="https://github.com/boostorg/openmethod/pull/39">PR#39</a>).</li>
+  <li>Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC).</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

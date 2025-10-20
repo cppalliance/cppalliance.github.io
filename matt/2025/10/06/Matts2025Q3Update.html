@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decimal Goes Back to Review | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Decimal Goes Back to Review | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Decimal Goes Back to Review" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="We are excited to announce that the Decimal (https://github.com/cppalliance/decimal) library is going back to review for inclusion in Boost from 06 to 15 October. In preparation for this we have made quite a few changes since the indeterminate end of the first review about 9 months ago: Breaking Changes: Based on bitwise comparisons with other similar libraries and database software, we have changed the internal encoding of our IEEE 754-compliant types We spent about 3 months optimizing just back end integer types that are now used throughout the library, and as the internals of decimal128_t We have changed the type names to better match conventions: decimalXX is now decimalXX_t decimalXX_fast is now decimal_fastXX_t The headers have been similarly renamed (e.g. decimal32.hpp -&gt; decimal32_t.hpp), and can now be used independently instead of requiring the monolith based on feedback in Review Constructors have been simplified to reduce confusion (no more double negative logic) The default rounding mode has changed to align with IEEE 754, with rounding bugs being squashed across the modes as well Other Changes: The documenation content has been overhauled thanks to feedback from Peter Turcan and others during the first review The docs are no longer a single long page of Asciidoc; we have moved to Antora. Thanks to Joaquín and Christian for making it trivial to copy from Unordered to make that happen. https://develop.decimal.cpp.al/ We now support formatting with {fmt} Benchmarks have been expanded to include GCC _DecimalXX types, and Intel’s libbid. I think people should be pleased with the results now, since that was a huge point of contention at the end of the review We have added support for CMake pkg config for ease of use Every post-review issue John was kind enough to consolidate and open have been addressed: https://github.com/cppalliance/decimal/issues?q=is%3Aissue%20state%3Aclosed%20label%3A%22Boost%20Review%22 Continued Developments: I think the only unaddressed comment from the first review is support for hardware decimal floating point types. There are a few rarer architectures that have native decimal floating point units like POWER10. Is it possible to fully integrate these native types for use in the library? Armed with a compiler farm account I have begun developing a wrapper around the native types that seems to work. Stay tuned. One item that we have considered, but have not put any effort into yet would be getting the library running on CUDA platforms. If this is a feature that you are interested in, please let us know! As is always the case with Boost reviews, regardless of the outcome I am sure that we will receive lots of feedback on how to improve the library. If you are interested, much of the contents of the first review can be found in the original thread on the boost mailing list archive: https://lists.boost.org/archives/list/boost@lists.boost.org/thread/AGFOQZMJ4HKKQ5C5XDDKNJ3VJL72YTWL/" />
+<meta property="og:description" content="We are excited to announce that the Decimal (https://github.com/cppalliance/decimal) library is going back to review for inclusion in Boost from 06 to 15 October. In preparation for this we have made quite a few changes since the indeterminate end of the first review about 9 months ago: Breaking Changes: Based on bitwise comparisons with other similar libraries and database software, we have changed the internal encoding of our IEEE 754-compliant types We spent about 3 months optimizing just back end integer types that are now used throughout the library, and as the internals of decimal128_t We have changed the type names to better match conventions: decimalXX is now decimalXX_t decimalXX_fast is now decimal_fastXX_t The headers have been similarly renamed (e.g. decimal32.hpp -&gt; decimal32_t.hpp), and can now be used independently instead of requiring the monolith based on feedback in Review Constructors have been simplified to reduce confusion (no more double negative logic) The default rounding mode has changed to align with IEEE 754, with rounding bugs being squashed across the modes as well Other Changes: The documenation content has been overhauled thanks to feedback from Peter Turcan and others during the first review The docs are no longer a single long page of Asciidoc; we have moved to Antora. Thanks to Joaquín and Christian for making it trivial to copy from Unordered to make that happen. https://develop.decimal.cpp.al/ We now support formatting with {fmt} Benchmarks have been expanded to include GCC _DecimalXX types, and Intel’s libbid. I think people should be pleased with the results now, since that was a huge point of contention at the end of the review We have added support for CMake pkg config for ease of use Every post-review issue John was kind enough to consolidate and open have been addressed: https://github.com/cppalliance/decimal/issues?q=is%3Aissue%20state%3Aclosed%20label%3A%22Boost%20Review%22 Continued Developments: I think the only unaddressed comment from the first review is support for hardware decimal floating point types. There are a few rarer architectures that have native decimal floating point units like POWER10. Is it possible to fully integrate these native types for use in the library? Armed with a compiler farm account I have begun developing a wrapper around the native types that seems to work. Stay tuned. One item that we have considered, but have not put any effort into yet would be getting the library running on CUDA platforms. If this is a feature that you are interested in, please let us know! As is always the case with Boost reviews, regardless of the outcome I am sure that we will receive lots of feedback on how to improve the library. If you are interested, much of the contents of the first review can be found in the original thread on the boost mailing list archive: https://lists.boost.org/archives/list/boost@lists.boost.org/thread/AGFOQZMJ4HKKQ5C5XDDKNJ3VJL72YTWL/" />
+<link rel="canonical" href="http://cppalliance.org/matt/2025/10/06/Matts2025Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/matt/2025/10/06/Matts2025Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Decimal Goes Back to Review" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"We are excited to announce that the Decimal (https://github.com/cppalliance/decimal) library is going back to review for inclusion in Boost from 06 to 15 October. In preparation for this we have made quite a few changes since the indeterminate end of the first review about 9 months ago: Breaking Changes: Based on bitwise comparisons with other similar libraries and database software, we have changed the internal encoding of our IEEE 754-compliant types We spent about 3 months optimizing just back end integer types that are now used throughout the library, and as the internals of decimal128_t We have changed the type names to better match conventions: decimalXX is now decimalXX_t decimalXX_fast is now decimal_fastXX_t The headers have been similarly renamed (e.g. decimal32.hpp -&gt; decimal32_t.hpp), and can now be used independently instead of requiring the monolith based on feedback in Review Constructors have been simplified to reduce confusion (no more double negative logic) The default rounding mode has changed to align with IEEE 754, with rounding bugs being squashed across the modes as well Other Changes: The documenation content has been overhauled thanks to feedback from Peter Turcan and others during the first review The docs are no longer a single long page of Asciidoc; we have moved to Antora. Thanks to Joaquín and Christian for making it trivial to copy from Unordered to make that happen. https://develop.decimal.cpp.al/ We now support formatting with {fmt} Benchmarks have been expanded to include GCC _DecimalXX types, and Intel’s libbid. I think people should be pleased with the results now, since that was a huge point of contention at the end of the review We have added support for CMake pkg config for ease of use Every post-review issue John was kind enough to consolidate and open have been addressed: https://github.com/cppalliance/decimal/issues?q=is%3Aissue%20state%3Aclosed%20label%3A%22Boost%20Review%22 Continued Developments: I think the only unaddressed comment from the first review is support for hardware decimal floating point types. There are a few rarer architectures that have native decimal floating point units like POWER10. Is it possible to fully integrate these native types for use in the library? Armed with a compiler farm account I have begun developing a wrapper around the native types that seems to work. Stay tuned. One item that we have considered, but have not put any effort into yet would be getting the library running on CUDA platforms. If this is a feature that you are interested in, please let us know! As is always the case with Boost reviews, regardless of the outcome I am sure that we will receive lots of feedback on how to improve the library. If you are interested, much of the contents of the first review can be found in the original thread on the boost mailing list archive: https://lists.boost.org/archives/list/boost@lists.boost.org/thread/AGFOQZMJ4HKKQ5C5XDDKNJ3VJL72YTWL/","@type":"BlogPosting","url":"http://cppalliance.org/matt/2025/10/06/Matts2025Q3Update.html","headline":"Decimal Goes Back to Review","dateModified":"2025-10-06T00:00:00+00:00","datePublished":"2025-10-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/matt/2025/10/06/Matts2025Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Decimal Goes Back to Review</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/matt">
+                  Matt Borland
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 6, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>We are excited to announce that the Decimal (<a href="https://github.com/cppalliance/decimal">https://github.com/cppalliance/decimal</a>) library is going back to review for inclusion in Boost from 06 to 15 October.
+In preparation for this we have made quite a few changes since the indeterminate end of the first review about 9 months ago:</p>
+
+<p>Breaking Changes:</p>
+<ul>
+  <li>Based on bitwise comparisons with other similar libraries and database software, we have changed the internal encoding of our IEEE 754-compliant types</li>
+  <li>We spent about 3 months optimizing just back end integer types that are now used throughout the library, and as the internals of decimal128_t</li>
+  <li>We have changed the type names to better match conventions:
+    <ul>
+      <li><code>decimalXX</code> is now <code>decimalXX_t</code></li>
+      <li><code>decimalXX_fast</code> is now <code>decimal_fastXX_t</code></li>
+    </ul>
+  </li>
+  <li>The headers have been similarly renamed (e.g. decimal32.hpp -&gt; decimal32_t.hpp), and can now be used independently instead of requiring the monolith based on feedback in Review</li>
+  <li>Constructors have been simplified to reduce confusion (no more double negative logic)</li>
+  <li>The default rounding mode has changed to align with IEEE 754, with rounding bugs being squashed across the modes as well</li>
+</ul>
+
+<p>Other Changes:</p>
+<ul>
+  <li>The documenation content has been overhauled thanks to feedback from Peter Turcan and others during the first review</li>
+  <li>The docs are no longer a single long page of Asciidoc; we have moved to Antora. Thanks to Joaquín and Christian for making it trivial to copy from Unordered to make that happen.
+    <ul>
+      <li>https://develop.decimal.cpp.al/</li>
+    </ul>
+  </li>
+  <li>We now support formatting with {fmt}</li>
+  <li>Benchmarks have been expanded to include GCC <code>_DecimalXX</code> types, and Intel’s libbid. I think people should be pleased with the results now, since that was a huge point of contention at the end of the review</li>
+  <li>We have added support for CMake pkg config for ease of use</li>
+  <li>Every post-review issue John was kind enough to consolidate and open have been addressed: https://github.com/cppalliance/decimal/issues?q=is%3Aissue%20state%3Aclosed%20label%3A%22Boost%20Review%22</li>
+</ul>
+
+<p>Continued Developments:</p>
+
+<ul>
+  <li>
+    <p>I think the only unaddressed comment from the first review is support for hardware decimal floating point types.
+There are a few rarer architectures that have native decimal floating point units like POWER10.
+Is it possible to fully integrate these native types for use in the library?
+Armed with a compiler farm account I have begun developing a wrapper around the native types that seems to work.
+Stay tuned.</p>
+  </li>
+  <li>
+    <p>One item that we have considered, but have not put any effort into yet would be getting the library running on CUDA platforms.
+If this is a feature that you are interested in, please let us know!</p>
+  </li>
+  <li>
+    <p>As is always the case with Boost reviews, regardless of the outcome I am sure that we will receive lots of feedback on how to improve the library.</p>
+  </li>
+</ul>
+
+<p>If you are interested, much of the contents of the first review can be found in the original thread on the boost mailing list archive: https://lists.boost.org/archives/list/boost@lists.boost.org/thread/AGFOQZMJ4HKKQ5C5XDDKNJ3VJL72YTWL/</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/06/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/10/06/Matts2025Q3Update.html">Decimal Goes Back to Review</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/14/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/07/14/Matts2025Q2Update.html">Bigger, Faster, Stronger Types</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/14/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/04/14/Matts2025Q1Update.html">Looking at the Numbers</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/01/10/Matts2024Q4Update.html">Another new library underway</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/10/21/Matts2024Q3Update.html">CUDA comes to Math</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/08/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/07/08/Matts2024Q2Update.html">Matt's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/04/22/MattsQ1Update.html">Matt's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/01/10/MattsQ4Update.html">Matt's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/matt/2023/10/27/MattsQ3Update.html">Matt's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

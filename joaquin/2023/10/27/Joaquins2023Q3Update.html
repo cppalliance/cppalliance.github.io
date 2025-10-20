@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joaquín's Q3 2023 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Joaquín’s Q3 2023 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Joaquín’s Q3 2023 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q3 2023, I’ve been working (mostly in collaboration wth Chris) in the following areas: Boost.Unordered Shipped Boost.Unordered 1.83. I’ve written the article “Inside boost::concurrent_flat_map” explaining the internal data structure and algorithms of this new container. I developed an improvement to concurrent containers for visit operations (branch feature/optimized_visit_access) that takes advantage of const-accepting visitation functions even when passed to a non-const visit overload. For instance, the following: m.visit(k, [](const auto&amp; x){ res += x.second; }); uses non-const visit even though the visitation function does not modify x. The optimization detects this circumstance and grants the visitation function shared rather than exclusive access to x, which potentially increases performance. At the end, we decided not to include this optimization as it’s hard to communicate to the user and was deemed too smart –the simple alternative is to use cvisit. Added [c]visit_while operations to concurrent containers, with serial and parallel variants (target Boost 1.84). Added debug-mode mechanisms for detecting illegal reentrancies into a concurrent container from user code (target Boost 1.84). Added efficient move construction of boost::unordered_flat_(map|set) from boost::concurrent_flat_(map|set) and vice versa (target Boost 1.84). Worked on supporting Clang Thread Safety Analsysis (branch feature/clang_thread_safety_analysis). This work was eventually abandoned because the analysis is rather limited –for instance, it’s strictly intraprocedural and can’t detect issues with user-provided visitation functions. Supported Chris in the addition of support for fancy pointers to open-addressing and concurrent containers. This enables scenarios like the use of Boost.Interprocess allocators to construct containers in shared memory (target Boost 1.84). Added Boost.Serialization support to all containers and their (non-local) iterator types (target Boost 1.84). Solved issue #205. Added boost::concurrent_flat_set (target Boost 1.84). Reviewed PR #215 for code clean-up after upgrading from C++03 to C++11 as our new minimum for closed-addressing containers. CppCon 2023 With the help and feedback from many, I’ve prepared a poster and a brochure to help publicize the latest developments of Boost at this event." />
+<meta property="og:description" content="During Q3 2023, I’ve been working (mostly in collaboration wth Chris) in the following areas: Boost.Unordered Shipped Boost.Unordered 1.83. I’ve written the article “Inside boost::concurrent_flat_map” explaining the internal data structure and algorithms of this new container. I developed an improvement to concurrent containers for visit operations (branch feature/optimized_visit_access) that takes advantage of const-accepting visitation functions even when passed to a non-const visit overload. For instance, the following: m.visit(k, [](const auto&amp; x){ res += x.second; }); uses non-const visit even though the visitation function does not modify x. The optimization detects this circumstance and grants the visitation function shared rather than exclusive access to x, which potentially increases performance. At the end, we decided not to include this optimization as it’s hard to communicate to the user and was deemed too smart –the simple alternative is to use cvisit. Added [c]visit_while operations to concurrent containers, with serial and parallel variants (target Boost 1.84). Added debug-mode mechanisms for detecting illegal reentrancies into a concurrent container from user code (target Boost 1.84). Added efficient move construction of boost::unordered_flat_(map|set) from boost::concurrent_flat_(map|set) and vice versa (target Boost 1.84). Worked on supporting Clang Thread Safety Analsysis (branch feature/clang_thread_safety_analysis). This work was eventually abandoned because the analysis is rather limited –for instance, it’s strictly intraprocedural and can’t detect issues with user-provided visitation functions. Supported Chris in the addition of support for fancy pointers to open-addressing and concurrent containers. This enables scenarios like the use of Boost.Interprocess allocators to construct containers in shared memory (target Boost 1.84). Added Boost.Serialization support to all containers and their (non-local) iterator types (target Boost 1.84). Solved issue #205. Added boost::concurrent_flat_set (target Boost 1.84). Reviewed PR #215 for code clean-up after upgrading from C++03 to C++11 as our new minimum for closed-addressing containers. CppCon 2023 With the help and feedback from many, I’ve prepared a poster and a brochure to help publicize the latest developments of Boost at this event." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2023/10/27/Joaquins2023Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2023/10/27/Joaquins2023Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-10-27T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Joaquín’s Q3 2023 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q3 2023, I’ve been working (mostly in collaboration wth Chris) in the following areas: Boost.Unordered Shipped Boost.Unordered 1.83. I’ve written the article “Inside boost::concurrent_flat_map” explaining the internal data structure and algorithms of this new container. I developed an improvement to concurrent containers for visit operations (branch feature/optimized_visit_access) that takes advantage of const-accepting visitation functions even when passed to a non-const visit overload. For instance, the following: m.visit(k, [](const auto&amp; x){ res += x.second; }); uses non-const visit even though the visitation function does not modify x. The optimization detects this circumstance and grants the visitation function shared rather than exclusive access to x, which potentially increases performance. At the end, we decided not to include this optimization as it’s hard to communicate to the user and was deemed too smart –the simple alternative is to use cvisit. Added [c]visit_while operations to concurrent containers, with serial and parallel variants (target Boost 1.84). Added debug-mode mechanisms for detecting illegal reentrancies into a concurrent container from user code (target Boost 1.84). Added efficient move construction of boost::unordered_flat_(map|set) from boost::concurrent_flat_(map|set) and vice versa (target Boost 1.84). Worked on supporting Clang Thread Safety Analsysis (branch feature/clang_thread_safety_analysis). This work was eventually abandoned because the analysis is rather limited –for instance, it’s strictly intraprocedural and can’t detect issues with user-provided visitation functions. Supported Chris in the addition of support for fancy pointers to open-addressing and concurrent containers. This enables scenarios like the use of Boost.Interprocess allocators to construct containers in shared memory (target Boost 1.84). Added Boost.Serialization support to all containers and their (non-local) iterator types (target Boost 1.84). Solved issue #205. Added boost::concurrent_flat_set (target Boost 1.84). Reviewed PR #215 for code clean-up after upgrading from C++03 to C++11 as our new minimum for closed-addressing containers. CppCon 2023 With the help and feedback from many, I’ve prepared a poster and a brochure to help publicize the latest developments of Boost at this event.","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2023/10/27/Joaquins2023Q3Update.html","headline":"Joaquín’s Q3 2023 Update","dateModified":"2023-10-27T00:00:00+00:00","datePublished":"2023-10-27T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2023/10/27/Joaquins2023Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Joaquín's Q3 2023 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 27, 2023</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q3 2023, I’ve been working (mostly in collaboration wth Chris) in the following areas:</p>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Shipped <a href="https://www.boost.org/doc/libs/1_83_0/libs/unordered/doc/html/unordered.html#changes_release_1_83_0_major_update">Boost.Unordered 1.83</a>.</li>
+  <li>I’ve written the article <a href="https://bannalia.blogspot.com/2023/07/inside-boostconcurrentflatmap.html">“Inside boost::concurrent_flat_map”</a>
+explaining the internal data structure and algorithms of this new container.</li>
+  <li>I developed an improvement to concurrent containers for visit operations (branch <a href="https://github.com/boostorg/unordered/tree/feature/optimized_visit_access"><code>feature/optimized_visit_access</code></a>)
+that takes advantage of const-accepting visitation functions even when passed to a non-const
+<code>visit</code> overload. For instance, the following:<br /><br />
+<code>m.visit(k, [](const auto&amp; x){ res += x.second; });</code><br /><br />
+uses non-const <code>visit</code> even though the visitation function does not modify <code>x</code>. The optimization
+detects this circumstance and grants the visitation function <em>shared</em> rather than
+exclusive access to <code>x</code>, which potentially increases performance. At the end, we
+decided not to include this optimization as it’s hard to communicate to the
+user and was deemed too smart –the simple alternative is to use <code>cvisit</code>.</li>
+  <li>Added <code>[c]visit_while</code> operations to concurrent containers, with serial and parallel variants
+(target Boost 1.84).</li>
+  <li>Added debug-mode mechanisms for detecting illegal reentrancies into a concurrent
+container from user code (target Boost 1.84).</li>
+  <li>Added efficient move construction of <code>boost::unordered_flat_(map|set)</code> from
+<code>boost::concurrent_flat_(map|set)</code> and vice versa (target Boost 1.84).</li>
+  <li>Worked on supporting <a href="https://clang.llvm.org/docs/ThreadSafetyAnalysis.html">Clang Thread Safety Analsysis</a>
+(branch <a href="https://github.com/boostorg/unordered/tree/feature/clang_thread_safety_analysis"><code>feature/clang_thread_safety_analysis</code></a>).
+This work was eventually abandoned because the analysis is rather limited –for instance,
+it’s strictly <a href="https://clang.llvm.org/docs/ThreadSafetyAnalysis.html#no-inlining">intraprocedural</a>
+and can’t detect issues with user-provided visitation functions.</li>
+  <li>Supported Chris in the addition of support for fancy pointers to open-addressing and
+concurrent containers. This enables scenarios like the use of Boost.Interprocess allocators
+to construct containers in shared memory (target Boost 1.84).</li>
+  <li>Added Boost.Serialization support to all containers and their (non-local)
+iterator types (target Boost 1.84).</li>
+  <li>Solved issue <a href="https://github.com/boostorg/unordered/issues/205">#205</a>.</li>
+  <li>Added <code>boost::concurrent_flat_set</code> (target Boost 1.84).</li>
+  <li>Reviewed PR <a href="https://github.com/boostorg/unordered/pull/215">#215</a> for
+code clean-up after upgrading from C++03 to C++11 as our new minimum
+for closed-addressing containers.</li>
+</ul>
+
+<h3 id="cppcon-2023">CppCon 2023</h3>
+
+<ul>
+  <li>With the help and feedback from many, I’ve prepared a poster and a brochure
+to help publicize the latest developments of Boost at this event.</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

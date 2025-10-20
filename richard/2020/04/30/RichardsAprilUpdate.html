@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's April Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s April Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s April Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost 1.73 Released and other Matters The 1.73.0 release of Boost took up more attention than I had anticipated, but in the end all seemed to go well. Since then I’ve been working through the issues list on GitHub and am now starting to make some headway. I cam across a few other interesting (to me) topics this month. (Possibly) Interesting Asio Things Last month I asked the question, “Is it possible to write an asynchronous composed operation entirely as a lambda?”. This month I went a little further with two items that interested me. The first is whether asio’s async_compose can be adapted so that we can implement a complex composed operation involving more than one IO object easily using the asio faux coroutine mechanism. The second was whether is was possible to easily implement an async future in Asio. Async Asio Future Here is my motivating use case: auto p = async::promise&lt;std::string&gt;(); auto f = p.get_future(); // long-running process starts which will yield a string start_something(std::move(p)); // wait on the future f.async_wait([](some_result_type x) { // use the x }); // or auto str = co_await f.async_wait(net::use_awaitable); // or shorthand auto str = co_await f(); The salient points here are: no matter on which thread the promise is fulfilled, the future will complete on the associated executor of the handler passed to async_wait Ideally the promise/future should not make use of mutexes un-necessarily. (problematic for ASIO) It must work with objects that are not default-constructable. In the end, I didn’t achieve the second goal as this was not a priority project, but I would be interested to see if anyone can improve on the design. The source code is here I tried a couple of ways around the non-default-constructable requirement. My first was to require the CompletionToken to the async_wait initiating function to be compatible with: void (error_code, std::optional&lt;T&gt;) But I felt this was unwieldy. Then I remembered Boost.Outcome. I have been looking for a use for this library for some time. It turns out that you can legally write an ASIO composed operation who’s handler takes a single argument of any type, and this will translate cleanly when used with net::use_future, net::use_awaitable etc. A default Boost.Outcome object almost fits the bill, except that its exception_ptr type is boost rather than standard. This is easily solved with a typedef: template&lt;class T&gt; using myoutcome = boost::outcome2::basic_outcome&lt;T, error:code, std::exception_ptr&gt;; I was feeling please with myself for figuring this out, until I came to test code code under C++11… and realised that Boost.Outcome is only compatible with C++14 or higher. So in the end, I cobbled together a ‘good enough’ version of outcome using a variant: template &lt; class T &gt; struct outcome { outcome(T arg) : var_(std::move(arg)) {} outcome(error_code const&amp; arg) : var_(arg) {} outcome(std::exception_ptr const&amp; arg) : var_(arg) {} auto has_value() const -&gt; bool { return polyfill::holds_alternative&lt; T &gt;(var_); } auto has_error() const -&gt; bool { return polyfill::holds_alternative&lt; error_code &gt;(var_); } auto has_exception() const -&gt; bool { return polyfill::holds_alternative&lt; std::exception_ptr &gt;(var_); } auto value() &amp; -&gt; T &amp;; auto value() &amp;&amp; -&gt; T &amp;&amp;; auto value() const &amp; -&gt; T const &amp;; auto error() const -&gt; error_code const &amp;; using variant_type = polyfill::variant&lt; T, error_code, std::exception_ptr &gt;; variant_type var_; }; The code for this is here Finally this allowed me to express intent at the call site like so: auto f = p.get_future(); f.async_wait([](outcome&lt;std::string&gt; os){ if (os.has_value()) // use the value else if (os.has_error()) // use the error else // deal with the exception }); The coroutine interface can be made cleaner: try { auto str = co_await f(); // use the string } catch(system_error&amp; ec) { // use the error code in ec.code() } catch(...) { // probably catastrophic } For the above code to compile we’d have to add the following trivial transform: template &lt; class T &gt; auto future&lt; T &gt;::operator()() -&gt; net::awaitable&lt; T &gt; { auto r = co_await async_wait(net::use_awaitable); if (r.has_value()) co_return std::move(r).assume_value(); else if (r.has_error()) throw system_error(r.assume_error()); else throw r.exception(); } Easy Complex Coroutines with async_compose When your composed operation’s intermediate completion handlers are invoked, the underlying detail::composed_op provides a mutable reference to itself. A typical completion handler looks like this: template&lt;class Self&gt; void operator()(Self&amp; self, error_code ec = {} , std::size_t bytes_transferred = 0) { reenter(this) { // yields and operations on Self yield async_write(sock, buf, std::move(self)); // note that self is moved } } What I wanted was a composed operation where the following is legal: template&lt;class Self&gt; void operator()(Self self /* note copy */, error_code ec = {} , std::size_t bytes_transferred = 0) { reenter(this) { // yields and operations on Self yield { async_write(sock, buf, self); timer.async_wait(self); writing = true; sending = true; } while(writing || sending) yield // something needs to happen here to reset the flags and handle errors and cancellation. ; } } Which I think looks reasonably clear and easy to follow. In this work I had to overcome two problems - writing the framework to allow it, and thinking of a maintainable way to express intent in the interrelationships between the asynchronous operations on the timer and the socket. Solving the copyable composed_op problem was easy. I did what I always do in situations like this. I cheated. asio::async_compose produces a specialisation of a detail::composed_op&lt;&gt; template. Substituting a disregard of the rules for knowledge and skill, I simply reached into the guts of asio and produced a copyable wrapper to this class. I also cut/pasted some ancillary free functions in order to make asio work nicely with my new class: Here’s the code… it’s not pretty: template &lt; class Impl, class Work, class Handler, class Signature &gt; struct shared_composed_op { using composed_op_type = boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt;; using allocator_type = typename net::associated_allocator&lt; composed_op_type &gt;::type; using executor_type = typename net::associated_executor&lt; composed_op_type &gt;::type; shared_composed_op(composed_op_type &amp;&amp;op) : impl_(std::make_shared&lt; composed_op_type &gt;(std::move(op))) { } shared_composed_op(std::shared_ptr&lt; composed_op_type &gt; op) : impl_(std::move(op)) { } void initial_resume() { impl_-&gt;impl_(*this); } template &lt; class... Args &gt; void operator()(Args &amp;&amp;... args) { if (impl_-&gt;invocations_ &lt; ~unsigned(0)) { ++impl_-&gt;invocations_; impl_-&gt;impl_(*this, std::forward&lt; Args &gt;(args)...); } } template &lt; class... Args &gt; void complete(Args &amp;&amp;... args) { impl_-&gt;complete(std::forward&lt; Args &gt;(args)...); } auto get_allocator() const -&gt; allocator_type { return impl_-&gt;get_allocator(); } auto get_executor() const -&gt; executor_type { return impl_-&gt;get_executor(); } std::shared_ptr&lt; composed_op_type &gt; impl_; }; template &lt; class Impl, class Work, class Handler, class Signature &gt; auto share(boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt; &amp;composed_op) -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt; { auto op = shared_composed_op&lt; Impl, Work, Handler, Signature &gt;(std::move(composed_op)); op.initial_resume(); return op; } template &lt; class Impl, class Work, class Handler, class Signature &gt; auto share(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; shared_thing) -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt; { return shared_thing; } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline void *asio_handler_allocate(std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { return boost_asio_handler_alloc_helpers::allocate(size, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_deallocate(void * pointer, std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_alloc_helpers::deallocate(pointer, size, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline bool asio_handler_is_continuation(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { return asio_handler_is_continuation(this_handler-&gt;impl_.get()); } template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_invoke(Function &amp;function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_invoke(const Function &amp; function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_); } With that in hand, and with a little more jiggery pokery, I was able to express intent thus: template &lt; class Self &gt; void operator()(Self &amp;self, error_code ec = {}, std::size_t bytes_transferred = 0) { ... auto &amp;state = *state_; reenter(this) { ... // here&#39;s the interesting bit - self becomes a copyable handle to itself yield share(self); // deduce the port yield { this-&gt;initiate_resolve(share(self), state.uri.hostname(), deduce_http_service(state.uri)); this-&gt;initiate_timout(share(self), state.session_.resolve_timeout()); } while (this-&gt;resolving() || this-&gt;timeout_outstanding()) yield; if (this-&gt;error) goto finish; // connect the socket state.current_resolve_result = this-&gt;resolved_endpoints().begin(); while (state.current_resolve_result != this-&gt;resolved_endpoints().end()) { state.tcp_stream().expires_after(state.session_.connect_timeout()); yield state.tcp_stream().async_connect(state.current_resolve_result-&gt;endpoint(), share(self)); log(&quot;Connect to: &quot;, state.current_resolve_result-&gt;endpoint(), &quot; result: &quot;, ec); // if the connect is successful, we can exit the loop early. if (!ec) goto connected; ++state.current_resolve_result; } // if we leave the loop, make sure there is an error of some kind this-&gt;set_error(ec); goto finish; connected: ... The full code can be seen here There are a couple of interesting things to note: If you start two or more async operations that will complete on the same object, they must all be allowed to complete. This is why we yield and wait for both the socket and the timeout: while (this-&gt;resolving() || this-&gt;timeout_outstanding()) yield; This leads directly to the problem of managing the error_code. Two error_codes will be produced - one for the timer (which we hope to cancel before it times out) and one for the resolve operation. This means we have to store the first relevant error code somewhere: /// @brief a mixin to manage overall operation error state struct has_error_code { auto set_error(error_code const &amp;ec) -&gt; error_code &amp; { if (!error) { if (ec &amp;&amp; ec != net::error::operation_aborted) error = ec; } return error; } error_code error; }; And we need a means of allowing communication between the timeout timer and the resolver: template &lt; class Self &gt; void initiate_resolve(Self self, std::string const &amp;host, std::string const &amp;service) { results_.reset(); resolver_.async_resolve(host, service, std::move(self)); } template &lt; class Self &gt; void operator()(Self &amp;self, error_code ec, resolver_type::results_type results) { results_.emplace(std::move(results)); auto &amp;this_ = *static_cast&lt; Derived * &gt;(this); this_.on_resolved(ec); auto &amp;has_err = static_cast&lt; has_error_code &amp; &gt;(this_); this_(self, has_err.set_error(ec)); } One cancels the other…. void on_timeout() { this-&gt;cancel_resolver(); log(&quot;Timeout&quot;); } void on_resolved(error_code const &amp;ec) { this-&gt;cancel_timeout(); log(&quot;Resolve complete: &quot;, ec); } auto resolving() const -&gt; bool { return !results_.has_value(); } auto cancel_resolver() -&gt; void { resolver_.cancel(); } In the end I was unsure how much is gained, other than pretty code (which does have value in itself). Unified WebClient Exploratory work started on the unified web client. After some discussion, Vinnie and I agreed on the following design decisions: Interface to model closely the very popular Python Requests module. Sync and Async modes available. Homogenous (mostly non-template) interface, behind which system-specific implementations can reside. Where native library support is available, that will be used, Where not, internally the library will be implemented in Asio/Beast. Coroutine friendly. Once more progress has been made on the Boost.Beast issue tracker, I will be focusing attention here." />
+<meta property="og:description" content="Boost 1.73 Released and other Matters The 1.73.0 release of Boost took up more attention than I had anticipated, but in the end all seemed to go well. Since then I’ve been working through the issues list on GitHub and am now starting to make some headway. I cam across a few other interesting (to me) topics this month. (Possibly) Interesting Asio Things Last month I asked the question, “Is it possible to write an asynchronous composed operation entirely as a lambda?”. This month I went a little further with two items that interested me. The first is whether asio’s async_compose can be adapted so that we can implement a complex composed operation involving more than one IO object easily using the asio faux coroutine mechanism. The second was whether is was possible to easily implement an async future in Asio. Async Asio Future Here is my motivating use case: auto p = async::promise&lt;std::string&gt;(); auto f = p.get_future(); // long-running process starts which will yield a string start_something(std::move(p)); // wait on the future f.async_wait([](some_result_type x) { // use the x }); // or auto str = co_await f.async_wait(net::use_awaitable); // or shorthand auto str = co_await f(); The salient points here are: no matter on which thread the promise is fulfilled, the future will complete on the associated executor of the handler passed to async_wait Ideally the promise/future should not make use of mutexes un-necessarily. (problematic for ASIO) It must work with objects that are not default-constructable. In the end, I didn’t achieve the second goal as this was not a priority project, but I would be interested to see if anyone can improve on the design. The source code is here I tried a couple of ways around the non-default-constructable requirement. My first was to require the CompletionToken to the async_wait initiating function to be compatible with: void (error_code, std::optional&lt;T&gt;) But I felt this was unwieldy. Then I remembered Boost.Outcome. I have been looking for a use for this library for some time. It turns out that you can legally write an ASIO composed operation who’s handler takes a single argument of any type, and this will translate cleanly when used with net::use_future, net::use_awaitable etc. A default Boost.Outcome object almost fits the bill, except that its exception_ptr type is boost rather than standard. This is easily solved with a typedef: template&lt;class T&gt; using myoutcome = boost::outcome2::basic_outcome&lt;T, error:code, std::exception_ptr&gt;; I was feeling please with myself for figuring this out, until I came to test code code under C++11… and realised that Boost.Outcome is only compatible with C++14 or higher. So in the end, I cobbled together a ‘good enough’ version of outcome using a variant: template &lt; class T &gt; struct outcome { outcome(T arg) : var_(std::move(arg)) {} outcome(error_code const&amp; arg) : var_(arg) {} outcome(std::exception_ptr const&amp; arg) : var_(arg) {} auto has_value() const -&gt; bool { return polyfill::holds_alternative&lt; T &gt;(var_); } auto has_error() const -&gt; bool { return polyfill::holds_alternative&lt; error_code &gt;(var_); } auto has_exception() const -&gt; bool { return polyfill::holds_alternative&lt; std::exception_ptr &gt;(var_); } auto value() &amp; -&gt; T &amp;; auto value() &amp;&amp; -&gt; T &amp;&amp;; auto value() const &amp; -&gt; T const &amp;; auto error() const -&gt; error_code const &amp;; using variant_type = polyfill::variant&lt; T, error_code, std::exception_ptr &gt;; variant_type var_; }; The code for this is here Finally this allowed me to express intent at the call site like so: auto f = p.get_future(); f.async_wait([](outcome&lt;std::string&gt; os){ if (os.has_value()) // use the value else if (os.has_error()) // use the error else // deal with the exception }); The coroutine interface can be made cleaner: try { auto str = co_await f(); // use the string } catch(system_error&amp; ec) { // use the error code in ec.code() } catch(...) { // probably catastrophic } For the above code to compile we’d have to add the following trivial transform: template &lt; class T &gt; auto future&lt; T &gt;::operator()() -&gt; net::awaitable&lt; T &gt; { auto r = co_await async_wait(net::use_awaitable); if (r.has_value()) co_return std::move(r).assume_value(); else if (r.has_error()) throw system_error(r.assume_error()); else throw r.exception(); } Easy Complex Coroutines with async_compose When your composed operation’s intermediate completion handlers are invoked, the underlying detail::composed_op provides a mutable reference to itself. A typical completion handler looks like this: template&lt;class Self&gt; void operator()(Self&amp; self, error_code ec = {} , std::size_t bytes_transferred = 0) { reenter(this) { // yields and operations on Self yield async_write(sock, buf, std::move(self)); // note that self is moved } } What I wanted was a composed operation where the following is legal: template&lt;class Self&gt; void operator()(Self self /* note copy */, error_code ec = {} , std::size_t bytes_transferred = 0) { reenter(this) { // yields and operations on Self yield { async_write(sock, buf, self); timer.async_wait(self); writing = true; sending = true; } while(writing || sending) yield // something needs to happen here to reset the flags and handle errors and cancellation. ; } } Which I think looks reasonably clear and easy to follow. In this work I had to overcome two problems - writing the framework to allow it, and thinking of a maintainable way to express intent in the interrelationships between the asynchronous operations on the timer and the socket. Solving the copyable composed_op problem was easy. I did what I always do in situations like this. I cheated. asio::async_compose produces a specialisation of a detail::composed_op&lt;&gt; template. Substituting a disregard of the rules for knowledge and skill, I simply reached into the guts of asio and produced a copyable wrapper to this class. I also cut/pasted some ancillary free functions in order to make asio work nicely with my new class: Here’s the code… it’s not pretty: template &lt; class Impl, class Work, class Handler, class Signature &gt; struct shared_composed_op { using composed_op_type = boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt;; using allocator_type = typename net::associated_allocator&lt; composed_op_type &gt;::type; using executor_type = typename net::associated_executor&lt; composed_op_type &gt;::type; shared_composed_op(composed_op_type &amp;&amp;op) : impl_(std::make_shared&lt; composed_op_type &gt;(std::move(op))) { } shared_composed_op(std::shared_ptr&lt; composed_op_type &gt; op) : impl_(std::move(op)) { } void initial_resume() { impl_-&gt;impl_(*this); } template &lt; class... Args &gt; void operator()(Args &amp;&amp;... args) { if (impl_-&gt;invocations_ &lt; ~unsigned(0)) { ++impl_-&gt;invocations_; impl_-&gt;impl_(*this, std::forward&lt; Args &gt;(args)...); } } template &lt; class... Args &gt; void complete(Args &amp;&amp;... args) { impl_-&gt;complete(std::forward&lt; Args &gt;(args)...); } auto get_allocator() const -&gt; allocator_type { return impl_-&gt;get_allocator(); } auto get_executor() const -&gt; executor_type { return impl_-&gt;get_executor(); } std::shared_ptr&lt; composed_op_type &gt; impl_; }; template &lt; class Impl, class Work, class Handler, class Signature &gt; auto share(boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt; &amp;composed_op) -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt; { auto op = shared_composed_op&lt; Impl, Work, Handler, Signature &gt;(std::move(composed_op)); op.initial_resume(); return op; } template &lt; class Impl, class Work, class Handler, class Signature &gt; auto share(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; shared_thing) -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt; { return shared_thing; } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline void *asio_handler_allocate(std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { return boost_asio_handler_alloc_helpers::allocate(size, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_deallocate(void * pointer, std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_alloc_helpers::deallocate(pointer, size, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline bool asio_handler_is_continuation(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { return asio_handler_is_continuation(this_handler-&gt;impl_.get()); } template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_invoke(Function &amp;function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_invoke(const Function &amp; function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_); } With that in hand, and with a little more jiggery pokery, I was able to express intent thus: template &lt; class Self &gt; void operator()(Self &amp;self, error_code ec = {}, std::size_t bytes_transferred = 0) { ... auto &amp;state = *state_; reenter(this) { ... // here&#39;s the interesting bit - self becomes a copyable handle to itself yield share(self); // deduce the port yield { this-&gt;initiate_resolve(share(self), state.uri.hostname(), deduce_http_service(state.uri)); this-&gt;initiate_timout(share(self), state.session_.resolve_timeout()); } while (this-&gt;resolving() || this-&gt;timeout_outstanding()) yield; if (this-&gt;error) goto finish; // connect the socket state.current_resolve_result = this-&gt;resolved_endpoints().begin(); while (state.current_resolve_result != this-&gt;resolved_endpoints().end()) { state.tcp_stream().expires_after(state.session_.connect_timeout()); yield state.tcp_stream().async_connect(state.current_resolve_result-&gt;endpoint(), share(self)); log(&quot;Connect to: &quot;, state.current_resolve_result-&gt;endpoint(), &quot; result: &quot;, ec); // if the connect is successful, we can exit the loop early. if (!ec) goto connected; ++state.current_resolve_result; } // if we leave the loop, make sure there is an error of some kind this-&gt;set_error(ec); goto finish; connected: ... The full code can be seen here There are a couple of interesting things to note: If you start two or more async operations that will complete on the same object, they must all be allowed to complete. This is why we yield and wait for both the socket and the timeout: while (this-&gt;resolving() || this-&gt;timeout_outstanding()) yield; This leads directly to the problem of managing the error_code. Two error_codes will be produced - one for the timer (which we hope to cancel before it times out) and one for the resolve operation. This means we have to store the first relevant error code somewhere: /// @brief a mixin to manage overall operation error state struct has_error_code { auto set_error(error_code const &amp;ec) -&gt; error_code &amp; { if (!error) { if (ec &amp;&amp; ec != net::error::operation_aborted) error = ec; } return error; } error_code error; }; And we need a means of allowing communication between the timeout timer and the resolver: template &lt; class Self &gt; void initiate_resolve(Self self, std::string const &amp;host, std::string const &amp;service) { results_.reset(); resolver_.async_resolve(host, service, std::move(self)); } template &lt; class Self &gt; void operator()(Self &amp;self, error_code ec, resolver_type::results_type results) { results_.emplace(std::move(results)); auto &amp;this_ = *static_cast&lt; Derived * &gt;(this); this_.on_resolved(ec); auto &amp;has_err = static_cast&lt; has_error_code &amp; &gt;(this_); this_(self, has_err.set_error(ec)); } One cancels the other…. void on_timeout() { this-&gt;cancel_resolver(); log(&quot;Timeout&quot;); } void on_resolved(error_code const &amp;ec) { this-&gt;cancel_timeout(); log(&quot;Resolve complete: &quot;, ec); } auto resolving() const -&gt; bool { return !results_.has_value(); } auto cancel_resolver() -&gt; void { resolver_.cancel(); } In the end I was unsure how much is gained, other than pretty code (which does have value in itself). Unified WebClient Exploratory work started on the unified web client. After some discussion, Vinnie and I agreed on the following design decisions: Interface to model closely the very popular Python Requests module. Sync and Async modes available. Homogenous (mostly non-template) interface, behind which system-specific implementations can reside. Where native library support is available, that will be used, Where not, internally the library will be implemented in Asio/Beast. Coroutine friendly. Once more progress has been made on the Boost.Beast issue tracker, I will be focusing attention here." />
+<link rel="canonical" href="http://cppalliance.org/richard/2020/04/30/RichardsAprilUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2020/04/30/RichardsAprilUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-04-30T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s April Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost 1.73 Released and other Matters The 1.73.0 release of Boost took up more attention than I had anticipated, but in the end all seemed to go well. Since then I’ve been working through the issues list on GitHub and am now starting to make some headway. I cam across a few other interesting (to me) topics this month. (Possibly) Interesting Asio Things Last month I asked the question, “Is it possible to write an asynchronous composed operation entirely as a lambda?”. This month I went a little further with two items that interested me. The first is whether asio’s async_compose can be adapted so that we can implement a complex composed operation involving more than one IO object easily using the asio faux coroutine mechanism. The second was whether is was possible to easily implement an async future in Asio. Async Asio Future Here is my motivating use case: auto p = async::promise&lt;std::string&gt;(); auto f = p.get_future(); // long-running process starts which will yield a string start_something(std::move(p)); // wait on the future f.async_wait([](some_result_type x) { // use the x }); // or auto str = co_await f.async_wait(net::use_awaitable); // or shorthand auto str = co_await f(); The salient points here are: no matter on which thread the promise is fulfilled, the future will complete on the associated executor of the handler passed to async_wait Ideally the promise/future should not make use of mutexes un-necessarily. (problematic for ASIO) It must work with objects that are not default-constructable. In the end, I didn’t achieve the second goal as this was not a priority project, but I would be interested to see if anyone can improve on the design. The source code is here I tried a couple of ways around the non-default-constructable requirement. My first was to require the CompletionToken to the async_wait initiating function to be compatible with: void (error_code, std::optional&lt;T&gt;) But I felt this was unwieldy. Then I remembered Boost.Outcome. I have been looking for a use for this library for some time. It turns out that you can legally write an ASIO composed operation who’s handler takes a single argument of any type, and this will translate cleanly when used with net::use_future, net::use_awaitable etc. A default Boost.Outcome object almost fits the bill, except that its exception_ptr type is boost rather than standard. This is easily solved with a typedef: template&lt;class T&gt; using myoutcome = boost::outcome2::basic_outcome&lt;T, error:code, std::exception_ptr&gt;; I was feeling please with myself for figuring this out, until I came to test code code under C++11… and realised that Boost.Outcome is only compatible with C++14 or higher. So in the end, I cobbled together a ‘good enough’ version of outcome using a variant: template &lt; class T &gt; struct outcome { outcome(T arg) : var_(std::move(arg)) {} outcome(error_code const&amp; arg) : var_(arg) {} outcome(std::exception_ptr const&amp; arg) : var_(arg) {} auto has_value() const -&gt; bool { return polyfill::holds_alternative&lt; T &gt;(var_); } auto has_error() const -&gt; bool { return polyfill::holds_alternative&lt; error_code &gt;(var_); } auto has_exception() const -&gt; bool { return polyfill::holds_alternative&lt; std::exception_ptr &gt;(var_); } auto value() &amp; -&gt; T &amp;; auto value() &amp;&amp; -&gt; T &amp;&amp;; auto value() const &amp; -&gt; T const &amp;; auto error() const -&gt; error_code const &amp;; using variant_type = polyfill::variant&lt; T, error_code, std::exception_ptr &gt;; variant_type var_; }; The code for this is here Finally this allowed me to express intent at the call site like so: auto f = p.get_future(); f.async_wait([](outcome&lt;std::string&gt; os){ if (os.has_value()) // use the value else if (os.has_error()) // use the error else // deal with the exception }); The coroutine interface can be made cleaner: try { auto str = co_await f(); // use the string } catch(system_error&amp; ec) { // use the error code in ec.code() } catch(...) { // probably catastrophic } For the above code to compile we’d have to add the following trivial transform: template &lt; class T &gt; auto future&lt; T &gt;::operator()() -&gt; net::awaitable&lt; T &gt; { auto r = co_await async_wait(net::use_awaitable); if (r.has_value()) co_return std::move(r).assume_value(); else if (r.has_error()) throw system_error(r.assume_error()); else throw r.exception(); } Easy Complex Coroutines with async_compose When your composed operation’s intermediate completion handlers are invoked, the underlying detail::composed_op provides a mutable reference to itself. A typical completion handler looks like this: template&lt;class Self&gt; void operator()(Self&amp; self, error_code ec = {} , std::size_t bytes_transferred = 0) { reenter(this) { // yields and operations on Self yield async_write(sock, buf, std::move(self)); // note that self is moved } } What I wanted was a composed operation where the following is legal: template&lt;class Self&gt; void operator()(Self self /* note copy */, error_code ec = {} , std::size_t bytes_transferred = 0) { reenter(this) { // yields and operations on Self yield { async_write(sock, buf, self); timer.async_wait(self); writing = true; sending = true; } while(writing || sending) yield // something needs to happen here to reset the flags and handle errors and cancellation. ; } } Which I think looks reasonably clear and easy to follow. In this work I had to overcome two problems - writing the framework to allow it, and thinking of a maintainable way to express intent in the interrelationships between the asynchronous operations on the timer and the socket. Solving the copyable composed_op problem was easy. I did what I always do in situations like this. I cheated. asio::async_compose produces a specialisation of a detail::composed_op&lt;&gt; template. Substituting a disregard of the rules for knowledge and skill, I simply reached into the guts of asio and produced a copyable wrapper to this class. I also cut/pasted some ancillary free functions in order to make asio work nicely with my new class: Here’s the code… it’s not pretty: template &lt; class Impl, class Work, class Handler, class Signature &gt; struct shared_composed_op { using composed_op_type = boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt;; using allocator_type = typename net::associated_allocator&lt; composed_op_type &gt;::type; using executor_type = typename net::associated_executor&lt; composed_op_type &gt;::type; shared_composed_op(composed_op_type &amp;&amp;op) : impl_(std::make_shared&lt; composed_op_type &gt;(std::move(op))) { } shared_composed_op(std::shared_ptr&lt; composed_op_type &gt; op) : impl_(std::move(op)) { } void initial_resume() { impl_-&gt;impl_(*this); } template &lt; class... Args &gt; void operator()(Args &amp;&amp;... args) { if (impl_-&gt;invocations_ &lt; ~unsigned(0)) { ++impl_-&gt;invocations_; impl_-&gt;impl_(*this, std::forward&lt; Args &gt;(args)...); } } template &lt; class... Args &gt; void complete(Args &amp;&amp;... args) { impl_-&gt;complete(std::forward&lt; Args &gt;(args)...); } auto get_allocator() const -&gt; allocator_type { return impl_-&gt;get_allocator(); } auto get_executor() const -&gt; executor_type { return impl_-&gt;get_executor(); } std::shared_ptr&lt; composed_op_type &gt; impl_; }; template &lt; class Impl, class Work, class Handler, class Signature &gt; auto share(boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt; &amp;composed_op) -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt; { auto op = shared_composed_op&lt; Impl, Work, Handler, Signature &gt;(std::move(composed_op)); op.initial_resume(); return op; } template &lt; class Impl, class Work, class Handler, class Signature &gt; auto share(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; shared_thing) -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt; { return shared_thing; } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline void *asio_handler_allocate(std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { return boost_asio_handler_alloc_helpers::allocate(size, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_deallocate(void * pointer, std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_alloc_helpers::deallocate(pointer, size, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt; inline bool asio_handler_is_continuation(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { return asio_handler_is_continuation(this_handler-&gt;impl_.get()); } template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_invoke(Function &amp;function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_); } template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt; inline void asio_handler_invoke(const Function &amp; function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler) { boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_); } With that in hand, and with a little more jiggery pokery, I was able to express intent thus: template &lt; class Self &gt; void operator()(Self &amp;self, error_code ec = {}, std::size_t bytes_transferred = 0) { ... auto &amp;state = *state_; reenter(this) { ... // here&#39;s the interesting bit - self becomes a copyable handle to itself yield share(self); // deduce the port yield { this-&gt;initiate_resolve(share(self), state.uri.hostname(), deduce_http_service(state.uri)); this-&gt;initiate_timout(share(self), state.session_.resolve_timeout()); } while (this-&gt;resolving() || this-&gt;timeout_outstanding()) yield; if (this-&gt;error) goto finish; // connect the socket state.current_resolve_result = this-&gt;resolved_endpoints().begin(); while (state.current_resolve_result != this-&gt;resolved_endpoints().end()) { state.tcp_stream().expires_after(state.session_.connect_timeout()); yield state.tcp_stream().async_connect(state.current_resolve_result-&gt;endpoint(), share(self)); log(&quot;Connect to: &quot;, state.current_resolve_result-&gt;endpoint(), &quot; result: &quot;, ec); // if the connect is successful, we can exit the loop early. if (!ec) goto connected; ++state.current_resolve_result; } // if we leave the loop, make sure there is an error of some kind this-&gt;set_error(ec); goto finish; connected: ... The full code can be seen here There are a couple of interesting things to note: If you start two or more async operations that will complete on the same object, they must all be allowed to complete. This is why we yield and wait for both the socket and the timeout: while (this-&gt;resolving() || this-&gt;timeout_outstanding()) yield; This leads directly to the problem of managing the error_code. Two error_codes will be produced - one for the timer (which we hope to cancel before it times out) and one for the resolve operation. This means we have to store the first relevant error code somewhere: /// @brief a mixin to manage overall operation error state struct has_error_code { auto set_error(error_code const &amp;ec) -&gt; error_code &amp; { if (!error) { if (ec &amp;&amp; ec != net::error::operation_aborted) error = ec; } return error; } error_code error; }; And we need a means of allowing communication between the timeout timer and the resolver: template &lt; class Self &gt; void initiate_resolve(Self self, std::string const &amp;host, std::string const &amp;service) { results_.reset(); resolver_.async_resolve(host, service, std::move(self)); } template &lt; class Self &gt; void operator()(Self &amp;self, error_code ec, resolver_type::results_type results) { results_.emplace(std::move(results)); auto &amp;this_ = *static_cast&lt; Derived * &gt;(this); this_.on_resolved(ec); auto &amp;has_err = static_cast&lt; has_error_code &amp; &gt;(this_); this_(self, has_err.set_error(ec)); } One cancels the other…. void on_timeout() { this-&gt;cancel_resolver(); log(&quot;Timeout&quot;); } void on_resolved(error_code const &amp;ec) { this-&gt;cancel_timeout(); log(&quot;Resolve complete: &quot;, ec); } auto resolving() const -&gt; bool { return !results_.has_value(); } auto cancel_resolver() -&gt; void { resolver_.cancel(); } In the end I was unsure how much is gained, other than pretty code (which does have value in itself). Unified WebClient Exploratory work started on the unified web client. After some discussion, Vinnie and I agreed on the following design decisions: Interface to model closely the very popular Python Requests module. Sync and Async modes available. Homogenous (mostly non-template) interface, behind which system-specific implementations can reside. Where native library support is available, that will be used, Where not, internally the library will be implemented in Asio/Beast. Coroutine friendly. Once more progress has been made on the Boost.Beast issue tracker, I will be focusing attention here.","@type":"BlogPosting","url":"http://cppalliance.org/richard/2020/04/30/RichardsAprilUpdate.html","headline":"Richard’s April Update","dateModified":"2020-04-30T00:00:00+00:00","datePublished":"2020-04-30T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2020/04/30/RichardsAprilUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's April Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 30, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="boost-173-released-and-other-matters">Boost 1.73 Released and other Matters</h1>
+
+<p>The 1.73.0 release of Boost took up more attention than I had anticipated, but in the end all seemed to go well.</p>
+
+<p>Since then I’ve been working through the issues list on GitHub and am now starting to make some headway.</p>
+
+<p>I cam across a few other interesting (to me) topics this month.</p>
+
+<h1 id="possibly-interesting-asio-things">(Possibly) Interesting Asio Things</h1>
+
+<p>Last month I asked the question, “Is it possible to write an asynchronous composed operation entirely as a lambda?”.</p>
+
+<p>This month I went a little further with two items that interested me.</p>
+
+<p>The first is whether asio’s <code>async_compose</code> can be adapted so that we can implement a complex composed operation involving
+more than one IO object easily using the asio faux <code>coroutine</code> mechanism.</p>
+
+<p>The second was whether is was possible to easily implement an async future in Asio.</p>
+
+<h2 id="async-asio-future">Async Asio Future</h2>
+
+<p>Here is my motivating use case:</p>
+
+<pre><code class="language-cpp">    auto p = async::promise&lt;std::string&gt;();
+    auto f = p.get_future();
+
+    // long-running process starts which will yield a string
+    start_something(std::move(p));
+
+    // wait on the future
+    f.async_wait([](some_result_type x) {
+      // use the x
+    });
+
+    // or
+    auto str = co_await f.async_wait(net::use_awaitable);
+
+   // or shorthand
+   auto str = co_await f();
+
+</code></pre>
+
+<p>The salient points here are:</p>
+<ul>
+  <li>no matter on which thread the promise is fulfilled, the future will complete on the associated executor of the handler
+passed to <code>async_wait</code></li>
+  <li>Ideally the promise/future should not make use of mutexes un-necessarily.</li>
+  <li>(problematic for ASIO) It must work with objects that are not default-constructable.</li>
+</ul>
+
+<p>In the end, I didn’t achieve the second goal as this was not a priority project, but I would be interested to see
+if anyone can improve on the design.</p>
+
+<p>The source code is <a href="https://github.com/madmongo1/webclient/blob/develop/include/boost/webclient/async/future.hpp">here</a></p>
+
+<p>I tried a couple of ways around the non-default-constructable requirement. My first was to require the CompletionToken
+to the async_wait initiating function to be compatible with:</p>
+
+<pre><code class="language-cpp">void (error_code, std::optional&lt;T&gt;)
+</code></pre>
+
+<p>But I felt this was unwieldy.</p>
+
+<p>Then I remembered Boost.Outcome. I have been looking for a use for this library for some time.
+It turns out that you can legally write an ASIO composed operation who’s handler takes a single
+argument of any type, and this will translate cleanly when used with <code>net::use_future</code>, <code>net::use_awaitable</code> etc.</p>
+
+<p>A default Boost.Outcome object almost fits the bill, except that its exception_ptr type is boost rather than standard.</p>
+
+<p>This is easily solved with a typedef:</p>
+<pre><code class="language-cpp">template&lt;class T&gt; using myoutcome = boost::outcome2::basic_outcome&lt;T, error:code, std::exception_ptr&gt;;
+</code></pre>
+
+<p>I was feeling please with myself for figuring this out, until I came to test code code under C++11… and realised
+that Boost.Outcome is only compatible with C++14 or higher.</p>
+
+<p>So in the end, I cobbled together a ‘good enough’ version of outcome using a variant:</p>
+
+<pre><code class="language-cpp">template &lt; class T &gt;
+struct outcome
+{
+    outcome(T arg) : var_(std::move(arg)) {}
+    outcome(error_code const&amp; arg) : var_(arg) {}
+    outcome(std::exception_ptr const&amp; arg) : var_(arg) {}
+
+    auto has_value() const -&gt; bool { return polyfill::holds_alternative&lt; T &gt;(var_); }
+    auto has_error() const -&gt; bool { return polyfill::holds_alternative&lt; error_code &gt;(var_); }
+    auto has_exception() const -&gt; bool { return polyfill::holds_alternative&lt; std::exception_ptr &gt;(var_); }
+
+    auto value() &amp; -&gt; T &amp;;
+    auto value() &amp;&amp; -&gt; T &amp;&amp;;
+    auto value() const &amp; -&gt; T const &amp;;
+
+    auto error() const -&gt; error_code const &amp;;
+
+    using variant_type = polyfill::variant&lt; T, error_code, std::exception_ptr &gt;;
+    variant_type var_;
+};
+</code></pre>
+
+<p>The code for this is <a href="https://github.com/madmongo1/webclient/blob/develop/include/boost/webclient/polyfill/outcome.hpp">here</a></p>
+
+<p>Finally this allowed me to express intent at the call site like so:</p>
+
+<pre><code class="language-cpp">    auto f = p.get_future();
+
+    f.async_wait([](outcome&lt;std::string&gt; os){
+        if (os.has_value())
+            // use the value
+        else if (os.has_error())
+            // use the error
+        else
+            // deal with the exception
+    });
+</code></pre>
+
+<p>The coroutine interface can be made cleaner:</p>
+
+<pre><code class="language-cpp">    try {
+        auto str = co_await f();
+        // use the string
+    }
+    catch(system_error&amp; ec) {
+        // use the error code in ec.code()
+    }
+    catch(...) {
+        // probably catastrophic
+    }
+</code></pre>
+
+<p>For the above code to compile we’d have to add the following trivial transform:</p>
+
+<pre><code class="language-cpp">    template &lt; class T &gt;
+    auto future&lt; T &gt;::operator()() -&gt; net::awaitable&lt; T &gt;
+    {
+        auto r = co_await async_wait(net::use_awaitable);
+        if (r.has_value())
+            co_return std::move(r).assume_value();
+        else if (r.has_error())
+            throw system_error(r.assume_error());
+        else
+            throw r.exception();
+    }
+</code></pre>
+
+<h2 id="easy-complex-coroutines-with-async_compose">Easy Complex Coroutines with async_compose</h2>
+
+<p>When your composed operation’s intermediate completion handlers are invoked,
+the underlying <code>detail::composed_op</code> provides a mutable reference to itself. A typical completion handler looks like
+this:</p>
+
+<pre><code class="language-cpp">    template&lt;class Self&gt;
+    void operator()(Self&amp; self, error_code ec = {} , std::size_t bytes_transferred = 0)
+    {
+        reenter(this) {
+            // yields and operations on Self
+            yield async_write(sock, buf, std::move(self));  // note that self is moved
+        }
+    }
+</code></pre>
+
+<p>What I wanted was a composed operation where the following is legal:</p>
+
+<pre><code class="language-cpp">    template&lt;class Self&gt;
+    void operator()(Self self /* note copy */, error_code ec = {} , std::size_t bytes_transferred = 0)
+    {
+        reenter(this) {
+            // yields and operations on Self
+            yield
+            {
+                async_write(sock, buf, self);
+                timer.async_wait(self);
+                writing = true;
+                sending = true;
+            }
+
+            while(writing || sending)
+                yield
+                    // something needs to happen here to reset the flags and handle errors and cancellation.
+                ;
+        }
+    }
+</code></pre>
+
+<p>Which I think looks reasonably clear and easy to follow.</p>
+
+<p>In this work I had to overcome two problems - writing the framework to allow it, and thinking of a maintainable way to
+express intent in the interrelationships between the asynchronous operations on the timer and the socket.</p>
+
+<p>Solving the copyable composed_op problem was easy. I did what I always do in situations like this. I cheated.</p>
+
+<p><code>asio::async_compose</code> produces a specialisation of a <code>detail::composed_op&lt;&gt;</code> template. Substituting a disregard of the
+rules for knowledge and skill, I simply reached into the guts of asio and produced a copyable wrapper to this class.
+I also cut/pasted some ancillary free functions in order to make asio work nicely with my new class:</p>
+
+<p>Here’s the code… it’s not pretty:</p>
+
+<pre><code class="language-cpp">template &lt; class Impl, class Work, class Handler, class Signature &gt;
+struct shared_composed_op
+{
+    using composed_op_type = boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt;;
+
+    using allocator_type = typename net::associated_allocator&lt; composed_op_type &gt;::type;
+    using executor_type  = typename net::associated_executor&lt; composed_op_type &gt;::type;
+
+    shared_composed_op(composed_op_type &amp;&amp;op)
+    : impl_(std::make_shared&lt; composed_op_type &gt;(std::move(op)))
+    {
+    }
+
+    shared_composed_op(std::shared_ptr&lt; composed_op_type &gt; op)
+    : impl_(std::move(op))
+    {
+    }
+
+    void initial_resume() { impl_-&gt;impl_(*this); }
+
+    template &lt; class... Args &gt;
+    void operator()(Args &amp;&amp;... args)
+    {
+        if (impl_-&gt;invocations_ &lt; ~unsigned(0))
+        {
+            ++impl_-&gt;invocations_;
+            impl_-&gt;impl_(*this, std::forward&lt; Args &gt;(args)...);
+        }
+    }
+
+    template &lt; class... Args &gt;
+    void complete(Args &amp;&amp;... args)
+    {
+        impl_-&gt;complete(std::forward&lt; Args &gt;(args)...);
+    }
+
+    auto get_allocator() const -&gt; allocator_type { return impl_-&gt;get_allocator(); }
+    auto get_executor() const -&gt; executor_type { return impl_-&gt;get_executor(); }
+
+    std::shared_ptr&lt; composed_op_type &gt; impl_;
+};
+
+template &lt; class Impl, class Work, class Handler, class Signature &gt;
+auto share(boost::asio::detail::composed_op&lt; Impl, Work, Handler, Signature &gt; &amp;composed_op)
+    -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt;
+{
+    auto op = shared_composed_op&lt; Impl, Work, Handler, Signature &gt;(std::move(composed_op));
+    op.initial_resume();
+    return op;
+}
+
+template &lt; class Impl, class Work, class Handler, class Signature &gt;
+auto share(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; shared_thing)
+    -&gt; shared_composed_op&lt; Impl, Work, Handler, Signature &gt;
+{
+    return shared_thing;
+}
+
+template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt;
+inline void *asio_handler_allocate(std::size_t size, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler)
+{
+    return boost_asio_handler_alloc_helpers::allocate(size, this_handler-&gt;impl_-&gt;handler_);
+}
+
+template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt;
+inline void asio_handler_deallocate(void *                                                pointer,
+                                    std::size_t                                           size,
+                                    shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler)
+{
+    boost_asio_handler_alloc_helpers::deallocate(pointer, size, this_handler-&gt;impl_-&gt;handler_);
+}
+
+template &lt; typename Impl, typename Work, typename Handler, typename Signature &gt;
+inline bool asio_handler_is_continuation(shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler)
+{
+    return asio_handler_is_continuation(this_handler-&gt;impl_.get());
+}
+
+template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt;
+inline void asio_handler_invoke(Function &amp;function, shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler)
+{
+    boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_);
+}
+
+template &lt; typename Function, typename Impl, typename Work, typename Handler, typename Signature &gt;
+inline void asio_handler_invoke(const Function &amp;                                      function,
+                                shared_composed_op&lt; Impl, Work, Handler, Signature &gt; *this_handler)
+{
+    boost_asio_handler_invoke_helpers::invoke(function, this_handler-&gt;impl_-&gt;handler_);
+}
+
+</code></pre>
+
+<p>With that in hand, and with a little more <em>jiggery pokery</em>, I was able to express intent thus:</p>
+
+<pre><code class="language-cpp">    template &lt; class Self &gt;
+    void operator()(Self &amp;self, error_code ec = {}, std::size_t bytes_transferred = 0)
+    {
+...
+        auto &amp;state = *state_;
+
+        reenter(this)
+        {
+            ...
+
+            // here's the interesting bit - self becomes a copyable handle to itself
+            yield share(self);
+
+            // deduce the port
+            yield
+            {
+                this-&gt;initiate_resolve(share(self), state.uri.hostname(), deduce_http_service(state.uri));
+                this-&gt;initiate_timout(share(self), state.session_.resolve_timeout());
+            }
+
+            while (this-&gt;resolving() || this-&gt;timeout_outstanding())
+                yield;
+
+            if (this-&gt;error)
+                goto finish;
+
+            // connect the socket
+
+            state.current_resolve_result = this-&gt;resolved_endpoints().begin();
+            while (state.current_resolve_result != this-&gt;resolved_endpoints().end())
+            {
+                state.tcp_stream().expires_after(state.session_.connect_timeout());
+                yield state.tcp_stream().async_connect(state.current_resolve_result-&gt;endpoint(), share(self));
+                log("Connect to: ", state.current_resolve_result-&gt;endpoint(), " result: ", ec);
+                // if the connect is successful, we can exit the loop early.
+                if (!ec)
+                    goto connected;
+                ++state.current_resolve_result;
+            }
+            // if we leave the loop, make sure there is an error of some kind
+            this-&gt;set_error(ec);
+            goto finish;
+
+        connected:
+
+            ...
+</code></pre>
+
+<p>The full code can be seen <a href="https://github.com/madmongo1/webclient/blob/develop/include/boost/webclient/asio/get_op.hpp">here</a></p>
+
+<p>There are a couple of interesting things to note:</p>
+
+<p>If you start two or more async operations that will complete on the same object, they must all be allowed to complete.
+This is why we yield and wait for both the socket and the timeout:</p>
+
+<pre><code class="language-cpp">            while (this-&gt;resolving() || this-&gt;timeout_outstanding())
+                yield;
+</code></pre>
+
+<p>This leads directly to the problem of managing the error_code. Two error_codes will be produced - one for the timer
+(which we hope to cancel before it times out) and one for the resolve operation.
+This means we have to store the first relevant error code somewhere:</p>
+
+<pre><code class="language-cpp">/// @brief a mixin to manage overall operation error state
+struct has_error_code
+{
+    auto set_error(error_code const &amp;ec) -&gt; error_code &amp;
+    {
+        if (!error)
+        {
+            if (ec &amp;&amp; ec != net::error::operation_aborted)
+                error = ec;
+        }
+        return error;
+    }
+
+    error_code error;
+};
+</code></pre>
+
+<p>And we need a means of allowing communication between the timeout timer and the resolver:</p>
+
+<pre><code class="language-cpp">    template &lt; class Self &gt;
+    void initiate_resolve(Self self, std::string const &amp;host, std::string const &amp;service)
+    {
+        results_.reset();
+        resolver_.async_resolve(host, service, std::move(self));
+    }
+
+    template &lt; class Self &gt;
+    void operator()(Self &amp;self, error_code ec, resolver_type::results_type results)
+    {
+        results_.emplace(std::move(results));
+
+        auto &amp;this_ = *static_cast&lt; Derived * &gt;(this);
+        this_.on_resolved(ec);
+
+        auto &amp;has_err = static_cast&lt; has_error_code &amp; &gt;(this_);
+        this_(self, has_err.set_error(ec));
+    }
+
+</code></pre>
+
+<p>One cancels the other….</p>
+
+<pre><code class="language-cpp">    void on_timeout()
+    {
+        this-&gt;cancel_resolver();
+        log("Timeout");
+    }
+
+    void on_resolved(error_code const &amp;ec)
+    {
+        this-&gt;cancel_timeout();
+        log("Resolve complete: ", ec);
+    }
+</code></pre>
+
+<pre><code class="language-cpp">    auto resolving() const -&gt; bool { return !results_.has_value(); }
+
+    auto cancel_resolver() -&gt; void { resolver_.cancel(); }
+</code></pre>
+
+<p>In the end I was unsure how much is gained, other than pretty code (which does have value in itself).</p>
+
+<h1 id="unified-webclient">Unified WebClient</h1>
+
+<p>Exploratory work started on the unified web client. After some discussion, Vinnie and I agreed on the following design
+decisions:</p>
+
+<ul>
+  <li>Interface to model closely the very popular Python Requests module.</li>
+  <li>Sync and Async modes available.</li>
+  <li>Homogenous (mostly non-template) interface, behind which system-specific implementations can reside.</li>
+  <li>Where native library support is available, that will be used,</li>
+  <li>Where not, internally the library will be implemented in Asio/Beast.</li>
+  <li>Coroutine friendly.</li>
+</ul>
+
+<p>Once more progress has been made on the Boost.Beast issue tracker, I will be focusing attention here.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

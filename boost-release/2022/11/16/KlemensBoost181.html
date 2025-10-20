@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New in Boost 1.81 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>New in Boost 1.81 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="New in Boost 1.81" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="New Library: Url Boost.url has been released. And it’s awesome. Json &amp; Describe Boost.json is now integrated with Boost.describe. That means that any class, struct, or enum that has describe annotations can be directly serialized to and from json. You can fine examples here. Additionally, variant2 is also supported. Unordered Unordered got a new map type, unordered_flat_map, and the corresponding set type unordered_flat_set. These two containers lay out the map in a flat array, instead of being node-based. On modern CPU, this open addressing can lead to significant performance increases, due to improved cache-usage. Joaquín, the author, has written a detailed blog post, which is highly recommended. Beast Per operation cancellation Beast supports per-operation cancellation now. This is mostly terminal cancellation, i.e. you can’t do anything with the io-object but to close it afterwards. This is still useful for completion methods that automatically wire up cancellations, such as asio::awaitables (for which beast also has examples). In a few cases beast does allow total cancellation (cancellation without side effects). This is the case in certain situations with websockets, when the operation gets blocked because of ongoing control messages such as ping or pong. Generally it should however be treated as if beast only support terminal cancellation due to the protocol limitations. Adressing the dynamic-buffer disconnect. When beast was originally conceived, asio did not have a clear dynamic-buffer concept. This lead to beast developing it’s own buffer types in parallel, which have very close semantics. Asio however went one step further under the guidance of WG21, and developed a dynamic buffer version 2, which is much more complicated and a questionable improvement. Since boost still supports dynamic buffer v1, unless explicitly told not to, it was little work to make them compatible. The major difference is that asio’s buffers are passed by copy, while beasts need to be passed by reference. std::string buffer; // &lt; the dynamic buffer will point there asio::read_until(socket, asio::dynamic_buffer(buffer), &#39;\n&#39;); This surely was the source of many bugs, as the following code compiles fine: beast::flat_buffer buffer; asio::read_until(socket, buffer, &#39;\n&#39;); When run however, the buffer seems to be empty. The reason is that the buffer gets copied by read_until, meaning the data gets written into a buffer, that will get destroyed. To help with that, beast now provides a buffer_ref class that captures by reference and can then freely be copied: beast::flat_buffer buffer; asio::read_until(socket, ref(buffer), &#39;\n&#39;); ref is a function to do the proper template resolution. Asio Semantic changes Asio’s semantic requirements have changed slightly regarding post and executors. When a composed operation runs into an error before it’s first op, a common pattern is to post once, to avoid recursion. Usually this post will happen on the executor of the completion handler, since this is the handler that we need to invoke the handler on anyhow. void run_my_op( tcp::socket &amp; sock, // io_exec thread_pool::executor_type work_exec, std::function&lt;void(my_message_type)&gt; my_completion) { async_read_my_message(sock, asio::bind_executor(work_exec, my_completion)); } In the above code async_read_my_message is a composed operation that gets one message from the socket, which runs on io_exec and it’s suppoesed to invoke the completion on work_exec. Let’s say, our async_read_my_message op, checks if sock.is_open and if not, wants to immediately complete. This seems ok-ish, but what happenes if the io_exec isn’t running? In any other case, the operation will only complete if io_exec is running, except for the early error. Thus the correct executor to post to is io_exec, after which the completion gets dispatched to `work_exec. Because of this, the executor requirements for associated executor are not relaxed, so that it does not need to support post. The precise requirements can be found in the documentation for the polymorphic wrappers any_completion_executor and any_io_executor. Additionally, async_compose provides a handle (commonly called self) with a get_io_executor() member. Note that beast is not yet compliant with this as of 1.81. any_completion_handler Another interesting addition to asio is the any_completion_handler class, that can be used to type-erase completion handlers (not to be confused with tokens). Introducing a minor run-time overhead, it can speed up compile times, because heavy async operations can be moved into source files and only built once. At the same time, it can be wrapped in an async_initiate statement, allowing the use of all completion tokens, e.g. use_awaitable. E.g.: // this goes into the source file void my_async_write_impl(asio::ip::tcp::socket &amp; sock, asio::const_buffer buffer, asio::any_completion_handler&lt;void(system::error_code, std::size_t)&gt; cpl) { asio::async_write(sock, buffer, std::move(cpl)); } /// header file template&lt;typename Token&gt; auto my_async_write(asio::ip::tcp::socket &amp; sock, asio::const_buffer buffer, Token &amp;&amp; token) { return asio::async_initiate&lt;Token, void(error_code, std::size_t)&gt;( [&amp;](asio::any_completion_handler&lt;void(error_code, std::size_t)&gt; cpl) { my_async_write_impl(sock, buffer, std::move(cpl)); }, token); } // use it co_await my_async_write(my_socket, my_buffer, asio::use_awaitable); Note that the above described semantic changes apply; that is, the associated executor of an any_completion_handler cannot be use in asio::post. Awaiting async_operations The new version also introduces the concept (actual concept in C++20) of an async_operation. It describes an expression that can be inovked with a completion-token, e.g.: asio::steady_timer tim{co_await asio::this_coro::executor}; asio::async_operation&lt;void(system::error_code)&gt; auto my_op = [&amp;](auto &amp;&amp; token) {return tim.async_wait(std::move(token));} The interesting part here is that an async-operation, in addition to being usable in parallel_groups or the also new ranged_parallel_group, can be directly awaited in asio::awaitable’s and asio::experimental::coros. co_await my_op; The nice thing here is that we can avoid the additional coroutine frame (which includes an allocation), that use_awaitable (or use_coro) needs in order to return an awaitable. Additionally, experimental::promise has been refactored, so that it doesn’t use a .async_wait member function, but operator() as well. That is, any experimental::promise is an async-operation. auto p = tim.async_wait(experimental::use_promise); co_await std::move(p); co_compose Another useful feature for library developers that can use C++20 is the experimental co_composed, which is a low-level coroutine based replacement for async_compose. Consider the following example from the asio docs: template &lt;typename CompletionToken&gt; auto async_echo(tcp::socket&amp; socket, CompletionToken&amp;&amp; token) { return boost::asio::async_initiate&lt; CompletionToken, void(boost::system::error_code)&gt;( boost::asio::experimental::co_composed( [](auto state, tcp::socket&amp; socket) -&gt; void { state.reset_cancellation_state( boost::asio::enable_terminal_cancellation()); while (!state.cancelled()) { char data[1024]; auto [e1, n1] = co_await socket.async_read_some( boost::asio::buffer(data), boost::asio::as_tuple(boost::asio::deferred)); if (e1) co_yield state.complete(e1); if (!!state.cancelled()) co_yield state.complete( make_error_code(boost::asio::error::operation_aborted)); auto [e2, n2] = co_await boost::asio::async_write(socket, boost::asio::buffer(data, n1), boost::asio::as_tuple(boost::asio::deferred)); if (e2) co_yield state.complete(e2); } }, socket), token, std::ref(socket)); } Writing this as async_compose &amp; asio::coroutine would look like this: struct async_echo_implementation : boost::asio::coroutine { tcp::socket &amp; socket; // - can&#39;t be a member, sicne this struct gets moved // - should be allocated using the associated allocator, but this is an example. std::unique_ptr&lt;char[]&gt; data{new char[1024]}; template&lt;typename Self&gt; void operator()(Self &amp;&amp; self, system::error_code ec = {}, std::size_t n = 0u) { reenter(this) { while (!self.cancelled()) { yield socket.async_read_some( boost::asio::buffer(data.get(), 1024), std::move(self)); if (ec) return self.complete(ec); if (!!self.cancelled()) return self.complete(boost::asio::error::operation_aborted); yield boost::asio::async_write(socket, boost::asio::buffer(data.get(), n), std::move(self)); if (ec) return self.complete(ec); } } self.complete({}); } }; template &lt;typename CompletionToken&gt; auto async_echo(tcp::socket&amp; socket, CompletionToken&amp;&amp; token) { return boost::asio::async_compose&lt;CompletionToken, void(boost::system::error_code)&gt;( async_echo_implementation{{}, socket}, token, socket); } Not only is the state management easier, but it also doesn’t need to move the state (i.e. coroutine frame), that it can become more performant." />
+<meta property="og:description" content="New Library: Url Boost.url has been released. And it’s awesome. Json &amp; Describe Boost.json is now integrated with Boost.describe. That means that any class, struct, or enum that has describe annotations can be directly serialized to and from json. You can fine examples here. Additionally, variant2 is also supported. Unordered Unordered got a new map type, unordered_flat_map, and the corresponding set type unordered_flat_set. These two containers lay out the map in a flat array, instead of being node-based. On modern CPU, this open addressing can lead to significant performance increases, due to improved cache-usage. Joaquín, the author, has written a detailed blog post, which is highly recommended. Beast Per operation cancellation Beast supports per-operation cancellation now. This is mostly terminal cancellation, i.e. you can’t do anything with the io-object but to close it afterwards. This is still useful for completion methods that automatically wire up cancellations, such as asio::awaitables (for which beast also has examples). In a few cases beast does allow total cancellation (cancellation without side effects). This is the case in certain situations with websockets, when the operation gets blocked because of ongoing control messages such as ping or pong. Generally it should however be treated as if beast only support terminal cancellation due to the protocol limitations. Adressing the dynamic-buffer disconnect. When beast was originally conceived, asio did not have a clear dynamic-buffer concept. This lead to beast developing it’s own buffer types in parallel, which have very close semantics. Asio however went one step further under the guidance of WG21, and developed a dynamic buffer version 2, which is much more complicated and a questionable improvement. Since boost still supports dynamic buffer v1, unless explicitly told not to, it was little work to make them compatible. The major difference is that asio’s buffers are passed by copy, while beasts need to be passed by reference. std::string buffer; // &lt; the dynamic buffer will point there asio::read_until(socket, asio::dynamic_buffer(buffer), &#39;\n&#39;); This surely was the source of many bugs, as the following code compiles fine: beast::flat_buffer buffer; asio::read_until(socket, buffer, &#39;\n&#39;); When run however, the buffer seems to be empty. The reason is that the buffer gets copied by read_until, meaning the data gets written into a buffer, that will get destroyed. To help with that, beast now provides a buffer_ref class that captures by reference and can then freely be copied: beast::flat_buffer buffer; asio::read_until(socket, ref(buffer), &#39;\n&#39;); ref is a function to do the proper template resolution. Asio Semantic changes Asio’s semantic requirements have changed slightly regarding post and executors. When a composed operation runs into an error before it’s first op, a common pattern is to post once, to avoid recursion. Usually this post will happen on the executor of the completion handler, since this is the handler that we need to invoke the handler on anyhow. void run_my_op( tcp::socket &amp; sock, // io_exec thread_pool::executor_type work_exec, std::function&lt;void(my_message_type)&gt; my_completion) { async_read_my_message(sock, asio::bind_executor(work_exec, my_completion)); } In the above code async_read_my_message is a composed operation that gets one message from the socket, which runs on io_exec and it’s suppoesed to invoke the completion on work_exec. Let’s say, our async_read_my_message op, checks if sock.is_open and if not, wants to immediately complete. This seems ok-ish, but what happenes if the io_exec isn’t running? In any other case, the operation will only complete if io_exec is running, except for the early error. Thus the correct executor to post to is io_exec, after which the completion gets dispatched to `work_exec. Because of this, the executor requirements for associated executor are not relaxed, so that it does not need to support post. The precise requirements can be found in the documentation for the polymorphic wrappers any_completion_executor and any_io_executor. Additionally, async_compose provides a handle (commonly called self) with a get_io_executor() member. Note that beast is not yet compliant with this as of 1.81. any_completion_handler Another interesting addition to asio is the any_completion_handler class, that can be used to type-erase completion handlers (not to be confused with tokens). Introducing a minor run-time overhead, it can speed up compile times, because heavy async operations can be moved into source files and only built once. At the same time, it can be wrapped in an async_initiate statement, allowing the use of all completion tokens, e.g. use_awaitable. E.g.: // this goes into the source file void my_async_write_impl(asio::ip::tcp::socket &amp; sock, asio::const_buffer buffer, asio::any_completion_handler&lt;void(system::error_code, std::size_t)&gt; cpl) { asio::async_write(sock, buffer, std::move(cpl)); } /// header file template&lt;typename Token&gt; auto my_async_write(asio::ip::tcp::socket &amp; sock, asio::const_buffer buffer, Token &amp;&amp; token) { return asio::async_initiate&lt;Token, void(error_code, std::size_t)&gt;( [&amp;](asio::any_completion_handler&lt;void(error_code, std::size_t)&gt; cpl) { my_async_write_impl(sock, buffer, std::move(cpl)); }, token); } // use it co_await my_async_write(my_socket, my_buffer, asio::use_awaitable); Note that the above described semantic changes apply; that is, the associated executor of an any_completion_handler cannot be use in asio::post. Awaiting async_operations The new version also introduces the concept (actual concept in C++20) of an async_operation. It describes an expression that can be inovked with a completion-token, e.g.: asio::steady_timer tim{co_await asio::this_coro::executor}; asio::async_operation&lt;void(system::error_code)&gt; auto my_op = [&amp;](auto &amp;&amp; token) {return tim.async_wait(std::move(token));} The interesting part here is that an async-operation, in addition to being usable in parallel_groups or the also new ranged_parallel_group, can be directly awaited in asio::awaitable’s and asio::experimental::coros. co_await my_op; The nice thing here is that we can avoid the additional coroutine frame (which includes an allocation), that use_awaitable (or use_coro) needs in order to return an awaitable. Additionally, experimental::promise has been refactored, so that it doesn’t use a .async_wait member function, but operator() as well. That is, any experimental::promise is an async-operation. auto p = tim.async_wait(experimental::use_promise); co_await std::move(p); co_compose Another useful feature for library developers that can use C++20 is the experimental co_composed, which is a low-level coroutine based replacement for async_compose. Consider the following example from the asio docs: template &lt;typename CompletionToken&gt; auto async_echo(tcp::socket&amp; socket, CompletionToken&amp;&amp; token) { return boost::asio::async_initiate&lt; CompletionToken, void(boost::system::error_code)&gt;( boost::asio::experimental::co_composed( [](auto state, tcp::socket&amp; socket) -&gt; void { state.reset_cancellation_state( boost::asio::enable_terminal_cancellation()); while (!state.cancelled()) { char data[1024]; auto [e1, n1] = co_await socket.async_read_some( boost::asio::buffer(data), boost::asio::as_tuple(boost::asio::deferred)); if (e1) co_yield state.complete(e1); if (!!state.cancelled()) co_yield state.complete( make_error_code(boost::asio::error::operation_aborted)); auto [e2, n2] = co_await boost::asio::async_write(socket, boost::asio::buffer(data, n1), boost::asio::as_tuple(boost::asio::deferred)); if (e2) co_yield state.complete(e2); } }, socket), token, std::ref(socket)); } Writing this as async_compose &amp; asio::coroutine would look like this: struct async_echo_implementation : boost::asio::coroutine { tcp::socket &amp; socket; // - can&#39;t be a member, sicne this struct gets moved // - should be allocated using the associated allocator, but this is an example. std::unique_ptr&lt;char[]&gt; data{new char[1024]}; template&lt;typename Self&gt; void operator()(Self &amp;&amp; self, system::error_code ec = {}, std::size_t n = 0u) { reenter(this) { while (!self.cancelled()) { yield socket.async_read_some( boost::asio::buffer(data.get(), 1024), std::move(self)); if (ec) return self.complete(ec); if (!!self.cancelled()) return self.complete(boost::asio::error::operation_aborted); yield boost::asio::async_write(socket, boost::asio::buffer(data.get(), n), std::move(self)); if (ec) return self.complete(ec); } } self.complete({}); } }; template &lt;typename CompletionToken&gt; auto async_echo(tcp::socket&amp; socket, CompletionToken&amp;&amp; token) { return boost::asio::async_compose&lt;CompletionToken, void(boost::system::error_code)&gt;( async_echo_implementation{{}, socket}, token, socket); } Not only is the state management easier, but it also doesn’t need to move the state (i.e. coroutine frame), that it can become more performant." />
+<link rel="canonical" href="http://cppalliance.org/boost-release/2022/11/16/KlemensBoost181.html" />
+<meta property="og:url" content="http://cppalliance.org/boost-release/2022/11/16/KlemensBoost181.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-11-16T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="New in Boost 1.81" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"New Library: Url Boost.url has been released. And it’s awesome. Json &amp; Describe Boost.json is now integrated with Boost.describe. That means that any class, struct, or enum that has describe annotations can be directly serialized to and from json. You can fine examples here. Additionally, variant2 is also supported. Unordered Unordered got a new map type, unordered_flat_map, and the corresponding set type unordered_flat_set. These two containers lay out the map in a flat array, instead of being node-based. On modern CPU, this open addressing can lead to significant performance increases, due to improved cache-usage. Joaquín, the author, has written a detailed blog post, which is highly recommended. Beast Per operation cancellation Beast supports per-operation cancellation now. This is mostly terminal cancellation, i.e. you can’t do anything with the io-object but to close it afterwards. This is still useful for completion methods that automatically wire up cancellations, such as asio::awaitables (for which beast also has examples). In a few cases beast does allow total cancellation (cancellation without side effects). This is the case in certain situations with websockets, when the operation gets blocked because of ongoing control messages such as ping or pong. Generally it should however be treated as if beast only support terminal cancellation due to the protocol limitations. Adressing the dynamic-buffer disconnect. When beast was originally conceived, asio did not have a clear dynamic-buffer concept. This lead to beast developing it’s own buffer types in parallel, which have very close semantics. Asio however went one step further under the guidance of WG21, and developed a dynamic buffer version 2, which is much more complicated and a questionable improvement. Since boost still supports dynamic buffer v1, unless explicitly told not to, it was little work to make them compatible. The major difference is that asio’s buffers are passed by copy, while beasts need to be passed by reference. std::string buffer; // &lt; the dynamic buffer will point there asio::read_until(socket, asio::dynamic_buffer(buffer), &#39;\\n&#39;); This surely was the source of many bugs, as the following code compiles fine: beast::flat_buffer buffer; asio::read_until(socket, buffer, &#39;\\n&#39;); When run however, the buffer seems to be empty. The reason is that the buffer gets copied by read_until, meaning the data gets written into a buffer, that will get destroyed. To help with that, beast now provides a buffer_ref class that captures by reference and can then freely be copied: beast::flat_buffer buffer; asio::read_until(socket, ref(buffer), &#39;\\n&#39;); ref is a function to do the proper template resolution. Asio Semantic changes Asio’s semantic requirements have changed slightly regarding post and executors. When a composed operation runs into an error before it’s first op, a common pattern is to post once, to avoid recursion. Usually this post will happen on the executor of the completion handler, since this is the handler that we need to invoke the handler on anyhow. void run_my_op( tcp::socket &amp; sock, // io_exec thread_pool::executor_type work_exec, std::function&lt;void(my_message_type)&gt; my_completion) { async_read_my_message(sock, asio::bind_executor(work_exec, my_completion)); } In the above code async_read_my_message is a composed operation that gets one message from the socket, which runs on io_exec and it’s suppoesed to invoke the completion on work_exec. Let’s say, our async_read_my_message op, checks if sock.is_open and if not, wants to immediately complete. This seems ok-ish, but what happenes if the io_exec isn’t running? In any other case, the operation will only complete if io_exec is running, except for the early error. Thus the correct executor to post to is io_exec, after which the completion gets dispatched to `work_exec. Because of this, the executor requirements for associated executor are not relaxed, so that it does not need to support post. The precise requirements can be found in the documentation for the polymorphic wrappers any_completion_executor and any_io_executor. Additionally, async_compose provides a handle (commonly called self) with a get_io_executor() member. Note that beast is not yet compliant with this as of 1.81. any_completion_handler Another interesting addition to asio is the any_completion_handler class, that can be used to type-erase completion handlers (not to be confused with tokens). Introducing a minor run-time overhead, it can speed up compile times, because heavy async operations can be moved into source files and only built once. At the same time, it can be wrapped in an async_initiate statement, allowing the use of all completion tokens, e.g. use_awaitable. E.g.: // this goes into the source file void my_async_write_impl(asio::ip::tcp::socket &amp; sock, asio::const_buffer buffer, asio::any_completion_handler&lt;void(system::error_code, std::size_t)&gt; cpl) { asio::async_write(sock, buffer, std::move(cpl)); } /// header file template&lt;typename Token&gt; auto my_async_write(asio::ip::tcp::socket &amp; sock, asio::const_buffer buffer, Token &amp;&amp; token) { return asio::async_initiate&lt;Token, void(error_code, std::size_t)&gt;( [&amp;](asio::any_completion_handler&lt;void(error_code, std::size_t)&gt; cpl) { my_async_write_impl(sock, buffer, std::move(cpl)); }, token); } // use it co_await my_async_write(my_socket, my_buffer, asio::use_awaitable); Note that the above described semantic changes apply; that is, the associated executor of an any_completion_handler cannot be use in asio::post. Awaiting async_operations The new version also introduces the concept (actual concept in C++20) of an async_operation. It describes an expression that can be inovked with a completion-token, e.g.: asio::steady_timer tim{co_await asio::this_coro::executor}; asio::async_operation&lt;void(system::error_code)&gt; auto my_op = [&amp;](auto &amp;&amp; token) {return tim.async_wait(std::move(token));} The interesting part here is that an async-operation, in addition to being usable in parallel_groups or the also new ranged_parallel_group, can be directly awaited in asio::awaitable’s and asio::experimental::coros. co_await my_op; The nice thing here is that we can avoid the additional coroutine frame (which includes an allocation), that use_awaitable (or use_coro) needs in order to return an awaitable. Additionally, experimental::promise has been refactored, so that it doesn’t use a .async_wait member function, but operator() as well. That is, any experimental::promise is an async-operation. auto p = tim.async_wait(experimental::use_promise); co_await std::move(p); co_compose Another useful feature for library developers that can use C++20 is the experimental co_composed, which is a low-level coroutine based replacement for async_compose. Consider the following example from the asio docs: template &lt;typename CompletionToken&gt; auto async_echo(tcp::socket&amp; socket, CompletionToken&amp;&amp; token) { return boost::asio::async_initiate&lt; CompletionToken, void(boost::system::error_code)&gt;( boost::asio::experimental::co_composed( [](auto state, tcp::socket&amp; socket) -&gt; void { state.reset_cancellation_state( boost::asio::enable_terminal_cancellation()); while (!state.cancelled()) { char data[1024]; auto [e1, n1] = co_await socket.async_read_some( boost::asio::buffer(data), boost::asio::as_tuple(boost::asio::deferred)); if (e1) co_yield state.complete(e1); if (!!state.cancelled()) co_yield state.complete( make_error_code(boost::asio::error::operation_aborted)); auto [e2, n2] = co_await boost::asio::async_write(socket, boost::asio::buffer(data, n1), boost::asio::as_tuple(boost::asio::deferred)); if (e2) co_yield state.complete(e2); } }, socket), token, std::ref(socket)); } Writing this as async_compose &amp; asio::coroutine would look like this: struct async_echo_implementation : boost::asio::coroutine { tcp::socket &amp; socket; // - can&#39;t be a member, sicne this struct gets moved // - should be allocated using the associated allocator, but this is an example. std::unique_ptr&lt;char[]&gt; data{new char[1024]}; template&lt;typename Self&gt; void operator()(Self &amp;&amp; self, system::error_code ec = {}, std::size_t n = 0u) { reenter(this) { while (!self.cancelled()) { yield socket.async_read_some( boost::asio::buffer(data.get(), 1024), std::move(self)); if (ec) return self.complete(ec); if (!!self.cancelled()) return self.complete(boost::asio::error::operation_aborted); yield boost::asio::async_write(socket, boost::asio::buffer(data.get(), n), std::move(self)); if (ec) return self.complete(ec); } } self.complete({}); } }; template &lt;typename CompletionToken&gt; auto async_echo(tcp::socket&amp; socket, CompletionToken&amp;&amp; token) { return boost::asio::async_compose&lt;CompletionToken, void(boost::system::error_code)&gt;( async_echo_implementation{{}, socket}, token, socket); } Not only is the state management easier, but it also doesn’t need to move the state (i.e. coroutine frame), that it can become more performant.","@type":"BlogPosting","url":"http://cppalliance.org/boost-release/2022/11/16/KlemensBoost181.html","headline":"New in Boost 1.81","dateModified":"2022-11-16T00:00:00+00:00","datePublished":"2022-11-16T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/boost-release/2022/11/16/KlemensBoost181.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>New in Boost 1.81</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/klemens">
+                  Klemens Morgenstern
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Nov 16, 2022</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="new-library-url">New Library: Url</h1>
+
+<p>Boost.url has been released. And it’s <a href="https://www.boost.org/doc/libs/master/libs/url/doc/html/url/overview.html">awesome</a>.</p>
+
+<h1 id="json--describe">Json &amp; Describe</h1>
+
+<p>Boost.json is now integrated with Boost.describe. That means that any <code>class</code>, <code>struct</code>, or <code>enum</code> 
+that has describe annotations can be directly serialized to and from json.</p>
+
+<p>You can fine examples <a href="https://www.boost.org/doc/libs/master/libs/describe/doc/html/describe.html#example_to_json">here</a>.</p>
+
+<p>Additionally, <code>variant2</code> is also supported.</p>
+
+<h1 id="unordered">Unordered</h1>
+
+<p>Unordered got a new map type, <a href="https://www.boost.org/doc/libs/master/libs/unordered/doc/html/unordered.html#unordered_flat_map"><code>unordered_flat_map</code></a>,
+and the corresponding set type <a href="https://www.boost.org/doc/libs/master/libs/unordered/doc/html/unordered.html#unordered_flat_set"><code>unordered_flat_set</code></a>.</p>
+
+<p>These two containers lay out the map in a flat array, instead of being node-based.
+On modern CPU, this open addressing can lead to significant performance increases, 
+due to improved cache-usage.</p>
+
+<p>Joaquín, the author, has written a detailed <a href="https://bannalia.blogspot.com/2022/11/inside-boostunorderedflatmap.html">blog post</a>, 
+which is highly recommended.</p>
+
+<h1 id="beast">Beast</h1>
+
+<h2 id="per-operation-cancellation">Per operation cancellation</h2>
+
+<p>Beast supports per-operation cancellation now. This is mostly <code>terminal</code> cancellation, 
+i.e. you can’t do anything with the io-object but to close it afterwards.
+This is still useful for completion methods that automatically wire up cancellations, such as <code>asio::awaitable</code>s (for which beast also has examples).</p>
+
+<p>In a few cases beast does allow <code>total</code> cancellation (cancellation without side effects). 
+This is the case in certain situations with websockets, when the operation gets blocked because of ongoing control messages such as ping or pong.</p>
+
+<p>Generally it should however be treated as if beast only support <code>terminal</code> cancellation due to the protocol limitations.</p>
+
+<h2 id="adressing-the-dynamic-buffer-disconnect">Adressing the dynamic-buffer disconnect.</h2>
+
+<p>When beast was originally conceived, asio did not have a clear dynamic-buffer concept.
+This lead to beast developing it’s own buffer types in parallel, which have very close semantics. 
+Asio however went one step further under the guidance of WG21, and developed a dynamic buffer version 2, 
+which is much more complicated and a questionable improvement.</p>
+
+<p>Since boost still supports dynamic buffer v1, unless explicitly told not to, it was little work to
+make them compatible. 
+The major difference is that <code>asio</code>’s buffers are passed by copy, while <code>beast</code>s need to be passed by reference.</p>
+
+<pre><code class="language-cpp">std::string buffer; // &lt; the dynamic buffer will point there
+asio::read_until(socket, asio::dynamic_buffer(buffer), '\n');
+</code></pre>
+
+<p>This surely was the source of many bugs, as the following code compiles fine:</p>
+
+<pre><code class="language-cpp">beast::flat_buffer buffer;
+asio::read_until(socket, buffer, '\n');
+</code></pre>
+
+<p>When run however, the buffer seems to be empty. The reason is that the buffer gets copied by <code>read_until</code>, 
+meaning the data gets written into a buffer, that will get destroyed.</p>
+
+<p>To help with that, beast now provides a <code>buffer_ref</code> class that captures by reference and can then freely be copied:</p>
+
+<pre><code class="language-cpp">beast::flat_buffer buffer;
+asio::read_until(socket, ref(buffer), '\n');
+</code></pre>
+
+<p><code>ref</code> is a function to do the proper template resolution.</p>
+
+<h1 id="asio">Asio</h1>
+
+<h2 id="semantic-changes">Semantic changes</h2>
+
+<p>Asio’s semantic requirements have changed slightly regarding <code>post</code> and executors.
+When a composed operation runs into an error before it’s first op, 
+a common pattern is to <code>post</code> once, to avoid recursion. 
+Usually this post will happen on the executor of the completion handler, 
+since this is the handler that we need to invoke the handler on anyhow.</p>
+
+<pre><code class="language-cpp">void run_my_op(
+    tcp::socket &amp; sock, // io_exec
+    thread_pool::executor_type work_exec,
+    std::function&lt;void(my_message_type)&gt; my_completion)
+{   
+    async_read_my_message(sock, asio::bind_executor(work_exec, my_completion));
+}
+
+</code></pre>
+
+<p>In the above code <code>async_read_my_message</code> is a composed operation that gets one message from the socket, which runs on <code>io_exec</code> and it’s suppoesed to invoke the completion on <code>work_exec</code>.</p>
+
+<p>Let’s say, our <code>async_read_my_message</code> op, checks if <code>sock.is_open</code> and if not, wants to immediately complete.
+This seems ok-ish, but what happenes if the <code>io_exec</code> isn’t running? In any other case, 
+the operation will only complete if <code>io_exec</code> is running, except for the early error. 
+Thus the correct executor to <code>post</code> to is <code>io_exec</code>, after which the completion gets <code>dispatch</code>ed to `work_exec.</p>
+
+<p>Because of this, the executor requirements for associated executor are not relaxed, 
+so that it does not need to support <code>post</code>. 
+The precise requirements can be found in the documentation for the polymorphic wrappers
+<a href="https://www.boost.org/doc/libs/master/doc/html/boost_asio/reference/any_completion_executor.html">any_completion_executor</a> and <a href="https://www.boost.org/doc/libs/master/doc/html/boost_asio/reference/any_io_executor.html">any_io_executor</a>.</p>
+
+<p>Additionally, <code>async_compose</code> provides a handle (commonly called <code>self</code>) with a <code>get_io_executor()</code> member.</p>
+
+<p><em>Note that beast is not yet compliant with this as of 1.81.</em></p>
+
+<h2 id="any_completion_handler"><code>any_completion_handler</code></h2>
+
+<p>Another interesting addition to asio is the <code>any_completion_handler</code> class, 
+that can be used to type-erase completion handlers (not to be confused with tokens).</p>
+
+<p>Introducing a minor run-time overhead, it can speed up compile times, 
+because heavy async operations can be moved into source files and only built once.</p>
+
+<p>At the same time, it can be wrapped in an async_initiate statement, 
+allowing the use of all completion tokens, e.g. <code>use_awaitable</code>.</p>
+
+<p>E.g.:</p>
+
+<pre><code class="language-cpp">// this goes into the source file
+void my_async_write_impl(asio::ip::tcp::socket &amp; sock, 
+                         asio::const_buffer buffer,
+                         asio::any_completion_handler&lt;void(system::error_code, std::size_t)&gt; cpl)
+{
+    asio::async_write(sock, buffer, std::move(cpl));
+}
+
+/// header file 
+
+
+template&lt;typename Token&gt;
+auto my_async_write(asio::ip::tcp::socket &amp; sock,
+                    asio::const_buffer buffer,
+                    Token &amp;&amp; token)
+{
+    return asio::async_initiate&lt;Token, void(error_code, std::size_t)&gt;(
+            [&amp;](asio::any_completion_handler&lt;void(error_code, std::size_t)&gt; cpl)
+            {
+                my_async_write_impl(sock, buffer, std::move(cpl));
+            },
+            token);
+}
+
+// use it
+
+co_await my_async_write(my_socket, my_buffer, asio::use_awaitable);
+
+</code></pre>
+
+<p>Note that the above described semantic changes apply; that is, the associated executor of an <code>any_completion_handler</code> cannot be use in <code>asio::post</code>.</p>
+
+<h2 id="awaiting-async_operations">Awaiting async_operations</h2>
+
+<p>The new version also introduces the concept (actual concept in C++20) of an <code>async_operation</code>. 
+It describes an expression that can be inovked with a completion-token, e.g.:</p>
+
+<pre><code class="language-cpp">asio::steady_timer tim{co_await asio::this_coro::executor};
+asio::async_operation&lt;void(system::error_code)&gt; auto my_op = 
+    [&amp;](auto &amp;&amp; token) {return tim.async_wait(std::move(token));}
+</code></pre>
+
+<p>The interesting part here is that an async-operation, in addition to being usable in <code>parallel_group</code>s or the also new <code>ranged_parallel_group</code>, can be directly awaited in <code>asio::awaitable</code>’s and <code>asio::experimental::coro</code>s.</p>
+
+<pre><code class="language-cpp">co_await my_op;
+</code></pre>
+
+<p>The nice thing here is that we can avoid the additional coroutine frame (which includes an allocation),
+that <code>use_awaitable</code> (or <code>use_coro</code>) needs in order to return an <code>awaitable</code>.</p>
+
+<p>Additionally, <code>experimental::promise</code> has been refactored, so that it doesn’t use a <code>.async_wait</code> member function, 
+but <code>operator()</code> as well. That is, any <code>experimental::promise</code> is an async-operation.</p>
+
+<pre><code class="language-cpp">auto p = tim.async_wait(experimental::use_promise);
+co_await std::move(p);
+</code></pre>
+
+<h2 id="co_compose">co_compose</h2>
+
+<p>Another useful feature for library developers that can use C++20 is the experimental <code>co_composed</code>,
+which is a low-level coroutine based replacement for <code>async_compose</code>.</p>
+
+<p>Consider the following example from the asio docs:</p>
+
+<pre><code class="language-cpp">template &lt;typename CompletionToken&gt;
+auto async_echo(tcp::socket&amp; socket,
+    CompletionToken&amp;&amp; token)
+{
+  return boost::asio::async_initiate&lt;
+    CompletionToken, void(boost::system::error_code)&gt;(
+      boost::asio::experimental::co_composed(
+        [](auto state, tcp::socket&amp; socket) -&gt; void
+        {
+          state.reset_cancellation_state(
+            boost::asio::enable_terminal_cancellation());
+
+          while (!state.cancelled())
+          {
+            char data[1024];
+            auto [e1, n1] =
+              co_await socket.async_read_some(
+                boost::asio::buffer(data),
+                boost::asio::as_tuple(boost::asio::deferred));
+
+            if (e1)
+              co_yield state.complete(e1);
+
+            if (!!state.cancelled())
+              co_yield state.complete(
+                make_error_code(boost::asio::error::operation_aborted));
+
+            auto [e2, n2] =
+              co_await boost::asio::async_write(socket,
+                boost::asio::buffer(data, n1),
+                boost::asio::as_tuple(boost::asio::deferred));
+
+            if (e2)
+              co_yield state.complete(e2);
+          }
+        }, socket),
+      token, std::ref(socket));
+}
+</code></pre>
+
+<p>Writing this as <code>async_compose</code> &amp; <code>asio::coroutine</code> would look like this:</p>
+
+<pre><code class="language-cpp">struct async_echo_implementation : boost::asio::coroutine
+{
+    tcp::socket &amp; socket;
+
+    // - can't be a member, sicne this struct gets moved
+    // - should be allocated using the associated allocator, but this is an example.
+    std::unique_ptr&lt;char[]&gt; data{new char[1024]};
+
+    template&lt;typename Self&gt;
+    void operator()(Self &amp;&amp; self, system::error_code ec = {}, std::size_t n = 0u)
+    {
+        reenter(this)
+        {
+            while (!self.cancelled())
+            {
+                yield socket.async_read_some(
+                        boost::asio::buffer(data.get(), 1024),
+                        std::move(self));
+
+                if (ec)
+                    return self.complete(ec);
+                if (!!self.cancelled())
+                    return self.complete(boost::asio::error::operation_aborted);
+
+                yield boost::asio::async_write(socket,
+                                               boost::asio::buffer(data.get(), n),
+                                               std::move(self));
+
+                if (ec)
+                    return self.complete(ec);
+            }
+        }
+        self.complete({});
+    }
+};
+
+template &lt;typename CompletionToken&gt;
+auto async_echo(tcp::socket&amp; socket,
+                CompletionToken&amp;&amp; token)
+{
+    return boost::asio::async_compose&lt;CompletionToken,
+            void(boost::system::error_code)&gt;(
+            async_echo_implementation{{}, socket},
+            token, socket);
+}
+</code></pre>
+
+<p>Not only is the state management easier, but it also doesn’t need to move the state (i.e. coroutine frame),
+that it can become more performant.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>11/16/2022</span>
+          <a class='text-l news-title link' href="/boost-release/2022/11/16/KlemensBoost181.html">New in Boost 1.81</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

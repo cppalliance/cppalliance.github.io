@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dmitry's Q4 2023 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Dmitry’s Q4 2023 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Dmitry’s Q4 2023 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In the fourth quarter of 2023 the functionality for direct parsing in JSON was finalised and the code was merged into the mainline and then released in Boost 1.84.0. Thus, I’ve moved to the natural opposite of direct parsing: direct serialisation. Boost.JSON’s serialisation is less customisable then parsing, since the demand for custom serialisation is significantly lower. As a result, the design of the serialiser is quite different from that of the parser, and hence a different approach had to be taken to implement direct serialisation. That approach, in my opinion, has a big benefit for the user: there’s no need for a dedicated direct serializer type, it can be done with the regular boost::json::serializer. On the other hand, it presents a different challenge: making changes to serializer in a way that does not negatively affect its performance too much. This fight for performance has occupied most of my time in the last quarter. And it also provided me an opportunity to experiment with different potential optimisations to the serializer. I would also like to comment that different C++ implementations sometimes have directly opposite view on what’s better or worse for performance, which poses quite a conundrum in such line of work. And finally, this work was greatly influenced by the availability of continous integration infrastructure set up by the C++ Alliance, and automatic benchmarking in particular. Another positive effect of C++ Alliance’s CI is due to coverage reporting. As I was striving to never decrease the rate of code coverage, I’ve discovered code in the serializer that used to perform a function, but have since become unnecessary due to refactoring. Overall the work on serializer has vastly increased my understanding on how JSON’s serializer works under the hood. I plan to finish the feature of direct serialization before the next Boost release." />
+<meta property="og:description" content="In the fourth quarter of 2023 the functionality for direct parsing in JSON was finalised and the code was merged into the mainline and then released in Boost 1.84.0. Thus, I’ve moved to the natural opposite of direct parsing: direct serialisation. Boost.JSON’s serialisation is less customisable then parsing, since the demand for custom serialisation is significantly lower. As a result, the design of the serialiser is quite different from that of the parser, and hence a different approach had to be taken to implement direct serialisation. That approach, in my opinion, has a big benefit for the user: there’s no need for a dedicated direct serializer type, it can be done with the regular boost::json::serializer. On the other hand, it presents a different challenge: making changes to serializer in a way that does not negatively affect its performance too much. This fight for performance has occupied most of my time in the last quarter. And it also provided me an opportunity to experiment with different potential optimisations to the serializer. I would also like to comment that different C++ implementations sometimes have directly opposite view on what’s better or worse for performance, which poses quite a conundrum in such line of work. And finally, this work was greatly influenced by the availability of continous integration infrastructure set up by the C++ Alliance, and automatic benchmarking in particular. Another positive effect of C++ Alliance’s CI is due to coverage reporting. As I was striving to never decrease the rate of code coverage, I’ve discovered code in the serializer that used to perform a function, but have since become unnecessary due to refactoring. Overall the work on serializer has vastly increased my understanding on how JSON’s serializer works under the hood. I plan to finish the feature of direct serialization before the next Boost release." />
+<link rel="canonical" href="http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update.html" />
+<meta property="og:url" content="http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-01-12T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Dmitry’s Q4 2023 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In the fourth quarter of 2023 the functionality for direct parsing in JSON was finalised and the code was merged into the mainline and then released in Boost 1.84.0. Thus, I’ve moved to the natural opposite of direct parsing: direct serialisation. Boost.JSON’s serialisation is less customisable then parsing, since the demand for custom serialisation is significantly lower. As a result, the design of the serialiser is quite different from that of the parser, and hence a different approach had to be taken to implement direct serialisation. That approach, in my opinion, has a big benefit for the user: there’s no need for a dedicated direct serializer type, it can be done with the regular boost::json::serializer. On the other hand, it presents a different challenge: making changes to serializer in a way that does not negatively affect its performance too much. This fight for performance has occupied most of my time in the last quarter. And it also provided me an opportunity to experiment with different potential optimisations to the serializer. I would also like to comment that different C++ implementations sometimes have directly opposite view on what’s better or worse for performance, which poses quite a conundrum in such line of work. And finally, this work was greatly influenced by the availability of continous integration infrastructure set up by the C++ Alliance, and automatic benchmarking in particular. Another positive effect of C++ Alliance’s CI is due to coverage reporting. As I was striving to never decrease the rate of code coverage, I’ve discovered code in the serializer that used to perform a function, but have since become unnecessary due to refactoring. Overall the work on serializer has vastly increased my understanding on how JSON’s serializer works under the hood. I plan to finish the feature of direct serialization before the next Boost release.","@type":"BlogPosting","url":"http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update.html","headline":"Dmitry’s Q4 2023 Update","dateModified":"2024-01-12T00:00:00+00:00","datePublished":"2024-01-12T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/dmitry/2024/01/12/dmitrys-q4-update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Dmitry's Q4 2023 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/dmitry">
+                  Dmitry Arkhipov
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 12, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In the fourth quarter of 2023 the functionality for direct parsing in JSON was
+finalised and the code was merged into the mainline and then released in
+Boost 1.84.0. Thus, I’ve moved to the natural opposite of direct parsing:
+direct serialisation. Boost.JSON’s serialisation is less customisable then
+parsing, since the demand for custom serialisation is significantly lower. As
+a result, the design of the serialiser is quite different from that of the
+parser, and hence a different approach had to be taken to implement direct
+serialisation. That approach, in my opinion, has a big benefit for the user:
+there’s no need for a dedicated direct serializer type, it can be done with
+the regular <code>boost::json::serializer</code>. On the other hand, it presents a
+different challenge: making changes to <code>serializer</code> in a way that does not
+negatively affect its performance too much.</p>
+
+<p>This fight for performance has occupied most of my time in the last quarter.
+And it also provided me an opportunity to experiment with different potential
+optimisations to the serializer. I would also like to comment that different
+C++ implementations sometimes have directly opposite view on what’s better or
+worse for performance, which poses quite a conundrum in such line of work. And
+finally, this work was greatly influenced by the availability of continous
+integration infrastructure set up by the C++ Alliance, and automatic
+benchmarking in particular.</p>
+
+<p>Another positive effect of C++ Alliance’s CI is due to coverage reporting.
+As I was striving to never decrease the rate of code coverage, I’ve discovered
+code in the serializer that used to perform a function, but have since become
+unnecessary due to refactoring.</p>
+
+<p>Overall the work on serializer has vastly increased my understanding on how
+JSON’s serializer works under the hood. I plan to finish the feature of direct
+serialization before the next Boost release.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/16/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/10/16/dmitrys-q3-update.html">Conan Packages for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/04/22/dmitrys-q1-update.html">Some Thoughts on Documentation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/10/25/dmitrys-q3-update.html">How to Get More Utility from the Debugger in CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/07/12/dmitrys-q2-update.html">Dmitry's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/29/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/04/29/dmitrys-q1-update.html">Dmitry's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/01/12/dmitrys-q4-update.html">Dmitry's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/30/2023</span>
+          <a class='text-l news-title link' href="/dmitry/2023/10/30/dmitrys-q3-update.html">Dmitry's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/15/2021</span>
+          <a class='text-l news-title link' href="/dmitry/2021/02/15/dmitrys-january-update.html">Dmitry's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

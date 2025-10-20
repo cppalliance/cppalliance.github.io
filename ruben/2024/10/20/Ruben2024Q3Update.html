@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost.MySQL 1.87 features: with_params and with_diagnostics | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Boost.MySQL 1.87 features: with_params and with_diagnostics | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Boost.MySQL 1.87 features: with_params and with_diagnostics" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Easy client-side SQL using with_params In previous posts, we had seen how Boost.MySQL client-side SQL formatting can be used to implement a wide variety of use cases. It was originally created for complex cases, like batch inserts, but it can also be applied for simple ones. Up to Boost 1.86, to retrieve a user by ID with client-side SQL, you could write this: void lookup(mysql::any_connection&amp; conn, int id) { // Compose the query. May generate &quot;SELECT * FROM user WHERE id = 10&quot; auto query = mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM user WHERE id = {}&quot;, id); // Run it mysql::static_results&lt;user&gt; res; conn.execute(query, res); // Do something with the results } This is still verbose, and has 3 points where an error can happen: in format_opts, in format_sql and in execute. Handling these 3 without exceptions is much more involved. Boost 1.86 adds a new execution request, with_params, than can be used to simplify most queries: void lookup(mysql::any_connection&amp; conn, int id) { // Compose the query in the client and run the request mysql::static_results&lt;user&gt; res; conn.execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } When executing with_params, the given query string is formatted (as per format_sql) and then sent to the client for execution. This is much less verbose, and gathers all possible errors under the execute function, making using exception-less code much easier. It’s also more efficient, as the query is serialized directly to the network buffer. All constructs available in format_sql are available when using with_params. Exceptions with diagnostics in async functions When using throwing sync functions, like conn.execute(&quot;SELECT 1&quot;, res), an exception of type mysql::error_with_diagnostics is thrown on error. This is a system::system_error, with enhanced error information provided by the server. Implementing this is easy because the exception is thrown directly by Boost.MySQL. The async case is not that straightforward. Boost.Asio throws the exceptions for us, and has no way to access our diagnostics. Until Boost 1.86, we recommended the following: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; mysql::diagnostics diag; auto [ec] = co_await conn.async_execute(&quot;SELECT 1&quot;, r, diag, asio::as_tuple(asio::deferred)); mysql::throw_on_error(ec, diag); } This is error-prone. The new with_diagnostics completion token can be used with async throwing schemes to simplify this task: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r, mysql::with_diagnostics(asio::deferred)); } Since this is a very common case, this is actually the default completion token for any_connection, and the above can be written as: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r); } Which makes coroutines in throwing schemes actually useful. I’ve also developed another custom completion token to aid with tests. I’ve learnt a lot and I can tell you: developing a completion token is not for the faint-hearted, and requires a lot of testing. Timeouts: support for asio::cancel_after, asio::cancel_at These tokens require special support from libraries to work. Starting with Boost 1.87, Boost.MySQL supports these tokens. From now on, setting a timeout to a query is as simple as: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r, asio::cancel_after(std::chrono::seconds(5))); } Thread-safety in connection_pool connection_pool tried to provide easy thread-safety by using special executor semantics. Bug reports indicated that this is a feature that people use, but that the design wasn’t entirely correct. Now that I’ve learnt more about Asio, executors and cancellation, I’ve re-written thread-safety support for connection_pool. The interface is slightly different, specifying a boolean flag to enable or disable it. When disabled (the default), pools exhibit the usual Asio executor semantics, with no overhead. When enabled, a strand is internally created, and cancellation signals are appropriately wired to ensure robust thread-safety semantics. The thread sanitizer has helped a lot in detecting problems. I’ve also removed the connection_pool::async_get_connection overloads involving timeouts. This is now better handled by asio::cancel_after. With these changes done, connection_pool is ready to commit for API stability in Boost 1.87. pydocca migration The Boost.JSON author has kindly implemented a new version of the docca toolchain. It’s faster, has less dependencies, and produces much better output. I’ve migrated Boost.MySQL to use it. In the process, I’ve learnt the tool internals, filed a lot of issues that have been promptly solved, and in general improved the quality of my reference docs. I also developed a proof-of-concept Asciidoc generator, based on pydocca. You can see an example of the resulting docs https://anarthal.github.io/pydocca-asciidoc/mysql/boost/mysql/any_connection/connect.html:[here]. This has helped me understand the things I don’t like about the current reference doc templates, so I can provide feedback on the new ones currently under development. Modular Boost (b2) Like other libraries, Boost.MySQL has been adapted to use the new modular Boost infrastructure. As expected, some things broke, but we’ve managed to bring them up again. Other contributions I have performed some other tasks in Boost.MySQL: I’ve heavily refactored testing infrastructure, with increased support to detect non-conformities with the Asio universal model. I’ve implemented immediate executor support in connection and any_connection. I’ve performed the required preparation for the 1.86 Boost release. I’ve fixed a number of other small issues. I’ve managed to perform small contributions to other Boost libraries, including Boost.Process, Boost.Redis and Boost.Pfr." />
+<meta property="og:description" content="Easy client-side SQL using with_params In previous posts, we had seen how Boost.MySQL client-side SQL formatting can be used to implement a wide variety of use cases. It was originally created for complex cases, like batch inserts, but it can also be applied for simple ones. Up to Boost 1.86, to retrieve a user by ID with client-side SQL, you could write this: void lookup(mysql::any_connection&amp; conn, int id) { // Compose the query. May generate &quot;SELECT * FROM user WHERE id = 10&quot; auto query = mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM user WHERE id = {}&quot;, id); // Run it mysql::static_results&lt;user&gt; res; conn.execute(query, res); // Do something with the results } This is still verbose, and has 3 points where an error can happen: in format_opts, in format_sql and in execute. Handling these 3 without exceptions is much more involved. Boost 1.86 adds a new execution request, with_params, than can be used to simplify most queries: void lookup(mysql::any_connection&amp; conn, int id) { // Compose the query in the client and run the request mysql::static_results&lt;user&gt; res; conn.execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } When executing with_params, the given query string is formatted (as per format_sql) and then sent to the client for execution. This is much less verbose, and gathers all possible errors under the execute function, making using exception-less code much easier. It’s also more efficient, as the query is serialized directly to the network buffer. All constructs available in format_sql are available when using with_params. Exceptions with diagnostics in async functions When using throwing sync functions, like conn.execute(&quot;SELECT 1&quot;, res), an exception of type mysql::error_with_diagnostics is thrown on error. This is a system::system_error, with enhanced error information provided by the server. Implementing this is easy because the exception is thrown directly by Boost.MySQL. The async case is not that straightforward. Boost.Asio throws the exceptions for us, and has no way to access our diagnostics. Until Boost 1.86, we recommended the following: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; mysql::diagnostics diag; auto [ec] = co_await conn.async_execute(&quot;SELECT 1&quot;, r, diag, asio::as_tuple(asio::deferred)); mysql::throw_on_error(ec, diag); } This is error-prone. The new with_diagnostics completion token can be used with async throwing schemes to simplify this task: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r, mysql::with_diagnostics(asio::deferred)); } Since this is a very common case, this is actually the default completion token for any_connection, and the above can be written as: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r); } Which makes coroutines in throwing schemes actually useful. I’ve also developed another custom completion token to aid with tests. I’ve learnt a lot and I can tell you: developing a completion token is not for the faint-hearted, and requires a lot of testing. Timeouts: support for asio::cancel_after, asio::cancel_at These tokens require special support from libraries to work. Starting with Boost 1.87, Boost.MySQL supports these tokens. From now on, setting a timeout to a query is as simple as: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r, asio::cancel_after(std::chrono::seconds(5))); } Thread-safety in connection_pool connection_pool tried to provide easy thread-safety by using special executor semantics. Bug reports indicated that this is a feature that people use, but that the design wasn’t entirely correct. Now that I’ve learnt more about Asio, executors and cancellation, I’ve re-written thread-safety support for connection_pool. The interface is slightly different, specifying a boolean flag to enable or disable it. When disabled (the default), pools exhibit the usual Asio executor semantics, with no overhead. When enabled, a strand is internally created, and cancellation signals are appropriately wired to ensure robust thread-safety semantics. The thread sanitizer has helped a lot in detecting problems. I’ve also removed the connection_pool::async_get_connection overloads involving timeouts. This is now better handled by asio::cancel_after. With these changes done, connection_pool is ready to commit for API stability in Boost 1.87. pydocca migration The Boost.JSON author has kindly implemented a new version of the docca toolchain. It’s faster, has less dependencies, and produces much better output. I’ve migrated Boost.MySQL to use it. In the process, I’ve learnt the tool internals, filed a lot of issues that have been promptly solved, and in general improved the quality of my reference docs. I also developed a proof-of-concept Asciidoc generator, based on pydocca. You can see an example of the resulting docs https://anarthal.github.io/pydocca-asciidoc/mysql/boost/mysql/any_connection/connect.html:[here]. This has helped me understand the things I don’t like about the current reference doc templates, so I can provide feedback on the new ones currently under development. Modular Boost (b2) Like other libraries, Boost.MySQL has been adapted to use the new modular Boost infrastructure. As expected, some things broke, but we’ve managed to bring them up again. Other contributions I have performed some other tasks in Boost.MySQL: I’ve heavily refactored testing infrastructure, with increased support to detect non-conformities with the Asio universal model. I’ve implemented immediate executor support in connection and any_connection. I’ve performed the required preparation for the 1.86 Boost release. I’ve fixed a number of other small issues. I’ve managed to perform small contributions to other Boost libraries, including Boost.Process, Boost.Redis and Boost.Pfr." />
+<link rel="canonical" href="http://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-10-20T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Boost.MySQL 1.87 features: with_params and with_diagnostics" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Easy client-side SQL using with_params In previous posts, we had seen how Boost.MySQL client-side SQL formatting can be used to implement a wide variety of use cases. It was originally created for complex cases, like batch inserts, but it can also be applied for simple ones. Up to Boost 1.86, to retrieve a user by ID with client-side SQL, you could write this: void lookup(mysql::any_connection&amp; conn, int id) { // Compose the query. May generate &quot;SELECT * FROM user WHERE id = 10&quot; auto query = mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM user WHERE id = {}&quot;, id); // Run it mysql::static_results&lt;user&gt; res; conn.execute(query, res); // Do something with the results } This is still verbose, and has 3 points where an error can happen: in format_opts, in format_sql and in execute. Handling these 3 without exceptions is much more involved. Boost 1.86 adds a new execution request, with_params, than can be used to simplify most queries: void lookup(mysql::any_connection&amp; conn, int id) { // Compose the query in the client and run the request mysql::static_results&lt;user&gt; res; conn.execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } When executing with_params, the given query string is formatted (as per format_sql) and then sent to the client for execution. This is much less verbose, and gathers all possible errors under the execute function, making using exception-less code much easier. It’s also more efficient, as the query is serialized directly to the network buffer. All constructs available in format_sql are available when using with_params. Exceptions with diagnostics in async functions When using throwing sync functions, like conn.execute(&quot;SELECT 1&quot;, res), an exception of type mysql::error_with_diagnostics is thrown on error. This is a system::system_error, with enhanced error information provided by the server. Implementing this is easy because the exception is thrown directly by Boost.MySQL. The async case is not that straightforward. Boost.Asio throws the exceptions for us, and has no way to access our diagnostics. Until Boost 1.86, we recommended the following: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; mysql::diagnostics diag; auto [ec] = co_await conn.async_execute(&quot;SELECT 1&quot;, r, diag, asio::as_tuple(asio::deferred)); mysql::throw_on_error(ec, diag); } This is error-prone. The new with_diagnostics completion token can be used with async throwing schemes to simplify this task: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r, mysql::with_diagnostics(asio::deferred)); } Since this is a very common case, this is actually the default completion token for any_connection, and the above can be written as: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r); } Which makes coroutines in throwing schemes actually useful. I’ve also developed another custom completion token to aid with tests. I’ve learnt a lot and I can tell you: developing a completion token is not for the faint-hearted, and requires a lot of testing. Timeouts: support for asio::cancel_after, asio::cancel_at These tokens require special support from libraries to work. Starting with Boost 1.87, Boost.MySQL supports these tokens. From now on, setting a timeout to a query is as simple as: asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r, asio::cancel_after(std::chrono::seconds(5))); } Thread-safety in connection_pool connection_pool tried to provide easy thread-safety by using special executor semantics. Bug reports indicated that this is a feature that people use, but that the design wasn’t entirely correct. Now that I’ve learnt more about Asio, executors and cancellation, I’ve re-written thread-safety support for connection_pool. The interface is slightly different, specifying a boolean flag to enable or disable it. When disabled (the default), pools exhibit the usual Asio executor semantics, with no overhead. When enabled, a strand is internally created, and cancellation signals are appropriately wired to ensure robust thread-safety semantics. The thread sanitizer has helped a lot in detecting problems. I’ve also removed the connection_pool::async_get_connection overloads involving timeouts. This is now better handled by asio::cancel_after. With these changes done, connection_pool is ready to commit for API stability in Boost 1.87. pydocca migration The Boost.JSON author has kindly implemented a new version of the docca toolchain. It’s faster, has less dependencies, and produces much better output. I’ve migrated Boost.MySQL to use it. In the process, I’ve learnt the tool internals, filed a lot of issues that have been promptly solved, and in general improved the quality of my reference docs. I also developed a proof-of-concept Asciidoc generator, based on pydocca. You can see an example of the resulting docs https://anarthal.github.io/pydocca-asciidoc/mysql/boost/mysql/any_connection/connect.html:[here]. This has helped me understand the things I don’t like about the current reference doc templates, so I can provide feedback on the new ones currently under development. Modular Boost (b2) Like other libraries, Boost.MySQL has been adapted to use the new modular Boost infrastructure. As expected, some things broke, but we’ve managed to bring them up again. Other contributions I have performed some other tasks in Boost.MySQL: I’ve heavily refactored testing infrastructure, with increased support to detect non-conformities with the Asio universal model. I’ve implemented immediate executor support in connection and any_connection. I’ve performed the required preparation for the 1.86 Boost release. I’ve fixed a number of other small issues. I’ve managed to perform small contributions to other Boost libraries, including Boost.Process, Boost.Redis and Boost.Pfr.","@type":"BlogPosting","url":"http://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html","headline":"Boost.MySQL 1.87 features: with_params and with_diagnostics","dateModified":"2024-10-20T00:00:00+00:00","datePublished":"2024-10-20T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Boost.MySQL 1.87 features: with_params and with_diagnostics</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 20, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="easy-client-side-sql-using-with_params">Easy client-side SQL using with_params</h2>
+
+<p>In previous posts, we had seen how Boost.MySQL client-side SQL formatting
+can be used to implement a wide variety of use cases. It was originally
+created for complex cases, like batch inserts, but it can also be applied for
+simple ones. Up to Boost 1.86, to retrieve a user by ID with client-side SQL,
+you could write this:</p>
+
+<pre><code class="language-cpp">void lookup(mysql::any_connection&amp; conn, int id)
+{
+    // Compose the query. May generate "SELECT * FROM user WHERE id  = 10"
+    auto query = mysql::format_sql(conn.format_opts().value(), "SELECT * FROM user WHERE id = {}", id);
+
+    // Run it
+    mysql::static_results&lt;user&gt; res;
+    conn.execute(query, res);
+
+    // Do something with the results
+}
+</code></pre>
+
+<p>This is still verbose, and has 3 points where an error can happen:
+in <code>format_opts</code>, in <code>format_sql</code> and in <code>execute</code>.
+Handling these 3 without exceptions is much more involved.</p>
+
+<p>Boost 1.86 adds a new execution request, <code>with_params</code>, than can be used to simplify
+most queries:</p>
+
+<pre><code class="language-cpp">void lookup(mysql::any_connection&amp; conn, int id)
+{
+    // Compose the query in the client and run the request
+    mysql::static_results&lt;user&gt; res;
+    conn.execute(mysql::with_params("SELECT * FROM user WHERE id = {}", id), res);
+
+    // Do something with the results
+}
+</code></pre>
+
+<p>When executing <code>with_params</code>, the given query string is formatted
+(as per <code>format_sql</code>) and then sent to the client for execution.</p>
+
+<p>This is much less verbose, and gathers all possible errors under the <code>execute</code> function,
+making using exception-less code much easier. It’s also more efficient, as
+the query is serialized directly to the network buffer.
+All constructs available in <code>format_sql</code> are available when using <code>with_params</code>.</p>
+
+<h2 id="exceptions-with-diagnostics-in-async-functions">Exceptions with diagnostics in async functions</h2>
+
+<p>When using throwing sync functions, like <code>conn.execute("SELECT 1", res)</code>,
+an exception of type <code>mysql::error_with_diagnostics</code> is thrown on error.
+This is a <code>system::system_error</code>, with enhanced error information
+provided by the server. Implementing this is easy because the
+exception is thrown directly by Boost.MySQL.</p>
+
+<p>The async case is not that straightforward. Boost.Asio throws the exceptions
+for us, and has no way to access our diagnostics. Until Boost 1.86,
+we recommended the following:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn)
+{
+    mysql::results r;
+    mysql::diagnostics diag;
+    auto [ec] = co_await conn.async_execute("SELECT 1", r, diag, asio::as_tuple(asio::deferred));
+    mysql::throw_on_error(ec, diag);
+}
+</code></pre>
+
+<p>This is error-prone. The new <code>with_diagnostics</code> completion token
+can be used with async throwing schemes to simplify this task:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn)
+{
+    mysql::results r;
+    co_await conn.async_execute("SELECT 1", r, mysql::with_diagnostics(asio::deferred));
+}
+</code></pre>
+
+<p>Since this is a very common case, this is actually the default completion
+token for <code>any_connection</code>, and the above can be written as:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn)
+{
+    mysql::results r;
+    co_await conn.async_execute("SELECT 1", r);
+}
+</code></pre>
+
+<p>Which makes coroutines in throwing schemes actually useful.</p>
+
+<p>I’ve also developed another custom completion token to aid with tests.
+I’ve learnt a lot and I can tell you: developing a completion token
+is not for the faint-hearted, and requires <em>a lot</em> of testing.</p>
+
+<h2 id="timeouts-support-for-asiocancel_after-asiocancel_at">Timeouts: support for asio::cancel_after, asio::cancel_at</h2>
+
+<p>These tokens require special support from libraries to work.
+Starting with Boost 1.87, Boost.MySQL supports these tokens.
+From now on, setting a timeout to a query is as simple as:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;void&gt; handle_request(mysql::connection&amp; conn)
+{
+    mysql::results r;
+    co_await conn.async_execute("SELECT 1", r, asio::cancel_after(std::chrono::seconds(5)));
+}
+</code></pre>
+
+<h2 id="thread-safety-in-connection_pool">Thread-safety in connection_pool</h2>
+
+<p><code>connection_pool</code> tried to provide easy thread-safety by using special executor
+semantics. Bug reports indicated that this is a feature that people use, but
+that the design wasn’t entirely correct. Now that I’ve learnt more about
+Asio, executors and cancellation, I’ve re-written thread-safety support
+for <code>connection_pool</code>.</p>
+
+<p>The interface is slightly different, specifying a boolean flag to enable
+or disable it. When disabled (the default), pools exhibit the usual Asio
+executor semantics, with no overhead. When enabled, a strand is internally
+created, and cancellation signals are appropriately wired to ensure
+robust thread-safety semantics. The thread sanitizer has helped a lot
+in detecting problems.</p>
+
+<p>I’ve also removed the <code>connection_pool::async_get_connection</code> overloads
+involving timeouts. This is now better handled by <code>asio::cancel_after</code>.</p>
+
+<p>With these changes done, <code>connection_pool</code> is ready to commit
+for API stability in Boost 1.87.</p>
+
+<h2 id="pydocca-migration">pydocca migration</h2>
+
+<p>The Boost.JSON author has kindly implemented a new version of the
+<code>docca</code> toolchain. It’s faster, has less dependencies, and
+produces much better output.</p>
+
+<p>I’ve migrated Boost.MySQL to use it. In the process, I’ve learnt
+the tool internals, filed a lot of issues that have been promptly
+solved, and in general improved the quality of my reference docs.</p>
+
+<p>I also developed a proof-of-concept Asciidoc generator,
+based on pydocca. You can see an example of the resulting docs
+https://anarthal.github.io/pydocca-asciidoc/mysql/boost/mysql/any_connection/connect.html:[here].
+This has helped me understand the things I don’t like
+about the current reference doc templates, so I can provide
+feedback on the new ones currently under development.</p>
+
+<h2 id="modular-boost-b2">Modular Boost (b2)</h2>
+
+<p>Like other libraries, Boost.MySQL has been adapted to use
+the new modular Boost infrastructure. As expected, some things
+broke, but we’ve managed to bring them up again.</p>
+
+<h2 id="other-contributions">Other contributions</h2>
+
+<p>I have performed some other tasks in Boost.MySQL:</p>
+
+<ul>
+  <li>I’ve heavily refactored testing infrastructure, with increased support
+to detect non-conformities with the Asio universal model.</li>
+  <li>I’ve implemented immediate executor support in <code>connection</code> and <code>any_connection</code>.</li>
+  <li>I’ve performed the required preparation for the 1.86 Boost release.</li>
+  <li>I’ve fixed a number of other small issues.</li>
+</ul>
+
+<p>I’ve managed to perform small contributions to other Boost libraries, including
+Boost.Process, Boost.Redis and Boost.Pfr.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/07/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/10/07/Ruben2025Q3Update.html">Levelling up Boost.Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/07/10/Ruben2025Q2Update.html">Ready, Set, Redis!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/04/10/Ruben2025Q1Update.html">Moving Boost forward: Asio, coroutines, and maybe even modules</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/06/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/01/06/Ruben2024Q4Update.html">Boost.MySQL 1.87 and the new Boost citizens</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/ruben/2024/10/20/Ruben2024Q3Update.html">Boost.MySQL 1.87 features: with_params and with_diagnostics</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/ruben/2023/10/27/Rubens2023Q3Update.html">Ruben's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

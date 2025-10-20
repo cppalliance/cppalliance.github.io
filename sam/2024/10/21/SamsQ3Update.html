@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud  and Infrastructure Update Q3 2024 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Cloud and Infrastructure Update Q3 2024 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Cloud and Infrastructure Update Q3 2024" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost release process boostorg/release-tools In the previous quarter, publish_release.py included features to support the Fastly CDN at archives.boost.io. This quarter, that functionality was put into action with the release of Boost 1.86.0, and it was a chance to fine-tune and improve the script. More error checking. Adding a preflight phase to test SSH. Adjusting the publish_release.py script to stage windows executables for Tom Kent, so they are relocated to a publicly visible folder during a release. Generally the file upload target is AWS S3, and from there the CDN origin servers download the archives. Revamping build_docs scripts: add python venv to mac and windows. Support macos-14. Briefly investigating docca - python issue that affected boost builds. Deployed 24.04 version of docker image for the main boostorg/boost jobs. Fixed zip and 7z failures appearing on 24.04. Boost website boostorg/website-v2 Composed a cost inventory spreadsheet of the new infrastructure. Debugging an outage of the site that was traced back to redis -&gt; django-health-check -&gt; celery. Frank Wiles from Revsys ultimately solved this puzzle by adjusting a celery configuration variable. Wrote local website development bootstrap scripts that will install all prerequisites for local development and then even launch docker-compose. Versions for mac, windows, linux. Updated the corresponding documentation, such that it’s equally feasible to go through the steps manually to see what’s being installed and then launch docker-compose from the command-line. Researched how to selectively purge the Fastly CDN cache - and specifically applying that to /release/ on boost.io. Mailman project Revising runbook (steps to go-live in the future). Incorporated Greg’s changes to install a boost.io header on the mailing lists. Reduced and consolidated those files. Created ansible deployment for that feature. Now temporarily removing customizations before deployment. They may be returned later. Upgraded the operating system on all mm3 test instances. Tested. Switched the search engine from Elastic Search to Xapian, which is better supported in terms of the Django modules. Submitted upstream pull requests (merged) which document an improved Xapian installation method further document how the core and web components interact in terms of the db Slack Discussing slackbot implementations with Kenneth. wowbagger Documented and published issues about the various problems on the legacy web server. Contributed to Kenneth’s docker-compose strategy for the original boost.org website to allow local development via docker-compose, by downloading boost archives so the local environment is functional. Worked with Rob to include Plausible analytics on boost.org. Jenkins Investigate/repair doc builds of mrdocs, http_proto. Modify doc builds of beast, url. Generated PR doc builds of safe-cpp. Added a GHA step to render the html upon commit. Upgraded the Jenkins executable, and plugins. Set up previews of boostlook. master/develop and PRs. JSON Benchmarks After experimenting on a Hetzner server, switched JSON Benchmarks to a new Xeon processor from KnownHost. Intel core processors are aimed at the consumer market while Xeon is a server architecture and is more consistent when running benchmark tests. Replaced Jenkins runner, canceled previous server. GHA Debugging certain boost library jobs. Also, with the hosted runners, determined there was a systematic problem that the bootprocess was timing out too quickly. Adjusted terraform settings and redeployed. Would be good to propose a PR upstream to terraform: the timeout is too fast. Enabled billing for math-cuda gpu tests. Macminivault billing issues. Resizing terraform runner Windows 2022, to add 30GB more disk space, and Pagefile (memory). Built new Ubuntu runners, newer kernel, adjusting OS versions on boostorg/unordered GHA to fix sanitizers. Drone Assisted developers in debugging jobs. Scripted docker image cleanup on drone instances. Installed a cron job to clear the autoscaler, solving an issue that occasionally jobs get stuck in pending mode, preventing the instances from scaling." />
+<meta property="og:description" content="Boost release process boostorg/release-tools In the previous quarter, publish_release.py included features to support the Fastly CDN at archives.boost.io. This quarter, that functionality was put into action with the release of Boost 1.86.0, and it was a chance to fine-tune and improve the script. More error checking. Adding a preflight phase to test SSH. Adjusting the publish_release.py script to stage windows executables for Tom Kent, so they are relocated to a publicly visible folder during a release. Generally the file upload target is AWS S3, and from there the CDN origin servers download the archives. Revamping build_docs scripts: add python venv to mac and windows. Support macos-14. Briefly investigating docca - python issue that affected boost builds. Deployed 24.04 version of docker image for the main boostorg/boost jobs. Fixed zip and 7z failures appearing on 24.04. Boost website boostorg/website-v2 Composed a cost inventory spreadsheet of the new infrastructure. Debugging an outage of the site that was traced back to redis -&gt; django-health-check -&gt; celery. Frank Wiles from Revsys ultimately solved this puzzle by adjusting a celery configuration variable. Wrote local website development bootstrap scripts that will install all prerequisites for local development and then even launch docker-compose. Versions for mac, windows, linux. Updated the corresponding documentation, such that it’s equally feasible to go through the steps manually to see what’s being installed and then launch docker-compose from the command-line. Researched how to selectively purge the Fastly CDN cache - and specifically applying that to /release/ on boost.io. Mailman project Revising runbook (steps to go-live in the future). Incorporated Greg’s changes to install a boost.io header on the mailing lists. Reduced and consolidated those files. Created ansible deployment for that feature. Now temporarily removing customizations before deployment. They may be returned later. Upgraded the operating system on all mm3 test instances. Tested. Switched the search engine from Elastic Search to Xapian, which is better supported in terms of the Django modules. Submitted upstream pull requests (merged) which document an improved Xapian installation method further document how the core and web components interact in terms of the db Slack Discussing slackbot implementations with Kenneth. wowbagger Documented and published issues about the various problems on the legacy web server. Contributed to Kenneth’s docker-compose strategy for the original boost.org website to allow local development via docker-compose, by downloading boost archives so the local environment is functional. Worked with Rob to include Plausible analytics on boost.org. Jenkins Investigate/repair doc builds of mrdocs, http_proto. Modify doc builds of beast, url. Generated PR doc builds of safe-cpp. Added a GHA step to render the html upon commit. Upgraded the Jenkins executable, and plugins. Set up previews of boostlook. master/develop and PRs. JSON Benchmarks After experimenting on a Hetzner server, switched JSON Benchmarks to a new Xeon processor from KnownHost. Intel core processors are aimed at the consumer market while Xeon is a server architecture and is more consistent when running benchmark tests. Replaced Jenkins runner, canceled previous server. GHA Debugging certain boost library jobs. Also, with the hosted runners, determined there was a systematic problem that the bootprocess was timing out too quickly. Adjusted terraform settings and redeployed. Would be good to propose a PR upstream to terraform: the timeout is too fast. Enabled billing for math-cuda gpu tests. Macminivault billing issues. Resizing terraform runner Windows 2022, to add 30GB more disk space, and Pagefile (memory). Built new Ubuntu runners, newer kernel, adjusting OS versions on boostorg/unordered GHA to fix sanitizers. Drone Assisted developers in debugging jobs. Scripted docker image cleanup on drone instances. Installed a cron job to clear the autoscaler, solving an issue that occasionally jobs get stuck in pending mode, preventing the instances from scaling." />
+<link rel="canonical" href="http://cppalliance.org/sam/2024/10/21/SamsQ3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2024/10/21/SamsQ3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-10-21T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Cloud and Infrastructure Update Q3 2024" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost release process boostorg/release-tools In the previous quarter, publish_release.py included features to support the Fastly CDN at archives.boost.io. This quarter, that functionality was put into action with the release of Boost 1.86.0, and it was a chance to fine-tune and improve the script. More error checking. Adding a preflight phase to test SSH. Adjusting the publish_release.py script to stage windows executables for Tom Kent, so they are relocated to a publicly visible folder during a release. Generally the file upload target is AWS S3, and from there the CDN origin servers download the archives. Revamping build_docs scripts: add python venv to mac and windows. Support macos-14. Briefly investigating docca - python issue that affected boost builds. Deployed 24.04 version of docker image for the main boostorg/boost jobs. Fixed zip and 7z failures appearing on 24.04. Boost website boostorg/website-v2 Composed a cost inventory spreadsheet of the new infrastructure. Debugging an outage of the site that was traced back to redis -&gt; django-health-check -&gt; celery. Frank Wiles from Revsys ultimately solved this puzzle by adjusting a celery configuration variable. Wrote local website development bootstrap scripts that will install all prerequisites for local development and then even launch docker-compose. Versions for mac, windows, linux. Updated the corresponding documentation, such that it’s equally feasible to go through the steps manually to see what’s being installed and then launch docker-compose from the command-line. Researched how to selectively purge the Fastly CDN cache - and specifically applying that to /release/ on boost.io. Mailman project Revising runbook (steps to go-live in the future). Incorporated Greg’s changes to install a boost.io header on the mailing lists. Reduced and consolidated those files. Created ansible deployment for that feature. Now temporarily removing customizations before deployment. They may be returned later. Upgraded the operating system on all mm3 test instances. Tested. Switched the search engine from Elastic Search to Xapian, which is better supported in terms of the Django modules. Submitted upstream pull requests (merged) which document an improved Xapian installation method further document how the core and web components interact in terms of the db Slack Discussing slackbot implementations with Kenneth. wowbagger Documented and published issues about the various problems on the legacy web server. Contributed to Kenneth’s docker-compose strategy for the original boost.org website to allow local development via docker-compose, by downloading boost archives so the local environment is functional. Worked with Rob to include Plausible analytics on boost.org. Jenkins Investigate/repair doc builds of mrdocs, http_proto. Modify doc builds of beast, url. Generated PR doc builds of safe-cpp. Added a GHA step to render the html upon commit. Upgraded the Jenkins executable, and plugins. Set up previews of boostlook. master/develop and PRs. JSON Benchmarks After experimenting on a Hetzner server, switched JSON Benchmarks to a new Xeon processor from KnownHost. Intel core processors are aimed at the consumer market while Xeon is a server architecture and is more consistent when running benchmark tests. Replaced Jenkins runner, canceled previous server. GHA Debugging certain boost library jobs. Also, with the hosted runners, determined there was a systematic problem that the bootprocess was timing out too quickly. Adjusted terraform settings and redeployed. Would be good to propose a PR upstream to terraform: the timeout is too fast. Enabled billing for math-cuda gpu tests. Macminivault billing issues. Resizing terraform runner Windows 2022, to add 30GB more disk space, and Pagefile (memory). Built new Ubuntu runners, newer kernel, adjusting OS versions on boostorg/unordered GHA to fix sanitizers. Drone Assisted developers in debugging jobs. Scripted docker image cleanup on drone instances. Installed a cron job to clear the autoscaler, solving an issue that occasionally jobs get stuck in pending mode, preventing the instances from scaling.","@type":"BlogPosting","url":"http://cppalliance.org/sam/2024/10/21/SamsQ3Update.html","headline":"Cloud and Infrastructure Update Q3 2024","dateModified":"2024-10-21T00:00:00+00:00","datePublished":"2024-10-21T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2024/10/21/SamsQ3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Cloud  and Infrastructure Update Q3 2024</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 21, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h3 id="boost-release-process-boostorgrelease-tools">Boost release process boostorg/release-tools</h3>
+
+<p>In the previous quarter, publish_release.py included features to support the Fastly CDN at archives.boost.io. This quarter, that functionality was put into action with the release of Boost 1.86.0, and it was a chance to fine-tune and improve the script. More error checking. Adding a preflight phase to test SSH. Adjusting the publish_release.py script to stage windows executables for Tom Kent, so they are relocated to a publicly visible folder during a release.
+Generally the file upload target is AWS S3, and from there the CDN origin servers download the archives.
+Revamping build_docs scripts: add python venv to mac and windows. Support macos-14.
+Briefly investigating docca - python issue that affected boost builds.
+Deployed 24.04 version of docker image for the main boostorg/boost jobs. Fixed zip and 7z failures appearing on 24.04.</p>
+
+<h3 id="boost-website-boostorgwebsite-v2">Boost website boostorg/website-v2</h3>
+
+<p>Composed a cost inventory spreadsheet of the new infrastructure. Debugging an outage of the site that was traced back to redis -&gt; django-health-check -&gt; celery. Frank Wiles from Revsys ultimately solved this puzzle by adjusting a celery configuration variable.</p>
+
+<p>Wrote local website development bootstrap scripts that will install all prerequisites for local development and then even launch docker-compose. Versions for mac, windows, linux. Updated the corresponding documentation, such that it’s equally feasible to go through the steps manually to see what’s being installed and then launch docker-compose from the command-line.</p>
+
+<p>Researched how to selectively purge the Fastly CDN cache - and specifically applying that to /release/ on boost.io.</p>
+
+<h3 id="mailman-project">Mailman project</h3>
+
+<p>Revising runbook (steps to go-live in the future).
+Incorporated Greg’s changes to install a boost.io header on the mailing lists. Reduced and consolidated those files. Created ansible deployment for that feature. Now temporarily removing customizations before deployment. They may be returned later.
+Upgraded the operating system on all mm3 test instances. Tested. Switched the search engine from Elastic Search to Xapian, which is better supported in terms of the Django modules.
+Submitted upstream pull requests (merged) which</p>
+<ul>
+  <li>document an improved Xapian installation method</li>
+  <li>further document how the core and web components interact in terms of the db</li>
+</ul>
+
+<h3 id="slack">Slack</h3>
+
+<p>Discussing slackbot implementations with Kenneth.</p>
+
+<h3 id="wowbagger">wowbagger</h3>
+
+<p>Documented and published issues about the various problems on the legacy web server.
+Contributed to Kenneth’s docker-compose strategy for the original boost.org website to allow local development via docker-compose, by downloading boost archives so the local environment is functional.
+Worked with Rob to include Plausible analytics on boost.org.</p>
+
+<h3 id="jenkins">Jenkins</h3>
+
+<p>Investigate/repair doc builds of mrdocs, http_proto.
+Modify doc builds of beast, url.
+Generated PR doc builds of safe-cpp. Added a GHA step to render the html upon commit.
+Upgraded the Jenkins executable, and plugins.
+Set up previews of boostlook. master/develop and PRs.</p>
+
+<h3 id="json-benchmarks">JSON Benchmarks</h3>
+
+<p>After experimenting on a Hetzner server, switched JSON Benchmarks to a new Xeon processor from KnownHost. Intel core processors are aimed at the consumer market while Xeon is a server architecture and is more consistent when running benchmark tests. Replaced Jenkins runner, canceled previous server.</p>
+
+<h3 id="gha">GHA</h3>
+
+<p>Debugging certain boost library jobs. Also, with the hosted runners, determined there was a systematic problem that the bootprocess was timing out too quickly. Adjusted terraform settings and redeployed. Would be good to propose a PR upstream to terraform: the timeout is too fast.
+Enabled billing for math-cuda gpu tests.
+Macminivault billing issues.
+Resizing terraform runner Windows 2022, to add 30GB more disk space, and Pagefile (memory).
+Built new Ubuntu runners, newer kernel, adjusting OS versions on boostorg/unordered GHA to fix sanitizers.</p>
+
+<h3 id="drone">Drone</h3>
+
+<p>Assisted developers in debugging jobs.
+Scripted docker image cleanup on drone instances. 
+Installed a cron job to clear the autoscaler, solving an issue that occasionally jobs get stuck in pending mode, preventing the instances from scaling.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruben's Q1 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Ruben’s Q1 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Ruben’s Q1 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Client-side SQL formatting A new grand feature has arrived to Boost.MySQL’s city: client-side SQL formatting. If you’ve worked with MySQL C API before, you may be familiar with mysql_real_escape_string: a function that takes a string and escapes it, enabling the user to compose queries dynamically without the risk of running into SQL injection vulnerabilities. We didn’t have a matching function in Boost.MySQL… until now. mysql_real_escape_string is a pretty low-level construct. While we have an equivalent function, I also wanted to build higher-level functionality to allow composing dynamic SQL queries in a simple way. Let’s say you want to insert a bunch of employee records into a table. Until now, the only way to go was use prepared statements, like this: asio::awaitable&lt;void&gt; insert_employees( mysql::any_connection&amp; conn, span&lt;const employee&gt; employees ) { assert(!employees.empty()); // Prepare a statement auto stmt = co_await conn.async_prepare_statement(&quot;INSERT INTO employee (name, company) VALUES (?, ?)&quot;, asio::deferred); // Execute it as many times as records we want to insert. // Note that this performs a round-trip to the server for each record for (const auto&amp; emp: employees) { co_await conn.async_execute(stmt.bind(emp.name, emp.company), asio::deferred); } } This can be pretty inefficient, as we’re inserting records one by one. If you’re experienced with SQL, you may be thinking: “why don’t you batch the inserts in a single query”? We can’t do this with prepared statements. But if we had a way to securely compose a query client-side… Fortunately, we now have this! asio::awaitable&lt;void&gt; insert_employees( mysql::any_connection&amp; conn, span&lt;const employee&gt; employees ) { assert(!employees.empty()); // Compose a query string client-side, using fmtlib-like format strings. // Formatting will take care of escaping your string values mysql::format_context ctx(opts); ctx.append_raw(&quot;INSERT INTO employee (name, company) VALUES &quot;); bool is_first = true; for (const auto&amp; emp : employees) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual record mysql::format_sql_to(ctx, &quot;({}, {})&quot;, emp.name, emp.company); } std::string query = std::move(ctx).get().value(); co_await conn.async_execute(query, asio::use_awaitable); } And if you’re issuing simple queries, you may be able to avoid prepared statements altogether: asio::awaitable&lt;employee&gt; get_employee_by_id( mysql::any_connection&amp; conn, std::int64_t id ) { mysql::static_results&lt;employee&gt; r; co_await conn.async_execute( mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM employee WHERE id = {}&quot;, id), asio::deferred ); co_return std::move(r.rows().at(0)); } This feature enables lots of other complex use cases, like dynamic filters, patch-like updates and pipelining. Boost.PFR integration and maintenance work Boost.PFR users may be happy to know that static_results and friends now support PFR types! This will become available in Boost 1.86. Additionally, I’ve been doing some extra maintenance work to attempt to deliver a Boost 1.85 as high-quality as possible. Boost.Charconv Many of you may have heard that Boost.Charconv, by Matt Borland, is now a proud member of Boost! Charconv is a high-quality polyfill library that provides functionality like std::to_chars and std::from_chars in C++11. I desperately needed this for Boost.MySQL, as text queries parse ints and doubles, and client-side formatting serializes them. Locale-independence is particularly important for the latter, as SELECT 4.2 is valid SQL, while SELECT 4,2 may open the door to a SQL injection vulnerability. Not fun. I feel that just reading the documentation and playing with a library is sometimes not enough to emit a useful review. I thought I could do better this time, and took a different approach to the review: I’d try to use the library in Boost.MySQL and report my experience. I’m pretty satisfied with the results, as focusing on a real use case avoids bike-shedding and provides good feedback. As Boost.MySQL has an extensive test suite, rewriting part of it makes the library build and run under many different scenarios, usually uncovering subtle integration issues (e.g. with CMake files). I’ve been very happy with the quality of the library and the author’s response to my feedback, and I’ve decided to be an early adopter - Boost.MySQL 1.85 uses Charconv extensively. Boost.Parser Since the new review approach had worked great, I decided to repeat it for Boost.Parser. I rewrote the client-side SQL formatting feature, which parses format strings, using Boost.Parser. Again, it by uncovering a couple of issues. I can’t use Boost.Parser in MySQL because it requires C++17 (and is an overshot, considering my simple use case). But I feel the review was helpful for Boost’s overall quality. Other contributions I’ve also helped Boost.Redis’ author to set up part of his integration testing CI, following what I learnt setting up Boost.MySQL CIs. I’ve also refactored MySQL’s build scripts to be more compliant with Boost best-practices, which has provided me some exposure to Boost’s internal machinery." />
+<meta property="og:description" content="Client-side SQL formatting A new grand feature has arrived to Boost.MySQL’s city: client-side SQL formatting. If you’ve worked with MySQL C API before, you may be familiar with mysql_real_escape_string: a function that takes a string and escapes it, enabling the user to compose queries dynamically without the risk of running into SQL injection vulnerabilities. We didn’t have a matching function in Boost.MySQL… until now. mysql_real_escape_string is a pretty low-level construct. While we have an equivalent function, I also wanted to build higher-level functionality to allow composing dynamic SQL queries in a simple way. Let’s say you want to insert a bunch of employee records into a table. Until now, the only way to go was use prepared statements, like this: asio::awaitable&lt;void&gt; insert_employees( mysql::any_connection&amp; conn, span&lt;const employee&gt; employees ) { assert(!employees.empty()); // Prepare a statement auto stmt = co_await conn.async_prepare_statement(&quot;INSERT INTO employee (name, company) VALUES (?, ?)&quot;, asio::deferred); // Execute it as many times as records we want to insert. // Note that this performs a round-trip to the server for each record for (const auto&amp; emp: employees) { co_await conn.async_execute(stmt.bind(emp.name, emp.company), asio::deferred); } } This can be pretty inefficient, as we’re inserting records one by one. If you’re experienced with SQL, you may be thinking: “why don’t you batch the inserts in a single query”? We can’t do this with prepared statements. But if we had a way to securely compose a query client-side… Fortunately, we now have this! asio::awaitable&lt;void&gt; insert_employees( mysql::any_connection&amp; conn, span&lt;const employee&gt; employees ) { assert(!employees.empty()); // Compose a query string client-side, using fmtlib-like format strings. // Formatting will take care of escaping your string values mysql::format_context ctx(opts); ctx.append_raw(&quot;INSERT INTO employee (name, company) VALUES &quot;); bool is_first = true; for (const auto&amp; emp : employees) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual record mysql::format_sql_to(ctx, &quot;({}, {})&quot;, emp.name, emp.company); } std::string query = std::move(ctx).get().value(); co_await conn.async_execute(query, asio::use_awaitable); } And if you’re issuing simple queries, you may be able to avoid prepared statements altogether: asio::awaitable&lt;employee&gt; get_employee_by_id( mysql::any_connection&amp; conn, std::int64_t id ) { mysql::static_results&lt;employee&gt; r; co_await conn.async_execute( mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM employee WHERE id = {}&quot;, id), asio::deferred ); co_return std::move(r.rows().at(0)); } This feature enables lots of other complex use cases, like dynamic filters, patch-like updates and pipelining. Boost.PFR integration and maintenance work Boost.PFR users may be happy to know that static_results and friends now support PFR types! This will become available in Boost 1.86. Additionally, I’ve been doing some extra maintenance work to attempt to deliver a Boost 1.85 as high-quality as possible. Boost.Charconv Many of you may have heard that Boost.Charconv, by Matt Borland, is now a proud member of Boost! Charconv is a high-quality polyfill library that provides functionality like std::to_chars and std::from_chars in C++11. I desperately needed this for Boost.MySQL, as text queries parse ints and doubles, and client-side formatting serializes them. Locale-independence is particularly important for the latter, as SELECT 4.2 is valid SQL, while SELECT 4,2 may open the door to a SQL injection vulnerability. Not fun. I feel that just reading the documentation and playing with a library is sometimes not enough to emit a useful review. I thought I could do better this time, and took a different approach to the review: I’d try to use the library in Boost.MySQL and report my experience. I’m pretty satisfied with the results, as focusing on a real use case avoids bike-shedding and provides good feedback. As Boost.MySQL has an extensive test suite, rewriting part of it makes the library build and run under many different scenarios, usually uncovering subtle integration issues (e.g. with CMake files). I’ve been very happy with the quality of the library and the author’s response to my feedback, and I’ve decided to be an early adopter - Boost.MySQL 1.85 uses Charconv extensively. Boost.Parser Since the new review approach had worked great, I decided to repeat it for Boost.Parser. I rewrote the client-side SQL formatting feature, which parses format strings, using Boost.Parser. Again, it by uncovering a couple of issues. I can’t use Boost.Parser in MySQL because it requires C++17 (and is an overshot, considering my simple use case). But I feel the review was helpful for Boost’s overall quality. Other contributions I’ve also helped Boost.Redis’ author to set up part of his integration testing CI, following what I learnt setting up Boost.MySQL CIs. I’ve also refactored MySQL’s build scripts to be more compliant with Boost best-practices, which has provided me some exposure to Boost’s internal machinery." />
+<link rel="canonical" href="http://cppalliance.org/q1_update/2024/04/19/RubenQ1.html" />
+<meta property="og:url" content="http://cppalliance.org/q1_update/2024/04/19/RubenQ1.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-19T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Ruben’s Q1 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Client-side SQL formatting A new grand feature has arrived to Boost.MySQL’s city: client-side SQL formatting. If you’ve worked with MySQL C API before, you may be familiar with mysql_real_escape_string: a function that takes a string and escapes it, enabling the user to compose queries dynamically without the risk of running into SQL injection vulnerabilities. We didn’t have a matching function in Boost.MySQL… until now. mysql_real_escape_string is a pretty low-level construct. While we have an equivalent function, I also wanted to build higher-level functionality to allow composing dynamic SQL queries in a simple way. Let’s say you want to insert a bunch of employee records into a table. Until now, the only way to go was use prepared statements, like this: asio::awaitable&lt;void&gt; insert_employees( mysql::any_connection&amp; conn, span&lt;const employee&gt; employees ) { assert(!employees.empty()); // Prepare a statement auto stmt = co_await conn.async_prepare_statement(&quot;INSERT INTO employee (name, company) VALUES (?, ?)&quot;, asio::deferred); // Execute it as many times as records we want to insert. // Note that this performs a round-trip to the server for each record for (const auto&amp; emp: employees) { co_await conn.async_execute(stmt.bind(emp.name, emp.company), asio::deferred); } } This can be pretty inefficient, as we’re inserting records one by one. If you’re experienced with SQL, you may be thinking: “why don’t you batch the inserts in a single query”? We can’t do this with prepared statements. But if we had a way to securely compose a query client-side… Fortunately, we now have this! asio::awaitable&lt;void&gt; insert_employees( mysql::any_connection&amp; conn, span&lt;const employee&gt; employees ) { assert(!employees.empty()); // Compose a query string client-side, using fmtlib-like format strings. // Formatting will take care of escaping your string values mysql::format_context ctx(opts); ctx.append_raw(&quot;INSERT INTO employee (name, company) VALUES &quot;); bool is_first = true; for (const auto&amp; emp : employees) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual record mysql::format_sql_to(ctx, &quot;({}, {})&quot;, emp.name, emp.company); } std::string query = std::move(ctx).get().value(); co_await conn.async_execute(query, asio::use_awaitable); } And if you’re issuing simple queries, you may be able to avoid prepared statements altogether: asio::awaitable&lt;employee&gt; get_employee_by_id( mysql::any_connection&amp; conn, std::int64_t id ) { mysql::static_results&lt;employee&gt; r; co_await conn.async_execute( mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM employee WHERE id = {}&quot;, id), asio::deferred ); co_return std::move(r.rows().at(0)); } This feature enables lots of other complex use cases, like dynamic filters, patch-like updates and pipelining. Boost.PFR integration and maintenance work Boost.PFR users may be happy to know that static_results and friends now support PFR types! This will become available in Boost 1.86. Additionally, I’ve been doing some extra maintenance work to attempt to deliver a Boost 1.85 as high-quality as possible. Boost.Charconv Many of you may have heard that Boost.Charconv, by Matt Borland, is now a proud member of Boost! Charconv is a high-quality polyfill library that provides functionality like std::to_chars and std::from_chars in C++11. I desperately needed this for Boost.MySQL, as text queries parse ints and doubles, and client-side formatting serializes them. Locale-independence is particularly important for the latter, as SELECT 4.2 is valid SQL, while SELECT 4,2 may open the door to a SQL injection vulnerability. Not fun. I feel that just reading the documentation and playing with a library is sometimes not enough to emit a useful review. I thought I could do better this time, and took a different approach to the review: I’d try to use the library in Boost.MySQL and report my experience. I’m pretty satisfied with the results, as focusing on a real use case avoids bike-shedding and provides good feedback. As Boost.MySQL has an extensive test suite, rewriting part of it makes the library build and run under many different scenarios, usually uncovering subtle integration issues (e.g. with CMake files). I’ve been very happy with the quality of the library and the author’s response to my feedback, and I’ve decided to be an early adopter - Boost.MySQL 1.85 uses Charconv extensively. Boost.Parser Since the new review approach had worked great, I decided to repeat it for Boost.Parser. I rewrote the client-side SQL formatting feature, which parses format strings, using Boost.Parser. Again, it by uncovering a couple of issues. I can’t use Boost.Parser in MySQL because it requires C++17 (and is an overshot, considering my simple use case). But I feel the review was helpful for Boost’s overall quality. Other contributions I’ve also helped Boost.Redis’ author to set up part of his integration testing CI, following what I learnt setting up Boost.MySQL CIs. I’ve also refactored MySQL’s build scripts to be more compliant with Boost best-practices, which has provided me some exposure to Boost’s internal machinery.","@type":"BlogPosting","url":"http://cppalliance.org/q1_update/2024/04/19/RubenQ1.html","headline":"Ruben’s Q1 2024 Update","dateModified":"2024-04-19T00:00:00+00:00","datePublished":"2024-04-19T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/q1_update/2024/04/19/RubenQ1.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Ruben's Q1 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 19, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="client-side-sql-formatting">Client-side SQL formatting</h2>
+
+<p>A new grand feature has arrived to Boost.MySQL’s city: <a href="https://www.boost.org/doc/libs/master/libs/mysql/doc/html/mysql/sql_formatting.html">client-side SQL formatting</a>.</p>
+
+<p>If you’ve worked with MySQL C API before, you may be familiar with <a href="https://dev.mysql.com/doc/c-api/8.0/en/mysql-real-escape-string.html"><code>mysql_real_escape_string</code></a>: a function that takes a string and escapes it, enabling the user to compose queries dynamically without the risk of running into SQL injection vulnerabilities. We didn’t have a matching function in Boost.MySQL… until now.</p>
+
+<p><code>mysql_real_escape_string</code> is a pretty low-level construct. While we have an equivalent function, I also wanted to build higher-level functionality to allow composing dynamic SQL queries in a simple way.</p>
+
+<p>Let’s say you want to insert a bunch of employee records into a table. Until now, the only way to go was use prepared statements, like this:</p>
+
+<pre><code>asio::awaitable&lt;void&gt; insert_employees(
+    mysql::any_connection&amp; conn,
+    span&lt;const employee&gt; employees
+)
+{
+    assert(!employees.empty());
+
+    // Prepare a statement
+    auto stmt = co_await conn.async_prepare_statement("INSERT INTO employee (name, company) VALUES (?, ?)", asio::deferred);
+
+    // Execute it as many times as records we want to insert.
+    // Note that this performs a round-trip to the server for each record
+    for (const auto&amp; emp: employees)
+    {
+        co_await conn.async_execute(stmt.bind(emp.name, emp.company), asio::deferred);
+    }
+}
+</code></pre>
+
+<p>This can be pretty inefficient, as we’re inserting records one by one. If you’re experienced with SQL, you may be thinking: “why don’t you batch the inserts in a single query”? We can’t do this with prepared statements. But if we had a way to securely compose a query client-side… Fortunately, we now have this!</p>
+
+<pre><code>asio::awaitable&lt;void&gt; insert_employees(
+    mysql::any_connection&amp; conn,
+    span&lt;const employee&gt; employees
+)
+{
+    assert(!employees.empty());
+
+    // Compose a query string client-side, using fmtlib-like format strings.
+    // Formatting will take care of escaping your string values
+    mysql::format_context ctx(opts);
+    ctx.append_raw("INSERT INTO employee (name, company) VALUES ");
+    bool is_first = true;
+    for (const auto&amp; emp : employees)
+    {
+        // Comma separator
+        if (!is_first) ctx.append_raw(", ");
+        is_first = false;
+
+        // Actual record
+        mysql::format_sql_to(ctx, "({}, {})", emp.name, emp.company);
+    }
+    std::string query = std::move(ctx).get().value();
+
+    co_await conn.async_execute(query, asio::use_awaitable);
+}
+</code></pre>
+
+<p>And if you’re issuing simple queries, you may be able to avoid prepared statements altogether:</p>
+
+<pre><code>asio::awaitable&lt;employee&gt; get_employee_by_id(
+    mysql::any_connection&amp; conn,
+    std::int64_t id
+)
+{
+    mysql::static_results&lt;employee&gt; r;
+    co_await conn.async_execute(
+        mysql::format_sql(conn.format_opts().value(), "SELECT * FROM employee WHERE id = {}", id),
+        asio::deferred
+    );
+    co_return std::move(r.rows().at(0));
+}
+</code></pre>
+
+<p>This feature enables lots of other complex use cases, like dynamic filters, patch-like updates and pipelining.</p>
+
+<h2 id="boostpfr-integration-and-maintenance-work">Boost.PFR integration and maintenance work</h2>
+
+<p>Boost.PFR users may be happy to know that <code>static_results</code> and friends now support PFR types! This will become available in Boost 1.86.</p>
+
+<p>Additionally, I’ve been doing some extra maintenance work to attempt to deliver a Boost 1.85 as high-quality as possible.</p>
+
+<h2 id="boostcharconv">Boost.Charconv</h2>
+
+<p>Many of you may have heard that Boost.Charconv, by Matt Borland, is now a proud member of Boost! Charconv is a high-quality polyfill library that provides functionality like <code>std::to_chars</code> and <code>std::from_chars</code> in C++11. I desperately needed this for Boost.MySQL, as text queries parse ints and doubles, and client-side formatting serializes them. Locale-independence is particularly important for the latter, as <code>SELECT 4.2</code> is valid SQL, while <code>SELECT 4,2</code> may open the door to a SQL injection vulnerability. Not fun.</p>
+
+<p>I feel that just reading the documentation and playing with a library is sometimes not enough to emit a useful review. I thought I could do better this time, and took a different approach to the review: I’d try to use the library in Boost.MySQL and report my experience.</p>
+
+<p>I’m pretty satisfied with the results, as focusing on a real use case avoids bike-shedding and provides good feedback. As Boost.MySQL has an extensive test suite, rewriting part of it makes the library build and run under many different scenarios, usually uncovering subtle integration issues (e.g. with CMake files). I’ve been very happy with the quality of the library and the author’s response to my feedback, and I’ve decided to be an early adopter - Boost.MySQL 1.85 uses Charconv extensively.</p>
+
+<h2 id="boostparser">Boost.Parser</h2>
+
+<p>Since the new review approach had worked great, I decided to repeat it for Boost.Parser. I rewrote the client-side SQL formatting feature, which parses format strings, using Boost.Parser. Again, it by uncovering a couple of issues.</p>
+
+<p>I can’t use Boost.Parser in MySQL because it requires C++17 (and is an overshot, considering my simple use case). But I feel the review was helpful for Boost’s overall quality.</p>
+
+<h2 id="other-contributions">Other contributions</h2>
+
+<p>I’ve also helped Boost.Redis’ author to set up part of his integration testing CI, following what I learnt setting up Boost.MySQL CIs. I’ve also refactored MySQL’s build scripts to be more compliant with Boost best-practices, which has provided me some exposure to Boost’s internal machinery.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/19/2024</span>
+          <a class='text-l news-title link' href="/q1_update/2024/04/19/RubenQ1.html">Ruben's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

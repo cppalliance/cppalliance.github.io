@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation - or the Art of Preparing for the Unknown | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Documentation - or the Art of Preparing for the Unknown | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Documentation - or the Art of Preparing for the Unknown" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The C++ Alliance supports both the great Boost Libraries and a current proposal for a memory/type/thread-safe version of C++ called Safe C++. They are not connected in any way other than the Alliance’s support. However, looking ahead, it seems smart for at least contributors to Boost to be aware of the progress and terminology of the Safe proposal. Before a contributor could do much the Safe C++ proposal would both have to be accepted and then implemented (super-easy to say and mountain of work to do). Purely for education purposes I added terms used in the Safe C++ discussions to the User Guide Glossary. Even as a developer or programmer-writer for 40 years, I had no idea what the term “borrow checking” meant. And if I have no clue, I assume others don’t know either - so in it goes to the glossary - and a dozen or more other terms too. Also, a few questions and answers - a reality check on the proposal - added to the Contributor Guide FAQ. I remember the days when the precursor to C++ came out, C, and was both super impressed by its low-level power and unconvinced about the lack of bounds checking. When would it ever make sense to write a 40 character string to a 20 character buffer and not get an error? Maybe I thought some super-clever developer might be able to use this for some task and save a few micro-seconds in the process. As an aficionado of logic, this is not a feature of any interest to me. The reality is this absence of checks has become a security black hole - not something I saw coming. Safe C++ at the very least seems like a worthwhile investigation into the possibilities. Another reality check - our Formal Review process. On the one hand there is the best-of-intentions, on the other programming reality - “too much consensus can lead to poor design” - another way of saying “a camel is a horse designed by a committee”. Or “avoid teaser comments” - where devs might feel you are onto something but not sure what! I added these, and other, pieces of tribal knowledge - originating from Peter Dimov - to our Formal Reviews Guide. And while on the subject of Formal Reviews, I added a reviewers checklist and a short section on “Rejecting a Library”, with links to examples of appropriate wording used in the past. Some documentation is written for a wide audience (the Introduction to Boost, for example), and some for a tiny audience (the Organization Guide appendix) which is really only for those few helping build and maintain the Boost library repo. With some help and research, I added a section on Building with CMake - seems like a powerful tool for creating customized builds of stuff - including Boost libraries. Mostly I have been a fan of tools that do this for you - such as Visual Studio - but I do understand many devs don’t like the opaqueness of IDE tools - they want to see and control what is going on. Outside of the Boost guides, I reviewed the documentation for proposed libraries, including the new Hash2. Great to see new libraries joining Boost, and my goal of reviewing the docs is really to lower the bar to entry - so the less-skilled, less-experienced or just less-confident feel more comfortable joining this community!" />
+<meta property="og:description" content="The C++ Alliance supports both the great Boost Libraries and a current proposal for a memory/type/thread-safe version of C++ called Safe C++. They are not connected in any way other than the Alliance’s support. However, looking ahead, it seems smart for at least contributors to Boost to be aware of the progress and terminology of the Safe proposal. Before a contributor could do much the Safe C++ proposal would both have to be accepted and then implemented (super-easy to say and mountain of work to do). Purely for education purposes I added terms used in the Safe C++ discussions to the User Guide Glossary. Even as a developer or programmer-writer for 40 years, I had no idea what the term “borrow checking” meant. And if I have no clue, I assume others don’t know either - so in it goes to the glossary - and a dozen or more other terms too. Also, a few questions and answers - a reality check on the proposal - added to the Contributor Guide FAQ. I remember the days when the precursor to C++ came out, C, and was both super impressed by its low-level power and unconvinced about the lack of bounds checking. When would it ever make sense to write a 40 character string to a 20 character buffer and not get an error? Maybe I thought some super-clever developer might be able to use this for some task and save a few micro-seconds in the process. As an aficionado of logic, this is not a feature of any interest to me. The reality is this absence of checks has become a security black hole - not something I saw coming. Safe C++ at the very least seems like a worthwhile investigation into the possibilities. Another reality check - our Formal Review process. On the one hand there is the best-of-intentions, on the other programming reality - “too much consensus can lead to poor design” - another way of saying “a camel is a horse designed by a committee”. Or “avoid teaser comments” - where devs might feel you are onto something but not sure what! I added these, and other, pieces of tribal knowledge - originating from Peter Dimov - to our Formal Reviews Guide. And while on the subject of Formal Reviews, I added a reviewers checklist and a short section on “Rejecting a Library”, with links to examples of appropriate wording used in the past. Some documentation is written for a wide audience (the Introduction to Boost, for example), and some for a tiny audience (the Organization Guide appendix) which is really only for those few helping build and maintain the Boost library repo. With some help and research, I added a section on Building with CMake - seems like a powerful tool for creating customized builds of stuff - including Boost libraries. Mostly I have been a fan of tools that do this for you - such as Visual Studio - but I do understand many devs don’t like the opaqueness of IDE tools - they want to see and control what is going on. Outside of the Boost guides, I reviewed the documentation for proposed libraries, including the new Hash2. Great to see new libraries joining Boost, and my goal of reviewing the docs is really to lower the bar to entry - so the less-skilled, less-experienced or just less-confident feel more comfortable joining this community!" />
+<link rel="canonical" href="http://cppalliance.org/peter/2025/01/10/PeterTurcanQ4-2024.html" />
+<meta property="og:url" content="http://cppalliance.org/peter/2025/01/10/PeterTurcanQ4-2024.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Documentation - or the Art of Preparing for the Unknown" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"The C++ Alliance supports both the great Boost Libraries and a current proposal for a memory/type/thread-safe version of C++ called Safe C++. They are not connected in any way other than the Alliance’s support. However, looking ahead, it seems smart for at least contributors to Boost to be aware of the progress and terminology of the Safe proposal. Before a contributor could do much the Safe C++ proposal would both have to be accepted and then implemented (super-easy to say and mountain of work to do). Purely for education purposes I added terms used in the Safe C++ discussions to the User Guide Glossary. Even as a developer or programmer-writer for 40 years, I had no idea what the term “borrow checking” meant. And if I have no clue, I assume others don’t know either - so in it goes to the glossary - and a dozen or more other terms too. Also, a few questions and answers - a reality check on the proposal - added to the Contributor Guide FAQ. I remember the days when the precursor to C++ came out, C, and was both super impressed by its low-level power and unconvinced about the lack of bounds checking. When would it ever make sense to write a 40 character string to a 20 character buffer and not get an error? Maybe I thought some super-clever developer might be able to use this for some task and save a few micro-seconds in the process. As an aficionado of logic, this is not a feature of any interest to me. The reality is this absence of checks has become a security black hole - not something I saw coming. Safe C++ at the very least seems like a worthwhile investigation into the possibilities. Another reality check - our Formal Review process. On the one hand there is the best-of-intentions, on the other programming reality - “too much consensus can lead to poor design” - another way of saying “a camel is a horse designed by a committee”. Or “avoid teaser comments” - where devs might feel you are onto something but not sure what! I added these, and other, pieces of tribal knowledge - originating from Peter Dimov - to our Formal Reviews Guide. And while on the subject of Formal Reviews, I added a reviewers checklist and a short section on “Rejecting a Library”, with links to examples of appropriate wording used in the past. Some documentation is written for a wide audience (the Introduction to Boost, for example), and some for a tiny audience (the Organization Guide appendix) which is really only for those few helping build and maintain the Boost library repo. With some help and research, I added a section on Building with CMake - seems like a powerful tool for creating customized builds of stuff - including Boost libraries. Mostly I have been a fan of tools that do this for you - such as Visual Studio - but I do understand many devs don’t like the opaqueness of IDE tools - they want to see and control what is going on. Outside of the Boost guides, I reviewed the documentation for proposed libraries, including the new Hash2. Great to see new libraries joining Boost, and my goal of reviewing the docs is really to lower the bar to entry - so the less-skilled, less-experienced or just less-confident feel more comfortable joining this community!","@type":"BlogPosting","url":"http://cppalliance.org/peter/2025/01/10/PeterTurcanQ4-2024.html","headline":"Documentation - or the Art of Preparing for the Unknown","dateModified":"2025-01-10T00:00:00+00:00","datePublished":"2025-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/peter/2025/01/10/PeterTurcanQ4-2024.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Documentation - or the Art of Preparing for the Unknown</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/peter">
+                  Peter Turcan
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>The C++ Alliance supports both the great Boost Libraries and a current proposal for a memory/type/thread-safe version of C++ called Safe C++. They are not connected in any way other than the Alliance’s support. However, looking ahead, it seems smart for at least contributors to Boost to be aware of the progress and terminology of the Safe proposal. Before a contributor could do much the Safe C++ proposal would both have to be accepted and then implemented (super-easy to say and mountain of work to do). Purely for education purposes I added terms used in the Safe C++ discussions to the User Guide Glossary. Even as a developer or programmer-writer for 40 years, I had no idea what the term “borrow checking” meant. And if I have no clue, I assume others don’t know either - so in it goes to the glossary - and a dozen or more other terms too. Also, a few questions and answers - a reality check on the proposal - added to the Contributor Guide FAQ.</p>
+
+<p>I remember the days when the precursor to C++ came out, C, and was both super impressed by its low-level power and unconvinced about the lack of bounds checking. When would it ever make sense to write a 40 character string to a 20 character buffer and not get an error? Maybe I thought some super-clever developer might be able to use this for some task and save a few micro-seconds in the process. As an aficionado of logic, this is not a feature of any interest to me. The reality is this absence of checks has become a security black hole - not something I saw coming. Safe C++ at the very least seems like a worthwhile investigation into the possibilities.</p>
+
+<p>Another reality check - our Formal Review process. On the one hand there is the best-of-intentions, on the other programming reality - “too much consensus can lead to poor design” -  another way of saying “a camel is a horse designed by a committee”. Or “avoid teaser comments” - where devs might feel you are onto something but not sure what! I added these, and other, pieces of tribal knowledge - originating from Peter Dimov - to our Formal Reviews Guide.</p>
+
+<p>And while on the subject of Formal Reviews, I added a reviewers checklist and a short section on “Rejecting a Library”, with links to examples of appropriate wording used in the past.</p>
+
+<p>Some documentation is written for a wide audience (the Introduction to Boost, for example), and some for a tiny audience (the Organization Guide appendix) which is really only for those few helping build and maintain the Boost library repo.</p>
+
+<p>With some help and research, I added a section on Building with CMake - seems like a powerful tool for creating customized builds of stuff - including Boost libraries. Mostly I have been a fan of tools that do this for you - such as Visual Studio - but I do understand many devs don’t like the opaqueness of IDE tools - they want to see and control what is going on.</p>
+
+<p>Outside of the Boost guides, I reviewed the documentation for proposed libraries, including the new Hash2. Great to see new libraries joining Boost, and my goal of reviewing the docs is really to lower the bar to entry - so the less-skilled, less-experienced or just less-confident feel more comfortable joining this community!</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/15/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/10/15/Peter-Turcan-Q3-2025.html">Writing Docs with Visuals and Verve</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/07/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/07/07/PeterTurcan-Q2-2025.html">Include Hallucinations for Adventures in AI-Generated C++</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/04/08/PeterTurcan-Q1-2025.html">Documentation and Samples - undefined behavior isn’t a bug — it’s a lifestyle</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/01/10/PeterTurcanQ4-2024.html">Documentation - or the Art of Preparing for the Unknown</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/10/25/PeterTurcan-Q3-2024.html">Peter Turcan Q3 2024 - From Murky to Clear - Shedding Light on the Foggy Bits – User Guide and Contributor Guide Status Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/07/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/07/07/PeterTurcan-Q2-2024.html">Peter Turcan Q2 2024 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/19/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/04/19/PeterTurcan-Q1-2024.html">Peter Turcan Q1 2024 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/01/11/PeterTurcan-Q4-2023.html">Peter Turcan Q4 2023 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/peter/2023/10/27/PeterTurcan-Q3.html">Peter Turcan Q3 2023 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

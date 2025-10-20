@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fernando's Q4 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Fernando’s Q4 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Fernando’s Q4 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="As the year comes to a close, I reflect on the exciting and productive final quarter of 2023. My involvement has been primarily focused on the Boost Libraries and the development of MrDocs, both of which have offered unique challenges and opportunities for growth. Boost Modularization: Refining and Collaborating Ongoing Boost Modularization Work: My primary focus has been on advancing the modularization of Boost. The effort is directed towards creating individual Conan packages for each Boost library, an initiative that promises to significantly enhance user experience and integration. Strategic Discussions and Collaborative Efforts: Discussions with the Conan team have been ongoing, focusing on the practical aspects of creating modularized Conan recipes. A new repository, separate from the Conan Center Index (CCI), is in the works to facilitate these efforts with fewer restrictions. I have also been developing a web application using HTML, CSS, JavaScript, and a graph management library to assist in visualizing the dependencies of Boost libraries. Boost Unordered: Collaborative Advancements Responsive Action Triggered by Parlay’s Performance: The impressive speed demonstrated by Parlay set the stage for our action. It highlighted the need to enhance the performance of our concurrent data structures, particularly in scenarios involving high thread counts. Joaquín’s Innovative Ideas and My Role in Testing: Joaquín, leading the charge, conceptualized various strategies to improve Boost Unordered. His ideas were pivotal in shaping our approach towards creating more efficient concurrent data structures. My contribution primarily involved conducting extensive testing and benchmarking of these ideas on high-core-count machines. This collaboration was instrumental in validating and refining our approaches. Learning and Contributing to Boost FlatMap and Concurrent FlatMap: Gradually delving deeper into the implementation of Boost FlatMap and Concurrent FlatMap, I am moving towards a position where I can actively contribute code and ideas. The learning curve is steep, but it is an exciting journey that promises significant contributions to the Boost ecosystem. Joaquín’s work in developing a latch-free concurrent map and a variant of boost::concurrent_flat_map that performs almost-latch-free insertion for SIMD-powered architectures is a testament to our team’s commitment to pushing the boundaries of C++ performance. His insights and our collaborative efforts are paving the way for potential enhancements in concurrent data structures, which are fundamental to high-performance computing applications. The developments in this domain are ongoing, and we are continuously working to identify and overcome points of contention. Our aim is to not only match but exceed the performance benchmarks set by competitors like Parlay, especially in high-thread environments. This journey, though challenging, is a remarkable opportunity for innovation and growth in the field of concurrent programming. Deepening Involvement in MrDocs Enhancing User Experience with MrDocs: Streamlining the Workflow: I’ve dedicated significant effort to enhancing the user experience of MrDocs. A key development is enabling MrDocs to directly obtain the compile_commands.json file by invoking CMake. This improvement alleviates the need for users to generate this file manually, thus simplifying the process. Intelligent Inference of System’s Default Include Paths: Another crucial enhancement is the capability of MrDocs to intelligently infer the system’s default include paths from any arbitrary compile_commands.json. This is achieved by having MrDocs interact with the compiler to request information about the default include directories. These directories are then utilized in creating the “Compilation Database”, making MrDocs more intuitive and efficient for various C++ projects. Gaining Experience with Clang’s LibTooling: Deep Dive into LibTooling: As MrDocs extensively uses Clang’s LibTooling, I am focusing on gaining more experience with this powerful library. This involves understanding its intricacies and exploring its capabilities in parsing and analyzing C++ code. My journey with LibTooling is not only about enhancing MrDocs but also about enriching my own skills and understanding of compiler technologies. These advancements in MrDocs represent a significant step towards making the tool more accessible and efficient for users. By reducing complexity and enhancing functionality, I am contributing to a tool that is becoming increasingly vital for C++ developers, especially in the realm of documentation and code analysis. My exploration of LLVM and Clang’s LibTooling is playing a crucial role in this endeavor, opening up new possibilities for future enhancements and innovations. Continued Collaboration with Boost Beast While my direct involvement with Boost Beast has reduced, I continue to support the project, providing insights and assistance to Mohammad, who is doing an exceptional job as the maintainer. This quarter has been a journey of technical exploration, collaboration, and innovation. My work in modularization, performance optimization, and tool development reflects my dedication to the continuous advancement of the Boost Libraries and MrDocs. I am excited about the potential impact of these projects and look forward to contributing further to these vibrant and dynamic communities." />
+<meta property="og:description" content="As the year comes to a close, I reflect on the exciting and productive final quarter of 2023. My involvement has been primarily focused on the Boost Libraries and the development of MrDocs, both of which have offered unique challenges and opportunities for growth. Boost Modularization: Refining and Collaborating Ongoing Boost Modularization Work: My primary focus has been on advancing the modularization of Boost. The effort is directed towards creating individual Conan packages for each Boost library, an initiative that promises to significantly enhance user experience and integration. Strategic Discussions and Collaborative Efforts: Discussions with the Conan team have been ongoing, focusing on the practical aspects of creating modularized Conan recipes. A new repository, separate from the Conan Center Index (CCI), is in the works to facilitate these efforts with fewer restrictions. I have also been developing a web application using HTML, CSS, JavaScript, and a graph management library to assist in visualizing the dependencies of Boost libraries. Boost Unordered: Collaborative Advancements Responsive Action Triggered by Parlay’s Performance: The impressive speed demonstrated by Parlay set the stage for our action. It highlighted the need to enhance the performance of our concurrent data structures, particularly in scenarios involving high thread counts. Joaquín’s Innovative Ideas and My Role in Testing: Joaquín, leading the charge, conceptualized various strategies to improve Boost Unordered. His ideas were pivotal in shaping our approach towards creating more efficient concurrent data structures. My contribution primarily involved conducting extensive testing and benchmarking of these ideas on high-core-count machines. This collaboration was instrumental in validating and refining our approaches. Learning and Contributing to Boost FlatMap and Concurrent FlatMap: Gradually delving deeper into the implementation of Boost FlatMap and Concurrent FlatMap, I am moving towards a position where I can actively contribute code and ideas. The learning curve is steep, but it is an exciting journey that promises significant contributions to the Boost ecosystem. Joaquín’s work in developing a latch-free concurrent map and a variant of boost::concurrent_flat_map that performs almost-latch-free insertion for SIMD-powered architectures is a testament to our team’s commitment to pushing the boundaries of C++ performance. His insights and our collaborative efforts are paving the way for potential enhancements in concurrent data structures, which are fundamental to high-performance computing applications. The developments in this domain are ongoing, and we are continuously working to identify and overcome points of contention. Our aim is to not only match but exceed the performance benchmarks set by competitors like Parlay, especially in high-thread environments. This journey, though challenging, is a remarkable opportunity for innovation and growth in the field of concurrent programming. Deepening Involvement in MrDocs Enhancing User Experience with MrDocs: Streamlining the Workflow: I’ve dedicated significant effort to enhancing the user experience of MrDocs. A key development is enabling MrDocs to directly obtain the compile_commands.json file by invoking CMake. This improvement alleviates the need for users to generate this file manually, thus simplifying the process. Intelligent Inference of System’s Default Include Paths: Another crucial enhancement is the capability of MrDocs to intelligently infer the system’s default include paths from any arbitrary compile_commands.json. This is achieved by having MrDocs interact with the compiler to request information about the default include directories. These directories are then utilized in creating the “Compilation Database”, making MrDocs more intuitive and efficient for various C++ projects. Gaining Experience with Clang’s LibTooling: Deep Dive into LibTooling: As MrDocs extensively uses Clang’s LibTooling, I am focusing on gaining more experience with this powerful library. This involves understanding its intricacies and exploring its capabilities in parsing and analyzing C++ code. My journey with LibTooling is not only about enhancing MrDocs but also about enriching my own skills and understanding of compiler technologies. These advancements in MrDocs represent a significant step towards making the tool more accessible and efficient for users. By reducing complexity and enhancing functionality, I am contributing to a tool that is becoming increasingly vital for C++ developers, especially in the realm of documentation and code analysis. My exploration of LLVM and Clang’s LibTooling is playing a crucial role in this endeavor, opening up new possibilities for future enhancements and innovations. Continued Collaboration with Boost Beast While my direct involvement with Boost Beast has reduced, I continue to support the project, providing insights and assistance to Mohammad, who is doing an exceptional job as the maintainer. This quarter has been a journey of technical exploration, collaboration, and innovation. My work in modularization, performance optimization, and tool development reflects my dedication to the continuous advancement of the Boost Libraries and MrDocs. I am excited about the potential impact of these projects and look forward to contributing further to these vibrant and dynamic communities." />
+<link rel="canonical" href="http://cppalliance.org/fernando/2024/01/10/Fernando43Update.html" />
+<meta property="og:url" content="http://cppalliance.org/fernando/2024/01/10/Fernando43Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Fernando’s Q4 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"As the year comes to a close, I reflect on the exciting and productive final quarter of 2023. My involvement has been primarily focused on the Boost Libraries and the development of MrDocs, both of which have offered unique challenges and opportunities for growth. Boost Modularization: Refining and Collaborating Ongoing Boost Modularization Work: My primary focus has been on advancing the modularization of Boost. The effort is directed towards creating individual Conan packages for each Boost library, an initiative that promises to significantly enhance user experience and integration. Strategic Discussions and Collaborative Efforts: Discussions with the Conan team have been ongoing, focusing on the practical aspects of creating modularized Conan recipes. A new repository, separate from the Conan Center Index (CCI), is in the works to facilitate these efforts with fewer restrictions. I have also been developing a web application using HTML, CSS, JavaScript, and a graph management library to assist in visualizing the dependencies of Boost libraries. Boost Unordered: Collaborative Advancements Responsive Action Triggered by Parlay’s Performance: The impressive speed demonstrated by Parlay set the stage for our action. It highlighted the need to enhance the performance of our concurrent data structures, particularly in scenarios involving high thread counts. Joaquín’s Innovative Ideas and My Role in Testing: Joaquín, leading the charge, conceptualized various strategies to improve Boost Unordered. His ideas were pivotal in shaping our approach towards creating more efficient concurrent data structures. My contribution primarily involved conducting extensive testing and benchmarking of these ideas on high-core-count machines. This collaboration was instrumental in validating and refining our approaches. Learning and Contributing to Boost FlatMap and Concurrent FlatMap: Gradually delving deeper into the implementation of Boost FlatMap and Concurrent FlatMap, I am moving towards a position where I can actively contribute code and ideas. The learning curve is steep, but it is an exciting journey that promises significant contributions to the Boost ecosystem. Joaquín’s work in developing a latch-free concurrent map and a variant of boost::concurrent_flat_map that performs almost-latch-free insertion for SIMD-powered architectures is a testament to our team’s commitment to pushing the boundaries of C++ performance. His insights and our collaborative efforts are paving the way for potential enhancements in concurrent data structures, which are fundamental to high-performance computing applications. The developments in this domain are ongoing, and we are continuously working to identify and overcome points of contention. Our aim is to not only match but exceed the performance benchmarks set by competitors like Parlay, especially in high-thread environments. This journey, though challenging, is a remarkable opportunity for innovation and growth in the field of concurrent programming. Deepening Involvement in MrDocs Enhancing User Experience with MrDocs: Streamlining the Workflow: I’ve dedicated significant effort to enhancing the user experience of MrDocs. A key development is enabling MrDocs to directly obtain the compile_commands.json file by invoking CMake. This improvement alleviates the need for users to generate this file manually, thus simplifying the process. Intelligent Inference of System’s Default Include Paths: Another crucial enhancement is the capability of MrDocs to intelligently infer the system’s default include paths from any arbitrary compile_commands.json. This is achieved by having MrDocs interact with the compiler to request information about the default include directories. These directories are then utilized in creating the “Compilation Database”, making MrDocs more intuitive and efficient for various C++ projects. Gaining Experience with Clang’s LibTooling: Deep Dive into LibTooling: As MrDocs extensively uses Clang’s LibTooling, I am focusing on gaining more experience with this powerful library. This involves understanding its intricacies and exploring its capabilities in parsing and analyzing C++ code. My journey with LibTooling is not only about enhancing MrDocs but also about enriching my own skills and understanding of compiler technologies. These advancements in MrDocs represent a significant step towards making the tool more accessible and efficient for users. By reducing complexity and enhancing functionality, I am contributing to a tool that is becoming increasingly vital for C++ developers, especially in the realm of documentation and code analysis. My exploration of LLVM and Clang’s LibTooling is playing a crucial role in this endeavor, opening up new possibilities for future enhancements and innovations. Continued Collaboration with Boost Beast While my direct involvement with Boost Beast has reduced, I continue to support the project, providing insights and assistance to Mohammad, who is doing an exceptional job as the maintainer. This quarter has been a journey of technical exploration, collaboration, and innovation. My work in modularization, performance optimization, and tool development reflects my dedication to the continuous advancement of the Boost Libraries and MrDocs. I am excited about the potential impact of these projects and look forward to contributing further to these vibrant and dynamic communities.","@type":"BlogPosting","url":"http://cppalliance.org/fernando/2024/01/10/Fernando43Update.html","headline":"Fernando’s Q4 Update","dateModified":"2024-01-10T00:00:00+00:00","datePublished":"2024-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/fernando/2024/01/10/Fernando43Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Fernando's Q4 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/fernando">
+                  Fernando Pelliccioni
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>As the year comes to a close, I reflect on the exciting and productive final quarter of 2023. My involvement has been primarily focused on the Boost Libraries and the development of MrDocs, both of which have offered unique challenges and opportunities for growth.</p>
+
+<h1 id="boost-modularization-refining-and-collaborating">Boost Modularization: Refining and Collaborating</h1>
+
+<h2 id="ongoing-boost-modularization-work">Ongoing Boost Modularization Work:</h2>
+
+<p>My primary focus has been on advancing the modularization of Boost. The effort is directed towards creating individual Conan packages for each Boost library, an initiative that promises to significantly enhance user experience and integration.</p>
+
+<h2 id="strategic-discussions-and-collaborative-efforts">Strategic Discussions and Collaborative Efforts:</h2>
+
+<p>Discussions with the Conan team have been ongoing, focusing on the practical aspects of creating modularized Conan recipes. A new repository, separate from the Conan Center Index (CCI), is in the works to facilitate these efforts with fewer restrictions. I have also been developing a web application using HTML, CSS, JavaScript, and a graph management library to assist in visualizing the dependencies of Boost libraries.</p>
+
+<h1 id="boost-unordered-collaborative-advancements">Boost Unordered: Collaborative Advancements</h1>
+
+<h2 id="responsive-action-triggered-by-parlays-performance">Responsive Action Triggered by Parlay’s Performance:</h2>
+
+<p>The impressive speed demonstrated by <a href="https://github.com/cmuparlay/parlayhash">Parlay</a> set the stage for our action. It highlighted the need to enhance the performance of our concurrent data structures, particularly in scenarios involving high thread counts.</p>
+
+<h2 id="joaquíns-innovative-ideas-and-my-role-in-testing">Joaquín’s Innovative Ideas and My Role in Testing:</h2>
+
+<p>Joaquín, leading the charge, conceptualized various strategies to improve Boost Unordered. His ideas were pivotal in shaping our approach towards creating more efficient concurrent data structures. My contribution primarily involved conducting extensive testing and benchmarking of these ideas on high-core-count machines. This collaboration was instrumental in validating and refining our approaches.</p>
+
+<h2 id="learning-and-contributing-to-boost-flatmap-and-concurrent-flatmap">Learning and Contributing to Boost FlatMap and Concurrent FlatMap:</h2>
+
+<p>Gradually delving deeper into the implementation of Boost FlatMap and Concurrent FlatMap, I am moving towards a position where I can actively contribute code and ideas. The learning curve is steep, but it is an exciting journey that promises significant contributions to the Boost ecosystem.</p>
+
+<p>Joaquín’s work in developing a latch-free concurrent map and a variant of <code>boost::concurrent_flat_map</code> that performs almost-latch-free insertion for SIMD-powered architectures is a testament to our team’s commitment to pushing the boundaries of C++ performance. His insights and our collaborative efforts are paving the way for potential enhancements in concurrent data structures, which are fundamental to high-performance computing applications.</p>
+
+<p>The developments in this domain are ongoing, and we are continuously working to identify and overcome points of contention. Our aim is to not only match but exceed the performance benchmarks set by competitors like Parlay, especially in high-thread environments. This journey, though challenging, is a remarkable opportunity for innovation and growth in the field of concurrent programming.</p>
+
+<h1 id="deepening-involvement-in-mrdocs">Deepening Involvement in MrDocs</h1>
+
+<h2 id="enhancing-user-experience-with-mrdocs">Enhancing User Experience with MrDocs:</h2>
+
+<ul>
+  <li>
+    <p>Streamlining the Workflow: 
+I’ve dedicated significant effort to enhancing the user experience of MrDocs. A key development is enabling MrDocs to directly obtain the compile_commands.json file by invoking CMake. This improvement alleviates the need for users to generate this file manually, thus simplifying the process.</p>
+  </li>
+  <li>
+    <p>Intelligent Inference of System’s Default Include Paths: 
+Another crucial enhancement is the capability of MrDocs to intelligently infer the system’s default include paths from any arbitrary compile_commands.json. This is achieved by having MrDocs interact with the compiler to request information about the default include directories. These directories are then utilized in creating the “Compilation Database”, making MrDocs more intuitive and efficient for various C++ projects.</p>
+  </li>
+</ul>
+
+<h2 id="gaining-experience-with-clangs-libtooling">Gaining Experience with Clang’s LibTooling:</h2>
+
+<ul>
+  <li>Deep Dive into LibTooling: As MrDocs extensively uses Clang’s LibTooling, I am focusing on gaining more experience with this powerful library. This involves understanding its intricacies and exploring its capabilities in parsing and analyzing C++ code. My journey with LibTooling is not only about enhancing MrDocs but also about enriching my own skills and understanding of compiler technologies.</li>
+</ul>
+
+<p>These advancements in MrDocs represent a significant step towards making the tool more accessible and efficient for users. By reducing complexity and enhancing functionality, I am contributing to a tool that is becoming increasingly vital for C++ developers, especially in the realm of documentation and code analysis. My exploration of LLVM and Clang’s LibTooling is playing a crucial role in this endeavor, opening up new possibilities for future enhancements and innovations.</p>
+
+<h1 id="continued-collaboration-with-boost-beast">Continued Collaboration with Boost Beast</h1>
+
+<p>While my direct involvement with Boost Beast has reduced, I continue to support the project, providing insights and assistance to Mohammad, who is doing an exceptional job as the maintainer.</p>
+
+<p>This quarter has been a journey of technical exploration, collaboration, and innovation. My work in modularization, performance optimization, and tool development reflects my dedication to the continuous advancement of the Boost Libraries and MrDocs. I am excited about the potential impact of these projects and look forward to contributing further to these vibrant and dynamic communities.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/fernando/2025/01/10/Fernando2024Q4Update.html">Fernando's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/fernando/2024/10/25/FernandoQ3Update.html">Fernando's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/08/2024</span>
+          <a class='text-l news-title link' href="/fernando/2024/07/08/FernandoQ2Update.html">Fernando's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/28/2024</span>
+          <a class='text-l news-title link' href="/fernando/2024/04/28/FernandoQ1Update.html">Fernando's Q1 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/fernando/2024/01/10/Fernando43Update.html">Fernando's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/fernando/2023/10/27/FernandoQ3Update.html">Fernando's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

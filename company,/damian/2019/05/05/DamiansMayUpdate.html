@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Damian's April Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Damian’s April Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Damian’s April Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="This month I’ve been working on the following projects: Certify Boost.Beast Boost.Build BeastLounge Certify Certify did not have any platform-independent means of caching certificate status (i.e. revoked, valid, unknown), so I implemented one. For now it has to be manually filled, but I’ll add a way to import a static blacklist (somewhat similar to the builtin blacklist in Chrome) and query the status of a certificate. Unfortunately there is no way to handle OCSP stapling within the verification callback invoked by OpenSSL which is quite detrimental to usability. Additionally, OpenSSL doesn’t have a way of starting and waiting for an asynchronous operation within callbacks (without blocking). Don’t forget to star the repository: https://github.com/djarek/certify! Boost.Beast When working on making sure Beast is std::launder-correct, I ran into a number of previously undiagnosed bugs in Beast. All of them have been fixed in v254. I was quite confused why these issues weren’t found by CI previously. I’ve been able to track it down to old toolchain versions in Travis. Additionally, the test matrix lacks a few fairly important variants. Considering the fact that Trusty is no longer supported and the switch to Xenial is inevitable, I’ve decided to port over the CI to Azure Pipelines, because it offers better concurrency which allows the Beast CI to afford a larger test matrix. In the process I’ve also decided to use as many default b2 options as possible, to make future changes to the CI easier. There’s still an issue with Valgrind in Xenial to be resolved (doesn’t support the RDRAND instruction). Boost.Build While working on the AzP CI for Beast, I found out that the coverage feature in b2 doesn’t actually set build flags. coverage=all will now properly cause tests to produce gcno and gcda files for consumption by the lcov tool. BeastLounge When experimenting with the BeastLounge application running on Heroku I found out that Heroku’s router has a builtin 55s timeout which dropped websocket connections. I solved the issue by making the websocket ping timeouts configurable." />
+<meta property="og:description" content="This month I’ve been working on the following projects: Certify Boost.Beast Boost.Build BeastLounge Certify Certify did not have any platform-independent means of caching certificate status (i.e. revoked, valid, unknown), so I implemented one. For now it has to be manually filled, but I’ll add a way to import a static blacklist (somewhat similar to the builtin blacklist in Chrome) and query the status of a certificate. Unfortunately there is no way to handle OCSP stapling within the verification callback invoked by OpenSSL which is quite detrimental to usability. Additionally, OpenSSL doesn’t have a way of starting and waiting for an asynchronous operation within callbacks (without blocking). Don’t forget to star the repository: https://github.com/djarek/certify! Boost.Beast When working on making sure Beast is std::launder-correct, I ran into a number of previously undiagnosed bugs in Beast. All of them have been fixed in v254. I was quite confused why these issues weren’t found by CI previously. I’ve been able to track it down to old toolchain versions in Travis. Additionally, the test matrix lacks a few fairly important variants. Considering the fact that Trusty is no longer supported and the switch to Xenial is inevitable, I’ve decided to port over the CI to Azure Pipelines, because it offers better concurrency which allows the Beast CI to afford a larger test matrix. In the process I’ve also decided to use as many default b2 options as possible, to make future changes to the CI easier. There’s still an issue with Valgrind in Xenial to be resolved (doesn’t support the RDRAND instruction). Boost.Build While working on the AzP CI for Beast, I found out that the coverage feature in b2 doesn’t actually set build flags. coverage=all will now properly cause tests to produce gcno and gcda files for consumption by the lcov tool. BeastLounge When experimenting with the BeastLounge application running on Heroku I found out that Heroku’s router has a builtin 55s timeout which dropped websocket connections. I solved the issue by making the websocket ping timeouts configurable." />
+<link rel="canonical" href="http://cppalliance.org/company,/damian/2019/05/05/DamiansMayUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/company,/damian/2019/05/05/DamiansMayUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2019-05-05T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Damian’s April Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"This month I’ve been working on the following projects: Certify Boost.Beast Boost.Build BeastLounge Certify Certify did not have any platform-independent means of caching certificate status (i.e. revoked, valid, unknown), so I implemented one. For now it has to be manually filled, but I’ll add a way to import a static blacklist (somewhat similar to the builtin blacklist in Chrome) and query the status of a certificate. Unfortunately there is no way to handle OCSP stapling within the verification callback invoked by OpenSSL which is quite detrimental to usability. Additionally, OpenSSL doesn’t have a way of starting and waiting for an asynchronous operation within callbacks (without blocking). Don’t forget to star the repository: https://github.com/djarek/certify! Boost.Beast When working on making sure Beast is std::launder-correct, I ran into a number of previously undiagnosed bugs in Beast. All of them have been fixed in v254. I was quite confused why these issues weren’t found by CI previously. I’ve been able to track it down to old toolchain versions in Travis. Additionally, the test matrix lacks a few fairly important variants. Considering the fact that Trusty is no longer supported and the switch to Xenial is inevitable, I’ve decided to port over the CI to Azure Pipelines, because it offers better concurrency which allows the Beast CI to afford a larger test matrix. In the process I’ve also decided to use as many default b2 options as possible, to make future changes to the CI easier. There’s still an issue with Valgrind in Xenial to be resolved (doesn’t support the RDRAND instruction). Boost.Build While working on the AzP CI for Beast, I found out that the coverage feature in b2 doesn’t actually set build flags. coverage=all will now properly cause tests to produce gcno and gcda files for consumption by the lcov tool. BeastLounge When experimenting with the BeastLounge application running on Heroku I found out that Heroku’s router has a builtin 55s timeout which dropped websocket connections. I solved the issue by making the websocket ping timeouts configurable.","@type":"BlogPosting","url":"http://cppalliance.org/company,/damian/2019/05/05/DamiansMayUpdate.html","headline":"Damian’s April Update","dateModified":"2019-05-05T00:00:00+00:00","datePublished":"2019-05-05T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/company,/damian/2019/05/05/DamiansMayUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Damian's April Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/damian">
+                  Damian Jarek
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>May 5, 2019</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>This month I’ve been working on the following projects:</p>
+<ul>
+  <li>Certify</li>
+  <li>Boost.Beast</li>
+  <li>Boost.Build</li>
+  <li>BeastLounge</li>
+</ul>
+
+<h1 id="certify">Certify</h1>
+<p>Certify did not have any platform-independent means of caching certificate
+status (i.e. revoked, valid, unknown), so I implemented one. For now it has to
+be manually filled, but I’ll add a way to import a static blacklist (somewhat
+similar to the builtin blacklist in Chrome) and query the status of a
+certificate. Unfortunately there is no way to handle OCSP stapling within the
+verification callback invoked by OpenSSL which is quite detrimental to
+usability. Additionally, OpenSSL doesn’t have a way of starting and waiting for
+an asynchronous operation within callbacks (without blocking).</p>
+
+<p>Don’t forget to star the repository: <a href="https://github.com/djarek/certify">https://github.com/djarek/certify</a>!</p>
+
+<h1 id="boostbeast">Boost.Beast</h1>
+<p>When working on making sure Beast is <code>std::launder</code>-correct, I ran into a number
+of previously undiagnosed bugs in Beast. All of them have been fixed in
+<a href="https://github.com/boostorg/beast/pull/1598/files">v254</a>. I was quite confused
+why these issues weren’t found by CI previously. I’ve been able to track it down
+to old toolchain versions in Travis. Additionally, the test matrix lacks a few
+fairly important variants. Considering the fact that Trusty is no longer
+supported and the switch to Xenial is inevitable, I’ve decided to port over the
+CI to Azure Pipelines, because it offers better concurrency which allows the
+Beast CI to afford a larger test matrix. In the process I’ve also decided to use
+as many default b2 options as possible, to make future changes to the CI easier.
+There’s still an issue with Valgrind in Xenial to be resolved (doesn’t support
+the <code>RDRAND</code> instruction).</p>
+
+<h1 id="boostbuild">Boost.Build</h1>
+<p>While working on the AzP CI for Beast, I found out that the <code>coverage</code> feature
+in <code>b2</code> doesn’t actually set build flags. <code>coverage=all</code> will now properly cause
+tests to produce <code>gcno</code> and <code>gcda</code> files for consumption by the lcov tool.</p>
+
+<h1 id="beastlounge">BeastLounge</h1>
+<p>When experimenting with the BeastLounge application running on Heroku I found
+out that Heroku’s router has a builtin 55s timeout which dropped websocket
+connections. I solved the issue by making the websocket ping timeouts
+configurable.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/19/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/08/19/DamiansAugustUpdate.html">Damian's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/14/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/07/14/DamiansJulyUpdate.html">Damian's June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/10/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/06/10/DamiansJuneUpdate.html">Damian's May Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/05/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/05/05/DamiansMayUpdate.html">Damian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/04/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/04/04/DamiansAprilUpdate.html">Damian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/16/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/03/16/Certify-X509-validation.html">Certify X509 Validation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/24/2018</span>
+          <a class='text-l news-title link' href="/company,/damian/2018/10/24/Initial-work-on-Certify-complete.html">Initial Work On Certify Complete</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/03/2018</span>
+          <a class='text-l news-title link' href="/company,/damian/2018/09/03/Damian-Jarek-joins-as-staff-engineer.html">Damian Jarek Joins As Staff Engineer</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

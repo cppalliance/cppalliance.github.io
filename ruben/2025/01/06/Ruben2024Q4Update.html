@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost.MySQL 1.87 and the new Boost citizens | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Boost.MySQL 1.87 and the new Boost citizens | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Boost.MySQL 1.87 and the new Boost citizens" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost.MySQL 1.87 I already anticipated in my previous post that Boost 1.87 was going to be an exciting release for the users of Boost.MySQL. Many new features have been promoted to stable, making using the library much more enjoyable. After putting the final touches during this last month, Boost 1.87 was released on December the 12th with all these new features. Many of these changes make frequent tasks much easier. In this post, we will review some of the recommendations that changed in this release. We suggest sticking to these for new code. Old code will keep working as expected. Type-erased connections any_connection is the new recommended way to open connections to MySQL. It features simpler connection establishment semantics, more functionality and lower compile times with no loss of performance. We recommend using it over tcp_ssl_connection and friends in new code. Since an example is worth a thousand words, here’s one: // Boost 1.86 int main() { // The execution context, required for all I/O operations asio::io_context ctx; // The SSL context, required for connections that use TLS. asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client); // Construct the connection mysql::tcp_ssl_connection conn(ctx, ssl_ctx); // Resolve the hostname to get a collection of endpoints auto endpoints = resolver.resolve(&quot;localhost&quot;, mysql::default_port_string); // Parameters specifying how to perform the MySQL handshake operation. mysql::handshake_params params( &quot;some_username&quot;, &quot;some_password&quot;, &quot;some_database&quot; ); // Connect to the server using the first endpoint returned by the resolver conn.connect(*endpoints.begin(), params); } // Boost 1.87 int main() { // The execution context, required to run I/O operations. asio::io_context ctx; // Represents a connection to the MySQL server. mysql::any_connection conn(ctx); // The hostname, username and password to use mysql::connect_params params { .server_address = mysql::host_and_port(&quot;some_host&quot;), .username = &quot;some_username&quot;, .password = &quot;some_password&quot;, .database = &quot;some_database&quot;, }; // Connect to the server conn.connect(params); } Client-side SQL formatting and with_params with_params can be used instead of prepared statements for one-off queries: // Boost 1.86 void lookup(mysql::tcp_ssl_connection&amp; conn, int id) { // Prepare a statement mysql::statement stmt = conn.prepare_statement(&quot;SELECT * FROM user WHERE id = ?&quot;); // Execute it mysql::static_results&lt;user&gt; res; conn.execute(stmt.bind(id), res); // Close it conn.close_statement(stmt); // Do something with the results } // Boost 1.87 void lookup(mysql::any_connection&amp; conn, int id) { // Execute your query mysql::static_results&lt;user&gt; res; conn.execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } Since I already talked about this feature in my last post, I won’t delve into more detail here. Connection pools Might be the most requested feature in the library. Establishing sessions is costly, especially if TLS is enabled. Maintaining connections alive and reconnecting them on failure is also non-trivial. Connection pools do both for you, so you can focus on your queries, rather than on the infrastructure: // Boost 1.87. There&#39;s no equivalent in previous versions! int main() { asio::io_context ctx; // pool_params contains configuration for the pool. mysql::pool_params params { .server_address = mysql::host_and_port(&quot;my_server_hostname.com&quot;); .username = &quot;my_username&quot;, .password = &quot;my_password&quot;, .database = &quot;my_database&quot;, }; // Create the pool and run it. async_run maintains the connections healthy mysql::connection_pool pool(ctx, std::move(params)); pool.async_run(asio::detached); // ... } asio::awaitable&lt;void&gt; lookup(mysql::connection_pool&amp; pool, int id) { // Get a connection from the pool. We don&#39;t need to connect or close the connection mysql::pooled_connection conn = co_await pool.async_get_connection(); // Execute your query mysql::static_results&lt;user&gt; res; co_await conn-&gt;async_execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } Built-in diagnostics in exceptions when using async functions MySQL may produce diagnostic text when queries fail. You can get this passing a diagnostics object that will be populated on error. This, combined with Asio’s built-in error checking, made using throwing async functions cumbersome. As I already explained in my previous post, with_diagnostics and default completion tokens solve this problem: // Boost 1.86 asio::awaitable&lt;void&gt; handle_request(mysql::tcp_ssl_connection&amp; conn) { mysql::results r; mysql::diagnostics diag; auto [ec] = co_await conn.async_execute(&quot;SELECT 1&quot;, r, diag, asio::as_tuple(asio::deferred)); mysql::throw_on_error(ec, diag); } // Boost 1.87 asio::awaitable&lt;void&gt; handle_request(mysql::any_connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r); } During these last months, I’ve polished these features. I’ve fix a myriad of small issues in connection_pool, made mysql::sequence owning (and thus easier to use as argument to with_params), and made mysql::with_diagnostics more interoperable with other tokens, like asio::as_tuple. A new exposition for Boost.MySQL With great power comes great responsibility. I strongly believe that these new, exciting features are almost worthless if they are not properly explained. I wrote Boost.MySQL docs some time ago, and user experience has changed my mind on how an exposition should be. I’ve re-written many of the pages for this release, making them more practical, with more examples and use cases. I’ve introduced not one, but seven tutorials, slowly walking the user through the most common MySQL (and Asio) concepts to get them up to speed. And I’ve added new examples out of questions I received on GitHub. The old discussion used sync functions to expose library concepts, because they were by far the easiest to use. This lack of async examples led many users down to using sync functions when they shouldn’t. Now that C++20 coroutines yield clean code, I’ve re-written part of the exposition to use them, providing more guidance on async patterns. As not everyone can (or want) to use them, I’ve also added some pages on how to port C++20 coroutine code to other completion styles. Writing all this has proven to be really time-consuming. Some might think of it as unexciting, but I hope my users will appreciate it. I’d like to thank the C++ Alliance sponsorship here, because these new docs wouldn’t be possible without it. My next step here will be migrating the docs to Asciidoc, so they get a “younger” look and feel. This implies moving from the old Docca toolchain to an Asciidoc generator like MrDocs. I’ve had the pleasure to be an early user of the tool, and been able to provide some (hopefully useful) feedback to its authors. My thank you to Allan, Krystian and Fernando here. New citizens in Boost: MQTT5 and Hash2 It’s been some intense months in Boost. I’ve had the pleasure to participate in three Boost reviews: a MQTT5 Asio-based library, an SQLite wrapper and a hashing library. I’ve been specially involved in the first one, since Asio is one of my main areas of expertise. With this library, our Asio ecosystem grows, and with it, the overall usefulness of Boost. Other contributions One of my features that I implemented in Boost.MySQL required me to write a std::to_array backport. I’ve contributed it to Boost.Compat, with the help of its maintainer, Peter Dimov. As always, a great learning opportunity. I’ve also helped with some maintenance tasks in Boost.Redis." />
+<meta property="og:description" content="Boost.MySQL 1.87 I already anticipated in my previous post that Boost 1.87 was going to be an exciting release for the users of Boost.MySQL. Many new features have been promoted to stable, making using the library much more enjoyable. After putting the final touches during this last month, Boost 1.87 was released on December the 12th with all these new features. Many of these changes make frequent tasks much easier. In this post, we will review some of the recommendations that changed in this release. We suggest sticking to these for new code. Old code will keep working as expected. Type-erased connections any_connection is the new recommended way to open connections to MySQL. It features simpler connection establishment semantics, more functionality and lower compile times with no loss of performance. We recommend using it over tcp_ssl_connection and friends in new code. Since an example is worth a thousand words, here’s one: // Boost 1.86 int main() { // The execution context, required for all I/O operations asio::io_context ctx; // The SSL context, required for connections that use TLS. asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client); // Construct the connection mysql::tcp_ssl_connection conn(ctx, ssl_ctx); // Resolve the hostname to get a collection of endpoints auto endpoints = resolver.resolve(&quot;localhost&quot;, mysql::default_port_string); // Parameters specifying how to perform the MySQL handshake operation. mysql::handshake_params params( &quot;some_username&quot;, &quot;some_password&quot;, &quot;some_database&quot; ); // Connect to the server using the first endpoint returned by the resolver conn.connect(*endpoints.begin(), params); } // Boost 1.87 int main() { // The execution context, required to run I/O operations. asio::io_context ctx; // Represents a connection to the MySQL server. mysql::any_connection conn(ctx); // The hostname, username and password to use mysql::connect_params params { .server_address = mysql::host_and_port(&quot;some_host&quot;), .username = &quot;some_username&quot;, .password = &quot;some_password&quot;, .database = &quot;some_database&quot;, }; // Connect to the server conn.connect(params); } Client-side SQL formatting and with_params with_params can be used instead of prepared statements for one-off queries: // Boost 1.86 void lookup(mysql::tcp_ssl_connection&amp; conn, int id) { // Prepare a statement mysql::statement stmt = conn.prepare_statement(&quot;SELECT * FROM user WHERE id = ?&quot;); // Execute it mysql::static_results&lt;user&gt; res; conn.execute(stmt.bind(id), res); // Close it conn.close_statement(stmt); // Do something with the results } // Boost 1.87 void lookup(mysql::any_connection&amp; conn, int id) { // Execute your query mysql::static_results&lt;user&gt; res; conn.execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } Since I already talked about this feature in my last post, I won’t delve into more detail here. Connection pools Might be the most requested feature in the library. Establishing sessions is costly, especially if TLS is enabled. Maintaining connections alive and reconnecting them on failure is also non-trivial. Connection pools do both for you, so you can focus on your queries, rather than on the infrastructure: // Boost 1.87. There&#39;s no equivalent in previous versions! int main() { asio::io_context ctx; // pool_params contains configuration for the pool. mysql::pool_params params { .server_address = mysql::host_and_port(&quot;my_server_hostname.com&quot;); .username = &quot;my_username&quot;, .password = &quot;my_password&quot;, .database = &quot;my_database&quot;, }; // Create the pool and run it. async_run maintains the connections healthy mysql::connection_pool pool(ctx, std::move(params)); pool.async_run(asio::detached); // ... } asio::awaitable&lt;void&gt; lookup(mysql::connection_pool&amp; pool, int id) { // Get a connection from the pool. We don&#39;t need to connect or close the connection mysql::pooled_connection conn = co_await pool.async_get_connection(); // Execute your query mysql::static_results&lt;user&gt; res; co_await conn-&gt;async_execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } Built-in diagnostics in exceptions when using async functions MySQL may produce diagnostic text when queries fail. You can get this passing a diagnostics object that will be populated on error. This, combined with Asio’s built-in error checking, made using throwing async functions cumbersome. As I already explained in my previous post, with_diagnostics and default completion tokens solve this problem: // Boost 1.86 asio::awaitable&lt;void&gt; handle_request(mysql::tcp_ssl_connection&amp; conn) { mysql::results r; mysql::diagnostics diag; auto [ec] = co_await conn.async_execute(&quot;SELECT 1&quot;, r, diag, asio::as_tuple(asio::deferred)); mysql::throw_on_error(ec, diag); } // Boost 1.87 asio::awaitable&lt;void&gt; handle_request(mysql::any_connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r); } During these last months, I’ve polished these features. I’ve fix a myriad of small issues in connection_pool, made mysql::sequence owning (and thus easier to use as argument to with_params), and made mysql::with_diagnostics more interoperable with other tokens, like asio::as_tuple. A new exposition for Boost.MySQL With great power comes great responsibility. I strongly believe that these new, exciting features are almost worthless if they are not properly explained. I wrote Boost.MySQL docs some time ago, and user experience has changed my mind on how an exposition should be. I’ve re-written many of the pages for this release, making them more practical, with more examples and use cases. I’ve introduced not one, but seven tutorials, slowly walking the user through the most common MySQL (and Asio) concepts to get them up to speed. And I’ve added new examples out of questions I received on GitHub. The old discussion used sync functions to expose library concepts, because they were by far the easiest to use. This lack of async examples led many users down to using sync functions when they shouldn’t. Now that C++20 coroutines yield clean code, I’ve re-written part of the exposition to use them, providing more guidance on async patterns. As not everyone can (or want) to use them, I’ve also added some pages on how to port C++20 coroutine code to other completion styles. Writing all this has proven to be really time-consuming. Some might think of it as unexciting, but I hope my users will appreciate it. I’d like to thank the C++ Alliance sponsorship here, because these new docs wouldn’t be possible without it. My next step here will be migrating the docs to Asciidoc, so they get a “younger” look and feel. This implies moving from the old Docca toolchain to an Asciidoc generator like MrDocs. I’ve had the pleasure to be an early user of the tool, and been able to provide some (hopefully useful) feedback to its authors. My thank you to Allan, Krystian and Fernando here. New citizens in Boost: MQTT5 and Hash2 It’s been some intense months in Boost. I’ve had the pleasure to participate in three Boost reviews: a MQTT5 Asio-based library, an SQLite wrapper and a hashing library. I’ve been specially involved in the first one, since Asio is one of my main areas of expertise. With this library, our Asio ecosystem grows, and with it, the overall usefulness of Boost. Other contributions One of my features that I implemented in Boost.MySQL required me to write a std::to_array backport. I’ve contributed it to Boost.Compat, with the help of its maintainer, Peter Dimov. As always, a great learning opportunity. I’ve also helped with some maintenance tasks in Boost.Redis." />
+<link rel="canonical" href="http://cppalliance.org/ruben/2025/01/06/Ruben2024Q4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/ruben/2025/01/06/Ruben2024Q4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Boost.MySQL 1.87 and the new Boost citizens" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost.MySQL 1.87 I already anticipated in my previous post that Boost 1.87 was going to be an exciting release for the users of Boost.MySQL. Many new features have been promoted to stable, making using the library much more enjoyable. After putting the final touches during this last month, Boost 1.87 was released on December the 12th with all these new features. Many of these changes make frequent tasks much easier. In this post, we will review some of the recommendations that changed in this release. We suggest sticking to these for new code. Old code will keep working as expected. Type-erased connections any_connection is the new recommended way to open connections to MySQL. It features simpler connection establishment semantics, more functionality and lower compile times with no loss of performance. We recommend using it over tcp_ssl_connection and friends in new code. Since an example is worth a thousand words, here’s one: // Boost 1.86 int main() { // The execution context, required for all I/O operations asio::io_context ctx; // The SSL context, required for connections that use TLS. asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client); // Construct the connection mysql::tcp_ssl_connection conn(ctx, ssl_ctx); // Resolve the hostname to get a collection of endpoints auto endpoints = resolver.resolve(&quot;localhost&quot;, mysql::default_port_string); // Parameters specifying how to perform the MySQL handshake operation. mysql::handshake_params params( &quot;some_username&quot;, &quot;some_password&quot;, &quot;some_database&quot; ); // Connect to the server using the first endpoint returned by the resolver conn.connect(*endpoints.begin(), params); } // Boost 1.87 int main() { // The execution context, required to run I/O operations. asio::io_context ctx; // Represents a connection to the MySQL server. mysql::any_connection conn(ctx); // The hostname, username and password to use mysql::connect_params params { .server_address = mysql::host_and_port(&quot;some_host&quot;), .username = &quot;some_username&quot;, .password = &quot;some_password&quot;, .database = &quot;some_database&quot;, }; // Connect to the server conn.connect(params); } Client-side SQL formatting and with_params with_params can be used instead of prepared statements for one-off queries: // Boost 1.86 void lookup(mysql::tcp_ssl_connection&amp; conn, int id) { // Prepare a statement mysql::statement stmt = conn.prepare_statement(&quot;SELECT * FROM user WHERE id = ?&quot;); // Execute it mysql::static_results&lt;user&gt; res; conn.execute(stmt.bind(id), res); // Close it conn.close_statement(stmt); // Do something with the results } // Boost 1.87 void lookup(mysql::any_connection&amp; conn, int id) { // Execute your query mysql::static_results&lt;user&gt; res; conn.execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } Since I already talked about this feature in my last post, I won’t delve into more detail here. Connection pools Might be the most requested feature in the library. Establishing sessions is costly, especially if TLS is enabled. Maintaining connections alive and reconnecting them on failure is also non-trivial. Connection pools do both for you, so you can focus on your queries, rather than on the infrastructure: // Boost 1.87. There&#39;s no equivalent in previous versions! int main() { asio::io_context ctx; // pool_params contains configuration for the pool. mysql::pool_params params { .server_address = mysql::host_and_port(&quot;my_server_hostname.com&quot;); .username = &quot;my_username&quot;, .password = &quot;my_password&quot;, .database = &quot;my_database&quot;, }; // Create the pool and run it. async_run maintains the connections healthy mysql::connection_pool pool(ctx, std::move(params)); pool.async_run(asio::detached); // ... } asio::awaitable&lt;void&gt; lookup(mysql::connection_pool&amp; pool, int id) { // Get a connection from the pool. We don&#39;t need to connect or close the connection mysql::pooled_connection conn = co_await pool.async_get_connection(); // Execute your query mysql::static_results&lt;user&gt; res; co_await conn-&gt;async_execute(mysql::with_params(&quot;SELECT * FROM user WHERE id = {}&quot;, id), res); // Do something with the results } Built-in diagnostics in exceptions when using async functions MySQL may produce diagnostic text when queries fail. You can get this passing a diagnostics object that will be populated on error. This, combined with Asio’s built-in error checking, made using throwing async functions cumbersome. As I already explained in my previous post, with_diagnostics and default completion tokens solve this problem: // Boost 1.86 asio::awaitable&lt;void&gt; handle_request(mysql::tcp_ssl_connection&amp; conn) { mysql::results r; mysql::diagnostics diag; auto [ec] = co_await conn.async_execute(&quot;SELECT 1&quot;, r, diag, asio::as_tuple(asio::deferred)); mysql::throw_on_error(ec, diag); } // Boost 1.87 asio::awaitable&lt;void&gt; handle_request(mysql::any_connection&amp; conn) { mysql::results r; co_await conn.async_execute(&quot;SELECT 1&quot;, r); } During these last months, I’ve polished these features. I’ve fix a myriad of small issues in connection_pool, made mysql::sequence owning (and thus easier to use as argument to with_params), and made mysql::with_diagnostics more interoperable with other tokens, like asio::as_tuple. A new exposition for Boost.MySQL With great power comes great responsibility. I strongly believe that these new, exciting features are almost worthless if they are not properly explained. I wrote Boost.MySQL docs some time ago, and user experience has changed my mind on how an exposition should be. I’ve re-written many of the pages for this release, making them more practical, with more examples and use cases. I’ve introduced not one, but seven tutorials, slowly walking the user through the most common MySQL (and Asio) concepts to get them up to speed. And I’ve added new examples out of questions I received on GitHub. The old discussion used sync functions to expose library concepts, because they were by far the easiest to use. This lack of async examples led many users down to using sync functions when they shouldn’t. Now that C++20 coroutines yield clean code, I’ve re-written part of the exposition to use them, providing more guidance on async patterns. As not everyone can (or want) to use them, I’ve also added some pages on how to port C++20 coroutine code to other completion styles. Writing all this has proven to be really time-consuming. Some might think of it as unexciting, but I hope my users will appreciate it. I’d like to thank the C++ Alliance sponsorship here, because these new docs wouldn’t be possible without it. My next step here will be migrating the docs to Asciidoc, so they get a “younger” look and feel. This implies moving from the old Docca toolchain to an Asciidoc generator like MrDocs. I’ve had the pleasure to be an early user of the tool, and been able to provide some (hopefully useful) feedback to its authors. My thank you to Allan, Krystian and Fernando here. New citizens in Boost: MQTT5 and Hash2 It’s been some intense months in Boost. I’ve had the pleasure to participate in three Boost reviews: a MQTT5 Asio-based library, an SQLite wrapper and a hashing library. I’ve been specially involved in the first one, since Asio is one of my main areas of expertise. With this library, our Asio ecosystem grows, and with it, the overall usefulness of Boost. Other contributions One of my features that I implemented in Boost.MySQL required me to write a std::to_array backport. I’ve contributed it to Boost.Compat, with the help of its maintainer, Peter Dimov. As always, a great learning opportunity. I’ve also helped with some maintenance tasks in Boost.Redis.","@type":"BlogPosting","url":"http://cppalliance.org/ruben/2025/01/06/Ruben2024Q4Update.html","headline":"Boost.MySQL 1.87 and the new Boost citizens","dateModified":"2025-01-06T00:00:00+00:00","datePublished":"2025-01-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/ruben/2025/01/06/Ruben2024Q4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Boost.MySQL 1.87 and the new Boost citizens</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 6, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="boostmysql-187">Boost.MySQL 1.87</h2>
+
+<p>I already anticipated in <a href="https://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html">my previous post</a>
+that Boost 1.87 was going to be an exciting release for the users of Boost.MySQL.
+Many new features have been promoted to stable, making using the library much more enjoyable.
+After putting the final touches during this last month, Boost 1.87 was released on December
+the 12th with all these new features.</p>
+
+<p>Many of these changes make frequent tasks much easier. In this post, we will review some of the recommendations
+that changed in this release. We suggest sticking to these for new code. Old code will keep working as expected.</p>
+
+<h3 id="type-erased-connections">Type-erased connections</h3>
+
+<p><a href="https://www.boost.org/doc/libs/master/libs/mysql/doc/html/mysql/ref/boost__mysql__any_connection.html"><code>any_connection</code></a>
+is the new recommended way to open connections to MySQL. It features simpler connection establishment semantics,
+more functionality and lower compile times with no loss of performance. We recommend using it over
+<code>tcp_ssl_connection</code> and friends in new code. Since an example is worth a thousand words, here’s one:</p>
+
+<pre><code class="language-cpp">// Boost 1.86
+int main()
+{
+    // The execution context, required for all I/O operations
+    asio::io_context ctx;
+
+    // The SSL context, required for connections that use TLS.
+    asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
+
+    // Construct the connection
+    mysql::tcp_ssl_connection conn(ctx, ssl_ctx);
+
+    // Resolve the hostname to get a collection of endpoints
+    auto endpoints = resolver.resolve("localhost", mysql::default_port_string);
+
+    // Parameters specifying how to perform the MySQL handshake operation.
+    mysql::handshake_params params(
+        "some_username",
+        "some_password",
+        "some_database"
+    );
+
+    // Connect to the server using the first endpoint returned by the resolver
+    conn.connect(*endpoints.begin(), params);
+}
+
+// Boost 1.87
+int main()
+{
+    // The execution context, required to run I/O operations.
+    asio::io_context ctx;
+
+    // Represents a connection to the MySQL server.
+    mysql::any_connection conn(ctx);
+
+    // The hostname, username and password to use
+    mysql::connect_params params {
+        .server_address = mysql::host_and_port("some_host"),
+        .username = "some_username",
+        .password = "some_password",
+        .database = "some_database",
+    };
+
+    // Connect to the server
+    conn.connect(params);
+}
+</code></pre>
+
+<h3 id="client-side-sql-formatting-and-with_params">Client-side SQL formatting and with_params</h3>
+
+<p><code>with_params</code> can be used instead of prepared statements for one-off queries:</p>
+
+<pre><code class="language-cpp">// Boost 1.86
+void lookup(mysql::tcp_ssl_connection&amp; conn, int id)
+{
+    // Prepare a statement
+    mysql::statement stmt = conn.prepare_statement("SELECT * FROM user WHERE id = ?");
+
+    // Execute it
+    mysql::static_results&lt;user&gt; res;
+    conn.execute(stmt.bind(id), res);
+
+    // Close it
+    conn.close_statement(stmt);
+
+    // Do something with the results
+}
+
+// Boost 1.87
+void lookup(mysql::any_connection&amp; conn, int id)
+{
+    // Execute your query
+    mysql::static_results&lt;user&gt; res;
+    conn.execute(mysql::with_params("SELECT * FROM user WHERE id = {}", id), res);
+
+    // Do something with the results
+}
+</code></pre>
+
+<p>Since I already talked about this feature in <a href="https://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html">my last post</a>,
+I won’t delve into more detail here.</p>
+
+<h3 id="connection-pools">Connection pools</h3>
+
+<p>Might be the most requested feature in the library. Establishing sessions is costly, especially if TLS is enabled.
+Maintaining connections alive and reconnecting them on failure is also non-trivial.
+<a href="https://www.boost.org/doc/libs/master/libs/mysql/doc/html/mysql/tutorial_connection_pool.html">Connection pools</a>
+do both for you, so you can focus on your queries, rather than on the infrastructure:</p>
+
+<pre><code class="language-cpp">// Boost 1.87. There's no equivalent in previous versions!
+int main()
+{
+    asio::io_context ctx;
+
+    // pool_params contains configuration for the pool.
+    mysql::pool_params params {
+        .server_address = mysql::host_and_port("my_server_hostname.com");
+        .username = "my_username",
+        .password = "my_password",
+        .database = "my_database",
+    };
+
+    // Create the pool and run it. async_run maintains the connections healthy
+    mysql::connection_pool pool(ctx, std::move(params));
+    pool.async_run(asio::detached);
+
+    // ...
+}
+
+asio::awaitable&lt;void&gt; lookup(mysql::connection_pool&amp; pool, int id)
+{
+    // Get a connection from the pool. We don't need to connect or close the connection
+    mysql::pooled_connection conn = co_await pool.async_get_connection();
+
+    // Execute your query
+    mysql::static_results&lt;user&gt; res;
+    co_await conn-&gt;async_execute(mysql::with_params("SELECT * FROM user WHERE id = {}", id), res);
+
+    // Do something with the results
+}
+</code></pre>
+
+<h3 id="built-in-diagnostics-in-exceptions-when-using-async-functions">Built-in diagnostics in exceptions when using async functions</h3>
+
+<p>MySQL may produce diagnostic text when queries fail. You can get this passing a <code>diagnostics</code>
+object that will be populated on error. This, combined with Asio’s built-in error checking,
+made using throwing async functions cumbersome. As I already explained in
+<a href="https://cppalliance.org/ruben/2024/10/20/Ruben2024Q3Update.html">my previous post</a>,
+<code>with_diagnostics</code> and default completion tokens solve this problem:</p>
+
+<pre><code class="language-cpp">// Boost 1.86
+asio::awaitable&lt;void&gt; handle_request(mysql::tcp_ssl_connection&amp; conn)
+{
+    mysql::results r;
+    mysql::diagnostics diag;
+    auto [ec] = co_await conn.async_execute("SELECT 1", r, diag, asio::as_tuple(asio::deferred));
+    mysql::throw_on_error(ec, diag);
+}
+
+// Boost 1.87
+asio::awaitable&lt;void&gt; handle_request(mysql::any_connection&amp; conn)
+{
+    mysql::results r;
+    co_await conn.async_execute("SELECT 1", r);
+}
+</code></pre>
+
+<p>During these last months, I’ve polished these features. I’ve fix a myriad of small
+issues in <code>connection_pool</code>, made <code>mysql::sequence</code> owning (and thus easier to use
+as argument to <code>with_params</code>), and made <code>mysql::with_diagnostics</code> more interoperable
+with other tokens, like <code>asio::as_tuple</code>.</p>
+
+<h2 id="a-new-exposition-for-boostmysql">A new exposition for Boost.MySQL</h2>
+
+<p>With great power comes great responsibility. I strongly believe that these new, exciting features
+are almost worthless if they are not properly explained. I wrote Boost.MySQL docs some time ago,
+and user experience has changed my mind on how an exposition should be.
+I’ve re-written many of the pages for this release, making them more practical, with more examples and use cases.
+I’ve introduced not one, but seven tutorials, slowly walking the user through the most common MySQL
+(and Asio) concepts to get them up to speed. And I’ve added new examples out of questions I received on GitHub.</p>
+
+<p>The old discussion used sync functions to expose library concepts, because they were by far
+the easiest to use. This lack of async examples led many users down to using sync functions
+when they shouldn’t. Now that C++20 coroutines yield clean code, I’ve re-written part of
+the exposition to use them, providing more guidance on async patterns.
+As not everyone can (or want) to use them, I’ve also added some pages on how
+to port C++20 coroutine code to other completion styles.</p>
+
+<p>Writing all this has proven to be really time-consuming. Some might think of it as unexciting,
+but I hope my users will appreciate it. I’d like to thank the C++ Alliance sponsorship here,
+because these new docs wouldn’t be possible without it.</p>
+
+<p>My next step here will be migrating the docs to Asciidoc, so they get a “younger”
+look and feel. This implies moving from the old Docca toolchain to an Asciidoc generator
+like <a href="https://www.mrdocs.com/">MrDocs</a>. I’ve had the pleasure to be an early user of the tool,
+and been able to provide some (hopefully useful) feedback to its authors.
+My thank you to Allan, Krystian and Fernando here.</p>
+
+<h2 id="new-citizens-in-boost-mqtt5-and-hash2">New citizens in Boost: MQTT5 and Hash2</h2>
+
+<p>It’s been some intense months in Boost. I’ve had the pleasure to participate in three Boost reviews: a <a href="https://github.com/mireo/async-mqtt5/">MQTT5 Asio-based library</a>, <a href="https://klemens.dev/sqlite/">an SQLite wrapper</a> and a <a href="https://pdimov.github.io/hash2/doc/html/hash2.html">hashing library</a>.</p>
+
+<p>I’ve been specially involved in the first one, since Asio is one of my main areas of expertise. With this library, our Asio ecosystem grows, and with it, the overall usefulness of Boost.</p>
+
+<h2 id="other-contributions">Other contributions</h2>
+
+<p>One of my features that I implemented in Boost.MySQL required me to write a <code>std::to_array</code> backport.
+I’ve contributed it to <a href="https://www.boost.org/doc/libs/1_87_0/libs/compat/doc/html/compat.html#to_array">Boost.Compat</a>,
+with the help of its maintainer, Peter Dimov. As always, a great learning opportunity.</p>
+
+<p>I’ve also helped with some maintenance tasks in Boost.Redis.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/07/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/10/07/Ruben2025Q3Update.html">Levelling up Boost.Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/07/10/Ruben2025Q2Update.html">Ready, Set, Redis!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/04/10/Ruben2025Q1Update.html">Moving Boost forward: Asio, coroutines, and maybe even modules</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/06/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/01/06/Ruben2024Q4Update.html">Boost.MySQL 1.87 and the new Boost citizens</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/ruben/2024/10/20/Ruben2024Q3Update.html">Boost.MySQL 1.87 features: with_params and with_diagnostics</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/ruben/2023/10/27/Rubens2023Q3Update.html">Ruben's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

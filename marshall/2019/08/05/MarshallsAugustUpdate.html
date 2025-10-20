@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marshall's July Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Marshall’s July Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Marshall’s July Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="There are four main areas where I spend my time. Libc++, where I am the “code owner” WG21, where I am the chair of the Library Working Group (LWG) Boost Speaking at conferences This month, the big news (and the big work item) was the approval of the C++ “Committee Draft” at the WG21 meeting in Cologne on July 15-20. You can think of this as a “beta version” of the C++20 standard; all features are complete. The next step is bug fixing, with an eye towards releasing next year. Libc++ The LLVM 9.0 release is on track for September. We have a release branch, and the RC1 was recently dropped. Because of the run-up and the aftermath of the Cologne meeting, the libc++ accomplishments are a bit sparse this month. As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day. LWG issues resolved this month in libc++ (almost certainly incomplete) LWG2273 regex_match ambiguity LLVM features implemented this month (almost certainly incomplete) P1612 Relocate endian P1466 Parts of P1466 “Misc Chrono fixes” more to come here. LLVM bugs resolved this month (definitely incomplete) Other interesting LLVM bits from this month (certainly incomplete) Revision 365854 Reorganize the &lt;bit&gt; header to make most of the facilities available for internal use pre-C++20. NFC for external users. Revision 367120 Fix a bug in std::chrono::abs where it would fail when the duration’s period had not been reduced. Revision 364884 Add an internal call __libcpp_is_constant_evaluated, which works like std::is_constant_evaluated, except that it can be called at any language level (back to C++98). For older languages, it just returns false. This gets rid of a lot of ifdefs in the libc++ source code. The current status of libc++ can be found here: C++20 status C++17 status C++14 status (Complete) Libc++ open bugs WG21 As I said above, we shipped a CD out of Cologne. Now we wait for the National Bodies (members of ISO, aka “NBs”) to review the draft and send us comments. When we’ve resolved all of these comments, we will send the revised draft out for balloting. If the NBs approve, then that draft will become C++20. We approved many new features for C++20 in Cologne: P0553 - Bit Operations P0980 - Constexpr string P1004 - Constexpr vector P1065 - Constexpr INVOKE P1135 - The C++20 Synchronization Library P1208 - Source Location P0645 - Text Formatting P1361 - Integration of chrono with text formatting P1754 - Rename concepts to standard_case for C++20, while we still can P1614 - Spaceship integration in the Standard Library P0600 - Stop Tokens and a Joining Thread P0631 - Math Constants We also did not approve many proposed features. Most of these were not approved because we ran out of time, rather than any fault of theirs: P1391 - Range constructors for string_view P1394 - Range constructors for span P0288 - any_invokable P0201 - polymorphic_value P0429 - A Standard flatmap P1222 - A Standard flatset P0533 - constexpr for cmath P0792 - function_ref P0881 - A Proposal to add stacktrace library P1272 - Byte-swapping P0627 - Function to mark unreachable code and many others I still have a bunch of mechanical changes that need to be made before we ship: P1718R0: Mandating the Standard Library: Clause 25 - Algorithms library P1719R0: Mandating the Standard Library: Clause 26 - Numerics library P1720R0: Mandating the Standard Library: Clause 28 - Localization library P1721R0: Mandating the Standard Library: Clause 29 - Input/Output library P1722R0: Mandating the Standard Library: Clause 30 - Regular Expression library P1723R0: Mandating the Standard Library: Clause 31 - Atomics library We polled the NBs before Cologne, and they graciously agreed to have these changes made post-CD. Boost The next Boost release cycle is in process; I am helping Michael Caisse as release manager with this release. We should have a release in the next couple of weeks. Conferences Upcoming talks: CppCon in September in Denver. C++ Russia is at the end of October in St. Petersburg. ACCU Autumn is right after the WG21 meeting in early November. Meeting C++ is in mid-November in Berlin. I will be making the “Fall 2019 C++ European Tour”, going from St. Petersburg to Belfast to Berlin before heading home mid-November." />
+<meta property="og:description" content="There are four main areas where I spend my time. Libc++, where I am the “code owner” WG21, where I am the chair of the Library Working Group (LWG) Boost Speaking at conferences This month, the big news (and the big work item) was the approval of the C++ “Committee Draft” at the WG21 meeting in Cologne on July 15-20. You can think of this as a “beta version” of the C++20 standard; all features are complete. The next step is bug fixing, with an eye towards releasing next year. Libc++ The LLVM 9.0 release is on track for September. We have a release branch, and the RC1 was recently dropped. Because of the run-up and the aftermath of the Cologne meeting, the libc++ accomplishments are a bit sparse this month. As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day. LWG issues resolved this month in libc++ (almost certainly incomplete) LWG2273 regex_match ambiguity LLVM features implemented this month (almost certainly incomplete) P1612 Relocate endian P1466 Parts of P1466 “Misc Chrono fixes” more to come here. LLVM bugs resolved this month (definitely incomplete) Other interesting LLVM bits from this month (certainly incomplete) Revision 365854 Reorganize the &lt;bit&gt; header to make most of the facilities available for internal use pre-C++20. NFC for external users. Revision 367120 Fix a bug in std::chrono::abs where it would fail when the duration’s period had not been reduced. Revision 364884 Add an internal call __libcpp_is_constant_evaluated, which works like std::is_constant_evaluated, except that it can be called at any language level (back to C++98). For older languages, it just returns false. This gets rid of a lot of ifdefs in the libc++ source code. The current status of libc++ can be found here: C++20 status C++17 status C++14 status (Complete) Libc++ open bugs WG21 As I said above, we shipped a CD out of Cologne. Now we wait for the National Bodies (members of ISO, aka “NBs”) to review the draft and send us comments. When we’ve resolved all of these comments, we will send the revised draft out for balloting. If the NBs approve, then that draft will become C++20. We approved many new features for C++20 in Cologne: P0553 - Bit Operations P0980 - Constexpr string P1004 - Constexpr vector P1065 - Constexpr INVOKE P1135 - The C++20 Synchronization Library P1208 - Source Location P0645 - Text Formatting P1361 - Integration of chrono with text formatting P1754 - Rename concepts to standard_case for C++20, while we still can P1614 - Spaceship integration in the Standard Library P0600 - Stop Tokens and a Joining Thread P0631 - Math Constants We also did not approve many proposed features. Most of these were not approved because we ran out of time, rather than any fault of theirs: P1391 - Range constructors for string_view P1394 - Range constructors for span P0288 - any_invokable P0201 - polymorphic_value P0429 - A Standard flatmap P1222 - A Standard flatset P0533 - constexpr for cmath P0792 - function_ref P0881 - A Proposal to add stacktrace library P1272 - Byte-swapping P0627 - Function to mark unreachable code and many others I still have a bunch of mechanical changes that need to be made before we ship: P1718R0: Mandating the Standard Library: Clause 25 - Algorithms library P1719R0: Mandating the Standard Library: Clause 26 - Numerics library P1720R0: Mandating the Standard Library: Clause 28 - Localization library P1721R0: Mandating the Standard Library: Clause 29 - Input/Output library P1722R0: Mandating the Standard Library: Clause 30 - Regular Expression library P1723R0: Mandating the Standard Library: Clause 31 - Atomics library We polled the NBs before Cologne, and they graciously agreed to have these changes made post-CD. Boost The next Boost release cycle is in process; I am helping Michael Caisse as release manager with this release. We should have a release in the next couple of weeks. Conferences Upcoming talks: CppCon in September in Denver. C++ Russia is at the end of October in St. Petersburg. ACCU Autumn is right after the WG21 meeting in early November. Meeting C++ is in mid-November in Berlin. I will be making the “Fall 2019 C++ European Tour”, going from St. Petersburg to Belfast to Berlin before heading home mid-November." />
+<link rel="canonical" href="http://cppalliance.org/marshall/2019/08/05/MarshallsAugustUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/marshall/2019/08/05/MarshallsAugustUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2019-08-05T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Marshall’s July Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"There are four main areas where I spend my time. Libc++, where I am the “code owner” WG21, where I am the chair of the Library Working Group (LWG) Boost Speaking at conferences This month, the big news (and the big work item) was the approval of the C++ “Committee Draft” at the WG21 meeting in Cologne on July 15-20. You can think of this as a “beta version” of the C++20 standard; all features are complete. The next step is bug fixing, with an eye towards releasing next year. Libc++ The LLVM 9.0 release is on track for September. We have a release branch, and the RC1 was recently dropped. Because of the run-up and the aftermath of the Cologne meeting, the libc++ accomplishments are a bit sparse this month. As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day. LWG issues resolved this month in libc++ (almost certainly incomplete) LWG2273 regex_match ambiguity LLVM features implemented this month (almost certainly incomplete) P1612 Relocate endian P1466 Parts of P1466 “Misc Chrono fixes” more to come here. LLVM bugs resolved this month (definitely incomplete) Other interesting LLVM bits from this month (certainly incomplete) Revision 365854 Reorganize the &lt;bit&gt; header to make most of the facilities available for internal use pre-C++20. NFC for external users. Revision 367120 Fix a bug in std::chrono::abs where it would fail when the duration’s period had not been reduced. Revision 364884 Add an internal call __libcpp_is_constant_evaluated, which works like std::is_constant_evaluated, except that it can be called at any language level (back to C++98). For older languages, it just returns false. This gets rid of a lot of ifdefs in the libc++ source code. The current status of libc++ can be found here: C++20 status C++17 status C++14 status (Complete) Libc++ open bugs WG21 As I said above, we shipped a CD out of Cologne. Now we wait for the National Bodies (members of ISO, aka “NBs”) to review the draft and send us comments. When we’ve resolved all of these comments, we will send the revised draft out for balloting. If the NBs approve, then that draft will become C++20. We approved many new features for C++20 in Cologne: P0553 - Bit Operations P0980 - Constexpr string P1004 - Constexpr vector P1065 - Constexpr INVOKE P1135 - The C++20 Synchronization Library P1208 - Source Location P0645 - Text Formatting P1361 - Integration of chrono with text formatting P1754 - Rename concepts to standard_case for C++20, while we still can P1614 - Spaceship integration in the Standard Library P0600 - Stop Tokens and a Joining Thread P0631 - Math Constants We also did not approve many proposed features. Most of these were not approved because we ran out of time, rather than any fault of theirs: P1391 - Range constructors for string_view P1394 - Range constructors for span P0288 - any_invokable P0201 - polymorphic_value P0429 - A Standard flatmap P1222 - A Standard flatset P0533 - constexpr for cmath P0792 - function_ref P0881 - A Proposal to add stacktrace library P1272 - Byte-swapping P0627 - Function to mark unreachable code and many others I still have a bunch of mechanical changes that need to be made before we ship: P1718R0: Mandating the Standard Library: Clause 25 - Algorithms library P1719R0: Mandating the Standard Library: Clause 26 - Numerics library P1720R0: Mandating the Standard Library: Clause 28 - Localization library P1721R0: Mandating the Standard Library: Clause 29 - Input/Output library P1722R0: Mandating the Standard Library: Clause 30 - Regular Expression library P1723R0: Mandating the Standard Library: Clause 31 - Atomics library We polled the NBs before Cologne, and they graciously agreed to have these changes made post-CD. Boost The next Boost release cycle is in process; I am helping Michael Caisse as release manager with this release. We should have a release in the next couple of weeks. Conferences Upcoming talks: CppCon in September in Denver. C++ Russia is at the end of October in St. Petersburg. ACCU Autumn is right after the WG21 meeting in early November. Meeting C++ is in mid-November in Berlin. I will be making the “Fall 2019 C++ European Tour”, going from St. Petersburg to Belfast to Berlin before heading home mid-November.","@type":"BlogPosting","url":"http://cppalliance.org/marshall/2019/08/05/MarshallsAugustUpdate.html","headline":"Marshall’s July Update","dateModified":"2019-08-05T00:00:00+00:00","datePublished":"2019-08-05T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/marshall/2019/08/05/MarshallsAugustUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Marshall's July Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/marshall">
+                  Marshall Clow
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Aug 5, 2019</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>There are four main areas where I spend my time.</p>
+
+<ul>
+  <li>Libc++, where I am the “code owner”</li>
+  <li>WG21, where I am the chair of the Library Working Group (LWG)</li>
+  <li>Boost</li>
+  <li>Speaking at conferences</li>
+</ul>
+
+<p>This month, the big news (and the big work item) was the approval of the C++ “Committee Draft” at the WG21 meeting in Cologne on July 15-20.</p>
+
+<p>You can think of this as a “beta version” of the C++20 standard; all features are complete. The next step is bug fixing, with an eye towards releasing next year.</p>
+
+<h1 id="libc">Libc++</h1>
+
+<p>The LLVM 9.0 release is on track for September. We have a release branch, and the RC1 was recently dropped.</p>
+
+<p>Because of the run-up and the aftermath of the Cologne meeting, the libc++ accomplishments are a bit sparse this month.</p>
+
+<p>As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day.</p>
+
+<h3 id="lwg-issues-resolved-this-month-in-libc-almost-certainly-incomplete">LWG issues resolved this month in libc++ (almost certainly incomplete)</h3>
+
+<ul>
+  <li><a href="https://wg21.link/LWG2273">LWG2273</a>	<code>regex_match</code> ambiguity</li>
+</ul>
+
+<h3 id="llvm-features-implemented-this-month-almost-certainly-incomplete">LLVM features implemented this month (almost certainly incomplete)</h3>
+
+<ul>
+  <li><a href="https://wg21.link/P1612">P1612</a>	Relocate endian</li>
+  <li><a href="https://wg21.link/P1466">P1466</a>	Parts of P1466 “Misc Chrono fixes” more to come here.</li>
+</ul>
+
+<h3 id="llvm-bugs-resolved-this-month-definitely-incomplete">LLVM bugs resolved this month (definitely incomplete)</h3>
+
+<!--
+* [Bug 36863](https://llvm.org/PR36863)	`basic_string_view(const CharT*, size_type)` constructor shouldn't comment out assert of nullptr and length checks
+* [Bug 42166](https://llvm.org/PR42166)	`to_chars` can puts leading zeros on numbers
+ -->
+
+<h3 id="other-interesting-llvm-bits-from-this-month-certainly-incomplete">Other interesting LLVM bits from this month (certainly incomplete)</h3>
+
+<ul>
+  <li>
+    <p><a href="https://llvm.org/r365854">Revision 365854</a> Reorganize the <code>&lt;bit&gt;</code> header to make most of the facilities available for internal use pre-C++20. NFC for external users.</p>
+  </li>
+  <li>
+    <p><a href="https://llvm.org/r367120">Revision 367120</a> Fix a bug in std::chrono::abs where it would fail when the duration’s period had not been reduced.</p>
+  </li>
+  <li>
+    <p><a href="https://llvm.org/r364884">Revision 364884</a> Add an internal call <code>__libcpp_is_constant_evaluated</code>, which works like <code>std::is_constant_evaluated</code>, except that it can be called at any language level (back to C++98). For older languages, it just returns <code>false</code>. This gets rid of a lot of ifdefs in the libc++ source code.</p>
+  </li>
+</ul>
+
+<p>The current status of libc++ can be found here:</p>
+<ul>
+  <li><a href="https://libcxx.llvm.org/cxx2a_status.html">C++20 status</a></li>
+  <li><a href="https://libcxx.llvm.org/cxx1z_status.html">C++17 status</a></li>
+  <li><a href="https://libcxx.llvm.org/cxx1y_status.html">C++14 status</a> (Complete)</li>
+  <li><a href="https://bugs.llvm.org/buglist.cgi?bug_status=__open__&amp;product=libc%2B%2B">Libc++ open bugs</a></li>
+</ul>
+
+<h1 id="wg21">WG21</h1>
+
+<p>As I said above, we shipped a CD out of Cologne. Now we wait for the National Bodies (members of ISO, aka “NBs”) to review the draft and send us comments. When we’ve resolved all of these comments, we will send the revised draft out for balloting. If the NBs approve, then that draft will become C++20.</p>
+
+<p>We approved many new features for C++20 in Cologne:</p>
+<ul>
+  <li><a href="https://wg21.link/0553">P0553</a> - Bit Operations</li>
+  <li><a href="https://wg21.link/0980">P0980</a> - Constexpr <code>string</code></li>
+  <li><a href="https://wg21.link/1004">P1004</a> - Constexpr <code>vector</code></li>
+  <li><a href="https://wg21.link/1065">P1065</a> - Constexpr <code>INVOKE</code></li>
+  <li><a href="https://wg21.link/1135">P1135</a> - The C++20 Synchronization Library</li>
+  <li><a href="https://wg21.link/1208">P1208</a> - Source Location</li>
+  <li><a href="https://wg21.link/0645">P0645</a> - Text Formatting</li>
+  <li><a href="https://wg21.link/1361">P1361</a> - Integration of <code>chrono</code> with text formatting</li>
+  <li><a href="https://wg21.link/1754">P1754</a> - Rename concepts to standard_case for C++20, while we still can</li>
+  <li><a href="https://wg21.link/1614">P1614</a> - Spaceship integration in the Standard Library</li>
+  <li><a href="https://wg21.link/0600">P0600</a> - Stop Tokens and a Joining Thread</li>
+  <li><a href="https://wg21.link/0631">P0631</a> - Math Constants</li>
+</ul>
+
+<p>We also did not approve many proposed features. Most of these were not approved because we ran out of time, rather than any fault of theirs:</p>
+<ul>
+  <li><a href="https://wg21.link/1391">P1391</a> - Range constructors for <code>string_view</code></li>
+  <li><a href="https://wg21.link/1394">P1394</a> - Range constructors for <code>span</code></li>
+  <li><a href="https://wg21.link/0288">P0288</a> - <code>any_invokable</code></li>
+  <li><a href="https://wg21.link/0201">P0201</a> - <code>polymorphic_value</code></li>
+  <li><a href="https://wg21.link/0429">P0429</a> - A Standard flatmap</li>
+  <li><a href="https://wg21.link/1222">P1222</a> - A Standard flatset</li>
+  <li><a href="https://wg21.link/0533">P0533</a> - constexpr for cmath</li>
+  <li><a href="https://wg21.link/0792">P0792</a> - <code>function_ref</code></li>
+  <li><a href="https://wg21.link/0881">P0881</a> - A Proposal to add stacktrace library</li>
+  <li><a href="https://wg21.link/1272">P1272</a> - Byte-swapping</li>
+  <li><a href="https://wg21.link/0627">P0627</a> - Function to mark unreachable code</li>
+  <li><em>and many others</em></li>
+</ul>
+
+<p>I still have a bunch of mechanical changes that need to be made before we ship:</p>
+<ul>
+  <li><a href="https://wg21.link/P1718">P1718R0: Mandating the Standard Library: Clause 25 - Algorithms library</a></li>
+  <li><a href="https://wg21.link/P1719">P1719R0: Mandating the Standard Library: Clause 26 - Numerics library</a></li>
+  <li><a href="https://wg21.link/P1720">P1720R0: Mandating the Standard Library: Clause 28 - Localization library</a></li>
+  <li><a href="https://wg21.link/P1721">P1721R0: Mandating the Standard Library: Clause 29 - Input/Output library</a></li>
+  <li><a href="https://wg21.link/P1722">P1722R0: Mandating the Standard Library: Clause 30 - Regular Expression library</a></li>
+  <li><a href="https://wg21.link/P1723">P1723R0: Mandating the Standard Library: Clause 31 - Atomics library</a></li>
+</ul>
+
+<p>We polled the NBs before Cologne, and they graciously agreed to have these changes made post-CD.</p>
+
+<h1 id="boost">Boost</h1>
+
+<p>The next <a href="https://www.boost.org/development/index.html">Boost release cycle</a> is in process; I am helping Michael Caisse as release manager with this release. We should have a release in the next couple of weeks.</p>
+
+<h1 id="conferences">Conferences</h1>
+
+<p>Upcoming talks:</p>
+<ul>
+  <li><a href="https://www.cppcon.com">CppCon</a> in September in Denver.</li>
+  <li><a href="https://cppconf-piter.ru/en/">C++ Russia</a> is at the end of October in St. Petersburg.</li>
+  <li><a href="https://conference.accu.org">ACCU Autumn</a> is right after the WG21 meeting in early November.</li>
+  <li><a href="https://meetingcpp.com">Meeting C++</a> is in mid-November in Berlin.</li>
+</ul>
+
+<p>I will be making the “Fall 2019 C++ European Tour”, going from St. Petersburg to Belfast to Berlin before heading home mid-November.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/27/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/09/27/MarshallsOctoberUpdate.html">Marshall's Combined August and September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/05/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/08/05/MarshallsAugustUpdate.html">Marshall's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/02/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/07/02/MarshallsJulyUpdate.html">Marshall's June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/01/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/06/01/MarshallsJuneUpdate.html">Marshall's May Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/01/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/05/01/MarshallsMayUpdate.html">Marshall's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/02/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/04/02/MarshallsAprilUpdate.html">Marshall's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/04/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/03/04/MarshallsMarchUpdate.html">Marshall's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/14/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/01/14/MarshallsJanuaryUpdate.html">Marshall's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

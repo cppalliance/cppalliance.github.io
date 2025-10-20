@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joaquín's Q1 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Joaquín’s Q1 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Joaquín’s Q1 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q1 2024, I’ve been working in the following areas: Boost.Unordered Reviewed Braden’s work on optimization of emplace(k, v) calls (PR#230, released in Boost 1.85.0). With this optimization, statements such as: m.emplace(0,&quot;zero&quot;); won’t create a temporary (0, &quot;zero&quot;) value if the element with key 0 already exists. This is particularly relevant when dynamic memory allocation is involved (for instance, if mapped_type is std::string in the example above). The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation. Fixed support for allocators with explicit copy constructors (PR#234, released in Boost 1.85.0). Fixed bug in the const version of unordered_multimap::find(k, hash, eq) (PR#238, released in Boost 1.85.0). Reviewed Braden’s work on addition of boost::unordered::pmr aliases for Boost.Unordered containers using std::pmr::polymorphic_allocator (PR#239, to be released in Boost 1.86.0). I’ve continued working on learning about advanced concurrency techniques implemented by ParlayHash with a view towards leveraging them for the improvement of boost::concurrent_flat_map in massively parallel scenarios. Latest research has focused on implementing (emulated) load-link/store-conditional techniques, but results are still well below those achieved by ParlayHash. Advance is hampered by the need to access a many-core machine for benchmarking, which slows down turnaround times. On April 25, I’m giving a talk on perfect hashing at using std::cpp 2024. I’ve been preparing the presentation and associated material, which will be made public shortly after the talk. Boost.Bimap Fixed heterogeneous lookup for side collections (PR#42, released in Boost 1.85.0). Boost.Bimap is in need of a maintainer, if you’d like to take over this role please step in! Boost promotion and new website As of lately, I’m devoting more time to Boost-related tasks outside of actual programming: I’ve authored several promotional tweets such as this, this and this: the art was commisioned to the amazing Bob Ostrom. Starting in late March, I’m managing the project to complete the proposed new website for Boost. We should be ready for launch early in Q2 2024. If you’re curious, you can take a look at the project backlogs here and here. A new golden era for Boost? I’ve been a contributor and keen observer of Boost for more than 20 years, back from the day when the project was spearheading the community initiatives to provide high-quality libraries for eventual standardization. After crucially contributing to the watershed upgrade of the standard library in C++11, Boost popularity waned, partially because of its success in getting many of its key components standardized, but also due to external and internal factors (appearance of excellent, lighter alternatives to some of its libraries, lack of modernization, monolithicity, etc.) In the last couple of years or so, however, I’ve noticed a resurgence in the interest for Boost: I can’t provide hard data yet (I will eventually), but I’m following some proxy signs (presence and feedback on social media, mainly) that may indicate we’re back on track towards better serving the C++ community. Some concrete initiatives that I think are helping improve the public perception of the project are: Better package management support from Conan and vcpkg. Modularization efforts both with CMake and B2. Deprecation of C++03 support by many Boost libraries. Ongoing work and conversations around the proposed new website and potential module support. I’m no postmodernist, but I recognize the power of narratives and good PR strategies even in the supposedly objetive world of software development. Backed by its diverse catalog of high-quality libraries and resources, I’d like to contribute what little I can to communicating the current and future benefits of Boost to the C++ community." />
+<meta property="og:description" content="During Q1 2024, I’ve been working in the following areas: Boost.Unordered Reviewed Braden’s work on optimization of emplace(k, v) calls (PR#230, released in Boost 1.85.0). With this optimization, statements such as: m.emplace(0,&quot;zero&quot;); won’t create a temporary (0, &quot;zero&quot;) value if the element with key 0 already exists. This is particularly relevant when dynamic memory allocation is involved (for instance, if mapped_type is std::string in the example above). The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation. Fixed support for allocators with explicit copy constructors (PR#234, released in Boost 1.85.0). Fixed bug in the const version of unordered_multimap::find(k, hash, eq) (PR#238, released in Boost 1.85.0). Reviewed Braden’s work on addition of boost::unordered::pmr aliases for Boost.Unordered containers using std::pmr::polymorphic_allocator (PR#239, to be released in Boost 1.86.0). I’ve continued working on learning about advanced concurrency techniques implemented by ParlayHash with a view towards leveraging them for the improvement of boost::concurrent_flat_map in massively parallel scenarios. Latest research has focused on implementing (emulated) load-link/store-conditional techniques, but results are still well below those achieved by ParlayHash. Advance is hampered by the need to access a many-core machine for benchmarking, which slows down turnaround times. On April 25, I’m giving a talk on perfect hashing at using std::cpp 2024. I’ve been preparing the presentation and associated material, which will be made public shortly after the talk. Boost.Bimap Fixed heterogeneous lookup for side collections (PR#42, released in Boost 1.85.0). Boost.Bimap is in need of a maintainer, if you’d like to take over this role please step in! Boost promotion and new website As of lately, I’m devoting more time to Boost-related tasks outside of actual programming: I’ve authored several promotional tweets such as this, this and this: the art was commisioned to the amazing Bob Ostrom. Starting in late March, I’m managing the project to complete the proposed new website for Boost. We should be ready for launch early in Q2 2024. If you’re curious, you can take a look at the project backlogs here and here. A new golden era for Boost? I’ve been a contributor and keen observer of Boost for more than 20 years, back from the day when the project was spearheading the community initiatives to provide high-quality libraries for eventual standardization. After crucially contributing to the watershed upgrade of the standard library in C++11, Boost popularity waned, partially because of its success in getting many of its key components standardized, but also due to external and internal factors (appearance of excellent, lighter alternatives to some of its libraries, lack of modernization, monolithicity, etc.) In the last couple of years or so, however, I’ve noticed a resurgence in the interest for Boost: I can’t provide hard data yet (I will eventually), but I’m following some proxy signs (presence and feedback on social media, mainly) that may indicate we’re back on track towards better serving the C++ community. Some concrete initiatives that I think are helping improve the public perception of the project are: Better package management support from Conan and vcpkg. Modularization efforts both with CMake and B2. Deprecation of C++03 support by many Boost libraries. Ongoing work and conversations around the proposed new website and potential module support. I’m no postmodernist, but I recognize the power of narratives and good PR strategies even in the supposedly objetive world of software development. Backed by its diverse catalog of high-quality libraries and resources, I’d like to contribute what little I can to communicating the current and future benefits of Boost to the C++ community." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-20T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Joaquín’s Q1 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q1 2024, I’ve been working in the following areas: Boost.Unordered Reviewed Braden’s work on optimization of emplace(k, v) calls (PR#230, released in Boost 1.85.0). With this optimization, statements such as: m.emplace(0,&quot;zero&quot;); won’t create a temporary (0, &quot;zero&quot;) value if the element with key 0 already exists. This is particularly relevant when dynamic memory allocation is involved (for instance, if mapped_type is std::string in the example above). The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation. Fixed support for allocators with explicit copy constructors (PR#234, released in Boost 1.85.0). Fixed bug in the const version of unordered_multimap::find(k, hash, eq) (PR#238, released in Boost 1.85.0). Reviewed Braden’s work on addition of boost::unordered::pmr aliases for Boost.Unordered containers using std::pmr::polymorphic_allocator (PR#239, to be released in Boost 1.86.0). I’ve continued working on learning about advanced concurrency techniques implemented by ParlayHash with a view towards leveraging them for the improvement of boost::concurrent_flat_map in massively parallel scenarios. Latest research has focused on implementing (emulated) load-link/store-conditional techniques, but results are still well below those achieved by ParlayHash. Advance is hampered by the need to access a many-core machine for benchmarking, which slows down turnaround times. On April 25, I’m giving a talk on perfect hashing at using std::cpp 2024. I’ve been preparing the presentation and associated material, which will be made public shortly after the talk. Boost.Bimap Fixed heterogeneous lookup for side collections (PR#42, released in Boost 1.85.0). Boost.Bimap is in need of a maintainer, if you’d like to take over this role please step in! Boost promotion and new website As of lately, I’m devoting more time to Boost-related tasks outside of actual programming: I’ve authored several promotional tweets such as this, this and this: the art was commisioned to the amazing Bob Ostrom. Starting in late March, I’m managing the project to complete the proposed new website for Boost. We should be ready for launch early in Q2 2024. If you’re curious, you can take a look at the project backlogs here and here. A new golden era for Boost? I’ve been a contributor and keen observer of Boost for more than 20 years, back from the day when the project was spearheading the community initiatives to provide high-quality libraries for eventual standardization. After crucially contributing to the watershed upgrade of the standard library in C++11, Boost popularity waned, partially because of its success in getting many of its key components standardized, but also due to external and internal factors (appearance of excellent, lighter alternatives to some of its libraries, lack of modernization, monolithicity, etc.) In the last couple of years or so, however, I’ve noticed a resurgence in the interest for Boost: I can’t provide hard data yet (I will eventually), but I’m following some proxy signs (presence and feedback on social media, mainly) that may indicate we’re back on track towards better serving the C++ community. Some concrete initiatives that I think are helping improve the public perception of the project are: Better package management support from Conan and vcpkg. Modularization efforts both with CMake and B2. Deprecation of C++03 support by many Boost libraries. Ongoing work and conversations around the proposed new website and potential module support. I’m no postmodernist, but I recognize the power of narratives and good PR strategies even in the supposedly objetive world of software development. Backed by its diverse catalog of high-quality libraries and resources, I’d like to contribute what little I can to communicating the current and future benefits of Boost to the C++ community.","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update.html","headline":"Joaquín’s Q1 2024 Update","dateModified":"2024-04-20T00:00:00+00:00","datePublished":"2024-04-20T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2024/04/20/Joaquins2024Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Joaquín's Q1 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 20, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q1 2024, I’ve been working in the following areas:</p>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Reviewed Braden’s work on optimization of <code>emplace(k, v)</code> calls (<a href="https://github.com/boostorg/unordered/pull/230">PR#230</a>,
+released in <a href="https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0">Boost 1.85.0</a>).
+With this optimization, statements such as:</li>
+</ul>
+<pre><code>m.emplace(0,"zero");</code></pre>
+<p>won’t create a temporary <code>(0, "zero")</code> value if the element with key 0 already exists. This is particularly relevant
+when dynamic memory allocation is involved (for instance, if <code>mapped_type</code> is <code>std::string</code> in the example above).
+The implementation of this feature is surprisingly tricky and Braden has done a superb job at coming up with an elegant and concise formulation.</p>
+<ul>
+  <li>Fixed support for allocators with explicit copy constructors (<a href="https://github.com/boostorg/unordered/pull/234">PR#234</a>,
+released in <a href="https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0">Boost 1.85.0</a>).</li>
+  <li>Fixed bug in the const version of <code>unordered_multimap::find(k, hash, eq)</code> (<a href="https://github.com/boostorg/unordered/pull/238">PR#238</a>,
+released in <a href="https://www.boost.org/doc/libs/1_85_0/libs/unordered/doc/html/unordered.html#changes_release_1_85_0">Boost 1.85.0</a>).</li>
+  <li>Reviewed Braden’s work on addition of <code>boost::unordered::pmr aliases</code> for Boost.Unordered containers using
+<code>std::pmr::polymorphic_allocator</code> (<a href="https://github.com/boostorg/unordered/pull/239">PR#239</a>, to be released in Boost 1.86.0).</li>
+  <li>I’ve continued working on learning about advanced concurrency techniques implemented by
+<a href="https://github.com/cmuparlay/parlayhash">ParlayHash</a> with a view towards leveraging them for the
+improvement of <code>boost::concurrent_flat_map</code> in massively parallel scenarios. Latest research has
+focused on implementing (emulated) <a href="https://github.com/boostorg/unordered/compare/687a446784da8592f8795f1068328e9de041f63b...a4a5a3e12790df7236f1e38b3ec29cdc0463b6cc">load-link/store-conditional techniques</a>,
+but results are still well below those achieved by ParlayHash. Advance is hampered by the need to
+access a many-core machine for benchmarking, which slows down turnaround times.</li>
+  <li>On April 25, I’m giving a talk on perfect hashing at <a href="https://eventos.uc3m.es/105614/programme/using-std-cpp-2024.html">using std::cpp 2024</a>.
+I’ve been preparing the presentation and associated material, which will be made public shortly after the talk.</li>
+</ul>
+
+<h3 id="boostbimap">Boost.Bimap</h3>
+
+<ul>
+  <li>Fixed heterogeneous lookup for side collections (<a href="https://github.com/boostorg/bimap/pull/42">PR#42</a>,
+released in <a href="https://www.boost.org/doc/libs/1_85_0/libs/bimap/doc/html/boost_bimap/release_notes.html#boost_bimap.release_notes.boost_1_85_release">Boost 1.85.0</a>).
+Boost.Bimap is in need of a maintainer, if you’d like to take over this role please step in!</li>
+</ul>
+
+<h3 id="boost-promotion-and-new-website">Boost promotion and new website</h3>
+
+<p>As of lately, I’m devoting more time to Boost-related tasks outside of actual programming:</p>
+
+<ul>
+  <li>I’ve authored several promotional tweets such as <a href="https://x.com/Boost_Libraries/status/1750559787220099577">this</a>,
+<a href="https://x.com/Boost_Libraries/status/1755277784824344943">this</a> and
+<a href="https://x.com/Boost_Libraries/status/1768833941341896756">this</a>: the art was commisioned to
+the amazing <a href="https://www.bobostrom.com/">Bob Ostrom</a>.</li>
+  <li>Starting in late March, I’m managing the project to complete the proposed <a href="https://www.boost.io/">new website for Boost</a>.
+We should be ready for launch early in Q2 2024. If you’re curious, you can take a look at
+the project backlogs <a href="https://github.com/boostorg/website-v2/issues">here</a> and <a href="https://github.com/boostorg/website-v2-docs/issues">here</a>.</li>
+</ul>
+
+<h3 id="a-new-golden-era-for-boost">A new golden era for Boost?</h3>
+
+<p>I’ve been a contributor and keen observer of Boost for more than 20 years, back from the day when
+the project was spearheading the community initiatives to provide high-quality libraries for
+eventual standardization. After crucially contributing to the watershed upgrade of the
+standard library in C++11, Boost popularity waned, partially because of its success
+in getting many of its key components standardized, but also due to external and internal
+factors (appearance of excellent, lighter alternatives to some of its libraries,
+lack of modernization, monolithicity, etc.) In the last couple of years or so, however,
+I’ve noticed a resurgence in the interest for Boost: I can’t provide hard data yet (I
+will eventually), but I’m following some proxy signs (presence and feedback on social media,
+mainly) that may indicate we’re back on track towards better serving the C++ community. Some concrete
+initiatives that I think are helping improve the public perception of the project are:</p>
+<ul>
+  <li>Better package management support from Conan and vcpkg.</li>
+  <li>Modularization efforts both with <a href="https://github.com/boostorg/cmake">CMake</a> and <a href="https://github.com/grafikrobot/boostorg.boost">B2</a>.</li>
+  <li>Deprecation of C++03 support by many Boost libraries.</li>
+  <li>Ongoing work and conversations around the proposed new website and potential <a href="https://anarthal.github.io/cppblog/modules">module support</a>.</li>
+</ul>
+
+<p>I’m no postmodernist, but I recognize the power of narratives and good PR strategies
+even in the supposedly objetive world of software development. Backed by its diverse
+catalog of high-quality libraries and resources,
+I’d like to contribute what little I can to communicating the current and future benefits of
+Boost to the C++ community.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

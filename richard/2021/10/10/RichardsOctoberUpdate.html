@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's October Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s October Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s October Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Aims and Objectives This blog is presented in two sections. The first is a general discussion about completion tokens. The second is a practical demonstration of a production-grade completion token which adds significant utility to any asynchronous operation that supports the new cancellation feature that arrived in Asio 1.19 (Boost 1.77). This blog ships with an accompanying github repository in case you want to play with examples. The repository is here. Asio and the Power of Completion Tokens Asio (available standalone and in Boost) defines a pattern for writing asynchronous operations. There have been a few examples in my blogs of custom composed operations written in terms of several asynchronous operations made available by the library. Another often overlooked feature of Asio is the ability to define a customisation point which defines the “behaviour during initiation and the result type” of the asynchronous initiating function. But what does that mean? Well, consider the following code: /* void */ asio::async_read(sock, buffer, &quot;\r\n&quot;, [](error_code ec, std::size_t n) { /* handler */ }); This is a verbatim (you could say old-style) asynchronous initiating function which will read from the socket into the buffer until either: The buffer is full, or the sequence \r\n is found in the input stream, or There is some other IO error. Whichever happens, the lambda is called in the context of the associated executor of the socket. (Let’s call this “the operation”) The operation is started immediately and the lambda will be invoked at some point in the future once the operation is complete. The initiating function returns void. Now consider: auto n = co_await asio::async_read(sock, &quot;\r\n&quot;, asio::use_awaitable); This code is using the same initiating function to invoke initiate the same asynchronous operation. However, this time instead of providing a Completion Handler we have provided a Completion Token. The only difference in the two invocations is the presence of the token. The actual asynchronous operation is the same in both cases. However, now invocation of the operation has been modified such that: The initiating function returns an asio::awaitable&lt;std::size_t&gt; which can be co_awaited. The initiating function has been transformed into a C++20 coroutine. The operation will not commence until the returned awaitable has been co_awaited. We can say that the completion token has implemented a customisation point at both the initiation step and the completion step. (For great notes on completion step I would recommend reading one of the many excellent papers, follow-ups or videos), published by Chris Kohlhoff - the author of Asio. Here is another interesting example: using asio::experimental::deferred; using asio::use_awaitable; auto my_op = asio::async_read(sock, &quot;\r\n&quot;, deferred); ... auto n = co_await my_op(use_awaitable); In this case, the async_read initiating function has been invoked with the deferred completion token. This token has two side effects: The asynchronous operation is not actually initiated, and It changes the return type to be an invocable object which when called will behave as if you called the initiating function. The returned invocable object is a unary function object whose argument is a completion token, which means that the operation can be further customised at the point of use. You can think of it as an asynchronous packaged tasks awaiting one last customisation before use. Note that as long as the packaged asynchronous operation is started with reference arguments or lightweight copyable arguments, it can be re-used and copied. All arguments of Asio and Beast initiating functions conform to this principle. The original design decision of passing buffers and return values by reference to asynchronous operations was to ensure that when operations are composed, they do not allocate memory - the caller can specify the memory management strategy. It so happens that this design decision, taken something like 16 years ago, has enabled efficient composition of completion tokens. Finally, on the subject of deferred, deferring a deferred initiating function yields the same deferred initiating function. I guess one way to think about completion tokens is that they are transforms or higher order functions for manipulating the initiation and result types of asynchronous operations. example: asio::awaitable&lt;void&gt; reader(asio::ip::tcp::socket sock) { using asio::experimental::deferred; using asio::use_awaitable; using asio::experimental::as_tuple; // An easy but not efficient read buffer std::string buf; // created the deferred operation object auto deferred_read = async_read_until( sock, asio::dynamic_buffer(buf), &quot;\n&quot;, deferred); // deferring a deferred operation is a no-op auto deferred_read2 = deferred_read(deferred); // tokens are objects which can be composed and stored for later // The as_tuple token causes the result type to be reported as a // tuple where the first element is the error type. This prevents // the coroutine from throwing an exception. const auto my_token = as_tuple(use_awaitable); bool selector = false; for(;;) { // use each deferred operation alternately auto [ec, n] = co_await [&amp;] { selector = !selector; if (!selector) return deferred_read(my_token); else return deferred_read2(my_token); }(); if (ec) { std::cout &lt;&lt; &quot;reader finished: &quot; &lt;&lt; ec.message() &lt;&lt; &quot;\n&quot;; break; } auto view = std::string_view(buf.data(), n - 1); std::cout &lt;&lt; &quot;reader: &quot; &lt;&lt; view &lt;&lt; &quot;\n&quot;; buf.erase(0, n); } } A table of completion tokens packaged with Asio is presented here: token Initiation Policy Completion Behaviour/Result Type Notes detached Initiate immediately Ignore all errors and results When used with co_spawn, causes the spawned asynchronous chain of coroutines to have behaviour analogous to a detached thread. experimental::deferred Do not initiate Return a function object which when invoked with a completion token, behaves as if the original initiating function was called with that same token Analogous to an asynchronous packaged task. use_future Initiate immediately Return a std::future which will yield the completion arguments   use_awaitable Initiate when awaited Return an awaitable object yield the completion arguments when co_awaited   yield_context Initiate immediately Yield the current stackful coroutine. Once the operation is complete, resume and return the handler arguments   as_tuple(token) Initiate as indicated by the supplied token Modify the completion arguments to be a single tuple of all arguments passed to the completion handler. For example, void(error_code, size_t) becomes void(tuple&lt;error_code, size_t&gt;). In practical terms this token ensures that partial success can be communicated through use_future, use_awaitable and yield Very useful when used with yield, use_future or use_awaitable if we’d like to handle the error without exception handling or when a partial success must be detected. For example, the error_code might contain eof but size might indicate that 20 bytes were read into the buffer prior to detecting the end of stream condition. redirect_error(token, &amp;ec) Initiate as indicated by the supplied token For operations whose first completion handler argument is an error_code, modify the completion handler argument list to remove this argument. For example, void(error_code, size_t) becomes void(size_t). The error code is redirected to object referenced by ec Similar to the above use, but allows overwriting the same error_code object which can be more elegant in a coroutine containing multiple calls to different initiating functions. experimental::as_single(token) Initiate as indicated by the supplied token Similar to as_tuple except in the case where the only argument to the completion handler is an error. In this case, the completion handler arguments are unaltered. Experience of use suggests to me that this token is less useful than redirect_error and as_tuple. experimental::append(token, values…) Initiate as indicated by the supplied token When the completion handler is invoked, the values... arguments are appended to the argument list. Provides a way to attaching more information to a completion handler invocation. examples experimental::prepend(token, values…) Initiate as indicated by the supplied token When the completion handler is invoked, the values... arguments are prepended to the argument list. Provides a way to attaching more information to a completion handler invocation. examples A Custom Completion Token All very interesting and useful, no doubt. But what if we wanted to do something more clever. The other day I was speaking to Chris about timed cancellation. Now there are ways of doing timed cancellation that in Chris’ view are correct and maximally performant (covered in this video). However many users don’t need maximum performance. What they often want is maximum teachability or maintainability. So I posed the question: “Imagine I wanted a function which took any existing Asio composed asynchronous operation and produced a new composed operation which represented that same operation with a timeout. How would I do that?” For example, imagine we had a deferred read operation: auto read_op = async_read(stream, buffer, deferred); Which we can invoke in a coroutine like so: co_await read_op(use_awaitable); imagine we could write: co_await with_timeout(read_op, 5s, use_awaitable); or to write it out in full: co_await with_timeout( async_read(stream, buffer, deferred), 5s, use_awaitable); The answer that came back was to me quite surprising: “It starts with a completion token”. Which means that the way to achieve this is to write the with_timeout function in terms of a composition of completion tokens: template &lt;typename Op, typename CompletionToken&gt; auto with_timeout(Op op, std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token) { return std::move(op)(timed(timeout, std::forward&lt;CompletionToken&gt;(token))); } In the above code, timed is a function that returns a parameterised completion token. It will look something like this: template &lt;typename CompletionToken&gt; timed_token&lt;CompletionToken&gt; timed(std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token) { return timed_token&lt;CompletionToken&gt;{ timeout, token }; } The actual token type would look like this: template &lt;typename CompletionToken&gt; struct timed_token { std::chrono::milliseconds timeout; CompletionToken&amp; token; }; So far, so simple. But how will this work? Well, remember that a completion token controls the injection of logic around an asynchronous operation. So somehow by writing the token, we will get access to the packaged operation prior to it being initiated and we get access to the following building blocks of the async operation provided by Asio’s initiation pattern: The initiation - this is a function object that will actually initiate the packaged asynchronous operation, and The initiation arguments - the arguments that were supplied to the initial initiation function. In our example above, these would be stream and buffer Note that the initiation is an object that describes how to launch the underlying asynchronous operation, plus associated data such as the associated executor, associated allocator and associated cancellation slot. In Asio, the customisation point for initiating an asynchronous operation with a given completion token is the template class async_result. Here is the specialisation: // Specialise the async_result primary template for our timed_token template &lt;typename InnerCompletionToken, typename... Signatures&gt; struct asio::async_result&lt; timed_token&lt;InnerCompletionToken&gt;, // specialised on our token type Signatures...&gt; { // The implementation will call initiate on our template class with the // following arguments: template &lt;typename Initiation, typename... InitArgs&gt; static auto initiate( Initiation&amp;&amp; init, // This is the object that we invoke in order to // actually start the packaged async operation timed_token&lt;InnerCompletionToken&gt; t, // This is the completion token that // was passed as the last argument to the // initiating function InitArgs&amp;&amp;... init_args) // any more arguments that were passed to // the initiating function { // we will customise the initiation through our token by invoking // async_initiate with our own custom function object called // timed_initiation. We will pass it the arguments that were passed to // timed(). We will also forward the initiation created by the underlying // completion token plus all arguments destined for the underlying // initiation. return asio::async_initiate&lt;InnerCompletionToken, Signatures...&gt;( timed_initiation&lt;Signatures...&gt;{}, t.token, // the underlying token t.timeout, // our timeout argument std::forward&lt;Initiation&gt;(init), // the underlying operation&#39;s initiation std::forward&lt;InitArgs&gt;(init_args)... // that initiation&#39;s arguments ); } }; It’s a bit of a wall of text, but most of that is due to my comments and C++’s template syntax. In a nutshell, what this class is doing is implementing the function which wraps the initiation of the underlying operation (i.e the async_read) in an outer custom initiation which is going to add a timeout feature. All that remains is to define and implement timed_initiation&lt;&gt;, which is nothing more than a function object. We could have written it inline as a lambda, but for clarity it has been broken out into a separate template. async_initate looks complicated but in actual fact is doing a simple transformation: Given: tok is a CompletionToken Signatures... is a type pack of function signatures that are required to be supported by a CompletionHandler built from tok. initiation is a function object args... is a set of arbitrary arguments async_initiate is a helper function which calls async_result&lt;&gt;::initiate(). Calling this will first transform tok into a CompletionHandler which we will call handler. Then it will simply call initiation(handler, args...). i.e. it will invoke the initiation with the correct completion handler and any other arguments we happen to give it. // Note: this is merely a function object - a lambda. template &lt;typename... Signatures&gt; struct timed_initiation { template &lt; typename CompletionHandler, typename Initiation, typename... InitArgs&gt; void operator()( CompletionHandler handler, // the generated completion handler std::chrono::milliseconds timeout, // the timeout specified in our completion token Initiation&amp;&amp; initiation, // the embedded operation&#39;s initiation (e.g. async_read) InitArgs&amp;&amp;... init_args) // the arguments passed to the embedded initiation (e.g. the async_read&#39;s buffer argument etc) { using asio::experimental::make_parallel_group; // locate the correct executor associated with the underling operation // first try the associated executor of the handler. If that doesn&#39;t // exist, take the associated executor of the underlying async operation&#39;s handler // If that doesn&#39;t exist, use the default executor (system executor currently) auto ex = asio::get_associated_executor(handler, asio::get_associated_executor(initiation)); // build a timer object and own it via a shared_ptr. This is because its // lifetime is shared between two asynchronous chains. Use the handler&#39;s // allocator in order to take advantage of the Asio recycling allocator. auto alloc = asio::get_associated_allocator(handler); auto timer = std::allocate_shared&lt;asio::steady_timer&gt;(alloc, ex, timeout); // launch a parallel group of asynchronous operations - one for the timer // wait and one for the underlying asynchronous operation (i.e. async_read) make_parallel_group( // item 0 in the group is the timer wait asio::bind_executor(ex, [&amp;](auto&amp;&amp; token) { return timer-&gt;async_wait(std::forward&lt;decltype(token)&gt;(token)); }), // item 1 in the group is the underlying async operation asio::bind_executor(ex, [&amp;](auto&amp;&amp; token) { // Finally, initiate the underlying operation // passing its original arguments return asio::async_initiate&lt;decltype(token), Signatures...&gt;( std::forward&lt;Initiation&gt;(initiation), token, std::forward&lt;InitArgs&gt;(init_args)...); }) ).async_wait( // Wait for the first item in the group to complete. Upon completion // of the first, cancel the others. asio::experimental::wait_for_one(), // The completion handler for the group [handler = std::move(handler), timer]( // an array of indexes indicating in which order the group&#39;s // operations completed, whether successfully or not std::array&lt;std::size_t, 2&gt;, // The arguments are the result of concatenating // the completion handler arguments of all operations in the // group, in retained order: // first the steady_timer::async_wait std::error_code, // then the underlying operation e.g. async_read(...) auto... underlying_op_results // e.g. error_code, size_t ) mutable { // release all memory prior to invoking the final handler timer.reset(); // finally, invoke the handler with the results of the // underlying operation std::move(handler)(std::move(underlying_op_results)...); }); } }; Now that the token and its specialisation of async_result is complete, we can trivially write a timed read from console that won’t throw as a coroutine in one line: // using the completion token direct auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), &#39;\n&#39;, as_tuple(timed(5s, use_awaitable))); // using the function form auto [ec2, n2] = co_await with_timeout( async_read_until(in, asio::dynamic_buffer(line), &#39;\n&#39;, deferred), 5s, as_tuple(use_awaitable)); The full code for this example is here. Note that this example is written in terms of a posix console stream. To demonstrate on Windows, you would need to replace the posix::stream_descriptor in(co_await this_coro::executor, ::dup(STDIN_FILENO)); with a stream type compatible with Windows, such as a socket or named pipe… or even adapt the example to use a Beast http::async_read - and presto! You have a ready-made HTTP server which applies a timeout to reading messages. Update 2021-10-11: I have since modified the example so that on windows a local tcp socket pair is created and a coroutine is spawned to handle the input side of things. The demo now compiles and runs with MSVC2019. A Note on Performance It is important that I point out that this example token has been written with ease of use as the primary motivating factor. There is a pessimisation in its design in that use of the token allocates a new timer for every asynchronous operation where the timeout is being applied. This of course becomes completely un-necessary if we redesign the token so that we pass a reference to an existing timer to its construction function. The call-site would then look more like this: auto timer = asio::steady_timer(co_await this_coro::executor, 5s); auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), &#39;\n&#39;, as_tuple(use_deadline(timer, use_awaitable))); Writing it this way would actually result in a simpler initiation and would ensure that the general Asio principle of giving the caller control over object lifetimes and allocation strategies is maintained. Another way to avoid repeated allocations of the timer while retaining the “easy mode” interface is to make use of Asio’s execution context service facility. In this way timers would be cached in the service object associated with the associated executor’s execution_context. Asio was originally designed for highly scalable and latency-sensitive applications such as used in the finance, automotive and defence industries. Out of the box it provides the basic building blocks with which to assemble performance and memory-critical applications. However as it has become more widely adopted there is a growing demand for “easy mode” interfaces for people who just want to get things done. This message has not gone unheard. I would expect a number of interesting new features to be added to the library in short order. Thanks for reading. Richard Hodges for C++ Alliance hodges.r@gmail.com" />
+<meta property="og:description" content="Aims and Objectives This blog is presented in two sections. The first is a general discussion about completion tokens. The second is a practical demonstration of a production-grade completion token which adds significant utility to any asynchronous operation that supports the new cancellation feature that arrived in Asio 1.19 (Boost 1.77). This blog ships with an accompanying github repository in case you want to play with examples. The repository is here. Asio and the Power of Completion Tokens Asio (available standalone and in Boost) defines a pattern for writing asynchronous operations. There have been a few examples in my blogs of custom composed operations written in terms of several asynchronous operations made available by the library. Another often overlooked feature of Asio is the ability to define a customisation point which defines the “behaviour during initiation and the result type” of the asynchronous initiating function. But what does that mean? Well, consider the following code: /* void */ asio::async_read(sock, buffer, &quot;\r\n&quot;, [](error_code ec, std::size_t n) { /* handler */ }); This is a verbatim (you could say old-style) asynchronous initiating function which will read from the socket into the buffer until either: The buffer is full, or the sequence \r\n is found in the input stream, or There is some other IO error. Whichever happens, the lambda is called in the context of the associated executor of the socket. (Let’s call this “the operation”) The operation is started immediately and the lambda will be invoked at some point in the future once the operation is complete. The initiating function returns void. Now consider: auto n = co_await asio::async_read(sock, &quot;\r\n&quot;, asio::use_awaitable); This code is using the same initiating function to invoke initiate the same asynchronous operation. However, this time instead of providing a Completion Handler we have provided a Completion Token. The only difference in the two invocations is the presence of the token. The actual asynchronous operation is the same in both cases. However, now invocation of the operation has been modified such that: The initiating function returns an asio::awaitable&lt;std::size_t&gt; which can be co_awaited. The initiating function has been transformed into a C++20 coroutine. The operation will not commence until the returned awaitable has been co_awaited. We can say that the completion token has implemented a customisation point at both the initiation step and the completion step. (For great notes on completion step I would recommend reading one of the many excellent papers, follow-ups or videos), published by Chris Kohlhoff - the author of Asio. Here is another interesting example: using asio::experimental::deferred; using asio::use_awaitable; auto my_op = asio::async_read(sock, &quot;\r\n&quot;, deferred); ... auto n = co_await my_op(use_awaitable); In this case, the async_read initiating function has been invoked with the deferred completion token. This token has two side effects: The asynchronous operation is not actually initiated, and It changes the return type to be an invocable object which when called will behave as if you called the initiating function. The returned invocable object is a unary function object whose argument is a completion token, which means that the operation can be further customised at the point of use. You can think of it as an asynchronous packaged tasks awaiting one last customisation before use. Note that as long as the packaged asynchronous operation is started with reference arguments or lightweight copyable arguments, it can be re-used and copied. All arguments of Asio and Beast initiating functions conform to this principle. The original design decision of passing buffers and return values by reference to asynchronous operations was to ensure that when operations are composed, they do not allocate memory - the caller can specify the memory management strategy. It so happens that this design decision, taken something like 16 years ago, has enabled efficient composition of completion tokens. Finally, on the subject of deferred, deferring a deferred initiating function yields the same deferred initiating function. I guess one way to think about completion tokens is that they are transforms or higher order functions for manipulating the initiation and result types of asynchronous operations. example: asio::awaitable&lt;void&gt; reader(asio::ip::tcp::socket sock) { using asio::experimental::deferred; using asio::use_awaitable; using asio::experimental::as_tuple; // An easy but not efficient read buffer std::string buf; // created the deferred operation object auto deferred_read = async_read_until( sock, asio::dynamic_buffer(buf), &quot;\n&quot;, deferred); // deferring a deferred operation is a no-op auto deferred_read2 = deferred_read(deferred); // tokens are objects which can be composed and stored for later // The as_tuple token causes the result type to be reported as a // tuple where the first element is the error type. This prevents // the coroutine from throwing an exception. const auto my_token = as_tuple(use_awaitable); bool selector = false; for(;;) { // use each deferred operation alternately auto [ec, n] = co_await [&amp;] { selector = !selector; if (!selector) return deferred_read(my_token); else return deferred_read2(my_token); }(); if (ec) { std::cout &lt;&lt; &quot;reader finished: &quot; &lt;&lt; ec.message() &lt;&lt; &quot;\n&quot;; break; } auto view = std::string_view(buf.data(), n - 1); std::cout &lt;&lt; &quot;reader: &quot; &lt;&lt; view &lt;&lt; &quot;\n&quot;; buf.erase(0, n); } } A table of completion tokens packaged with Asio is presented here: token Initiation Policy Completion Behaviour/Result Type Notes detached Initiate immediately Ignore all errors and results When used with co_spawn, causes the spawned asynchronous chain of coroutines to have behaviour analogous to a detached thread. experimental::deferred Do not initiate Return a function object which when invoked with a completion token, behaves as if the original initiating function was called with that same token Analogous to an asynchronous packaged task. use_future Initiate immediately Return a std::future which will yield the completion arguments   use_awaitable Initiate when awaited Return an awaitable object yield the completion arguments when co_awaited   yield_context Initiate immediately Yield the current stackful coroutine. Once the operation is complete, resume and return the handler arguments   as_tuple(token) Initiate as indicated by the supplied token Modify the completion arguments to be a single tuple of all arguments passed to the completion handler. For example, void(error_code, size_t) becomes void(tuple&lt;error_code, size_t&gt;). In practical terms this token ensures that partial success can be communicated through use_future, use_awaitable and yield Very useful when used with yield, use_future or use_awaitable if we’d like to handle the error without exception handling or when a partial success must be detected. For example, the error_code might contain eof but size might indicate that 20 bytes were read into the buffer prior to detecting the end of stream condition. redirect_error(token, &amp;ec) Initiate as indicated by the supplied token For operations whose first completion handler argument is an error_code, modify the completion handler argument list to remove this argument. For example, void(error_code, size_t) becomes void(size_t). The error code is redirected to object referenced by ec Similar to the above use, but allows overwriting the same error_code object which can be more elegant in a coroutine containing multiple calls to different initiating functions. experimental::as_single(token) Initiate as indicated by the supplied token Similar to as_tuple except in the case where the only argument to the completion handler is an error. In this case, the completion handler arguments are unaltered. Experience of use suggests to me that this token is less useful than redirect_error and as_tuple. experimental::append(token, values…) Initiate as indicated by the supplied token When the completion handler is invoked, the values... arguments are appended to the argument list. Provides a way to attaching more information to a completion handler invocation. examples experimental::prepend(token, values…) Initiate as indicated by the supplied token When the completion handler is invoked, the values... arguments are prepended to the argument list. Provides a way to attaching more information to a completion handler invocation. examples A Custom Completion Token All very interesting and useful, no doubt. But what if we wanted to do something more clever. The other day I was speaking to Chris about timed cancellation. Now there are ways of doing timed cancellation that in Chris’ view are correct and maximally performant (covered in this video). However many users don’t need maximum performance. What they often want is maximum teachability or maintainability. So I posed the question: “Imagine I wanted a function which took any existing Asio composed asynchronous operation and produced a new composed operation which represented that same operation with a timeout. How would I do that?” For example, imagine we had a deferred read operation: auto read_op = async_read(stream, buffer, deferred); Which we can invoke in a coroutine like so: co_await read_op(use_awaitable); imagine we could write: co_await with_timeout(read_op, 5s, use_awaitable); or to write it out in full: co_await with_timeout( async_read(stream, buffer, deferred), 5s, use_awaitable); The answer that came back was to me quite surprising: “It starts with a completion token”. Which means that the way to achieve this is to write the with_timeout function in terms of a composition of completion tokens: template &lt;typename Op, typename CompletionToken&gt; auto with_timeout(Op op, std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token) { return std::move(op)(timed(timeout, std::forward&lt;CompletionToken&gt;(token))); } In the above code, timed is a function that returns a parameterised completion token. It will look something like this: template &lt;typename CompletionToken&gt; timed_token&lt;CompletionToken&gt; timed(std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token) { return timed_token&lt;CompletionToken&gt;{ timeout, token }; } The actual token type would look like this: template &lt;typename CompletionToken&gt; struct timed_token { std::chrono::milliseconds timeout; CompletionToken&amp; token; }; So far, so simple. But how will this work? Well, remember that a completion token controls the injection of logic around an asynchronous operation. So somehow by writing the token, we will get access to the packaged operation prior to it being initiated and we get access to the following building blocks of the async operation provided by Asio’s initiation pattern: The initiation - this is a function object that will actually initiate the packaged asynchronous operation, and The initiation arguments - the arguments that were supplied to the initial initiation function. In our example above, these would be stream and buffer Note that the initiation is an object that describes how to launch the underlying asynchronous operation, plus associated data such as the associated executor, associated allocator and associated cancellation slot. In Asio, the customisation point for initiating an asynchronous operation with a given completion token is the template class async_result. Here is the specialisation: // Specialise the async_result primary template for our timed_token template &lt;typename InnerCompletionToken, typename... Signatures&gt; struct asio::async_result&lt; timed_token&lt;InnerCompletionToken&gt;, // specialised on our token type Signatures...&gt; { // The implementation will call initiate on our template class with the // following arguments: template &lt;typename Initiation, typename... InitArgs&gt; static auto initiate( Initiation&amp;&amp; init, // This is the object that we invoke in order to // actually start the packaged async operation timed_token&lt;InnerCompletionToken&gt; t, // This is the completion token that // was passed as the last argument to the // initiating function InitArgs&amp;&amp;... init_args) // any more arguments that were passed to // the initiating function { // we will customise the initiation through our token by invoking // async_initiate with our own custom function object called // timed_initiation. We will pass it the arguments that were passed to // timed(). We will also forward the initiation created by the underlying // completion token plus all arguments destined for the underlying // initiation. return asio::async_initiate&lt;InnerCompletionToken, Signatures...&gt;( timed_initiation&lt;Signatures...&gt;{}, t.token, // the underlying token t.timeout, // our timeout argument std::forward&lt;Initiation&gt;(init), // the underlying operation&#39;s initiation std::forward&lt;InitArgs&gt;(init_args)... // that initiation&#39;s arguments ); } }; It’s a bit of a wall of text, but most of that is due to my comments and C++’s template syntax. In a nutshell, what this class is doing is implementing the function which wraps the initiation of the underlying operation (i.e the async_read) in an outer custom initiation which is going to add a timeout feature. All that remains is to define and implement timed_initiation&lt;&gt;, which is nothing more than a function object. We could have written it inline as a lambda, but for clarity it has been broken out into a separate template. async_initate looks complicated but in actual fact is doing a simple transformation: Given: tok is a CompletionToken Signatures... is a type pack of function signatures that are required to be supported by a CompletionHandler built from tok. initiation is a function object args... is a set of arbitrary arguments async_initiate is a helper function which calls async_result&lt;&gt;::initiate(). Calling this will first transform tok into a CompletionHandler which we will call handler. Then it will simply call initiation(handler, args...). i.e. it will invoke the initiation with the correct completion handler and any other arguments we happen to give it. // Note: this is merely a function object - a lambda. template &lt;typename... Signatures&gt; struct timed_initiation { template &lt; typename CompletionHandler, typename Initiation, typename... InitArgs&gt; void operator()( CompletionHandler handler, // the generated completion handler std::chrono::milliseconds timeout, // the timeout specified in our completion token Initiation&amp;&amp; initiation, // the embedded operation&#39;s initiation (e.g. async_read) InitArgs&amp;&amp;... init_args) // the arguments passed to the embedded initiation (e.g. the async_read&#39;s buffer argument etc) { using asio::experimental::make_parallel_group; // locate the correct executor associated with the underling operation // first try the associated executor of the handler. If that doesn&#39;t // exist, take the associated executor of the underlying async operation&#39;s handler // If that doesn&#39;t exist, use the default executor (system executor currently) auto ex = asio::get_associated_executor(handler, asio::get_associated_executor(initiation)); // build a timer object and own it via a shared_ptr. This is because its // lifetime is shared between two asynchronous chains. Use the handler&#39;s // allocator in order to take advantage of the Asio recycling allocator. auto alloc = asio::get_associated_allocator(handler); auto timer = std::allocate_shared&lt;asio::steady_timer&gt;(alloc, ex, timeout); // launch a parallel group of asynchronous operations - one for the timer // wait and one for the underlying asynchronous operation (i.e. async_read) make_parallel_group( // item 0 in the group is the timer wait asio::bind_executor(ex, [&amp;](auto&amp;&amp; token) { return timer-&gt;async_wait(std::forward&lt;decltype(token)&gt;(token)); }), // item 1 in the group is the underlying async operation asio::bind_executor(ex, [&amp;](auto&amp;&amp; token) { // Finally, initiate the underlying operation // passing its original arguments return asio::async_initiate&lt;decltype(token), Signatures...&gt;( std::forward&lt;Initiation&gt;(initiation), token, std::forward&lt;InitArgs&gt;(init_args)...); }) ).async_wait( // Wait for the first item in the group to complete. Upon completion // of the first, cancel the others. asio::experimental::wait_for_one(), // The completion handler for the group [handler = std::move(handler), timer]( // an array of indexes indicating in which order the group&#39;s // operations completed, whether successfully or not std::array&lt;std::size_t, 2&gt;, // The arguments are the result of concatenating // the completion handler arguments of all operations in the // group, in retained order: // first the steady_timer::async_wait std::error_code, // then the underlying operation e.g. async_read(...) auto... underlying_op_results // e.g. error_code, size_t ) mutable { // release all memory prior to invoking the final handler timer.reset(); // finally, invoke the handler with the results of the // underlying operation std::move(handler)(std::move(underlying_op_results)...); }); } }; Now that the token and its specialisation of async_result is complete, we can trivially write a timed read from console that won’t throw as a coroutine in one line: // using the completion token direct auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), &#39;\n&#39;, as_tuple(timed(5s, use_awaitable))); // using the function form auto [ec2, n2] = co_await with_timeout( async_read_until(in, asio::dynamic_buffer(line), &#39;\n&#39;, deferred), 5s, as_tuple(use_awaitable)); The full code for this example is here. Note that this example is written in terms of a posix console stream. To demonstrate on Windows, you would need to replace the posix::stream_descriptor in(co_await this_coro::executor, ::dup(STDIN_FILENO)); with a stream type compatible with Windows, such as a socket or named pipe… or even adapt the example to use a Beast http::async_read - and presto! You have a ready-made HTTP server which applies a timeout to reading messages. Update 2021-10-11: I have since modified the example so that on windows a local tcp socket pair is created and a coroutine is spawned to handle the input side of things. The demo now compiles and runs with MSVC2019. A Note on Performance It is important that I point out that this example token has been written with ease of use as the primary motivating factor. There is a pessimisation in its design in that use of the token allocates a new timer for every asynchronous operation where the timeout is being applied. This of course becomes completely un-necessary if we redesign the token so that we pass a reference to an existing timer to its construction function. The call-site would then look more like this: auto timer = asio::steady_timer(co_await this_coro::executor, 5s); auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), &#39;\n&#39;, as_tuple(use_deadline(timer, use_awaitable))); Writing it this way would actually result in a simpler initiation and would ensure that the general Asio principle of giving the caller control over object lifetimes and allocation strategies is maintained. Another way to avoid repeated allocations of the timer while retaining the “easy mode” interface is to make use of Asio’s execution context service facility. In this way timers would be cached in the service object associated with the associated executor’s execution_context. Asio was originally designed for highly scalable and latency-sensitive applications such as used in the finance, automotive and defence industries. Out of the box it provides the basic building blocks with which to assemble performance and memory-critical applications. However as it has become more widely adopted there is a growing demand for “easy mode” interfaces for people who just want to get things done. This message has not gone unheard. I would expect a number of interesting new features to be added to the library in short order. Thanks for reading. Richard Hodges for C++ Alliance hodges.r@gmail.com" />
+<link rel="canonical" href="http://cppalliance.org/richard/2021/10/10/RichardsOctoberUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2021/10/10/RichardsOctoberUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-10-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s October Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Aims and Objectives This blog is presented in two sections. The first is a general discussion about completion tokens. The second is a practical demonstration of a production-grade completion token which adds significant utility to any asynchronous operation that supports the new cancellation feature that arrived in Asio 1.19 (Boost 1.77). This blog ships with an accompanying github repository in case you want to play with examples. The repository is here. Asio and the Power of Completion Tokens Asio (available standalone and in Boost) defines a pattern for writing asynchronous operations. There have been a few examples in my blogs of custom composed operations written in terms of several asynchronous operations made available by the library. Another often overlooked feature of Asio is the ability to define a customisation point which defines the “behaviour during initiation and the result type” of the asynchronous initiating function. But what does that mean? Well, consider the following code: /* void */ asio::async_read(sock, buffer, &quot;\\r\\n&quot;, [](error_code ec, std::size_t n) { /* handler */ }); This is a verbatim (you could say old-style) asynchronous initiating function which will read from the socket into the buffer until either: The buffer is full, or the sequence \\r\\n is found in the input stream, or There is some other IO error. Whichever happens, the lambda is called in the context of the associated executor of the socket. (Let’s call this “the operation”) The operation is started immediately and the lambda will be invoked at some point in the future once the operation is complete. The initiating function returns void. Now consider: auto n = co_await asio::async_read(sock, &quot;\\r\\n&quot;, asio::use_awaitable); This code is using the same initiating function to invoke initiate the same asynchronous operation. However, this time instead of providing a Completion Handler we have provided a Completion Token. The only difference in the two invocations is the presence of the token. The actual asynchronous operation is the same in both cases. However, now invocation of the operation has been modified such that: The initiating function returns an asio::awaitable&lt;std::size_t&gt; which can be co_awaited. The initiating function has been transformed into a C++20 coroutine. The operation will not commence until the returned awaitable has been co_awaited. We can say that the completion token has implemented a customisation point at both the initiation step and the completion step. (For great notes on completion step I would recommend reading one of the many excellent papers, follow-ups or videos), published by Chris Kohlhoff - the author of Asio. Here is another interesting example: using asio::experimental::deferred; using asio::use_awaitable; auto my_op = asio::async_read(sock, &quot;\\r\\n&quot;, deferred); ... auto n = co_await my_op(use_awaitable); In this case, the async_read initiating function has been invoked with the deferred completion token. This token has two side effects: The asynchronous operation is not actually initiated, and It changes the return type to be an invocable object which when called will behave as if you called the initiating function. The returned invocable object is a unary function object whose argument is a completion token, which means that the operation can be further customised at the point of use. You can think of it as an asynchronous packaged tasks awaiting one last customisation before use. Note that as long as the packaged asynchronous operation is started with reference arguments or lightweight copyable arguments, it can be re-used and copied. All arguments of Asio and Beast initiating functions conform to this principle. The original design decision of passing buffers and return values by reference to asynchronous operations was to ensure that when operations are composed, they do not allocate memory - the caller can specify the memory management strategy. It so happens that this design decision, taken something like 16 years ago, has enabled efficient composition of completion tokens. Finally, on the subject of deferred, deferring a deferred initiating function yields the same deferred initiating function. I guess one way to think about completion tokens is that they are transforms or higher order functions for manipulating the initiation and result types of asynchronous operations. example: asio::awaitable&lt;void&gt; reader(asio::ip::tcp::socket sock) { using asio::experimental::deferred; using asio::use_awaitable; using asio::experimental::as_tuple; // An easy but not efficient read buffer std::string buf; // created the deferred operation object auto deferred_read = async_read_until( sock, asio::dynamic_buffer(buf), &quot;\\n&quot;, deferred); // deferring a deferred operation is a no-op auto deferred_read2 = deferred_read(deferred); // tokens are objects which can be composed and stored for later // The as_tuple token causes the result type to be reported as a // tuple where the first element is the error type. This prevents // the coroutine from throwing an exception. const auto my_token = as_tuple(use_awaitable); bool selector = false; for(;;) { // use each deferred operation alternately auto [ec, n] = co_await [&amp;] { selector = !selector; if (!selector) return deferred_read(my_token); else return deferred_read2(my_token); }(); if (ec) { std::cout &lt;&lt; &quot;reader finished: &quot; &lt;&lt; ec.message() &lt;&lt; &quot;\\n&quot;; break; } auto view = std::string_view(buf.data(), n - 1); std::cout &lt;&lt; &quot;reader: &quot; &lt;&lt; view &lt;&lt; &quot;\\n&quot;; buf.erase(0, n); } } A table of completion tokens packaged with Asio is presented here: token Initiation Policy Completion Behaviour/Result Type Notes detached Initiate immediately Ignore all errors and results When used with co_spawn, causes the spawned asynchronous chain of coroutines to have behaviour analogous to a detached thread. experimental::deferred Do not initiate Return a function object which when invoked with a completion token, behaves as if the original initiating function was called with that same token Analogous to an asynchronous packaged task. use_future Initiate immediately Return a std::future which will yield the completion arguments   use_awaitable Initiate when awaited Return an awaitable object yield the completion arguments when co_awaited   yield_context Initiate immediately Yield the current stackful coroutine. Once the operation is complete, resume and return the handler arguments   as_tuple(token) Initiate as indicated by the supplied token Modify the completion arguments to be a single tuple of all arguments passed to the completion handler. For example, void(error_code, size_t) becomes void(tuple&lt;error_code, size_t&gt;). In practical terms this token ensures that partial success can be communicated through use_future, use_awaitable and yield Very useful when used with yield, use_future or use_awaitable if we’d like to handle the error without exception handling or when a partial success must be detected. For example, the error_code might contain eof but size might indicate that 20 bytes were read into the buffer prior to detecting the end of stream condition. redirect_error(token, &amp;ec) Initiate as indicated by the supplied token For operations whose first completion handler argument is an error_code, modify the completion handler argument list to remove this argument. For example, void(error_code, size_t) becomes void(size_t). The error code is redirected to object referenced by ec Similar to the above use, but allows overwriting the same error_code object which can be more elegant in a coroutine containing multiple calls to different initiating functions. experimental::as_single(token) Initiate as indicated by the supplied token Similar to as_tuple except in the case where the only argument to the completion handler is an error. In this case, the completion handler arguments are unaltered. Experience of use suggests to me that this token is less useful than redirect_error and as_tuple. experimental::append(token, values…) Initiate as indicated by the supplied token When the completion handler is invoked, the values... arguments are appended to the argument list. Provides a way to attaching more information to a completion handler invocation. examples experimental::prepend(token, values…) Initiate as indicated by the supplied token When the completion handler is invoked, the values... arguments are prepended to the argument list. Provides a way to attaching more information to a completion handler invocation. examples A Custom Completion Token All very interesting and useful, no doubt. But what if we wanted to do something more clever. The other day I was speaking to Chris about timed cancellation. Now there are ways of doing timed cancellation that in Chris’ view are correct and maximally performant (covered in this video). However many users don’t need maximum performance. What they often want is maximum teachability or maintainability. So I posed the question: “Imagine I wanted a function which took any existing Asio composed asynchronous operation and produced a new composed operation which represented that same operation with a timeout. How would I do that?” For example, imagine we had a deferred read operation: auto read_op = async_read(stream, buffer, deferred); Which we can invoke in a coroutine like so: co_await read_op(use_awaitable); imagine we could write: co_await with_timeout(read_op, 5s, use_awaitable); or to write it out in full: co_await with_timeout( async_read(stream, buffer, deferred), 5s, use_awaitable); The answer that came back was to me quite surprising: “It starts with a completion token”. Which means that the way to achieve this is to write the with_timeout function in terms of a composition of completion tokens: template &lt;typename Op, typename CompletionToken&gt; auto with_timeout(Op op, std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token) { return std::move(op)(timed(timeout, std::forward&lt;CompletionToken&gt;(token))); } In the above code, timed is a function that returns a parameterised completion token. It will look something like this: template &lt;typename CompletionToken&gt; timed_token&lt;CompletionToken&gt; timed(std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token) { return timed_token&lt;CompletionToken&gt;{ timeout, token }; } The actual token type would look like this: template &lt;typename CompletionToken&gt; struct timed_token { std::chrono::milliseconds timeout; CompletionToken&amp; token; }; So far, so simple. But how will this work? Well, remember that a completion token controls the injection of logic around an asynchronous operation. So somehow by writing the token, we will get access to the packaged operation prior to it being initiated and we get access to the following building blocks of the async operation provided by Asio’s initiation pattern: The initiation - this is a function object that will actually initiate the packaged asynchronous operation, and The initiation arguments - the arguments that were supplied to the initial initiation function. In our example above, these would be stream and buffer Note that the initiation is an object that describes how to launch the underlying asynchronous operation, plus associated data such as the associated executor, associated allocator and associated cancellation slot. In Asio, the customisation point for initiating an asynchronous operation with a given completion token is the template class async_result. Here is the specialisation: // Specialise the async_result primary template for our timed_token template &lt;typename InnerCompletionToken, typename... Signatures&gt; struct asio::async_result&lt; timed_token&lt;InnerCompletionToken&gt;, // specialised on our token type Signatures...&gt; { // The implementation will call initiate on our template class with the // following arguments: template &lt;typename Initiation, typename... InitArgs&gt; static auto initiate( Initiation&amp;&amp; init, // This is the object that we invoke in order to // actually start the packaged async operation timed_token&lt;InnerCompletionToken&gt; t, // This is the completion token that // was passed as the last argument to the // initiating function InitArgs&amp;&amp;... init_args) // any more arguments that were passed to // the initiating function { // we will customise the initiation through our token by invoking // async_initiate with our own custom function object called // timed_initiation. We will pass it the arguments that were passed to // timed(). We will also forward the initiation created by the underlying // completion token plus all arguments destined for the underlying // initiation. return asio::async_initiate&lt;InnerCompletionToken, Signatures...&gt;( timed_initiation&lt;Signatures...&gt;{}, t.token, // the underlying token t.timeout, // our timeout argument std::forward&lt;Initiation&gt;(init), // the underlying operation&#39;s initiation std::forward&lt;InitArgs&gt;(init_args)... // that initiation&#39;s arguments ); } }; It’s a bit of a wall of text, but most of that is due to my comments and C++’s template syntax. In a nutshell, what this class is doing is implementing the function which wraps the initiation of the underlying operation (i.e the async_read) in an outer custom initiation which is going to add a timeout feature. All that remains is to define and implement timed_initiation&lt;&gt;, which is nothing more than a function object. We could have written it inline as a lambda, but for clarity it has been broken out into a separate template. async_initate looks complicated but in actual fact is doing a simple transformation: Given: tok is a CompletionToken Signatures... is a type pack of function signatures that are required to be supported by a CompletionHandler built from tok. initiation is a function object args... is a set of arbitrary arguments async_initiate is a helper function which calls async_result&lt;&gt;::initiate(). Calling this will first transform tok into a CompletionHandler which we will call handler. Then it will simply call initiation(handler, args...). i.e. it will invoke the initiation with the correct completion handler and any other arguments we happen to give it. // Note: this is merely a function object - a lambda. template &lt;typename... Signatures&gt; struct timed_initiation { template &lt; typename CompletionHandler, typename Initiation, typename... InitArgs&gt; void operator()( CompletionHandler handler, // the generated completion handler std::chrono::milliseconds timeout, // the timeout specified in our completion token Initiation&amp;&amp; initiation, // the embedded operation&#39;s initiation (e.g. async_read) InitArgs&amp;&amp;... init_args) // the arguments passed to the embedded initiation (e.g. the async_read&#39;s buffer argument etc) { using asio::experimental::make_parallel_group; // locate the correct executor associated with the underling operation // first try the associated executor of the handler. If that doesn&#39;t // exist, take the associated executor of the underlying async operation&#39;s handler // If that doesn&#39;t exist, use the default executor (system executor currently) auto ex = asio::get_associated_executor(handler, asio::get_associated_executor(initiation)); // build a timer object and own it via a shared_ptr. This is because its // lifetime is shared between two asynchronous chains. Use the handler&#39;s // allocator in order to take advantage of the Asio recycling allocator. auto alloc = asio::get_associated_allocator(handler); auto timer = std::allocate_shared&lt;asio::steady_timer&gt;(alloc, ex, timeout); // launch a parallel group of asynchronous operations - one for the timer // wait and one for the underlying asynchronous operation (i.e. async_read) make_parallel_group( // item 0 in the group is the timer wait asio::bind_executor(ex, [&amp;](auto&amp;&amp; token) { return timer-&gt;async_wait(std::forward&lt;decltype(token)&gt;(token)); }), // item 1 in the group is the underlying async operation asio::bind_executor(ex, [&amp;](auto&amp;&amp; token) { // Finally, initiate the underlying operation // passing its original arguments return asio::async_initiate&lt;decltype(token), Signatures...&gt;( std::forward&lt;Initiation&gt;(initiation), token, std::forward&lt;InitArgs&gt;(init_args)...); }) ).async_wait( // Wait for the first item in the group to complete. Upon completion // of the first, cancel the others. asio::experimental::wait_for_one(), // The completion handler for the group [handler = std::move(handler), timer]( // an array of indexes indicating in which order the group&#39;s // operations completed, whether successfully or not std::array&lt;std::size_t, 2&gt;, // The arguments are the result of concatenating // the completion handler arguments of all operations in the // group, in retained order: // first the steady_timer::async_wait std::error_code, // then the underlying operation e.g. async_read(...) auto... underlying_op_results // e.g. error_code, size_t ) mutable { // release all memory prior to invoking the final handler timer.reset(); // finally, invoke the handler with the results of the // underlying operation std::move(handler)(std::move(underlying_op_results)...); }); } }; Now that the token and its specialisation of async_result is complete, we can trivially write a timed read from console that won’t throw as a coroutine in one line: // using the completion token direct auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), &#39;\\n&#39;, as_tuple(timed(5s, use_awaitable))); // using the function form auto [ec2, n2] = co_await with_timeout( async_read_until(in, asio::dynamic_buffer(line), &#39;\\n&#39;, deferred), 5s, as_tuple(use_awaitable)); The full code for this example is here. Note that this example is written in terms of a posix console stream. To demonstrate on Windows, you would need to replace the posix::stream_descriptor in(co_await this_coro::executor, ::dup(STDIN_FILENO)); with a stream type compatible with Windows, such as a socket or named pipe… or even adapt the example to use a Beast http::async_read - and presto! You have a ready-made HTTP server which applies a timeout to reading messages. Update 2021-10-11: I have since modified the example so that on windows a local tcp socket pair is created and a coroutine is spawned to handle the input side of things. The demo now compiles and runs with MSVC2019. A Note on Performance It is important that I point out that this example token has been written with ease of use as the primary motivating factor. There is a pessimisation in its design in that use of the token allocates a new timer for every asynchronous operation where the timeout is being applied. This of course becomes completely un-necessary if we redesign the token so that we pass a reference to an existing timer to its construction function. The call-site would then look more like this: auto timer = asio::steady_timer(co_await this_coro::executor, 5s); auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), &#39;\\n&#39;, as_tuple(use_deadline(timer, use_awaitable))); Writing it this way would actually result in a simpler initiation and would ensure that the general Asio principle of giving the caller control over object lifetimes and allocation strategies is maintained. Another way to avoid repeated allocations of the timer while retaining the “easy mode” interface is to make use of Asio’s execution context service facility. In this way timers would be cached in the service object associated with the associated executor’s execution_context. Asio was originally designed for highly scalable and latency-sensitive applications such as used in the finance, automotive and defence industries. Out of the box it provides the basic building blocks with which to assemble performance and memory-critical applications. However as it has become more widely adopted there is a growing demand for “easy mode” interfaces for people who just want to get things done. This message has not gone unheard. I would expect a number of interesting new features to be added to the library in short order. Thanks for reading. Richard Hodges for C++ Alliance hodges.r@gmail.com","@type":"BlogPosting","url":"http://cppalliance.org/richard/2021/10/10/RichardsOctoberUpdate.html","headline":"Richard’s October Update","dateModified":"2021-10-10T00:00:00+00:00","datePublished":"2021-10-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2021/10/10/RichardsOctoberUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's October Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 10, 2021</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="aims-and-objectives">Aims and Objectives</h1>
+
+<p>This blog is presented in two sections.</p>
+
+<p>The first is a general discussion about completion tokens.</p>
+
+<p>The second is a practical demonstration of a production-grade completion token which adds significant utility to any 
+asynchronous operation that supports the new cancellation feature that arrived in Asio 1.19 (Boost 1.77).</p>
+
+<p>This blog ships with an accompanying github repository in case you want to play with examples.
+The repository is <a href="https://github.com/madmongo1/blog-2021-10">here</a>.</p>
+
+<h1 id="asio-and-the-power-of-completion-tokens">Asio and the Power of Completion Tokens</h1>
+
+<p>Asio (available <a href="https://think-async.com/Asio/">standalone</a> and <a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio.html">in Boost</a>) 
+defines a pattern for writing asynchronous operations. There have been a few examples in my blogs of custom composed 
+operations written in terms of several asynchronous operations made available by the library.</p>
+
+<p>Another often overlooked feature of Asio is the ability to define a customisation point which defines the “behaviour
+during initiation and the result type” of the asynchronous initiating function.</p>
+
+<p>But what does that mean?</p>
+
+<p>Well, consider the following code:</p>
+
+<pre><code class="language-c++">/* void */ asio::async_read(sock, buffer, "\r\n", [](error_code ec, std::size_t n) { /* handler */ });
+</code></pre>
+
+<p>This is a verbatim (you could say old-style) asynchronous initiating function which will read from the socket into the 
+buffer until either:</p>
+<ul>
+  <li>The buffer is full, or</li>
+  <li>the sequence <code>\r\n</code> is found in the input stream, or</li>
+  <li>There is some other IO error.</li>
+</ul>
+
+<p>Whichever happens, the lambda is called in the context of the <em>associated executor</em> of the socket.</p>
+
+<p>(Let’s call this “<em>the operation</em>”)</p>
+
+<p>The operation is started immediately and the lambda will be invoked at some point in the future once the operation is 
+complete. The initiating function returns <code>void</code>.</p>
+
+<p>Now consider:</p>
+
+<pre><code class="language-c++">auto n = co_await asio::async_read(sock, "\r\n", asio::use_awaitable);
+</code></pre>
+
+<p>This code is using the same <em>initiating function</em> to invoke initiate the same <em>asynchronous operation</em>. However, this 
+time instead of providing a <em>Completion Handler</em> we have provided a <em>Completion Token</em>.</p>
+
+<p>The only difference in the two invocations is the presence of the token. The actual asynchronous operation is the same 
+in both cases.</p>
+
+<p>However, now invocation of <em>the operation</em> has been modified such that:</p>
+<ul>
+  <li>The initiating function returns an <code>asio::awaitable&lt;std::size_t&gt;</code> which can be <code>co_await</code>ed.</li>
+  <li>The initiating function has been transformed into a C++20 coroutine.</li>
+  <li>The operation will not commence until the returned awaitable has been <code>co_await</code>ed.</li>
+</ul>
+
+<p>We can say that the completion token has implemented a customisation point at both the initiation step and the 
+completion step.</p>
+
+<p>(For great notes on completion step I would recommend reading one of the <a href="https://isocpp.org/files/papers/P2444R0.pdf">many excellent papers</a>, 
+<a href="https://isocpp.org/files/papers/P2469R0.pdf">follow-ups</a> or
+<a href="https://www.youtube.com/watch?v=icgnqFM-aY4&amp;t=1129s">videos</a>), published by Chris Kohlhoff - the author of Asio.</p>
+
+<p>Here is another interesting example:</p>
+
+<pre><code class="language-c++">using asio::experimental::deferred;
+using asio::use_awaitable;
+
+auto my_op = asio::async_read(sock, "\r\n", deferred);
+...
+auto n = co_await my_op(use_awaitable);
+</code></pre>
+
+<p>In this case, the <code>async_read</code> initiating function has been invoked with the <code>deferred</code> <em>completion token</em>. This token
+has two side effects:</p>
+<ul>
+  <li>The <em>asynchronous operation</em> is not actually initiated, and</li>
+  <li>It changes the return type to be an invocable object which when called will behave as if you called the initiating function.</li>
+</ul>
+
+<p>The returned invocable object is a unary function object whose argument is a <em>completion token</em>, which means that the 
+operation can be further customised at the point of use. You can think of it as an asynchronous packaged tasks awaiting
+one last customisation before use.</p>
+
+<p>Note that as long as the packaged asynchronous operation is started with reference arguments or lightweight copyable 
+arguments, it can be re-used and copied. All arguments of Asio and Beast initiating functions
+conform to this principle. The original design decision of passing buffers and return values by reference to 
+asynchronous operations was to ensure that when operations are composed, they do not allocate memory - the caller can 
+specify the memory management strategy. It so happens that this design decision, taken something like 16 years ago, 
+has enabled efficient composition of completion tokens.</p>
+
+<p>Finally, on the subject of <code>deferred</code>, deferring a deferred initiating function yields the same deferred initiating 
+function. I guess one way to think about completion tokens is that they are transforms or higher order functions
+for manipulating the initiation and result types of asynchronous operations.</p>
+
+<p>example:</p>
+
+<pre><code class="language-c++">asio::awaitable&lt;void&gt;
+reader(asio::ip::tcp::socket sock)
+{
+  using asio::experimental::deferred;
+  using asio::use_awaitable;
+  using asio::experimental::as_tuple;
+
+  // An easy but not efficient read buffer
+  std::string buf;
+
+  // created the deferred operation object
+  auto deferred_read = async_read_until(
+      sock,
+      asio::dynamic_buffer(buf),
+      "\n",
+      deferred);
+
+  // deferring a deferred operation is a no-op
+  auto deferred_read2 = deferred_read(deferred);
+
+  // tokens are objects which can be composed and stored for later
+  // The as_tuple token causes the result type to be reported as a
+  // tuple where the first element is the error type. This prevents
+  // the coroutine from throwing an exception.
+  const auto my_token = as_tuple(use_awaitable);
+
+  bool selector = false;
+  for(;;)
+  {
+    // use each deferred operation alternately
+    auto [ec, n] = co_await [&amp;] {
+      selector = !selector;
+      if (!selector)
+        return deferred_read(my_token);
+      else
+        return deferred_read2(my_token);
+    }();
+    if (ec)
+    {
+      std::cout &lt;&lt; "reader finished: " &lt;&lt; ec.message() &lt;&lt; "\n";
+      break;
+    }
+    auto view = std::string_view(buf.data(), n - 1);
+    std::cout &lt;&lt; "reader: " &lt;&lt; view &lt;&lt; "\n";
+    buf.erase(0, n);
+  }
+}
+</code></pre>
+
+<p>A table of completion tokens packaged with Asio is presented here:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>token</th>
+      <th>Initiation Policy</th>
+      <th>Completion Behaviour/Result Type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/detached.html">detached</a></td>
+      <td>Initiate immediately</td>
+      <td>Ignore all errors and results</td>
+      <td>When used with <code>co_spawn</code>, causes the spawned asynchronous chain of coroutines to have behaviour analogous to a detached thread.</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/experimental__deferred.html">experimental::deferred</a></td>
+      <td>Do not initiate</td>
+      <td>Return a function object which when invoked with a completion token, behaves as if the original initiating function was called with that same token</td>
+      <td>Analogous to an asynchronous packaged task.</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/use_future.html">use_future</a></td>
+      <td>Initiate immediately</td>
+      <td>Return a std::future which will yield the completion arguments</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/use_awaitable.html">use_awaitable</a></td>
+      <td>Initiate when awaited</td>
+      <td>Return an awaitable object yield the completion arguments when <code>co_await</code>ed</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/yield_context.html">yield_context</a></td>
+      <td>Initiate immediately</td>
+      <td>Yield the current stackful coroutine. Once the operation is complete, resume and return the handler arguments</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/experimental__as_tuple.html">as_tuple(token)</a></td>
+      <td>Initiate as indicated by the supplied <code>token</code></td>
+      <td>Modify the completion arguments to be a single tuple of all arguments passed to the completion handler. For example, <code>void(error_code, size_t)</code> becomes <code>void(tuple&lt;error_code, size_t&gt;)</code>. In practical terms this token ensures that partial success can be communicated through <code>use_future</code>, <code>use_awaitable</code> and <code>yield</code></td>
+      <td>Very useful when used with <code>yield</code>, <code>use_future</code> or <code>use_awaitable</code> if we’d like to handle the error without exception handling or when a partial success must be detected. For example, the error_code might contain <code>eof</code> but <code>size</code> might indicate that 20 bytes were read into the buffer prior to detecting the end of stream condition.</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/redirect_error.html">redirect_error(token, &amp;ec)</a></td>
+      <td>Initiate as indicated by the supplied <code>token</code></td>
+      <td>For operations whose first completion handler argument is an <code>error_code</code>, modify the completion handler argument list to remove this argument. For example, <code>void(error_code, size_t)</code> becomes <code>void(size_t)</code>. The error code is redirected to object referenced by <code>ec</code></td>
+      <td>Similar to the above use, but allows overwriting the same <code>error_code</code> object which can be more elegant in a coroutine containing multiple calls to different initiating functions.</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/experimental__as_single.html">experimental::as_single(token)</a></td>
+      <td>Initiate as indicated by the supplied <code>token</code></td>
+      <td>Similar to <code>as_tuple</code> except in the case where the only argument to the completion handler is an error. In this case, the completion handler arguments are unaltered.</td>
+      <td>Experience of use suggests to me that this token is less useful than <code>redirect_error</code> and <code>as_tuple</code>.</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/experimental__append.html">experimental::append(token, values…)</a></td>
+      <td>Initiate as indicated by the supplied <code>token</code></td>
+      <td>When the completion handler is invoked, the <code>values...</code> arguments are appended to the argument list.</td>
+      <td>Provides a way to attaching more information to a completion handler invocation. <a href="https://github.com/madmongo1/blog-2021-10/blob/master/append_prepend.cpp">examples</a></td>
+    </tr>
+    <tr>
+      <td><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/experimental__prepend.html">experimental::prepend(token, values…)</a></td>
+      <td>Initiate as indicated by the supplied <code>token</code></td>
+      <td>When the completion handler is invoked, the <code>values...</code> arguments are prepended to the argument list.</td>
+      <td>Provides a way to attaching more information to a completion handler invocation. <a href="https://github.com/madmongo1/blog-2021-10/blob/master/append_prepend.cpp">examples</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h1 id="a-custom-completion-token">A Custom Completion Token</h1>
+
+<p>All very interesting and useful, no doubt. But what if we wanted to do something more clever.</p>
+
+<p>The other day I was speaking to Chris about timed cancellation. Now there are ways of doing timed cancellation that in 
+Chris’ view are correct and maximally performant (covered in <a href="https://www.youtube.com/watch?v=hHk5OXlKVFg">this video</a>). 
+However many users don’t need maximum performance. What they often want is maximum teachability or maintainability.</p>
+
+<p>So I posed the question: “Imagine I wanted a function which took any existing Asio composed asynchronous operation and
+produced a new composed operation which represented that same operation with a timeout. How would I do that?”</p>
+
+<p>For example, imagine we had a deferred read operation:</p>
+
+<pre><code class="language-c++">    auto read_op = async_read(stream, buffer, deferred); 
+</code></pre>
+
+<p>Which we can invoke in a coroutine like so:</p>
+
+<pre><code class="language-c++">    co_await read_op(use_awaitable); 
+</code></pre>
+
+<p>imagine we could write:</p>
+
+<pre><code class="language-c++">    co_await with_timeout(read_op, 5s, use_awaitable);
+</code></pre>
+
+<p>or to write it out in full:</p>
+
+<pre><code class="language-c++">    co_await with_timeout(
+        async_read(stream, buffer, deferred),
+        5s,
+        use_awaitable);
+</code></pre>
+
+<p>The answer that came back was to me quite surprising: “It starts with a completion token”.</p>
+
+<p>Which means that the way to achieve this is to write the <code>with_timeout</code> function in terms of a composition of completion 
+tokens:</p>
+
+<pre><code class="language-c++">template &lt;typename Op, typename CompletionToken&gt;
+auto with_timeout(Op op, std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token)
+{
+    return std::move(op)(timed(timeout, std::forward&lt;CompletionToken&gt;(token)));
+}
+</code></pre>
+
+<p>In the above code, <code>timed</code> is a function that returns a parameterised completion token. It will look something like this:</p>
+<pre><code class="language-c++">template &lt;typename CompletionToken&gt;
+timed_token&lt;CompletionToken&gt; 
+timed(std::chrono::milliseconds timeout, CompletionToken&amp;&amp; token)
+{
+    return timed_token&lt;CompletionToken&gt;{ timeout, token };
+}
+</code></pre>
+<p>The actual token type would look like this:</p>
+<pre><code class="language-c++">template &lt;typename CompletionToken&gt;
+struct timed_token
+{
+    std::chrono::milliseconds timeout;
+    CompletionToken&amp; token;
+};
+</code></pre>
+
+<p>So far, so simple. But how will this work?</p>
+
+<p>Well, remember that a completion token controls the injection of logic around an asynchronous operation. So somehow by 
+writing the token, we will get access to the packaged operation prior to it being initiated and we get access to the 
+following building blocks of the async operation provided by Asio’s initiation pattern:</p>
+<ul>
+  <li>The <em>initiation</em> - this is a function object that will actually initiate the packaged asynchronous operation, and</li>
+  <li>The <em>initiation arguments</em> - the arguments that were supplied to the initial initiation function. In our example above,
+these would be <code>stream</code> and <code>buffer</code></li>
+</ul>
+
+<p>Note that the <em>initiation</em> is an object that describes how to launch the underlying asynchronous operation, plus 
+associated data such as the <a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/get_associated_executor.html"><em>associated executor</em></a>, 
+<a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/get_associated_allocator.html"><em>associated allocator</em></a> 
+and <a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/get_associated_cancellation_slot.html"><em>associated cancellation slot</em></a>.</p>
+
+<p>In Asio, the customisation point for initiating an asynchronous operation with a given completion token is the template
+class <a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/async_result.html"><code>async_result</code></a>.</p>
+
+<p>Here is the specialisation:</p>
+<pre><code class="language-c++">// Specialise the async_result primary template for our timed_token
+template &lt;typename InnerCompletionToken, typename... Signatures&gt;
+struct asio::async_result&lt;
+      timed_token&lt;InnerCompletionToken&gt;,  // specialised on our token type 
+      Signatures...&gt;
+{
+    // The implementation will call initiate on our template class with the
+    // following arguments:
+    template &lt;typename Initiation, typename... InitArgs&gt;
+    static auto initiate(
+        Initiation&amp;&amp; init, // This is the object that we invoke in order to
+                           // actually start the packaged async operation
+        timed_token&lt;InnerCompletionToken&gt; t, // This is the completion token that
+                                             // was passed as the last argument to the
+                                             // initiating function
+        InitArgs&amp;&amp;... init_args)      // any more arguments that were passed to
+                                      // the initiating function
+    {
+        // we will customise the initiation through our token by invoking
+        // async_initiate with our own custom function object called
+        // timed_initiation. We will pass it the arguments that were passed to
+        // timed(). We will also forward the initiation created by the underlying
+        // completion token plus all arguments destined for the underlying
+        // initiation.
+        return asio::async_initiate&lt;InnerCompletionToken, Signatures...&gt;(
+                timed_initiation&lt;Signatures...&gt;{},
+                  t.token,   // the underlying token
+                  t.timeout, // our timeout argument
+                std::forward&lt;Initiation&gt;(init),  // the underlying operation's initiation
+                std::forward&lt;InitArgs&gt;(init_args)... // that initiation's arguments
+        );
+    }
+};
+</code></pre>
+
+<p>It’s a bit of a wall of text, but most of that is due to my comments and C++’s template syntax. In a nutshell, what this
+class is doing is implementing the function which wraps the initiation of the underlying operation (i.e the async_read)
+in an outer custom initiation which is going to add a timeout feature.</p>
+
+<p>All that remains is to define and implement <code>timed_initiation&lt;&gt;</code>, which is nothing more than a function object. We could
+have written it inline as a lambda, but for clarity it has been broken out into a separate template.</p>
+
+<p><a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/async_initiate.html"><code>async_initate</code></a> looks 
+complicated but in actual fact is doing a simple transformation:</p>
+
+<p>Given:</p>
+<ul>
+  <li><code>tok</code> is a <em>CompletionToken</em></li>
+  <li><code>Signatures...</code> is a type pack of function signatures that are required to be supported by a <em>CompletionHandler</em> built 
+from <code>tok</code>.</li>
+  <li><code>initiation</code> is a function object</li>
+  <li><code>args...</code> is a set of arbitrary arguments</li>
+</ul>
+
+<p><code>async_initiate</code> is a helper function which calls <code>async_result&lt;&gt;::initiate()</code>. Calling this will first transform <code>tok</code> 
+into a <em>CompletionHandler</em> which we will call <code>handler</code>. Then it will simply call <code>initiation(handler, args...)</code>. i.e. 
+it will invoke the <code>initiation</code> with the correct completion handler and any other arguments we happen to give it.</p>
+
+<pre><code class="language-c++">// Note: this is merely a function object - a lambda.
+template &lt;typename... Signatures&gt;
+struct timed_initiation
+{
+    template &lt;
+        typename CompletionHandler,
+        typename Initiation,
+        typename... InitArgs&gt;
+    void operator()(
+      CompletionHandler handler,         // the generated completion handler
+      std::chrono::milliseconds timeout, // the timeout specified in our completion token
+      Initiation&amp;&amp; initiation,           // the embedded operation's initiation (e.g. async_read)
+      InitArgs&amp;&amp;... init_args)           // the arguments passed to the embedded initiation (e.g. the async_read's buffer argument etc)
+    {
+        using asio::experimental::make_parallel_group;
+
+        // locate the correct executor associated with the underling operation
+        // first try the associated executor of the handler. If that doesn't
+        // exist, take the associated executor of the underlying async operation's handler
+        // If that doesn't exist, use the default executor (system executor currently)
+        auto ex = asio::get_associated_executor(handler,
+                                                asio::get_associated_executor(initiation));
+
+        // build a timer object and own it via a shared_ptr. This is because its
+        // lifetime is shared between two asynchronous chains. Use the handler's
+        // allocator in order to take advantage of the Asio recycling allocator.
+        auto alloc = asio::get_associated_allocator(handler);
+        auto timer = std::allocate_shared&lt;asio::steady_timer&gt;(alloc, ex, timeout);
+
+        // launch a parallel group of asynchronous operations - one for the timer
+        // wait and one for the underlying asynchronous operation (i.e. async_read)
+        make_parallel_group(
+                // item 0 in the group is the timer wait
+                asio::bind_executor(ex,
+                                    [&amp;](auto&amp;&amp; token)
+                                    {
+                                        return timer-&gt;async_wait(std::forward&lt;decltype(token)&gt;(token));
+                                    }),
+                // item 1 in the group is the underlying async operation
+                asio::bind_executor(ex,
+                                    [&amp;](auto&amp;&amp; token)
+                                    {
+                                        // Finally, initiate the underlying operation
+                                        // passing its original arguments
+                                        return asio::async_initiate&lt;decltype(token), Signatures...&gt;(
+                                                std::forward&lt;Initiation&gt;(initiation), token,
+                                                std::forward&lt;InitArgs&gt;(init_args)...);
+                                    })
+        ).async_wait(
+                // Wait for the first item in the group to complete. Upon completion
+                // of the first, cancel the others.
+                asio::experimental::wait_for_one(),
+
+                // The completion handler for the group
+                [handler = std::move(handler), timer](
+                    // an array of indexes indicating in which order the group's
+                    // operations completed, whether successfully or not
+                    std::array&lt;std::size_t, 2&gt;,
+
+                    // The arguments are the result of concatenating
+                    // the completion handler arguments of all operations in the
+                    // group, in retained order:
+                    // first the steady_timer::async_wait
+                    std::error_code,
+
+                    // then the underlying operation e.g. async_read(...)
+                    auto... underlying_op_results // e.g. error_code, size_t
+                    ) mutable
+                {
+                    // release all memory prior to invoking the final handler
+                    timer.reset();
+                    // finally, invoke the handler with the results of the
+                    // underlying operation
+                    std::move(handler)(std::move(underlying_op_results)...);
+                });
+    }
+};
+</code></pre>
+
+<p>Now that the token and its specialisation of <code>async_result</code> is complete, we can trivially write a timed read from console
+that won’t throw as a coroutine in one line:</p>
+
+<pre><code class="language-c++">    // using the completion token direct
+    auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), '\n',
+                                              as_tuple(timed(5s, use_awaitable)));
+
+    // using the function form
+    auto [ec2, n2] = co_await with_timeout(
+        async_read_until(in, asio::dynamic_buffer(line), '\n', deferred),
+        5s,
+        as_tuple(use_awaitable));
+</code></pre>
+
+<p>The full code for this example is <a href="https://github.com/madmongo1/blog-2021-10/blob/master/timed.cpp">here</a>. 
+Note that this example is written in terms of a posix console stream. 
+To demonstrate on Windows, you would need to replace the <code>posix::stream_descriptor in(co_await this_coro::executor, ::dup(STDIN_FILENO));</code>
+with a stream type compatible with Windows, such as a socket or named pipe… or even adapt the example to use a Beast
+<code>http::async_read</code> - and presto! You have a ready-made HTTP server which applies a timeout to reading messages.</p>
+
+<p>Update 2021-10-11: I have since modified the example so that on windows a local tcp socket pair is created and a 
+coroutine is spawned to handle the input side of things. The demo now compiles and runs with MSVC2019.</p>
+
+<h1 id="a-note-on-performance">A Note on Performance</h1>
+
+<p>It is important that I point out that this example token has been written with ease of use as the primary motivating 
+factor. There is a pessimisation in its design in that use of the token allocates a new timer for every
+asynchronous operation where the timeout is being applied. This of course becomes completely un-necessary if we redesign 
+the token so that we pass a reference to an existing timer to its construction function.</p>
+
+<p>The call-site would then look more like this:</p>
+<pre><code class="language-c++">    auto timer = asio::steady_timer(co_await this_coro::executor, 5s);
+    auto [ec1, n1] = co_await async_read_until(in, dynamic_buffer(line), '\n',
+                                              as_tuple(use_deadline(timer, use_awaitable)));
+</code></pre>
+
+<p>Writing it this way would actually result in a simpler initiation and would ensure that the general Asio principle of
+giving the caller control over object lifetimes and allocation strategies is maintained.</p>
+
+<p>Another way to avoid repeated allocations of the timer while retaining the “easy mode” interface is to make use of 
+Asio’s execution context service facility. In this way timers would be cached in the service object associated with the 
+associated executor’s <a href="https://www.boost.org/doc/libs/1_77_0/doc/html/boost_asio/reference/execution_context.html"><code>execution_context</code></a>.</p>
+
+<p>Asio was originally designed for highly scalable and latency-sensitive applications such as used in the finance, 
+automotive and defence industries. Out of the box it provides the basic building blocks with which to assemble
+performance and memory-critical applications. However as it has become more widely adopted there is a growing demand for
+“easy mode” interfaces for people who just want to get things done.</p>
+
+<p>This message has not gone unheard. I would expect a number of interesting new features to be added to the library in 
+short order.</p>
+
+<p>Thanks for reading.</p>
+
+<p>Richard Hodges<br />
+for C++ Alliance<br />
+<a href="mailto:hodges.r@gmail.com">hodges.r@gmail.com</a></p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

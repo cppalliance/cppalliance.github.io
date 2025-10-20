@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coroutine 101 - A simple serializer | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Coroutine 101 - A simple serializer | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Coroutine 101 - A simple serializer" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="This is the first post in a series explaining C++20 coroutines by example. Goal The goal for this article is to create a simple non-recursive stream serializer, that can be used like this: stream::serializer serialize_ints(std::vector&lt;int&gt; data) { for (auto idx = 0u; idx &lt; data.size(); idx++) { if (idx != 0) co_yield &#39;,&#39;; co_yield std::to_string(data[idx]); } } int main(int argc, char *argv[]) { auto s = serialize_ints({1,2,3,4,5,6,7,8,9,10}); std::string buffer; buffer.resize(10); using std::operator&quot;&quot;sv; assert(s.read_some(buffer) == &quot;1,2,3,4,5,&quot;sv); assert(s.read_some(buffer) == &quot;6,7,8,9,10&quot;sv); return 0; } That is we want a serializer coroutine that can co_yield strings and chars, and can get consumed by a simple sync interface. Serializer The serializer interface itself is very simple: struct serializer { // The promise_type tells how to make this a coroutine. using promise_type = detail::serializer_promise; bool done() const; std::string_view read_some(std::span&lt;char&gt; buffer); private: // The data passed into read_some std::span&lt;char&gt; buffer_; // The amount written to the buffer std::size_t written_; // The bytes that couldn&#39;t be written bc the buffer was full. std::string_view remaining_; friend detail::serializer_promise; // The unique_handle is essentially a unique_ptr of a std::coroutine_handle (which doesn&#39;t free) detail::unique_handle&lt;promise_type&gt; impl_; }; Next let’s quickly define the done &amp; read_some functions: bool serializer::done() const { // check if we have a coroutine attached &amp; it&#39;s not done // and that we don&#39;t have data remaining from a previously full buffer return (!impl_ || impl_.done()) &amp;&amp; remaining_.empty(); } std::string_view serializer::read_some(std::span&lt;char&gt; buffer) { // consume data left from a previous co_yield. auto n = (std::min)(remaining_.size(), buffer.size()); std::copy_n(remaining_.begin(), n, buffer.begin()); written_ = n; remaining_.remove_prefix(n); buffer_ = buffer; // if the coroutine is still active &amp; we have buffer space left, resume it if (!done() &amp;&amp; (buffer_.size() != written_)) { // tell the coroutine promise where to write the data impl_.promise().ser = this; // resume the coroutine to yield more data impl_.resume(); } return {buffer.data(), written_}; } The resume function will resume the serializer coroutine until it either yields or returns. Awaitables Before we get into the promise itself, we need to establish what awaitables are. And awaitable is a type with three functions: struct my_awaitable { bool await_ready(); void await_suspend(std::coroutine_handle&lt;T&gt;); T await_resume(); }; When a coroutine awaits an awaitable, it will call await_ready first. If it returns true the coroutine does not need to suspend and will call await_resume to the await result (always void in this example). If await_ready returns false, the coroutine suspends and await_suspend will be called with the coroutines handle passed it. Once the coroutine gets resumed (by calling resume() on the handle) it will call await_resume to get the result and return the value. The main point is that await_ready can be used to avoid suspension of the coroutine, which can awaiting something an noop. The standard provides two awaitables: std::suspend_never std::suspend_always suspend_never will do nothing (await_ready returns true), while suspend_always will just suspend the coroutine (await_ready returns false). Serializer Promise With that cleared up, let’s look a the promise: struct serializer_promise { std::suspend_always initial_suspend() noexcept {return {};} std::suspend_always final_suspend () noexcept {return {};} serializer get_return_object(); void return_void() {} void unhandled_exception() { throw; } struct conditional_suspend { bool written; bool await_ready() { [[likely]] if (written) return true; else return false; } void await_suspend(std::coroutine_handle&lt;serializer_promise&gt;) {} void await_resume() {} }; conditional_suspend yield_value(const char &amp; c); conditional_suspend yield_value(std::string_view c); serializer * ser; }; The next five functions are mandatory for any coroutine initial_suspend The initial_suspend function gets called when the coroutine is created (i.e. when serialize_ints is called) and it’s result awaited. In this case want the coroutine to be lazy, i.e. do nothing until read_some resumes it. Therefor we return std::suspend_always. final_suspend Once the coroutine is past the co_return it will call final_suspend and wait the result. This can be used for continuations and cleanup. In our case, the serializer object holds the coroutine handle and will clean it up, so we also call std::suspend_always. get_return_object The get_return_object function is used to gets called to create the handle of the coroutine, in our case a serialize object. The implementation is pretty straight forward: serializer serializer_promise::get_return_object() { serializer s; s.impl_ = detail::unique_handle&lt;serializer_promise&gt;::from_promise(*this); return s; } return_void A coroutine either defines return_void if there is not return value or return_value if there is. Since we check the completion through the handle, we don’t need to do anything here. unhandled_exception If the coroutine exits with an exception it can be intercepted here. We just rethrow it, so the caller to .resume will receive it. That is it will be thrown from serializer.read_some. conditional_suspend The conditional_suspend is an awaitable that let’s you dynamically chose between std::suspend_never and std::suspend_always. We use this so we only suspend if the buffer is full and we tell the compiler to optimize for this case using [[likely]]. yield_value The yield_value functions are needed when co_yield should be possible within the coroutine function. The function will get called with one value and it’s return value will be awaited. This way we can conditionally suspend if the buffer is full. In our coroutine, we can yield a string_view and a single char. auto serializer_promise::yield_value(const char &amp; c) -&gt; conditional_suspend { // we got room in the buffer, just write the data if (ser-&gt;written_ &lt; ser-&gt;buffer_.size()) { ser-&gt;buffer_[ser-&gt;written_] = c; ser-&gt;written_++; // don&#39;t suspend, we sent the data. return conditional_suspend{true}; } else // the buffer is full. store it as remaining { ser-&gt;remaining_ = {&amp;c, 1u}; return conditional_suspend{false}; } } auto serializer_promise::yield_value(std::string_view c) -&gt; conditional_suspend { if (ser-&gt;written_ &lt; ser-&gt;buffer_.size()) { // write as many bytes to the buffer as you can. auto n = (std::min)(c.size(), (ser-&gt;buffer_.size() - ser-&gt;written_)); std::copy_n(c.begin(), n, ser-&gt;buffer_.begin() + ser-&gt;written_); ser-&gt;written_ += n; c.remove_prefix(n); if (!c.empty()) ser-&gt;remaining_ = c; // suspend if we couldn&#39;t write all of the data return conditional_suspend{c.empty()}; } else { // not space remaining, suspend ser-&gt;remaining_ = c; return conditional_suspend{false}; } } Conclusion And with that we can write a stream serializer without confusing syntax. In the next article, we’ll make the serializer recursive, i.e. allow one serializer to await another one." />
+<meta property="og:description" content="This is the first post in a series explaining C++20 coroutines by example. Goal The goal for this article is to create a simple non-recursive stream serializer, that can be used like this: stream::serializer serialize_ints(std::vector&lt;int&gt; data) { for (auto idx = 0u; idx &lt; data.size(); idx++) { if (idx != 0) co_yield &#39;,&#39;; co_yield std::to_string(data[idx]); } } int main(int argc, char *argv[]) { auto s = serialize_ints({1,2,3,4,5,6,7,8,9,10}); std::string buffer; buffer.resize(10); using std::operator&quot;&quot;sv; assert(s.read_some(buffer) == &quot;1,2,3,4,5,&quot;sv); assert(s.read_some(buffer) == &quot;6,7,8,9,10&quot;sv); return 0; } That is we want a serializer coroutine that can co_yield strings and chars, and can get consumed by a simple sync interface. Serializer The serializer interface itself is very simple: struct serializer { // The promise_type tells how to make this a coroutine. using promise_type = detail::serializer_promise; bool done() const; std::string_view read_some(std::span&lt;char&gt; buffer); private: // The data passed into read_some std::span&lt;char&gt; buffer_; // The amount written to the buffer std::size_t written_; // The bytes that couldn&#39;t be written bc the buffer was full. std::string_view remaining_; friend detail::serializer_promise; // The unique_handle is essentially a unique_ptr of a std::coroutine_handle (which doesn&#39;t free) detail::unique_handle&lt;promise_type&gt; impl_; }; Next let’s quickly define the done &amp; read_some functions: bool serializer::done() const { // check if we have a coroutine attached &amp; it&#39;s not done // and that we don&#39;t have data remaining from a previously full buffer return (!impl_ || impl_.done()) &amp;&amp; remaining_.empty(); } std::string_view serializer::read_some(std::span&lt;char&gt; buffer) { // consume data left from a previous co_yield. auto n = (std::min)(remaining_.size(), buffer.size()); std::copy_n(remaining_.begin(), n, buffer.begin()); written_ = n; remaining_.remove_prefix(n); buffer_ = buffer; // if the coroutine is still active &amp; we have buffer space left, resume it if (!done() &amp;&amp; (buffer_.size() != written_)) { // tell the coroutine promise where to write the data impl_.promise().ser = this; // resume the coroutine to yield more data impl_.resume(); } return {buffer.data(), written_}; } The resume function will resume the serializer coroutine until it either yields or returns. Awaitables Before we get into the promise itself, we need to establish what awaitables are. And awaitable is a type with three functions: struct my_awaitable { bool await_ready(); void await_suspend(std::coroutine_handle&lt;T&gt;); T await_resume(); }; When a coroutine awaits an awaitable, it will call await_ready first. If it returns true the coroutine does not need to suspend and will call await_resume to the await result (always void in this example). If await_ready returns false, the coroutine suspends and await_suspend will be called with the coroutines handle passed it. Once the coroutine gets resumed (by calling resume() on the handle) it will call await_resume to get the result and return the value. The main point is that await_ready can be used to avoid suspension of the coroutine, which can awaiting something an noop. The standard provides two awaitables: std::suspend_never std::suspend_always suspend_never will do nothing (await_ready returns true), while suspend_always will just suspend the coroutine (await_ready returns false). Serializer Promise With that cleared up, let’s look a the promise: struct serializer_promise { std::suspend_always initial_suspend() noexcept {return {};} std::suspend_always final_suspend () noexcept {return {};} serializer get_return_object(); void return_void() {} void unhandled_exception() { throw; } struct conditional_suspend { bool written; bool await_ready() { [[likely]] if (written) return true; else return false; } void await_suspend(std::coroutine_handle&lt;serializer_promise&gt;) {} void await_resume() {} }; conditional_suspend yield_value(const char &amp; c); conditional_suspend yield_value(std::string_view c); serializer * ser; }; The next five functions are mandatory for any coroutine initial_suspend The initial_suspend function gets called when the coroutine is created (i.e. when serialize_ints is called) and it’s result awaited. In this case want the coroutine to be lazy, i.e. do nothing until read_some resumes it. Therefor we return std::suspend_always. final_suspend Once the coroutine is past the co_return it will call final_suspend and wait the result. This can be used for continuations and cleanup. In our case, the serializer object holds the coroutine handle and will clean it up, so we also call std::suspend_always. get_return_object The get_return_object function is used to gets called to create the handle of the coroutine, in our case a serialize object. The implementation is pretty straight forward: serializer serializer_promise::get_return_object() { serializer s; s.impl_ = detail::unique_handle&lt;serializer_promise&gt;::from_promise(*this); return s; } return_void A coroutine either defines return_void if there is not return value or return_value if there is. Since we check the completion through the handle, we don’t need to do anything here. unhandled_exception If the coroutine exits with an exception it can be intercepted here. We just rethrow it, so the caller to .resume will receive it. That is it will be thrown from serializer.read_some. conditional_suspend The conditional_suspend is an awaitable that let’s you dynamically chose between std::suspend_never and std::suspend_always. We use this so we only suspend if the buffer is full and we tell the compiler to optimize for this case using [[likely]]. yield_value The yield_value functions are needed when co_yield should be possible within the coroutine function. The function will get called with one value and it’s return value will be awaited. This way we can conditionally suspend if the buffer is full. In our coroutine, we can yield a string_view and a single char. auto serializer_promise::yield_value(const char &amp; c) -&gt; conditional_suspend { // we got room in the buffer, just write the data if (ser-&gt;written_ &lt; ser-&gt;buffer_.size()) { ser-&gt;buffer_[ser-&gt;written_] = c; ser-&gt;written_++; // don&#39;t suspend, we sent the data. return conditional_suspend{true}; } else // the buffer is full. store it as remaining { ser-&gt;remaining_ = {&amp;c, 1u}; return conditional_suspend{false}; } } auto serializer_promise::yield_value(std::string_view c) -&gt; conditional_suspend { if (ser-&gt;written_ &lt; ser-&gt;buffer_.size()) { // write as many bytes to the buffer as you can. auto n = (std::min)(c.size(), (ser-&gt;buffer_.size() - ser-&gt;written_)); std::copy_n(c.begin(), n, ser-&gt;buffer_.begin() + ser-&gt;written_); ser-&gt;written_ += n; c.remove_prefix(n); if (!c.empty()) ser-&gt;remaining_ = c; // suspend if we couldn&#39;t write all of the data return conditional_suspend{c.empty()}; } else { // not space remaining, suspend ser-&gt;remaining_ = c; return conditional_suspend{false}; } } Conclusion And with that we can write a stream serializer without confusing syntax. In the next article, we’ll make the serializer recursive, i.e. allow one serializer to await another one." />
+<link rel="canonical" href="http://cppalliance.org/asio/2023/07/27/Coroutines.html" />
+<meta property="og:url" content="http://cppalliance.org/asio/2023/07/27/Coroutines.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-07-27T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Coroutine 101 - A simple serializer" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"This is the first post in a series explaining C++20 coroutines by example. Goal The goal for this article is to create a simple non-recursive stream serializer, that can be used like this: stream::serializer serialize_ints(std::vector&lt;int&gt; data) { for (auto idx = 0u; idx &lt; data.size(); idx++) { if (idx != 0) co_yield &#39;,&#39;; co_yield std::to_string(data[idx]); } } int main(int argc, char *argv[]) { auto s = serialize_ints({1,2,3,4,5,6,7,8,9,10}); std::string buffer; buffer.resize(10); using std::operator&quot;&quot;sv; assert(s.read_some(buffer) == &quot;1,2,3,4,5,&quot;sv); assert(s.read_some(buffer) == &quot;6,7,8,9,10&quot;sv); return 0; } That is we want a serializer coroutine that can co_yield strings and chars, and can get consumed by a simple sync interface. Serializer The serializer interface itself is very simple: struct serializer { // The promise_type tells how to make this a coroutine. using promise_type = detail::serializer_promise; bool done() const; std::string_view read_some(std::span&lt;char&gt; buffer); private: // The data passed into read_some std::span&lt;char&gt; buffer_; // The amount written to the buffer std::size_t written_; // The bytes that couldn&#39;t be written bc the buffer was full. std::string_view remaining_; friend detail::serializer_promise; // The unique_handle is essentially a unique_ptr of a std::coroutine_handle (which doesn&#39;t free) detail::unique_handle&lt;promise_type&gt; impl_; }; Next let’s quickly define the done &amp; read_some functions: bool serializer::done() const { // check if we have a coroutine attached &amp; it&#39;s not done // and that we don&#39;t have data remaining from a previously full buffer return (!impl_ || impl_.done()) &amp;&amp; remaining_.empty(); } std::string_view serializer::read_some(std::span&lt;char&gt; buffer) { // consume data left from a previous co_yield. auto n = (std::min)(remaining_.size(), buffer.size()); std::copy_n(remaining_.begin(), n, buffer.begin()); written_ = n; remaining_.remove_prefix(n); buffer_ = buffer; // if the coroutine is still active &amp; we have buffer space left, resume it if (!done() &amp;&amp; (buffer_.size() != written_)) { // tell the coroutine promise where to write the data impl_.promise().ser = this; // resume the coroutine to yield more data impl_.resume(); } return {buffer.data(), written_}; } The resume function will resume the serializer coroutine until it either yields or returns. Awaitables Before we get into the promise itself, we need to establish what awaitables are. And awaitable is a type with three functions: struct my_awaitable { bool await_ready(); void await_suspend(std::coroutine_handle&lt;T&gt;); T await_resume(); }; When a coroutine awaits an awaitable, it will call await_ready first. If it returns true the coroutine does not need to suspend and will call await_resume to the await result (always void in this example). If await_ready returns false, the coroutine suspends and await_suspend will be called with the coroutines handle passed it. Once the coroutine gets resumed (by calling resume() on the handle) it will call await_resume to get the result and return the value. The main point is that await_ready can be used to avoid suspension of the coroutine, which can awaiting something an noop. The standard provides two awaitables: std::suspend_never std::suspend_always suspend_never will do nothing (await_ready returns true), while suspend_always will just suspend the coroutine (await_ready returns false). Serializer Promise With that cleared up, let’s look a the promise: struct serializer_promise { std::suspend_always initial_suspend() noexcept {return {};} std::suspend_always final_suspend () noexcept {return {};} serializer get_return_object(); void return_void() {} void unhandled_exception() { throw; } struct conditional_suspend { bool written; bool await_ready() { [[likely]] if (written) return true; else return false; } void await_suspend(std::coroutine_handle&lt;serializer_promise&gt;) {} void await_resume() {} }; conditional_suspend yield_value(const char &amp; c); conditional_suspend yield_value(std::string_view c); serializer * ser; }; The next five functions are mandatory for any coroutine initial_suspend The initial_suspend function gets called when the coroutine is created (i.e. when serialize_ints is called) and it’s result awaited. In this case want the coroutine to be lazy, i.e. do nothing until read_some resumes it. Therefor we return std::suspend_always. final_suspend Once the coroutine is past the co_return it will call final_suspend and wait the result. This can be used for continuations and cleanup. In our case, the serializer object holds the coroutine handle and will clean it up, so we also call std::suspend_always. get_return_object The get_return_object function is used to gets called to create the handle of the coroutine, in our case a serialize object. The implementation is pretty straight forward: serializer serializer_promise::get_return_object() { serializer s; s.impl_ = detail::unique_handle&lt;serializer_promise&gt;::from_promise(*this); return s; } return_void A coroutine either defines return_void if there is not return value or return_value if there is. Since we check the completion through the handle, we don’t need to do anything here. unhandled_exception If the coroutine exits with an exception it can be intercepted here. We just rethrow it, so the caller to .resume will receive it. That is it will be thrown from serializer.read_some. conditional_suspend The conditional_suspend is an awaitable that let’s you dynamically chose between std::suspend_never and std::suspend_always. We use this so we only suspend if the buffer is full and we tell the compiler to optimize for this case using [[likely]]. yield_value The yield_value functions are needed when co_yield should be possible within the coroutine function. The function will get called with one value and it’s return value will be awaited. This way we can conditionally suspend if the buffer is full. In our coroutine, we can yield a string_view and a single char. auto serializer_promise::yield_value(const char &amp; c) -&gt; conditional_suspend { // we got room in the buffer, just write the data if (ser-&gt;written_ &lt; ser-&gt;buffer_.size()) { ser-&gt;buffer_[ser-&gt;written_] = c; ser-&gt;written_++; // don&#39;t suspend, we sent the data. return conditional_suspend{true}; } else // the buffer is full. store it as remaining { ser-&gt;remaining_ = {&amp;c, 1u}; return conditional_suspend{false}; } } auto serializer_promise::yield_value(std::string_view c) -&gt; conditional_suspend { if (ser-&gt;written_ &lt; ser-&gt;buffer_.size()) { // write as many bytes to the buffer as you can. auto n = (std::min)(c.size(), (ser-&gt;buffer_.size() - ser-&gt;written_)); std::copy_n(c.begin(), n, ser-&gt;buffer_.begin() + ser-&gt;written_); ser-&gt;written_ += n; c.remove_prefix(n); if (!c.empty()) ser-&gt;remaining_ = c; // suspend if we couldn&#39;t write all of the data return conditional_suspend{c.empty()}; } else { // not space remaining, suspend ser-&gt;remaining_ = c; return conditional_suspend{false}; } } Conclusion And with that we can write a stream serializer without confusing syntax. In the next article, we’ll make the serializer recursive, i.e. allow one serializer to await another one.","@type":"BlogPosting","url":"http://cppalliance.org/asio/2023/07/27/Coroutines.html","headline":"Coroutine 101 - A simple serializer","dateModified":"2023-07-27T00:00:00+00:00","datePublished":"2023-07-27T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/asio/2023/07/27/Coroutines.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Coroutine 101 - A simple serializer</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/klemens">
+                  Klemens Morgenstern
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 27, 2023</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>This is the first post in a series explaining C++20 coroutines by example.</p>
+
+<h1 id="goal">Goal</h1>
+
+<p>The goal for this article is to create a simple non-recursive stream serializer, that can be used like this:</p>
+
+<pre><code class="language-cpp">stream::serializer serialize_ints(std::vector&lt;int&gt; data)
+{
+  for (auto idx = 0u; idx &lt; data.size(); idx++)
+  {
+    if (idx != 0)
+      co_yield ',';
+    co_yield std::to_string(data[idx]);
+  }
+}
+
+int main(int argc, char *argv[])
+{
+  auto s = serialize_ints({1,2,3,4,5,6,7,8,9,10});
+  std::string buffer;
+  buffer.resize(10);
+
+  using std::operator""sv;
+
+  assert(s.read_some(buffer) == "1,2,3,4,5,"sv);
+  assert(s.read_some(buffer) == "6,7,8,9,10"sv);
+
+  return 0;
+}
+</code></pre>
+
+<p>That is we want a serializer coroutine that can <code>co_yield</code> strings and chars,
+and can get consumed by a simple sync interface.</p>
+
+<h1 id="serializer">Serializer</h1>
+
+<p>The serializer interface itself is very simple:</p>
+
+<pre><code class="language-cpp">struct serializer
+{
+  // The promise_type tells how to make this a coroutine.
+  using promise_type = detail::serializer_promise;
+
+  bool done() const;
+  std::string_view read_some(std::span&lt;char&gt; buffer);
+
+ private:
+  // The data passed into read_some
+  std::span&lt;char&gt; buffer_;
+  // The amount written to the buffer
+  std::size_t written_;
+  // The bytes that couldn't be written bc the buffer was full.
+  std::string_view remaining_;
+
+  friend detail::serializer_promise;
+  // The unique_handle is essentially a unique_ptr of a std::coroutine_handle (which doesn't free)
+  detail::unique_handle&lt;promise_type&gt; impl_;
+};
+</code></pre>
+
+<p>Next let’s quickly define the done &amp; read_some functions:</p>
+
+<pre><code class="language-cpp">
+bool serializer::done()  const
+{
+  // check if we have a coroutine attached &amp; it's not done 
+  // and that we don't have data remaining from a previously full buffer
+  return (!impl_ || impl_.done()) &amp;&amp; remaining_.empty();
+}
+
+std::string_view serializer::read_some(std::span&lt;char&gt; buffer)
+{
+  // consume data left from a previous co_yield.  
+  auto n = (std::min)(remaining_.size(), buffer.size());
+  std::copy_n(remaining_.begin(), n, buffer.begin());
+  written_ = n;
+  remaining_.remove_prefix(n);
+  
+  
+  buffer_ = buffer;
+  // if the coroutine is still active &amp; we have buffer space left, resume it
+  if (!done() &amp;&amp; (buffer_.size() != written_))
+  {
+    // tell the coroutine promise where to write the data
+    impl_.promise().ser = this;
+    // resume the coroutine to yield more data
+    impl_.resume();
+  }
+
+  return {buffer.data(), written_};
+}
+</code></pre>
+
+<p>The <code>resume</code> function will resume the serializer coroutine until it
+either yields or returns.</p>
+
+<h1 id="awaitables">Awaitables</h1>
+
+<p>Before we get into the promise itself, we need to establish what awaitables are.</p>
+
+<p>And awaitable is a type with three functions:</p>
+
+<pre><code class="language-cpp">struct my_awaitable
+{
+   bool await_ready();
+   void await_suspend(std::coroutine_handle&lt;T&gt;);
+   T await_resume();
+};
+</code></pre>
+<p>When a coroutine awaits an awaitable, it will call <code>await_ready</code> first. 
+If it returns <code>true</code> the coroutine does not need to suspend and will call <code>await_resume</code> to the await result (always void in this example).
+If <code>await_ready</code> returns false, the coroutine suspends and <code>await_suspend</code> will be called with the coroutines handle passed it.
+Once the coroutine gets resumed (by calling <code>resume()</code> on the handle)
+it will call <code>await_resume</code> to get the result and return the value.</p>
+
+<p>The main point is that <code>await_ready</code> can be used to avoid suspension
+of the coroutine, which can awaiting something an noop.</p>
+
+<p>The standard provides two awaitables:</p>
+
+<ul>
+  <li>std::suspend_never</li>
+  <li>std::suspend_always</li>
+</ul>
+
+<p><code>suspend_never</code> will do nothing (<code>await_ready</code> returns true),
+while <code>suspend_always</code> will just suspend the coroutine (<code>await_ready</code> returns false).</p>
+
+<h1 id="serializer-promise">Serializer Promise</h1>
+
+<p>With that cleared up, let’s look a the promise:</p>
+
+<pre><code class="language-cpp">struct serializer_promise
+{
+  std::suspend_always initial_suspend() noexcept {return {};}
+  std::suspend_always final_suspend  () noexcept {return {};}
+
+  serializer get_return_object();
+
+  void return_void() {}
+
+  void unhandled_exception() { throw;  }
+
+  struct conditional_suspend
+  {
+    bool written;
+    bool await_ready()
+    {
+      [[likely]]
+      if (written)
+        return true;
+      else
+        return false;
+    }
+    void await_suspend(std::coroutine_handle&lt;serializer_promise&gt;) {}
+    void await_resume() {}
+  };
+
+  conditional_suspend yield_value(const char &amp; c);
+  conditional_suspend yield_value(std::string_view c);
+
+  serializer * ser;
+};
+</code></pre>
+
+<p>The next five functions are mandatory for any coroutine</p>
+
+<h2 id="initial_suspend">initial_suspend</h2>
+
+<p>The <code>initial_suspend</code> function gets called when the coroutine is created (i.e. when <code>serialize_ints</code> is called) and it’s result
+awaited. 
+In this case want the coroutine to be lazy, i.e. do nothing until <code>read_some</code> resumes it. Therefor we return <code>std::suspend_always</code>.</p>
+
+<h2 id="final_suspend">final_suspend</h2>
+
+<p>Once the coroutine is past the <code>co_return</code> it will call final_suspend
+and wait the result. This can be used for continuations and cleanup.
+In our case, the <code>serializer</code> object holds the coroutine handle and
+will clean it up, so we also call <code>std::suspend_always</code>.</p>
+
+<h2 id="get_return_object">get_return_object</h2>
+
+<p>The <code>get_return_object</code> function is used to gets called to create the 
+handle of the coroutine, in our case a <code>serialize</code> object.</p>
+
+<p>The implementation is pretty straight forward:</p>
+
+<pre><code class="language-cpp">serializer serializer_promise::get_return_object()
+{
+  serializer s;
+  s.impl_ = detail::unique_handle&lt;serializer_promise&gt;::from_promise(*this);
+  return s;
+}
+</code></pre>
+
+<h2 id="return_void">return_void</h2>
+
+<p>A coroutine either defines <code>return_void</code> if there is not return value
+or <code>return_value</code> if there is. 
+Since we check the completion through the handle, we don’t need to do anything here.</p>
+
+<h2 id="unhandled_exception">unhandled_exception</h2>
+
+<p>If the coroutine exits with an exception it can be intercepted here.
+We just rethrow it, so the caller to .resume will receive it.
+That is it will be thrown from <code>serializer.read_some</code>.</p>
+
+<h2 id="conditional_suspend">conditional_suspend</h2>
+
+<p>The <code>conditional_suspend</code> is an awaitable that let’s you dynamically chose between <code>std::suspend_never</code> and <code>std::suspend_always</code>.</p>
+
+<p>We use this so we only suspend if the buffer is full and we tell
+the compiler to optimize for this case using <code>[[likely]]</code>.</p>
+
+<h2 id="yield_value">yield_value</h2>
+
+<p>The <code>yield_value</code> functions are needed when <code>co_yield</code> should be possible within the coroutine function.</p>
+
+<p>The function will get called with one value and
+it’s return value will be awaited. This way we can conditionally suspend if the buffer is full. In our coroutine, 
+we can yield a string_view and a single char.</p>
+
+<pre><code class="language-cpp">auto serializer_promise::yield_value(const char &amp; c) -&gt; conditional_suspend
+{
+  // we got room in the buffer, just write the data
+  if (ser-&gt;written_ &lt; ser-&gt;buffer_.size())
+  {
+    ser-&gt;buffer_[ser-&gt;written_] = c;
+    ser-&gt;written_++;
+    // don't suspend, we sent the data.
+    return conditional_suspend{true};
+  }
+  else // the buffer is full. store it as remaining
+  {
+    ser-&gt;remaining_ = {&amp;c, 1u};
+    return conditional_suspend{false};
+  }
+}
+
+auto serializer_promise::yield_value(std::string_view c) -&gt; conditional_suspend
+{
+
+  if (ser-&gt;written_ &lt; ser-&gt;buffer_.size())
+  {
+    // write as many bytes to the buffer as you can.
+    auto n = (std::min)(c.size(), (ser-&gt;buffer_.size() - ser-&gt;written_));
+    std::copy_n(c.begin(), n, ser-&gt;buffer_.begin() + ser-&gt;written_);
+    ser-&gt;written_ += n;
+
+    c.remove_prefix(n);
+    if (!c.empty())
+      ser-&gt;remaining_ = c;
+
+    // suspend if we couldn't write all of the data
+    return conditional_suspend{c.empty()};
+  }
+  else
+  {
+    // not space remaining, suspend
+    ser-&gt;remaining_ = c;
+    return conditional_suspend{false};
+  }
+    
+}
+</code></pre>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>And with that we can write a stream serializer without confusing syntax.</p>
+
+<p>In the next article, we’ll make the serializer recursive, i.e.
+allow one serializer to await another one.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/27/2023</span>
+          <a class='text-l news-title link' href="/asio/2023/07/27/Coroutines.html">Coroutine 101 - A simple serializer</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/02/2023</span>
+          <a class='text-l news-title link' href="/asio/2023/01/02/Asio201Timeouts.html">Asio 201 - timeouts, cancellation & custom tokens</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/11/2022</span>
+          <a class='text-l news-title link' href="/asio/2022/12/11/Asio201Deferred.html">Asio 201 - deferred</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

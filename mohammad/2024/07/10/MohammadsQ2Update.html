@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mohammad's Q2 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Mohammad’s Q2 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Mohammad’s Q2 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The following is an overview of some projects I have been working on in the last few months: Boost.Beast Besides addressing user issues and typical bug fixes, here are a couple of contributions to the Boost.Beast project that I find interesting: Deprecating beast::ssl_stream and beast::flat_stream The beast::flat_stream was originally designed to consolidate buffer sequences into a single intermediate buffer, reducing the number of I/O operations required when writing these sequences to a stream that lacks scatter/gather support. However, after Asio improved the performance of write operations in ssl::stream by linearizing gather-write buffer sequences, the necessity for beast::ssl_stream and beast::flat_stream has decreased. Their continued inclusion has caused confusion among new users and added unnecessary complexity to the documentation and code snippets. Consequently, these streams are now deprecated, and the use of asio::ssl::stream is recommended in the documentation, examples, and code snippets. Note: Existing code will remain functional, as beast::ssl_stream has been redefined as a type that publicly inherits from asio::ssl::stream. Simplifying C++20 Coroutine Examples The latest Asio release introduces several changes that significantly reduce code complexity and noise. Previously, we had to redefine IO object types with an executor that has a default completion token type, like this: using tcp_socket = asio::as_tuple_t&lt;asio::deferred_t&gt;::as_default_on_t&lt;asio::ip::tcp::socket&gt;; With the new Asio release, asio::deferred is now the default completion token, eliminating the need to redefine IO objects with custom executors. Now, these work out of the box: auto n = co_await http::async_read(stream, buffer, res); // Or with a partial completion token: auto [ec, n] = co_await http::async_read(stream, buffer, res, asio::as_tuple); Using these features and the new asio::cancel_after functionality, all the C++20 coroutine examples in Beast have been refactored to be more concise and clear. Additionally, a task_group has been added to the advanced_server_flex_awaitable example to demonstrate a graceful shutdown process by propagating a cancellation signal to all session subtasks. Adding New Fuzzing Targets In this release, we addressed two bug reports that were caught by fuzzing the code: #2879 and #2861. Thanks to tyler92, we have added several fuzzing targets to the project. These targets now fuzz the code with each pull request and at scheduled times throughout the day. Boost.Http.IO As the Http.Proto project continues to mature, we have begun enhancing the Http.Io examples to ensure our sans-io API aligns closely with the evolving requirements of the I/O layer. To start, I have introduced a basic C++20 coroutine client example, which will later be expanded into a tool similar to curl. Boost-Gecko Boost-Gecko now features a new index for the learn section of the updated Boost website and a new crawler for website-v2-docs. This update allows users to search within the documentation in the learn section using the website’s search dialog. The crawling process and index record uploads are automated through a GitHub workflow, requiring minimal maintenance for each Boost release." />
+<meta property="og:description" content="The following is an overview of some projects I have been working on in the last few months: Boost.Beast Besides addressing user issues and typical bug fixes, here are a couple of contributions to the Boost.Beast project that I find interesting: Deprecating beast::ssl_stream and beast::flat_stream The beast::flat_stream was originally designed to consolidate buffer sequences into a single intermediate buffer, reducing the number of I/O operations required when writing these sequences to a stream that lacks scatter/gather support. However, after Asio improved the performance of write operations in ssl::stream by linearizing gather-write buffer sequences, the necessity for beast::ssl_stream and beast::flat_stream has decreased. Their continued inclusion has caused confusion among new users and added unnecessary complexity to the documentation and code snippets. Consequently, these streams are now deprecated, and the use of asio::ssl::stream is recommended in the documentation, examples, and code snippets. Note: Existing code will remain functional, as beast::ssl_stream has been redefined as a type that publicly inherits from asio::ssl::stream. Simplifying C++20 Coroutine Examples The latest Asio release introduces several changes that significantly reduce code complexity and noise. Previously, we had to redefine IO object types with an executor that has a default completion token type, like this: using tcp_socket = asio::as_tuple_t&lt;asio::deferred_t&gt;::as_default_on_t&lt;asio::ip::tcp::socket&gt;; With the new Asio release, asio::deferred is now the default completion token, eliminating the need to redefine IO objects with custom executors. Now, these work out of the box: auto n = co_await http::async_read(stream, buffer, res); // Or with a partial completion token: auto [ec, n] = co_await http::async_read(stream, buffer, res, asio::as_tuple); Using these features and the new asio::cancel_after functionality, all the C++20 coroutine examples in Beast have been refactored to be more concise and clear. Additionally, a task_group has been added to the advanced_server_flex_awaitable example to demonstrate a graceful shutdown process by propagating a cancellation signal to all session subtasks. Adding New Fuzzing Targets In this release, we addressed two bug reports that were caught by fuzzing the code: #2879 and #2861. Thanks to tyler92, we have added several fuzzing targets to the project. These targets now fuzz the code with each pull request and at scheduled times throughout the day. Boost.Http.IO As the Http.Proto project continues to mature, we have begun enhancing the Http.Io examples to ensure our sans-io API aligns closely with the evolving requirements of the I/O layer. To start, I have introduced a basic C++20 coroutine client example, which will later be expanded into a tool similar to curl. Boost-Gecko Boost-Gecko now features a new index for the learn section of the updated Boost website and a new crawler for website-v2-docs. This update allows users to search within the documentation in the learn section using the website’s search dialog. The crawling process and index record uploads are automated through a GitHub workflow, requiring minimal maintenance for each Boost release." />
+<link rel="canonical" href="http://cppalliance.org/mohammad/2024/07/10/MohammadsQ2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/mohammad/2024/07/10/MohammadsQ2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-07-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Mohammad’s Q2 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"The following is an overview of some projects I have been working on in the last few months: Boost.Beast Besides addressing user issues and typical bug fixes, here are a couple of contributions to the Boost.Beast project that I find interesting: Deprecating beast::ssl_stream and beast::flat_stream The beast::flat_stream was originally designed to consolidate buffer sequences into a single intermediate buffer, reducing the number of I/O operations required when writing these sequences to a stream that lacks scatter/gather support. However, after Asio improved the performance of write operations in ssl::stream by linearizing gather-write buffer sequences, the necessity for beast::ssl_stream and beast::flat_stream has decreased. Their continued inclusion has caused confusion among new users and added unnecessary complexity to the documentation and code snippets. Consequently, these streams are now deprecated, and the use of asio::ssl::stream is recommended in the documentation, examples, and code snippets. Note: Existing code will remain functional, as beast::ssl_stream has been redefined as a type that publicly inherits from asio::ssl::stream. Simplifying C++20 Coroutine Examples The latest Asio release introduces several changes that significantly reduce code complexity and noise. Previously, we had to redefine IO object types with an executor that has a default completion token type, like this: using tcp_socket = asio::as_tuple_t&lt;asio::deferred_t&gt;::as_default_on_t&lt;asio::ip::tcp::socket&gt;; With the new Asio release, asio::deferred is now the default completion token, eliminating the need to redefine IO objects with custom executors. Now, these work out of the box: auto n = co_await http::async_read(stream, buffer, res); // Or with a partial completion token: auto [ec, n] = co_await http::async_read(stream, buffer, res, asio::as_tuple); Using these features and the new asio::cancel_after functionality, all the C++20 coroutine examples in Beast have been refactored to be more concise and clear. Additionally, a task_group has been added to the advanced_server_flex_awaitable example to demonstrate a graceful shutdown process by propagating a cancellation signal to all session subtasks. Adding New Fuzzing Targets In this release, we addressed two bug reports that were caught by fuzzing the code: #2879 and #2861. Thanks to tyler92, we have added several fuzzing targets to the project. These targets now fuzz the code with each pull request and at scheduled times throughout the day. Boost.Http.IO As the Http.Proto project continues to mature, we have begun enhancing the Http.Io examples to ensure our sans-io API aligns closely with the evolving requirements of the I/O layer. To start, I have introduced a basic C++20 coroutine client example, which will later be expanded into a tool similar to curl. Boost-Gecko Boost-Gecko now features a new index for the learn section of the updated Boost website and a new crawler for website-v2-docs. This update allows users to search within the documentation in the learn section using the website’s search dialog. The crawling process and index record uploads are automated through a GitHub workflow, requiring minimal maintenance for each Boost release.","@type":"BlogPosting","url":"http://cppalliance.org/mohammad/2024/07/10/MohammadsQ2Update.html","headline":"Mohammad’s Q2 2024 Update","dateModified":"2024-07-10T00:00:00+00:00","datePublished":"2024-07-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/mohammad/2024/07/10/MohammadsQ2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Mohammad's Q2 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/mohammad">
+                  Mohammad Nejati
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 10, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>The following is an overview of some projects I have been working on in the last few months:</p>
+
+<h3 id="boostbeast">Boost.Beast</h3>
+
+<p>Besides addressing user issues and typical bug fixes, here are a couple of contributions to the Boost.Beast project that I find interesting:</p>
+
+<h5 id="deprecating-beastssl_stream-and-beastflat_stream">Deprecating <code>beast::ssl_stream</code> and <code>beast::flat_stream</code></h5>
+
+<p>The <code>beast::flat_stream</code> was originally designed to consolidate buffer sequences into a single intermediate buffer, reducing the number of I/O operations required when writing these sequences to a stream that lacks scatter/gather support. However, after Asio improved the performance of write operations in <a href="https://www.boost.org/doc/libs/develop/doc/html/boost_asio/reference/ssl__stream.html">ssl::stream</a> by <a href="https://github.com/chriskohlhoff/asio/commit/17637a48ccbfa2f63941d8393a7c8316a8df4a79">linearizing gather-write buffer sequences</a>, the necessity for <code>beast::ssl_stream</code> and <code>beast::flat_stream</code> has decreased. Their continued inclusion has caused confusion among new users and added unnecessary complexity to the documentation and code snippets. Consequently, these streams are now deprecated, and the use of <code>asio::ssl::stream</code> is recommended in the documentation, examples, and code snippets.</p>
+
+<p><strong>Note:</strong> Existing code will remain functional, as <code>beast::ssl_stream</code> has been redefined as a type that publicly inherits from <code>asio::ssl::stream</code>.</p>
+
+<h5 id="simplifying-c20-coroutine-examples">Simplifying C++20 Coroutine Examples</h5>
+
+<p>The latest Asio release introduces several changes that significantly reduce code complexity and noise. Previously, we had to redefine IO object types with an executor that has a default completion token type, like this:</p>
+
+<pre><code class="language-C++">using tcp_socket = asio::as_tuple_t&lt;asio::deferred_t&gt;::as_default_on_t&lt;asio::ip::tcp::socket&gt;;
+</code></pre>
+
+<p>With the new Asio release, <code>asio::deferred</code> is now the default completion token, eliminating the need to redefine IO objects with custom executors. Now, these work out of the box:</p>
+
+<pre><code class="language-C++">auto n = co_await http::async_read(stream, buffer, res);
+// Or with a partial completion token:
+auto [ec, n] = co_await http::async_read(stream, buffer, res, asio::as_tuple);
+</code></pre>
+
+<p>Using these features and the new <a href="https://www.boost.org/doc/libs/develop/doc/html/boost_asio/reference/cancel_after.html">asio::cancel_after</a> functionality, all the C++20 coroutine examples in Beast have been refactored to be more concise and clear. Additionally, a <code>task_group</code> has been added to the <a href="https://github.com/boostorg/beast/blob/develop/example/advanced/server-flex-awaitable/advanced_server_flex_awaitable.cpp">advanced_server_flex_awaitable</a> example to demonstrate a graceful shutdown process by propagating a cancellation signal to all session subtasks.</p>
+
+<h5 id="adding-new-fuzzing-targets">Adding New Fuzzing Targets</h5>
+
+<p>In this release, we addressed two bug reports that were caught by fuzzing the code: <a href="https://github.com/boostorg/beast/pull/2879">#2879</a> and <a href="https://github.com/boostorg/beast/pull/2861">#2861</a>. Thanks to <a href="https://github.com/tyler92">tyler92</a>, we have added <a href="https://github.com/boostorg/beast/tree/develop/test/fuzz">several fuzzing targets</a> to the project. These targets now fuzz the code with each pull request and at scheduled times throughout the day.</p>
+
+<h3 id="boosthttpio">Boost.Http.IO</h3>
+
+<p>As the <a href="https://github.com/cppalliance/http_proto">Http.Proto</a> project continues to mature, we have begun enhancing the <a href="https://github.com/cppalliance/http_io">Http.Io</a> examples to ensure our sans-io API aligns closely with the evolving requirements of the I/O layer. To start, I have introduced a basic <a href="https://github.com/cppalliance/http_io/blob/develop/example/client/flex_await">C++20 coroutine client example</a>, which will later be expanded into a tool similar to curl.</p>
+
+<h3 id="boost-gecko">Boost-Gecko</h3>
+
+<p><a href="https://github.com/cppalliance/boost-gecko">Boost-Gecko</a> now features a new index for the <a href="https://www.boost.io/docs/">learn section</a> of the updated Boost website and a new crawler for <a href="https://github.com/boostorg/website-v2-docs">website-v2-docs</a>. This update allows users to search within the documentation in the learn section using the website’s search dialog. The crawling process and index record uploads are automated through a GitHub <a href="https://github.com/cppalliance/boost-gecko/blob/develop/.github/workflows/index_on_algolia.yml">workflow</a>, requiring minimal maintenance for each Boost release.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/16/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/07/16/MohammadsQ2Update.html">Boost.RunTimeServices: The Glue for Optional Runtime Features</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/01/10/MohammadsQ4Update.html">Boost.Http.Io and Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/10/25/MohammadsQ3Update.html">Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/07/10/MohammadsQ2Update.html">Mohammad's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/04/22/MohammadsQ1Update.html">Mohammad's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/01/10/MohammadsQ4Update.html">Mohammad's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/mohammad/2023/10/27/MohammadsQ3Update.html">Mohammad's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

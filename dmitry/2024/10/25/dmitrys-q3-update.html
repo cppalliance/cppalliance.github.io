@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Get More Utility from the Debugger in CI | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>How to Get More Utility from the Debugger in CI | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="How to Get More Utility from the Debugger in CI" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="While some of my work in the third quarter of this year was dedicated to more work on Boost.JSON and Docca, the most interesting thing was definitely pretty_printers, a collection of utilities and build scripts which help dealing with debugger pretty printers and visualisers. Although currently it only supports GDB, I’m planning to research LLDB and Natvis integration too. The module naturally emerged from my work on GDB pretty printers for Boost.JSON. Even if you don’t know what pretty printers are, you can probably guess just by their name: they are helpers that tell the debugger how to output objects of a particular type. These days standard libraries come with such helpers, and so when we try printing a container, we get useful information instead of unintelligible gibberish. If we provide similar helpers for our libraries we can significantly improve debugging experience for our users. But writing the helpers is only one half of the task. The other half is getting the debugger to actually load them. Let’s look at the options GDB provides us for this. The user can manually load an extension that contains our helpers from the initialisation file. The debugger can automatically load the extension that matches the name of a binary that it loads (either a program or a shared library). The debugger can load the extension from a special section in the loaded binary itself. Option 1 is the most straightforward, and is also the least exciting. Option 2 is actually the one standard libraries go for. But there is a fundamental problem with it: it doesn’t work for static libraries let alone header-only ones. A static library is never a binary loaded by the debugger, and the extension file name has to match the name of a loaded binary. Header-only libraries don’t have a corresponding binary at all. The reason it works so well for standard libraries is that people very rarely link to them statically when they are actually working on their code, which is when they use a debugger. This leaves option 3: putting the extension into the binary. GDB documentation explains how to do it. The catch is that the extension file needs to be preprocessed to effectively become an assembler command. This can be automated, though. In August Niall Douglas posted on the Boost developers’ mailing list about his and Braden Ganetsky’s work on a script that does such preprocessing of a GDB extension file for his library. At that point I have experimented a little bit with such embedding and concluded that this is as good as it gets with pretty printers deployment. So, the first component of pretty_printers is a script that takes a GDB Python extension file and produces a C file suitable for embedding into a binary. But that’s not all. In the same mailing list post Niall mentions that the reason Braden has collaborated with him was bugs he found in the embedding. This leads us to testing. Boost.JSON is quite rigorously tested. This has been made possible largely thanks to the C++ Alliance Drone instance. After I initially wrote GDB pretty printers for Boost.JSON I immediately started looking for a way to test them. The aforementioned mailing list post shows that my concern wasn’t a purely theoretical one. After some research I discovered that with certain flags GDB can be run as a Python interpreter. Hence my original idea for testing pretty printers: a C++ program that sets up objects to print, and an accompanying Python script that tells GDB where to set breakpoints and what expressions to print, and compares the output with the expected strings. But I realised that keeping the two files in sync becomes rather unwieldy very quickly. That led to take 2: put the tests in the comments of the C++ test program, and generate a corresponding Python script from it. Not only it resulted in the tests immediately following the lines creating the objects used in those tests, it also allowed the support for putting tests in functions, loops, and spreading them across multiple files. The utility that generates such Python script is the second component of pretty_printers. This concludes the story of the two utilities contained in pretty_printers. The other important component of this module is the support for CMake and B2 build systems. The support doesn’t simply include some boilerplate. The testing function also tells GDB to whitelist the directory where the tested binary is located, so that the extensions are loaded. Otherwise the user would have to do it manually, which is particularly annoying in CI. After I finished the work on the module, I decided that other libraries could benefit from it. It was suggested to me that I should submit the module for review to the Boost community. Previously there hasn’t been any Boost tool reviews, but the Boost community was positive to the idea. I find this to be a very exciting development. Another exciting idea I had is to research other potential debugger helpers, unrelated to pretty printing and visualisation. For example, GDB allows extensions to register custom commands. There’s also the possibility of orchestrating GDB to analyse a specific situation. E.g. put a breakpoint on this line, but only after another line was hit. While locally this is easily done manually, such functionality can be useful when the error only manifests on a platform you only have access to in CI. Such ideas hint that pretty_printers is a misnomer, and the module should be called something different. Maybe debugger_utils?" />
+<meta property="og:description" content="While some of my work in the third quarter of this year was dedicated to more work on Boost.JSON and Docca, the most interesting thing was definitely pretty_printers, a collection of utilities and build scripts which help dealing with debugger pretty printers and visualisers. Although currently it only supports GDB, I’m planning to research LLDB and Natvis integration too. The module naturally emerged from my work on GDB pretty printers for Boost.JSON. Even if you don’t know what pretty printers are, you can probably guess just by their name: they are helpers that tell the debugger how to output objects of a particular type. These days standard libraries come with such helpers, and so when we try printing a container, we get useful information instead of unintelligible gibberish. If we provide similar helpers for our libraries we can significantly improve debugging experience for our users. But writing the helpers is only one half of the task. The other half is getting the debugger to actually load them. Let’s look at the options GDB provides us for this. The user can manually load an extension that contains our helpers from the initialisation file. The debugger can automatically load the extension that matches the name of a binary that it loads (either a program or a shared library). The debugger can load the extension from a special section in the loaded binary itself. Option 1 is the most straightforward, and is also the least exciting. Option 2 is actually the one standard libraries go for. But there is a fundamental problem with it: it doesn’t work for static libraries let alone header-only ones. A static library is never a binary loaded by the debugger, and the extension file name has to match the name of a loaded binary. Header-only libraries don’t have a corresponding binary at all. The reason it works so well for standard libraries is that people very rarely link to them statically when they are actually working on their code, which is when they use a debugger. This leaves option 3: putting the extension into the binary. GDB documentation explains how to do it. The catch is that the extension file needs to be preprocessed to effectively become an assembler command. This can be automated, though. In August Niall Douglas posted on the Boost developers’ mailing list about his and Braden Ganetsky’s work on a script that does such preprocessing of a GDB extension file for his library. At that point I have experimented a little bit with such embedding and concluded that this is as good as it gets with pretty printers deployment. So, the first component of pretty_printers is a script that takes a GDB Python extension file and produces a C file suitable for embedding into a binary. But that’s not all. In the same mailing list post Niall mentions that the reason Braden has collaborated with him was bugs he found in the embedding. This leads us to testing. Boost.JSON is quite rigorously tested. This has been made possible largely thanks to the C++ Alliance Drone instance. After I initially wrote GDB pretty printers for Boost.JSON I immediately started looking for a way to test them. The aforementioned mailing list post shows that my concern wasn’t a purely theoretical one. After some research I discovered that with certain flags GDB can be run as a Python interpreter. Hence my original idea for testing pretty printers: a C++ program that sets up objects to print, and an accompanying Python script that tells GDB where to set breakpoints and what expressions to print, and compares the output with the expected strings. But I realised that keeping the two files in sync becomes rather unwieldy very quickly. That led to take 2: put the tests in the comments of the C++ test program, and generate a corresponding Python script from it. Not only it resulted in the tests immediately following the lines creating the objects used in those tests, it also allowed the support for putting tests in functions, loops, and spreading them across multiple files. The utility that generates such Python script is the second component of pretty_printers. This concludes the story of the two utilities contained in pretty_printers. The other important component of this module is the support for CMake and B2 build systems. The support doesn’t simply include some boilerplate. The testing function also tells GDB to whitelist the directory where the tested binary is located, so that the extensions are loaded. Otherwise the user would have to do it manually, which is particularly annoying in CI. After I finished the work on the module, I decided that other libraries could benefit from it. It was suggested to me that I should submit the module for review to the Boost community. Previously there hasn’t been any Boost tool reviews, but the Boost community was positive to the idea. I find this to be a very exciting development. Another exciting idea I had is to research other potential debugger helpers, unrelated to pretty printing and visualisation. For example, GDB allows extensions to register custom commands. There’s also the possibility of orchestrating GDB to analyse a specific situation. E.g. put a breakpoint on this line, but only after another line was hit. While locally this is easily done manually, such functionality can be useful when the error only manifests on a platform you only have access to in CI. Such ideas hint that pretty_printers is a misnomer, and the module should be called something different. Maybe debugger_utils?" />
+<link rel="canonical" href="http://cppalliance.org/dmitry/2024/10/25/dmitrys-q3-update.html" />
+<meta property="og:url" content="http://cppalliance.org/dmitry/2024/10/25/dmitrys-q3-update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-10-25T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="How to Get More Utility from the Debugger in CI" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"While some of my work in the third quarter of this year was dedicated to more work on Boost.JSON and Docca, the most interesting thing was definitely pretty_printers, a collection of utilities and build scripts which help dealing with debugger pretty printers and visualisers. Although currently it only supports GDB, I’m planning to research LLDB and Natvis integration too. The module naturally emerged from my work on GDB pretty printers for Boost.JSON. Even if you don’t know what pretty printers are, you can probably guess just by their name: they are helpers that tell the debugger how to output objects of a particular type. These days standard libraries come with such helpers, and so when we try printing a container, we get useful information instead of unintelligible gibberish. If we provide similar helpers for our libraries we can significantly improve debugging experience for our users. But writing the helpers is only one half of the task. The other half is getting the debugger to actually load them. Let’s look at the options GDB provides us for this. The user can manually load an extension that contains our helpers from the initialisation file. The debugger can automatically load the extension that matches the name of a binary that it loads (either a program or a shared library). The debugger can load the extension from a special section in the loaded binary itself. Option 1 is the most straightforward, and is also the least exciting. Option 2 is actually the one standard libraries go for. But there is a fundamental problem with it: it doesn’t work for static libraries let alone header-only ones. A static library is never a binary loaded by the debugger, and the extension file name has to match the name of a loaded binary. Header-only libraries don’t have a corresponding binary at all. The reason it works so well for standard libraries is that people very rarely link to them statically when they are actually working on their code, which is when they use a debugger. This leaves option 3: putting the extension into the binary. GDB documentation explains how to do it. The catch is that the extension file needs to be preprocessed to effectively become an assembler command. This can be automated, though. In August Niall Douglas posted on the Boost developers’ mailing list about his and Braden Ganetsky’s work on a script that does such preprocessing of a GDB extension file for his library. At that point I have experimented a little bit with such embedding and concluded that this is as good as it gets with pretty printers deployment. So, the first component of pretty_printers is a script that takes a GDB Python extension file and produces a C file suitable for embedding into a binary. But that’s not all. In the same mailing list post Niall mentions that the reason Braden has collaborated with him was bugs he found in the embedding. This leads us to testing. Boost.JSON is quite rigorously tested. This has been made possible largely thanks to the C++ Alliance Drone instance. After I initially wrote GDB pretty printers for Boost.JSON I immediately started looking for a way to test them. The aforementioned mailing list post shows that my concern wasn’t a purely theoretical one. After some research I discovered that with certain flags GDB can be run as a Python interpreter. Hence my original idea for testing pretty printers: a C++ program that sets up objects to print, and an accompanying Python script that tells GDB where to set breakpoints and what expressions to print, and compares the output with the expected strings. But I realised that keeping the two files in sync becomes rather unwieldy very quickly. That led to take 2: put the tests in the comments of the C++ test program, and generate a corresponding Python script from it. Not only it resulted in the tests immediately following the lines creating the objects used in those tests, it also allowed the support for putting tests in functions, loops, and spreading them across multiple files. The utility that generates such Python script is the second component of pretty_printers. This concludes the story of the two utilities contained in pretty_printers. The other important component of this module is the support for CMake and B2 build systems. The support doesn’t simply include some boilerplate. The testing function also tells GDB to whitelist the directory where the tested binary is located, so that the extensions are loaded. Otherwise the user would have to do it manually, which is particularly annoying in CI. After I finished the work on the module, I decided that other libraries could benefit from it. It was suggested to me that I should submit the module for review to the Boost community. Previously there hasn’t been any Boost tool reviews, but the Boost community was positive to the idea. I find this to be a very exciting development. Another exciting idea I had is to research other potential debugger helpers, unrelated to pretty printing and visualisation. For example, GDB allows extensions to register custom commands. There’s also the possibility of orchestrating GDB to analyse a specific situation. E.g. put a breakpoint on this line, but only after another line was hit. While locally this is easily done manually, such functionality can be useful when the error only manifests on a platform you only have access to in CI. Such ideas hint that pretty_printers is a misnomer, and the module should be called something different. Maybe debugger_utils?","@type":"BlogPosting","url":"http://cppalliance.org/dmitry/2024/10/25/dmitrys-q3-update.html","headline":"How to Get More Utility from the Debugger in CI","dateModified":"2024-10-25T00:00:00+00:00","datePublished":"2024-10-25T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/dmitry/2024/10/25/dmitrys-q3-update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>How to Get More Utility from the Debugger in CI</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/dmitry">
+                  Dmitry Arkhipov
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 25, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>While some of my work in the third quarter of this year was dedicated to more
+work on Boost.JSON and Docca, the most interesting thing was definitely
+<a href="https://github.com/cppalliance/pretty_printers">pretty_printers</a>, a collection
+of utilities and build scripts which help dealing with debugger pretty printers
+and visualisers. Although currently it only supports
+<a href="https://www.sourceware.org/gdb/">GDB</a>, I’m planning to research
+<a href="https://lldb.llvm.org/">LLDB</a> and
+<a href="https://learn.microsoft.com/en-us/visualstudio/debugger/create-custom-views-of-native-objects?view=vs-2022">Natvis</a>
+integration too.</p>
+
+<p>The module naturally emerged from my work on GDB pretty printers for
+Boost.JSON. Even if you don’t know what pretty printers are, you can probably
+guess just by their name: they are helpers that tell the debugger how to output
+objects of a particular type. These days standard libraries come with such
+helpers, and so when we try printing a container, we get useful information
+instead of unintelligible gibberish. If we provide similar helpers for our
+libraries we can significantly improve debugging experience for our users.</p>
+
+<p>But writing the helpers is only one half of the task. The other half is getting
+the debugger to actually load them. Let’s look at the options GDB provides us
+for this.</p>
+
+<ol>
+  <li>The user can manually load an extension that contains our helpers from the
+initialisation file.</li>
+  <li>The debugger can automatically load the extension that matches the name of a
+binary that it loads (either a program or a shared library).</li>
+  <li>The debugger can load the extension from a special section in the loaded
+binary itself.</li>
+</ol>
+
+<p>Option 1 is the most straightforward, and is also the least exciting. Option 2
+is actually the one standard libraries go for. But there is a fundamental
+problem with it: it doesn’t work for static libraries let alone header-only
+ones. A static library is never a binary loaded by the debugger, and the
+extension file name has to match the name of a loaded binary. Header-only
+libraries don’t have a corresponding binary at all. The reason it works so well
+for standard libraries is that people very rarely link to them statically when
+they are actually working on their code, which is when they use a debugger.</p>
+
+<p>This leaves option 3: putting the extension into the binary. GDB documentation
+<a href="https://sourceware.org/gdb/current/onlinedocs/gdb.html/dotdebug_005fgdb_005fscripts-section.html">explains how to do it</a>.
+The catch is that the extension file needs to be preprocessed to effectively
+become an assembler command. This can be automated, though. In August Niall
+Douglas <a href="https://lists.boost.org/Archives/boost/2024/08/257480.php">posted on the Boost developers’ mailing list</a>
+about his and Braden Ganetsky’s work on a script that does such preprocessing
+of a GDB extension file for his library. At that point I have experimented a
+little bit with such embedding and concluded that this is as good as it gets
+with pretty printers deployment. So, the first component of <code>pretty_printers</code>
+is a script that takes a GDB Python extension file and produces a C file
+suitable for embedding into a binary.</p>
+
+<p>But that’s not all. In the same mailing list post Niall mentions that the
+reason Braden has collaborated with him was bugs he found in the embedding.
+This leads us to testing. Boost.JSON is quite rigorously tested. This has been
+made possible largely thanks to the C++ Alliance Drone instance. After I
+initially wrote GDB pretty printers for Boost.JSON I immediately started
+looking for a way to test them. The aforementioned mailing list post shows that
+my concern wasn’t a purely theoretical one.</p>
+
+<p>After some research I discovered that with certain flags GDB can be run as a
+Python interpreter. Hence my original idea for testing pretty printers: a C++
+program that sets up objects to print, and an accompanying Python script that
+tells GDB where to set breakpoints and what expressions to print, and compares
+the output with the expected strings. But I realised that keeping the two files
+in sync becomes rather unwieldy very quickly. That led to take 2: put the tests
+in the comments of the C++ test program, and generate a corresponding Python
+script from it. Not only it resulted in the tests immediately following the
+lines creating the objects used in those tests, it also allowed the support for
+putting tests in functions, loops, and spreading them across multiple files.
+The utility that generates such Python script is the second component of
+<code>pretty_printers</code>.</p>
+
+<p>This concludes the story of the two utilities contained in <code>pretty_printers</code>.
+The other important component of this module is the support for CMake and B2
+build systems. The support doesn’t simply include some boilerplate. The testing
+function also tells GDB to whitelist the directory where the tested binary is
+located, so that the extensions are loaded. Otherwise the user would have to do
+it manually, which is particularly annoying in CI.</p>
+
+<p>After I finished the work on the module, I decided that other libraries could
+benefit from it. It was suggested to me that I should submit the module for
+review to the Boost community. Previously there hasn’t been any Boost tool
+reviews, but the Boost community was positive to the idea. I find this to be
+a very exciting development.</p>
+
+<p>Another exciting idea I had is to research other potential debugger helpers,
+unrelated to pretty printing and visualisation. For example, GDB allows
+extensions to register custom commands. There’s also the possibility of
+orchestrating GDB to analyse a specific situation. E.g. put a breakpoint on
+this line, but only after another line was hit. While locally this is easily
+done manually, such functionality can be useful when the error only manifests
+on a platform you only have access to in CI. Such ideas hint that
+<code>pretty_printers</code> is a misnomer, and the module should be called something
+different. Maybe <code>debugger_utils</code>?</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/16/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/10/16/dmitrys-q3-update.html">Conan Packages for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/04/22/dmitrys-q1-update.html">Some Thoughts on Documentation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/10/25/dmitrys-q3-update.html">How to Get More Utility from the Debugger in CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/07/12/dmitrys-q2-update.html">Dmitry's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/29/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/04/29/dmitrys-q1-update.html">Dmitry's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/01/12/dmitrys-q4-update.html">Dmitry's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/30/2023</span>
+          <a class='text-l news-title link' href="/dmitry/2023/10/30/dmitrys-q3-update.html">Dmitry's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/15/2021</span>
+          <a class='text-l news-title link' href="/dmitry/2021/02/15/dmitrys-january-update.html">Dmitry's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

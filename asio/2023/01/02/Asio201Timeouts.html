@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asio 201 - timeouts, cancellation & custom tokens | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Asio 201 - timeouts, cancellation &amp; custom tokens | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Asio 201 - timeouts, cancellation &amp; custom tokens" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Since asio added and beast implemented per-operation cancellation, the way timeouts can be implemented in asio code has changed significantly. In this article, we’ll go from simple timeouts to building our own timeout completion token helper. Cancellation A timeout is a defined interval after which a cancellation will be triggered, if an action didn’t complete by then. Timeouts can be a way of handling runtime errors, but one should generally be prudent about their usage. Indiscriminate application of timeouts with intervals based on the programmer’s feelings can lead to bad code and odd behavior. Previous solutions Previous to per-operation cancellation, one could only cancel all operations on a given io-object. E.g.: extern asio::ip::tcp::socket sock; extern std::string read_buffer, write_buffer; asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::detached); asio::async_write(sock, asio::buffer(write_buffer), asio::detached); // cancel both the write and the read, by cancelling all outstanding operations sock.cancel(); Due to the popularity of timeouts, beast provides it’s own stream wrappers, tcp_stream &amp; ssl_stream that (among other things) provide a timeout using this kind of cancellation based on internal timers. Per operation cancellation Per operation cancellation is a much more fine-tuned model; instead of cancelling all outstanding operations on an io-object, it cancels particular ones. extern asio::ip::tcp::socket sock; extern std::string read_buffer, write_buffer; asio::cancellation_signal cancel_read, cancel_write; asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::detached)); asio::async_write(sock, asio::buffer(write_buffer), asio::bind_cancellation_slot(cancel_write.slot(), asio::detached)); // cancel only the read op with cancellation type terminal cancel_read.emit(asio::cancellation_type::terminal); Cancellation types The different kinds of cancellation are: terminal: Requests cancellation where, following a successful cancellation, the only safe operations on the I/O object are closure or destruction. partial: Requests cancellation where a successful cancellation may result in partial side effects or no side effects. Following cancellation, the I/O object is in a well-known state, and may be used for further operations. total: Requests cancellation where a successful cancellation results in no apparent side effects. Following cancellation, the I/O object is in the same observable state as it was prior to the operation. The sender may combine multiple types with operator|; the receiver uses the cancellation as a signal he may ignore and he should satisfy the lowest level of cancellation possible. Full example To give an example of the cancellation types on a protocol level, consider the following function (written as a coroutine for simplicity): // read data from the stream and forward it to the parser // until one full value is read. // whatever is leftover goes into the `buf` to be used for the next value. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf /*&lt; beast style buffer! */) -&gt; asio::awaitable&lt;json::value&gt; { // 0: Nothing happened while (!parser.done()) { // 1: read the next chunk const std::size_t read_n = co_await stream.async_read_some( buf.prepare(4096), asio::use_awaitable); // 2: move it to the read buffer buf.commit(read_n); // 3: write it to the parser const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); // 4: remove parsed bytes from the buffer buf.consume(writ_n); } co_return parser.release(); } terminal: this means the data &amp; the stream can only be closed. That is, if the algorithm receives a cancellation in step (1), it can just exit directly, because the cancellation indicates the caller doesn’t care about the data anymore. partial: this means the operation might have read actual data, but can be resumed later on. If partial cancellation occurs we need to at least transfer the read data into the buffer; in this case however, they should also be sent to the parser, as the json might be complete and next run async_read_some will prevent us from completing. total: Total cancellation means no side effects, i.e. nothing was read. This may happen on our first iteration through the loop, if async_read_some gets cancellation before a single byte has been written. With this in mind we can rewrite out coroutine to handle cancellation - note that awaitables have an internal cancellation state. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf /*&lt; beast style buffer! */) -&gt; asio::awaitable&lt;json::value&gt; { // by default awaitables only allow terminal cancellation // we&#39;ll enable all types here: co_await asio::this_coro::reset_cancellation_state(asio::enable_total_cancellation()); while (!parser.done()) { // check if we&#39;ve been cancelled! asio::cancellation_state cs = co_await asio::this_coro::cancellation_state; if (cs.cancelled() != asio::cancellation_type::none) break; // capture ec, so nothing gets thrown const auto [ec, read_n] = co_await stream.async_read_some( buf.prepare(4096), asio::as_tuple(asio::use_awaitable)); if (ec == asio::error::operation_aborted) { using c_t = asio::cancellation_type; //update the state cs = co_await asio::this_coro::cancellation_state; c_t c = cs.cancelled(); // total means nothing happened, // terminal means the data doesn&#39;t matter if ((c &amp; (c_t::total | c_t::terminal)) != c_t::none) throw system::system_error(ec); // partial means we need to finish the loop // so we just do nothing and do NOT reset the filter! } else if (ec) // indiscriminately throw everything else throw system::system_error(ec); else // reset it to partial after the first read; co_await asio::this_coro::reset_cancellation_state( asio::enable_partial_cancellation()); buf.commit(read_n); const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); buf.consume(writ_n); } asio::cancellation_state cs = co_await asio::this_coro::cancellation_state; if (cs.cancelled() != asio::cancellation_type::none) throw system::system_error(asio::error::operation_aborted); co_return parser.release(); } The above example is complex because it is considering different kinds of cancellation and when they can be provided to the caller. Timeouts Based on the previous discussion, we may now use a timer and connect it to a cancellation slot to provide a timeout. asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, std::chrono::seconds timeout = std::chrono::seconds(5) ) { asio::steady_timer tim{co_await asio::this_coro::executor, timeout}; asio::cancellation_signal cancel_read; std::string read_buffer; tim.async_wait( [&amp;](system::error_code ec) { if (!ec) // timer completed without getting cancelled himself cancel_read.emit(asio::cancellation_type::all); }); co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable)); tim.cancel(); co_return read_buffer; } There is a problem in the above code: any cancellation delivered to do_read gets ignored. That is, the awaitable itself is an async operation that can get cancelled. extern asio::ip::tcp::socket sock; asio::cancellation_signal dr_c; asio::co_spawn(sock.get_executor(), do_read(sock), asio::bind_cancellation_slot(dr_c.slot(), asio::detached)); dr_c.emit(asio::cancellation_type::all); // &lt; ignored! In order to rectify this, we need to also need to forward the cancellation received by the awaitable: asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, std::chrono::seconds timeout = std::chrono::seconds(5) ) { asio::steady_timer tim{co_await asio::this_coro::executor, timeout}; asio::cancellation_signal cancel_read; asio::cancellation_slot sl = (co_await asio::this_coro::cancellation_state).slot(); std::string read_buffer; sl.assign( [&amp;](asio::cancellation_type ct) { // cancel the timer, we don&#39;t need it anymore tim.cancel(); // forward the cancellation cancel_read.emit(ct); }); // reset the signal when we&#39;re done // this is very important, the outer signal might fire after we&#39;re out of scope! struct scope_exit { asio::cancellation_slot sl; ~scope_exit() { if(sl.is_connected()) sl.clear();} } scope_exit_{sl}; // regular timeout with a timer. tim.async_wait( [&amp;](system::error_code ec) { if (!ec) // timer completed without getting cancelled himself cancel_read.emit(asio::cancellation_type::all); }); // the actual op co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable)); tim.cancel(); co_return read_buffer; } This is getting a bit verbose, so that users might look for alternatives. parallel_group / operator|| Thus the easiest way to implement a timeout is with a parallel_group. You might have seen the awaitable_operators used like this: using namespace asio::experimental::awaitable_operators; extern asio::ip::tcp::socket sock; extern steady_timer tim; extern std::string read_buffer; co_await ( asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::use_awaitable) || tim.async_wait(asio::use_awaitable)); The operator|| runs two awaitables in parallel, waiting for one to finish. When the first completes it cancels the other ones terminaly. This gives us a timeout, that will always be terminal, and is implement by means of parallel_group, i.e. similar to this: co_await experimental::make_parallel_group( asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::deferred), tim.async_await(asio::deferred) ).async_wait( experimental::wait_for_one(), asio::use_awaitable ); This is fine for many simple solutions &amp; examples, but it’s a very blunt &amp; not terribly efficient way to achieve only terminal cancellation. It is important to mention, that a per low level operation timeout might also not be the right approach altogether. On the one hand, it might not be required that a particular single operation (like connect) completes within a certain amount of time, but that a series of operations does so (like resolve + connect + handshake). This means choosing where to put timeouts is a task for careful engineering. Watchdogs Another popular pattern is a watchdog, when the requirement is to assure continuous progress. That is, we want to make sure, that a long running does not get stuck, but every so often does some successful work. Consider downloading a huge file; we can’t really put a timeout on it, but we can check that it did download some bytes every few seconds. You would usually use this for complex &amp; long running operations, but for our example, we’ll just reuse the async_read_json function. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf, /*&lt; beast style buffer! */ watchdog &amp; wuff) -&gt; asio::awaitable&lt;json::value&gt; { wuff.reset(); while (!parser.done()) { const std::size_t read_n = co_await stream.async_read_some( buf.prepare(4096), asio::use_awaitable); wuff.reset(); buf.commit(read_n); const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write( static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); buf.consume(writ_n); } co_return parser.release(); } If the .reset function on the watchdog isn’t called during the watchdog interval, it will cancel the operation. This watchdog can be as simple as this: struct watchdog { watchdog(asio::any_io_executor exec, std::chrono::milliseconds interval) : tim(exec, interval), interval(interval) {} asio::steady_timer tim; std::chrono::milliseconds interval; asio::cancellation_signal cancel; void reset() { tim.expires_after(interval); tim.async_wait( [this](system::error_code ec) { if (!ec) cancel.emit(asio::cancellation_type::terminal); }); } }; And we can use it with our awaitable by a simple bind: extern asio::ip::tcp::socket sock; beast::flat_buffer buf; json::stream_parser parser; watchdog wuff{sock.get_executor(), std::chrono::milliseconds(5000)}; asio::co_spawn(sock.get_executor(), async_read_json(sock, parser, buf, wuff) asio::bind_cancellation_slot(wuff.cancel.slot(), asio::detached) ); A custom timeout token While writing your own completion tokens is a bit of a hassle, it may be worth the effort if an entire application is using it. Here, we will write a timeout utility that utilizes different timeouts to fire a sequence of all cancellation types. The idea is that we do not want to use terminal cancellation right away, as we might corrupt data unnecessarily with that. Instead we have three intervals. After the first, we try total cancellation; if that doesn’t do anything, we wait the second interval and use partial cancellation. If nothing happens after that, we go for terminal. struct timeout_provider; // that&#39;s our completion token with the timeout attached template&lt;typename Token&gt; struct with_timeout { timeout_provider * provider; Token token; }; // this is the timeout source struct timeout_provider { timeout_provider( asio::any_io_executor exec ) : tim{exec, std::chrono::steady_clock::time_point::max()} {} asio::steady_timer tim; std::chrono::milliseconds tt_total = std::chrono::milliseconds(2000); std::chrono::milliseconds tt_partial = std::chrono::milliseconds(3000); std::chrono::milliseconds tt_partial = std::chrono::milliseconds(5000); asio::cancellation_slot parent; asio::cancellation_signal timeout; asio::cancellation_type last_fired{asio::cancellation_type::none}; ~timeout_provider() { if (parent.is_connected()) parent.clear(); } // to use it template&lt;typename Token&gt; auto operator()(Token &amp;&amp; token) { return with_timeout&lt;std::decay_t&lt;Token&gt;&gt;{ this, std::forward&lt;Token&gt;(token) }; } // set up the timer and get ready to trigger void arm() { last_fired = asio::cancellation_type::none; tim.expires_after(tt_total); if (parent.is_connected()) parent.assign([this](asio::cancellation_type ct){timeout.emit(ct);}); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_total(); }); } void fire_total() { timeout.emit(last_fired = asio::cancellation_type::total); tim.expires_after(tt_partial); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_partial(); }); } void fire_partial() { timeout.emit(last_fired = asio::cancellation_type::partial); tim.expires_after(tt_terminal); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_terminal(); }); } void fire_terminal() { timeout.emit(last_fired = asio::cancellation_type::terminal); } }; The plan is then to use this like so: asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, timeout_provider &amp; timeout) { std::string read_buffer; co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), timeout(asio::use_awaitable)); co_return read_buffer; } In order to do that we need to provide a custom async_initiate with a custom token. The reason we need a custom handler is that lazy operations like use_awaitable and deferred still work. Before we jump into a rather long piece of code, let’s recap how async initiation works. We pass a completion token to async_initiate, together with the initiation of our op (e.g. async_initiate_read). The completion token must have a specialization of async_result that will call initiate with it’s completion handler and return a result value. The handler is usually some internal type, that has associators (e.g. an associated allocator). For example, use_awaitable is a token, awaitable the return type of it’s initialization and some detail type it’s handler. In order for our timeout to work, we need to wrap the other completion token, and then intercept the call to the initiation to obtain the handler, and wrap it as well. // the completion handler // that&#39;s our completion token with the timeout attached template&lt;typename Handler&gt; struct with_timeout_binder { timeout_provider * provider; Handler handler; template&lt;typename ...Args&gt; void operator()(Args &amp;&amp; ... args) { //cancel the time, we&#39;re done! provider-&gt;tim.cancel(); std::move(handler)(std::forward&lt;Args&gt;(args)...); } }; namespace boost::asio { // This is the class to specialize when implementing a completion token. template&lt;typename InnerToken, typename ... Signatures&gt; struct async_result&lt;with_timeout&lt;InnerToken&gt;, Signatures...&gt; { using return_type = typename async_result&lt;InnerToken, Signatures...&gt;::return_type; // this wrapper goes around the inner initiation, because we need to capture their cancellation slot template&lt;typename Initiation&gt; struct init_wrapper { Initiation initiation; timeout_provider * provider; // the forwards to the initiation and lets us access the actual handler. template &lt;typename Handler, typename... Args&gt; void operator()( Handler &amp;&amp; handler, Args &amp;&amp; ... args) { auto sl = asio::get_associated_cancellation_slot(handler); if (sl.is_connected()) provider-&gt;parent = sl; provider-&gt;arm(); std::move(initiation)( with_timeout_binder&lt;std::decay_t&lt;Handler&gt;&gt;{ provider, std::forward&lt;Handler&gt;(handler) }, std::forward&lt;Args&gt;(args)...); } } // the actual initiation template&lt;typename Initiation, typename RawToken, typename ... Args&gt; static auto initiate(Initiation &amp;&amp; init, RawToken &amp;&amp; token, Args &amp;&amp; ... args) -&gt; return_type { return async_result&lt;InnerToken, Signatures...&gt;::initiate( // here we wrap the initiation so we enable the above injection init_wrapper&lt;std::decay_t&lt;Initiation&gt;&gt;(std::forward&lt;Initiation&gt;(init), token.provider), std::move(token.token), std::forward&lt;Args&gt;(args)...); } }; // forward the other associators, such as allocator &amp; executor template &lt;template &lt;typename, typename&gt; class Associator, typename T, typename DefaultCandidate&gt; struct associator&lt;Associator, with_timeout_binder&lt;T&gt;, DefaultCandidate&gt; { typedef typename Associator&lt;T, DefaultCandidate&gt;::type type; static type get(const with_timeout_binder&lt;T&gt;&amp; b, const DefaultCandidate&amp; c = DefaultCandidate()) noexcept { return Associator&lt;T, DefaultCandidate&gt;::get(b.handler, c); } }; // set the slot explicitly template &lt;typename T, typename CancellationSlot1&gt; struct associated_cancellation_slot&lt; with_timeout_binder&lt;T&gt;, CancellationSlot1&gt; { typedef asio::cancellation_slot type; static type get(const with_timeout_binder&lt;T&gt;&amp; b, const CancellationSlot1&amp; = CancellationSlot1()) noexcept { return b.provider-&gt;timeout.slot(); } }; } The above code can be found in a working example here While the above code is quite a handful, it does create a new completion token. It does however give us more fine-tuned control over timeouts in a very readable &amp; fine-tuned way." />
+<meta property="og:description" content="Since asio added and beast implemented per-operation cancellation, the way timeouts can be implemented in asio code has changed significantly. In this article, we’ll go from simple timeouts to building our own timeout completion token helper. Cancellation A timeout is a defined interval after which a cancellation will be triggered, if an action didn’t complete by then. Timeouts can be a way of handling runtime errors, but one should generally be prudent about their usage. Indiscriminate application of timeouts with intervals based on the programmer’s feelings can lead to bad code and odd behavior. Previous solutions Previous to per-operation cancellation, one could only cancel all operations on a given io-object. E.g.: extern asio::ip::tcp::socket sock; extern std::string read_buffer, write_buffer; asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::detached); asio::async_write(sock, asio::buffer(write_buffer), asio::detached); // cancel both the write and the read, by cancelling all outstanding operations sock.cancel(); Due to the popularity of timeouts, beast provides it’s own stream wrappers, tcp_stream &amp; ssl_stream that (among other things) provide a timeout using this kind of cancellation based on internal timers. Per operation cancellation Per operation cancellation is a much more fine-tuned model; instead of cancelling all outstanding operations on an io-object, it cancels particular ones. extern asio::ip::tcp::socket sock; extern std::string read_buffer, write_buffer; asio::cancellation_signal cancel_read, cancel_write; asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::detached)); asio::async_write(sock, asio::buffer(write_buffer), asio::bind_cancellation_slot(cancel_write.slot(), asio::detached)); // cancel only the read op with cancellation type terminal cancel_read.emit(asio::cancellation_type::terminal); Cancellation types The different kinds of cancellation are: terminal: Requests cancellation where, following a successful cancellation, the only safe operations on the I/O object are closure or destruction. partial: Requests cancellation where a successful cancellation may result in partial side effects or no side effects. Following cancellation, the I/O object is in a well-known state, and may be used for further operations. total: Requests cancellation where a successful cancellation results in no apparent side effects. Following cancellation, the I/O object is in the same observable state as it was prior to the operation. The sender may combine multiple types with operator|; the receiver uses the cancellation as a signal he may ignore and he should satisfy the lowest level of cancellation possible. Full example To give an example of the cancellation types on a protocol level, consider the following function (written as a coroutine for simplicity): // read data from the stream and forward it to the parser // until one full value is read. // whatever is leftover goes into the `buf` to be used for the next value. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf /*&lt; beast style buffer! */) -&gt; asio::awaitable&lt;json::value&gt; { // 0: Nothing happened while (!parser.done()) { // 1: read the next chunk const std::size_t read_n = co_await stream.async_read_some( buf.prepare(4096), asio::use_awaitable); // 2: move it to the read buffer buf.commit(read_n); // 3: write it to the parser const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); // 4: remove parsed bytes from the buffer buf.consume(writ_n); } co_return parser.release(); } terminal: this means the data &amp; the stream can only be closed. That is, if the algorithm receives a cancellation in step (1), it can just exit directly, because the cancellation indicates the caller doesn’t care about the data anymore. partial: this means the operation might have read actual data, but can be resumed later on. If partial cancellation occurs we need to at least transfer the read data into the buffer; in this case however, they should also be sent to the parser, as the json might be complete and next run async_read_some will prevent us from completing. total: Total cancellation means no side effects, i.e. nothing was read. This may happen on our first iteration through the loop, if async_read_some gets cancellation before a single byte has been written. With this in mind we can rewrite out coroutine to handle cancellation - note that awaitables have an internal cancellation state. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf /*&lt; beast style buffer! */) -&gt; asio::awaitable&lt;json::value&gt; { // by default awaitables only allow terminal cancellation // we&#39;ll enable all types here: co_await asio::this_coro::reset_cancellation_state(asio::enable_total_cancellation()); while (!parser.done()) { // check if we&#39;ve been cancelled! asio::cancellation_state cs = co_await asio::this_coro::cancellation_state; if (cs.cancelled() != asio::cancellation_type::none) break; // capture ec, so nothing gets thrown const auto [ec, read_n] = co_await stream.async_read_some( buf.prepare(4096), asio::as_tuple(asio::use_awaitable)); if (ec == asio::error::operation_aborted) { using c_t = asio::cancellation_type; //update the state cs = co_await asio::this_coro::cancellation_state; c_t c = cs.cancelled(); // total means nothing happened, // terminal means the data doesn&#39;t matter if ((c &amp; (c_t::total | c_t::terminal)) != c_t::none) throw system::system_error(ec); // partial means we need to finish the loop // so we just do nothing and do NOT reset the filter! } else if (ec) // indiscriminately throw everything else throw system::system_error(ec); else // reset it to partial after the first read; co_await asio::this_coro::reset_cancellation_state( asio::enable_partial_cancellation()); buf.commit(read_n); const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); buf.consume(writ_n); } asio::cancellation_state cs = co_await asio::this_coro::cancellation_state; if (cs.cancelled() != asio::cancellation_type::none) throw system::system_error(asio::error::operation_aborted); co_return parser.release(); } The above example is complex because it is considering different kinds of cancellation and when they can be provided to the caller. Timeouts Based on the previous discussion, we may now use a timer and connect it to a cancellation slot to provide a timeout. asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, std::chrono::seconds timeout = std::chrono::seconds(5) ) { asio::steady_timer tim{co_await asio::this_coro::executor, timeout}; asio::cancellation_signal cancel_read; std::string read_buffer; tim.async_wait( [&amp;](system::error_code ec) { if (!ec) // timer completed without getting cancelled himself cancel_read.emit(asio::cancellation_type::all); }); co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable)); tim.cancel(); co_return read_buffer; } There is a problem in the above code: any cancellation delivered to do_read gets ignored. That is, the awaitable itself is an async operation that can get cancelled. extern asio::ip::tcp::socket sock; asio::cancellation_signal dr_c; asio::co_spawn(sock.get_executor(), do_read(sock), asio::bind_cancellation_slot(dr_c.slot(), asio::detached)); dr_c.emit(asio::cancellation_type::all); // &lt; ignored! In order to rectify this, we need to also need to forward the cancellation received by the awaitable: asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, std::chrono::seconds timeout = std::chrono::seconds(5) ) { asio::steady_timer tim{co_await asio::this_coro::executor, timeout}; asio::cancellation_signal cancel_read; asio::cancellation_slot sl = (co_await asio::this_coro::cancellation_state).slot(); std::string read_buffer; sl.assign( [&amp;](asio::cancellation_type ct) { // cancel the timer, we don&#39;t need it anymore tim.cancel(); // forward the cancellation cancel_read.emit(ct); }); // reset the signal when we&#39;re done // this is very important, the outer signal might fire after we&#39;re out of scope! struct scope_exit { asio::cancellation_slot sl; ~scope_exit() { if(sl.is_connected()) sl.clear();} } scope_exit_{sl}; // regular timeout with a timer. tim.async_wait( [&amp;](system::error_code ec) { if (!ec) // timer completed without getting cancelled himself cancel_read.emit(asio::cancellation_type::all); }); // the actual op co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable)); tim.cancel(); co_return read_buffer; } This is getting a bit verbose, so that users might look for alternatives. parallel_group / operator|| Thus the easiest way to implement a timeout is with a parallel_group. You might have seen the awaitable_operators used like this: using namespace asio::experimental::awaitable_operators; extern asio::ip::tcp::socket sock; extern steady_timer tim; extern std::string read_buffer; co_await ( asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::use_awaitable) || tim.async_wait(asio::use_awaitable)); The operator|| runs two awaitables in parallel, waiting for one to finish. When the first completes it cancels the other ones terminaly. This gives us a timeout, that will always be terminal, and is implement by means of parallel_group, i.e. similar to this: co_await experimental::make_parallel_group( asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::deferred), tim.async_await(asio::deferred) ).async_wait( experimental::wait_for_one(), asio::use_awaitable ); This is fine for many simple solutions &amp; examples, but it’s a very blunt &amp; not terribly efficient way to achieve only terminal cancellation. It is important to mention, that a per low level operation timeout might also not be the right approach altogether. On the one hand, it might not be required that a particular single operation (like connect) completes within a certain amount of time, but that a series of operations does so (like resolve + connect + handshake). This means choosing where to put timeouts is a task for careful engineering. Watchdogs Another popular pattern is a watchdog, when the requirement is to assure continuous progress. That is, we want to make sure, that a long running does not get stuck, but every so often does some successful work. Consider downloading a huge file; we can’t really put a timeout on it, but we can check that it did download some bytes every few seconds. You would usually use this for complex &amp; long running operations, but for our example, we’ll just reuse the async_read_json function. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf, /*&lt; beast style buffer! */ watchdog &amp; wuff) -&gt; asio::awaitable&lt;json::value&gt; { wuff.reset(); while (!parser.done()) { const std::size_t read_n = co_await stream.async_read_some( buf.prepare(4096), asio::use_awaitable); wuff.reset(); buf.commit(read_n); const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write( static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); buf.consume(writ_n); } co_return parser.release(); } If the .reset function on the watchdog isn’t called during the watchdog interval, it will cancel the operation. This watchdog can be as simple as this: struct watchdog { watchdog(asio::any_io_executor exec, std::chrono::milliseconds interval) : tim(exec, interval), interval(interval) {} asio::steady_timer tim; std::chrono::milliseconds interval; asio::cancellation_signal cancel; void reset() { tim.expires_after(interval); tim.async_wait( [this](system::error_code ec) { if (!ec) cancel.emit(asio::cancellation_type::terminal); }); } }; And we can use it with our awaitable by a simple bind: extern asio::ip::tcp::socket sock; beast::flat_buffer buf; json::stream_parser parser; watchdog wuff{sock.get_executor(), std::chrono::milliseconds(5000)}; asio::co_spawn(sock.get_executor(), async_read_json(sock, parser, buf, wuff) asio::bind_cancellation_slot(wuff.cancel.slot(), asio::detached) ); A custom timeout token While writing your own completion tokens is a bit of a hassle, it may be worth the effort if an entire application is using it. Here, we will write a timeout utility that utilizes different timeouts to fire a sequence of all cancellation types. The idea is that we do not want to use terminal cancellation right away, as we might corrupt data unnecessarily with that. Instead we have three intervals. After the first, we try total cancellation; if that doesn’t do anything, we wait the second interval and use partial cancellation. If nothing happens after that, we go for terminal. struct timeout_provider; // that&#39;s our completion token with the timeout attached template&lt;typename Token&gt; struct with_timeout { timeout_provider * provider; Token token; }; // this is the timeout source struct timeout_provider { timeout_provider( asio::any_io_executor exec ) : tim{exec, std::chrono::steady_clock::time_point::max()} {} asio::steady_timer tim; std::chrono::milliseconds tt_total = std::chrono::milliseconds(2000); std::chrono::milliseconds tt_partial = std::chrono::milliseconds(3000); std::chrono::milliseconds tt_partial = std::chrono::milliseconds(5000); asio::cancellation_slot parent; asio::cancellation_signal timeout; asio::cancellation_type last_fired{asio::cancellation_type::none}; ~timeout_provider() { if (parent.is_connected()) parent.clear(); } // to use it template&lt;typename Token&gt; auto operator()(Token &amp;&amp; token) { return with_timeout&lt;std::decay_t&lt;Token&gt;&gt;{ this, std::forward&lt;Token&gt;(token) }; } // set up the timer and get ready to trigger void arm() { last_fired = asio::cancellation_type::none; tim.expires_after(tt_total); if (parent.is_connected()) parent.assign([this](asio::cancellation_type ct){timeout.emit(ct);}); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_total(); }); } void fire_total() { timeout.emit(last_fired = asio::cancellation_type::total); tim.expires_after(tt_partial); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_partial(); }); } void fire_partial() { timeout.emit(last_fired = asio::cancellation_type::partial); tim.expires_after(tt_terminal); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_terminal(); }); } void fire_terminal() { timeout.emit(last_fired = asio::cancellation_type::terminal); } }; The plan is then to use this like so: asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, timeout_provider &amp; timeout) { std::string read_buffer; co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), timeout(asio::use_awaitable)); co_return read_buffer; } In order to do that we need to provide a custom async_initiate with a custom token. The reason we need a custom handler is that lazy operations like use_awaitable and deferred still work. Before we jump into a rather long piece of code, let’s recap how async initiation works. We pass a completion token to async_initiate, together with the initiation of our op (e.g. async_initiate_read). The completion token must have a specialization of async_result that will call initiate with it’s completion handler and return a result value. The handler is usually some internal type, that has associators (e.g. an associated allocator). For example, use_awaitable is a token, awaitable the return type of it’s initialization and some detail type it’s handler. In order for our timeout to work, we need to wrap the other completion token, and then intercept the call to the initiation to obtain the handler, and wrap it as well. // the completion handler // that&#39;s our completion token with the timeout attached template&lt;typename Handler&gt; struct with_timeout_binder { timeout_provider * provider; Handler handler; template&lt;typename ...Args&gt; void operator()(Args &amp;&amp; ... args) { //cancel the time, we&#39;re done! provider-&gt;tim.cancel(); std::move(handler)(std::forward&lt;Args&gt;(args)...); } }; namespace boost::asio { // This is the class to specialize when implementing a completion token. template&lt;typename InnerToken, typename ... Signatures&gt; struct async_result&lt;with_timeout&lt;InnerToken&gt;, Signatures...&gt; { using return_type = typename async_result&lt;InnerToken, Signatures...&gt;::return_type; // this wrapper goes around the inner initiation, because we need to capture their cancellation slot template&lt;typename Initiation&gt; struct init_wrapper { Initiation initiation; timeout_provider * provider; // the forwards to the initiation and lets us access the actual handler. template &lt;typename Handler, typename... Args&gt; void operator()( Handler &amp;&amp; handler, Args &amp;&amp; ... args) { auto sl = asio::get_associated_cancellation_slot(handler); if (sl.is_connected()) provider-&gt;parent = sl; provider-&gt;arm(); std::move(initiation)( with_timeout_binder&lt;std::decay_t&lt;Handler&gt;&gt;{ provider, std::forward&lt;Handler&gt;(handler) }, std::forward&lt;Args&gt;(args)...); } } // the actual initiation template&lt;typename Initiation, typename RawToken, typename ... Args&gt; static auto initiate(Initiation &amp;&amp; init, RawToken &amp;&amp; token, Args &amp;&amp; ... args) -&gt; return_type { return async_result&lt;InnerToken, Signatures...&gt;::initiate( // here we wrap the initiation so we enable the above injection init_wrapper&lt;std::decay_t&lt;Initiation&gt;&gt;(std::forward&lt;Initiation&gt;(init), token.provider), std::move(token.token), std::forward&lt;Args&gt;(args)...); } }; // forward the other associators, such as allocator &amp; executor template &lt;template &lt;typename, typename&gt; class Associator, typename T, typename DefaultCandidate&gt; struct associator&lt;Associator, with_timeout_binder&lt;T&gt;, DefaultCandidate&gt; { typedef typename Associator&lt;T, DefaultCandidate&gt;::type type; static type get(const with_timeout_binder&lt;T&gt;&amp; b, const DefaultCandidate&amp; c = DefaultCandidate()) noexcept { return Associator&lt;T, DefaultCandidate&gt;::get(b.handler, c); } }; // set the slot explicitly template &lt;typename T, typename CancellationSlot1&gt; struct associated_cancellation_slot&lt; with_timeout_binder&lt;T&gt;, CancellationSlot1&gt; { typedef asio::cancellation_slot type; static type get(const with_timeout_binder&lt;T&gt;&amp; b, const CancellationSlot1&amp; = CancellationSlot1()) noexcept { return b.provider-&gt;timeout.slot(); } }; } The above code can be found in a working example here While the above code is quite a handful, it does create a new completion token. It does however give us more fine-tuned control over timeouts in a very readable &amp; fine-tuned way." />
+<link rel="canonical" href="http://cppalliance.org/asio/2023/01/02/Asio201Timeouts.html" />
+<meta property="og:url" content="http://cppalliance.org/asio/2023/01/02/Asio201Timeouts.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-01-02T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Asio 201 - timeouts, cancellation &amp; custom tokens" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Since asio added and beast implemented per-operation cancellation, the way timeouts can be implemented in asio code has changed significantly. In this article, we’ll go from simple timeouts to building our own timeout completion token helper. Cancellation A timeout is a defined interval after which a cancellation will be triggered, if an action didn’t complete by then. Timeouts can be a way of handling runtime errors, but one should generally be prudent about their usage. Indiscriminate application of timeouts with intervals based on the programmer’s feelings can lead to bad code and odd behavior. Previous solutions Previous to per-operation cancellation, one could only cancel all operations on a given io-object. E.g.: extern asio::ip::tcp::socket sock; extern std::string read_buffer, write_buffer; asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::detached); asio::async_write(sock, asio::buffer(write_buffer), asio::detached); // cancel both the write and the read, by cancelling all outstanding operations sock.cancel(); Due to the popularity of timeouts, beast provides it’s own stream wrappers, tcp_stream &amp; ssl_stream that (among other things) provide a timeout using this kind of cancellation based on internal timers. Per operation cancellation Per operation cancellation is a much more fine-tuned model; instead of cancelling all outstanding operations on an io-object, it cancels particular ones. extern asio::ip::tcp::socket sock; extern std::string read_buffer, write_buffer; asio::cancellation_signal cancel_read, cancel_write; asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::detached)); asio::async_write(sock, asio::buffer(write_buffer), asio::bind_cancellation_slot(cancel_write.slot(), asio::detached)); // cancel only the read op with cancellation type terminal cancel_read.emit(asio::cancellation_type::terminal); Cancellation types The different kinds of cancellation are: terminal: Requests cancellation where, following a successful cancellation, the only safe operations on the I/O object are closure or destruction. partial: Requests cancellation where a successful cancellation may result in partial side effects or no side effects. Following cancellation, the I/O object is in a well-known state, and may be used for further operations. total: Requests cancellation where a successful cancellation results in no apparent side effects. Following cancellation, the I/O object is in the same observable state as it was prior to the operation. The sender may combine multiple types with operator|; the receiver uses the cancellation as a signal he may ignore and he should satisfy the lowest level of cancellation possible. Full example To give an example of the cancellation types on a protocol level, consider the following function (written as a coroutine for simplicity): // read data from the stream and forward it to the parser // until one full value is read. // whatever is leftover goes into the `buf` to be used for the next value. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf /*&lt; beast style buffer! */) -&gt; asio::awaitable&lt;json::value&gt; { // 0: Nothing happened while (!parser.done()) { // 1: read the next chunk const std::size_t read_n = co_await stream.async_read_some( buf.prepare(4096), asio::use_awaitable); // 2: move it to the read buffer buf.commit(read_n); // 3: write it to the parser const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); // 4: remove parsed bytes from the buffer buf.consume(writ_n); } co_return parser.release(); } terminal: this means the data &amp; the stream can only be closed. That is, if the algorithm receives a cancellation in step (1), it can just exit directly, because the cancellation indicates the caller doesn’t care about the data anymore. partial: this means the operation might have read actual data, but can be resumed later on. If partial cancellation occurs we need to at least transfer the read data into the buffer; in this case however, they should also be sent to the parser, as the json might be complete and next run async_read_some will prevent us from completing. total: Total cancellation means no side effects, i.e. nothing was read. This may happen on our first iteration through the loop, if async_read_some gets cancellation before a single byte has been written. With this in mind we can rewrite out coroutine to handle cancellation - note that awaitables have an internal cancellation state. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf /*&lt; beast style buffer! */) -&gt; asio::awaitable&lt;json::value&gt; { // by default awaitables only allow terminal cancellation // we&#39;ll enable all types here: co_await asio::this_coro::reset_cancellation_state(asio::enable_total_cancellation()); while (!parser.done()) { // check if we&#39;ve been cancelled! asio::cancellation_state cs = co_await asio::this_coro::cancellation_state; if (cs.cancelled() != asio::cancellation_type::none) break; // capture ec, so nothing gets thrown const auto [ec, read_n] = co_await stream.async_read_some( buf.prepare(4096), asio::as_tuple(asio::use_awaitable)); if (ec == asio::error::operation_aborted) { using c_t = asio::cancellation_type; //update the state cs = co_await asio::this_coro::cancellation_state; c_t c = cs.cancelled(); // total means nothing happened, // terminal means the data doesn&#39;t matter if ((c &amp; (c_t::total | c_t::terminal)) != c_t::none) throw system::system_error(ec); // partial means we need to finish the loop // so we just do nothing and do NOT reset the filter! } else if (ec) // indiscriminately throw everything else throw system::system_error(ec); else // reset it to partial after the first read; co_await asio::this_coro::reset_cancellation_state( asio::enable_partial_cancellation()); buf.commit(read_n); const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); buf.consume(writ_n); } asio::cancellation_state cs = co_await asio::this_coro::cancellation_state; if (cs.cancelled() != asio::cancellation_type::none) throw system::system_error(asio::error::operation_aborted); co_return parser.release(); } The above example is complex because it is considering different kinds of cancellation and when they can be provided to the caller. Timeouts Based on the previous discussion, we may now use a timer and connect it to a cancellation slot to provide a timeout. asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, std::chrono::seconds timeout = std::chrono::seconds(5) ) { asio::steady_timer tim{co_await asio::this_coro::executor, timeout}; asio::cancellation_signal cancel_read; std::string read_buffer; tim.async_wait( [&amp;](system::error_code ec) { if (!ec) // timer completed without getting cancelled himself cancel_read.emit(asio::cancellation_type::all); }); co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable)); tim.cancel(); co_return read_buffer; } There is a problem in the above code: any cancellation delivered to do_read gets ignored. That is, the awaitable itself is an async operation that can get cancelled. extern asio::ip::tcp::socket sock; asio::cancellation_signal dr_c; asio::co_spawn(sock.get_executor(), do_read(sock), asio::bind_cancellation_slot(dr_c.slot(), asio::detached)); dr_c.emit(asio::cancellation_type::all); // &lt; ignored! In order to rectify this, we need to also need to forward the cancellation received by the awaitable: asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, std::chrono::seconds timeout = std::chrono::seconds(5) ) { asio::steady_timer tim{co_await asio::this_coro::executor, timeout}; asio::cancellation_signal cancel_read; asio::cancellation_slot sl = (co_await asio::this_coro::cancellation_state).slot(); std::string read_buffer; sl.assign( [&amp;](asio::cancellation_type ct) { // cancel the timer, we don&#39;t need it anymore tim.cancel(); // forward the cancellation cancel_read.emit(ct); }); // reset the signal when we&#39;re done // this is very important, the outer signal might fire after we&#39;re out of scope! struct scope_exit { asio::cancellation_slot sl; ~scope_exit() { if(sl.is_connected()) sl.clear();} } scope_exit_{sl}; // regular timeout with a timer. tim.async_wait( [&amp;](system::error_code ec) { if (!ec) // timer completed without getting cancelled himself cancel_read.emit(asio::cancellation_type::all); }); // the actual op co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable)); tim.cancel(); co_return read_buffer; } This is getting a bit verbose, so that users might look for alternatives. parallel_group / operator|| Thus the easiest way to implement a timeout is with a parallel_group. You might have seen the awaitable_operators used like this: using namespace asio::experimental::awaitable_operators; extern asio::ip::tcp::socket sock; extern steady_timer tim; extern std::string read_buffer; co_await ( asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::use_awaitable) || tim.async_wait(asio::use_awaitable)); The operator|| runs two awaitables in parallel, waiting for one to finish. When the first completes it cancels the other ones terminaly. This gives us a timeout, that will always be terminal, and is implement by means of parallel_group, i.e. similar to this: co_await experimental::make_parallel_group( asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::deferred), tim.async_await(asio::deferred) ).async_wait( experimental::wait_for_one(), asio::use_awaitable ); This is fine for many simple solutions &amp; examples, but it’s a very blunt &amp; not terribly efficient way to achieve only terminal cancellation. It is important to mention, that a per low level operation timeout might also not be the right approach altogether. On the one hand, it might not be required that a particular single operation (like connect) completes within a certain amount of time, but that a series of operations does so (like resolve + connect + handshake). This means choosing where to put timeouts is a task for careful engineering. Watchdogs Another popular pattern is a watchdog, when the requirement is to assure continuous progress. That is, we want to make sure, that a long running does not get stuck, but every so often does some successful work. Consider downloading a huge file; we can’t really put a timeout on it, but we can check that it did download some bytes every few seconds. You would usually use this for complex &amp; long running operations, but for our example, we’ll just reuse the async_read_json function. template&lt;typename Stream, typename DynamicBuffer&gt; auto async_read_json(Stream &amp; stream, json::stream_parser &amp; parser, DynamicBuffer &amp; buf, /*&lt; beast style buffer! */ watchdog &amp; wuff) -&gt; asio::awaitable&lt;json::value&gt; { wuff.reset(); while (!parser.done()) { const std::size_t read_n = co_await stream.async_read_some( buf.prepare(4096), asio::use_awaitable); wuff.reset(); buf.commit(read_n); const auto wbuf = buf.cdata(); const std::size_t writ_n = parser.write( static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size()); buf.consume(writ_n); } co_return parser.release(); } If the .reset function on the watchdog isn’t called during the watchdog interval, it will cancel the operation. This watchdog can be as simple as this: struct watchdog { watchdog(asio::any_io_executor exec, std::chrono::milliseconds interval) : tim(exec, interval), interval(interval) {} asio::steady_timer tim; std::chrono::milliseconds interval; asio::cancellation_signal cancel; void reset() { tim.expires_after(interval); tim.async_wait( [this](system::error_code ec) { if (!ec) cancel.emit(asio::cancellation_type::terminal); }); } }; And we can use it with our awaitable by a simple bind: extern asio::ip::tcp::socket sock; beast::flat_buffer buf; json::stream_parser parser; watchdog wuff{sock.get_executor(), std::chrono::milliseconds(5000)}; asio::co_spawn(sock.get_executor(), async_read_json(sock, parser, buf, wuff) asio::bind_cancellation_slot(wuff.cancel.slot(), asio::detached) ); A custom timeout token While writing your own completion tokens is a bit of a hassle, it may be worth the effort if an entire application is using it. Here, we will write a timeout utility that utilizes different timeouts to fire a sequence of all cancellation types. The idea is that we do not want to use terminal cancellation right away, as we might corrupt data unnecessarily with that. Instead we have three intervals. After the first, we try total cancellation; if that doesn’t do anything, we wait the second interval and use partial cancellation. If nothing happens after that, we go for terminal. struct timeout_provider; // that&#39;s our completion token with the timeout attached template&lt;typename Token&gt; struct with_timeout { timeout_provider * provider; Token token; }; // this is the timeout source struct timeout_provider { timeout_provider( asio::any_io_executor exec ) : tim{exec, std::chrono::steady_clock::time_point::max()} {} asio::steady_timer tim; std::chrono::milliseconds tt_total = std::chrono::milliseconds(2000); std::chrono::milliseconds tt_partial = std::chrono::milliseconds(3000); std::chrono::milliseconds tt_partial = std::chrono::milliseconds(5000); asio::cancellation_slot parent; asio::cancellation_signal timeout; asio::cancellation_type last_fired{asio::cancellation_type::none}; ~timeout_provider() { if (parent.is_connected()) parent.clear(); } // to use it template&lt;typename Token&gt; auto operator()(Token &amp;&amp; token) { return with_timeout&lt;std::decay_t&lt;Token&gt;&gt;{ this, std::forward&lt;Token&gt;(token) }; } // set up the timer and get ready to trigger void arm() { last_fired = asio::cancellation_type::none; tim.expires_after(tt_total); if (parent.is_connected()) parent.assign([this](asio::cancellation_type ct){timeout.emit(ct);}); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_total(); }); } void fire_total() { timeout.emit(last_fired = asio::cancellation_type::total); tim.expires_after(tt_partial); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_partial(); }); } void fire_partial() { timeout.emit(last_fired = asio::cancellation_type::partial); tim.expires_after(tt_terminal); tim.async_wait( [this](system::error_code ec) { if (!ec) fire_terminal(); }); } void fire_terminal() { timeout.emit(last_fired = asio::cancellation_type::terminal); } }; The plan is then to use this like so: asio::awaitable&lt;std::string&gt; do_read( asio::ip::tcp::socket &amp;sock, timeout_provider &amp; timeout) { std::string read_buffer; co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), timeout(asio::use_awaitable)); co_return read_buffer; } In order to do that we need to provide a custom async_initiate with a custom token. The reason we need a custom handler is that lazy operations like use_awaitable and deferred still work. Before we jump into a rather long piece of code, let’s recap how async initiation works. We pass a completion token to async_initiate, together with the initiation of our op (e.g. async_initiate_read). The completion token must have a specialization of async_result that will call initiate with it’s completion handler and return a result value. The handler is usually some internal type, that has associators (e.g. an associated allocator). For example, use_awaitable is a token, awaitable the return type of it’s initialization and some detail type it’s handler. In order for our timeout to work, we need to wrap the other completion token, and then intercept the call to the initiation to obtain the handler, and wrap it as well. // the completion handler // that&#39;s our completion token with the timeout attached template&lt;typename Handler&gt; struct with_timeout_binder { timeout_provider * provider; Handler handler; template&lt;typename ...Args&gt; void operator()(Args &amp;&amp; ... args) { //cancel the time, we&#39;re done! provider-&gt;tim.cancel(); std::move(handler)(std::forward&lt;Args&gt;(args)...); } }; namespace boost::asio { // This is the class to specialize when implementing a completion token. template&lt;typename InnerToken, typename ... Signatures&gt; struct async_result&lt;with_timeout&lt;InnerToken&gt;, Signatures...&gt; { using return_type = typename async_result&lt;InnerToken, Signatures...&gt;::return_type; // this wrapper goes around the inner initiation, because we need to capture their cancellation slot template&lt;typename Initiation&gt; struct init_wrapper { Initiation initiation; timeout_provider * provider; // the forwards to the initiation and lets us access the actual handler. template &lt;typename Handler, typename... Args&gt; void operator()( Handler &amp;&amp; handler, Args &amp;&amp; ... args) { auto sl = asio::get_associated_cancellation_slot(handler); if (sl.is_connected()) provider-&gt;parent = sl; provider-&gt;arm(); std::move(initiation)( with_timeout_binder&lt;std::decay_t&lt;Handler&gt;&gt;{ provider, std::forward&lt;Handler&gt;(handler) }, std::forward&lt;Args&gt;(args)...); } } // the actual initiation template&lt;typename Initiation, typename RawToken, typename ... Args&gt; static auto initiate(Initiation &amp;&amp; init, RawToken &amp;&amp; token, Args &amp;&amp; ... args) -&gt; return_type { return async_result&lt;InnerToken, Signatures...&gt;::initiate( // here we wrap the initiation so we enable the above injection init_wrapper&lt;std::decay_t&lt;Initiation&gt;&gt;(std::forward&lt;Initiation&gt;(init), token.provider), std::move(token.token), std::forward&lt;Args&gt;(args)...); } }; // forward the other associators, such as allocator &amp; executor template &lt;template &lt;typename, typename&gt; class Associator, typename T, typename DefaultCandidate&gt; struct associator&lt;Associator, with_timeout_binder&lt;T&gt;, DefaultCandidate&gt; { typedef typename Associator&lt;T, DefaultCandidate&gt;::type type; static type get(const with_timeout_binder&lt;T&gt;&amp; b, const DefaultCandidate&amp; c = DefaultCandidate()) noexcept { return Associator&lt;T, DefaultCandidate&gt;::get(b.handler, c); } }; // set the slot explicitly template &lt;typename T, typename CancellationSlot1&gt; struct associated_cancellation_slot&lt; with_timeout_binder&lt;T&gt;, CancellationSlot1&gt; { typedef asio::cancellation_slot type; static type get(const with_timeout_binder&lt;T&gt;&amp; b, const CancellationSlot1&amp; = CancellationSlot1()) noexcept { return b.provider-&gt;timeout.slot(); } }; } The above code can be found in a working example here While the above code is quite a handful, it does create a new completion token. It does however give us more fine-tuned control over timeouts in a very readable &amp; fine-tuned way.","@type":"BlogPosting","url":"http://cppalliance.org/asio/2023/01/02/Asio201Timeouts.html","headline":"Asio 201 - timeouts, cancellation &amp; custom tokens","dateModified":"2023-01-02T00:00:00+00:00","datePublished":"2023-01-02T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/asio/2023/01/02/Asio201Timeouts.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Asio 201 - timeouts, cancellation & custom tokens</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/klemens">
+                  Klemens Morgenstern
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 2, 2023</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Since asio added and beast implemented per-operation cancellation,
+the way timeouts can be implemented in asio code has changed significantly.</p>
+
+<p>In this article, we’ll go from simple timeouts to building our own timeout completion token helper.</p>
+
+<h1 id="cancellation">Cancellation</h1>
+
+<p>A timeout is a defined interval after which a cancellation
+will be triggered, if an action didn’t complete by then.</p>
+
+<p>Timeouts <em>can</em> be a way of handling runtime errors, but one should generally be prudent about their usage. Indiscriminate application
+of timeouts with intervals based on the programmer’s feelings can
+lead to bad code and odd behavior.</p>
+
+<h2 id="previous-solutions">Previous solutions</h2>
+
+<p>Previous to per-operation cancellation, one could only cancel all operations on a given io-object. E.g.:</p>
+
+<pre><code class="language-cpp">extern asio::ip::tcp::socket sock;
+extern std::string read_buffer, write_buffer;
+
+asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::detached);
+asio::async_write(sock, asio::buffer(write_buffer), asio::detached);
+
+// cancel both the write and the read, by cancelling all outstanding operations
+sock.cancel(); 
+</code></pre>
+
+<p>Due to the popularity of timeouts, beast provides it’s own stream wrappers, <code>tcp_stream</code> &amp; <code>ssl_stream</code> that (among other things) provide
+a timeout using this kind of cancellation based on internal timers.</p>
+
+<h2 id="per-operation-cancellation">Per operation cancellation</h2>
+
+<p>Per operation cancellation is a much more fine-tuned model; 
+instead of cancelling all outstanding operations on an io-object,
+it cancels particular ones.</p>
+
+<pre><code class="language-cpp">
+extern asio::ip::tcp::socket sock;
+extern std::string read_buffer, write_buffer;
+
+asio::cancellation_signal cancel_read, cancel_write;
+
+asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::bind_cancellation_slot(cancel_read.slot(), asio::detached));
+asio::async_write(sock, asio::buffer(write_buffer), asio::bind_cancellation_slot(cancel_write.slot(), asio::detached));
+
+// cancel only the read op with cancellation type terminal
+cancel_read.emit(asio::cancellation_type::terminal);
+</code></pre>
+
+<h2 id="cancellation-types">Cancellation types</h2>
+
+<p>The different kinds of cancellation are:</p>
+
+<ul>
+  <li>
+    <p><em>terminal</em>:
+Requests cancellation where, following a successful cancellation, the only safe operations on the I/O object are closure or destruction.</p>
+  </li>
+  <li>
+    <p><em>partial</em>:
+Requests cancellation where a successful cancellation may result in partial side effects or no side effects. Following cancellation, the I/O object is in a well-known state, and may be used for further operations.</p>
+  </li>
+  <li>
+    <p><em>total</em>:
+Requests cancellation where a successful cancellation results in no apparent side effects. Following cancellation, the I/O object is in the same observable state as it was prior to the operation.</p>
+  </li>
+</ul>
+
+<p>The sender may combine multiple types with <code>operator|</code>; the receiver uses the cancellation as a signal he may ignore and he should satisfy the lowest level of cancellation possible.</p>
+
+<h2 id="full-example">Full example</h2>
+
+<p>To give an example of the cancellation types on a protocol level,
+consider the following function (written as a coroutine for simplicity):</p>
+
+<pre><code class="language-cpp">// read data from the stream and forward it to the parser
+// until one full value is read.
+// whatever is leftover goes into the `buf` to be used for the next value.
+template&lt;typename Stream, typename DynamicBuffer&gt;
+auto async_read_json(Stream &amp; stream, 
+                     json::stream_parser &amp; parser, 
+                     DynamicBuffer &amp; buf /*&lt; beast style buffer! */)
+    -&gt; asio::awaitable&lt;json::value&gt;
+{
+    
+    // 0: Nothing happened
+    while (!parser.done())
+    {
+        // 1: read the next chunk
+        const std::size_t read_n = 
+                co_await stream.async_read_some(
+                    buf.prepare(4096), asio::use_awaitable);
+        // 2: move it to the read buffer
+        buf.commit(read_n);
+        // 3: write it to the parser
+        const auto wbuf = buf.cdata();
+        const std::size_t writ_n = parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size());
+        // 4: remove parsed bytes from the buffer
+        buf.consume(writ_n);
+    }
+
+    co_return parser.release();
+}
+</code></pre>
+
+<p><em>terminal</em>: this means the data &amp; the stream can only be closed. That is, if the algorithm receives a cancellation in step (1), it can just exit directly, because
+the cancellation indicates the caller doesn’t care about the data anymore.</p>
+
+<p><em>partial</em>: this means the operation might have read actual data, but can be resumed later on. If partial cancellation occurs we need to at least transfer the read data into the buffer; in this case however, they should also be sent to the parser, 
+as the json might be complete and next run async_read_some will prevent us from completing.</p>
+
+<p><em>total</em>: Total cancellation means no side effects, i.e. nothing was read. This may happen on our first iteration through the loop, if async_read_some gets cancellation before a single byte has been written.</p>
+
+<p>With this in mind we can rewrite out coroutine to handle cancellation - 
+note that <code>awaitable</code>s have an internal cancellation state.</p>
+
+<pre><code class="language-cpp">template&lt;typename Stream, typename DynamicBuffer&gt;
+auto  async_read_json(Stream &amp; stream, 
+                      json::stream_parser &amp; parser, 
+                      DynamicBuffer &amp; buf /*&lt; beast style buffer! */)
+    -&gt; asio::awaitable&lt;json::value&gt;
+{
+    // by default awaitables only allow terminal cancellation
+    // we'll enable all types here:
+    co_await asio::this_coro::reset_cancellation_state(asio::enable_total_cancellation());
+    
+    while (!parser.done())
+    {
+        // check if we've been cancelled!
+        asio::cancellation_state cs = co_await asio::this_coro::cancellation_state;
+        if (cs.cancelled() != asio::cancellation_type::none)
+            break;
+        // capture ec, so nothing gets thrown
+        const auto [ec, read_n] = 
+                co_await stream.async_read_some(
+                    buf.prepare(4096), asio::as_tuple(asio::use_awaitable));
+        if (ec == asio::error::operation_aborted)
+        {
+            using c_t = asio::cancellation_type;
+            //update the state
+            cs = co_await asio::this_coro::cancellation_state;
+            c_t c = cs.cancelled(); 
+            // total means nothing happened,
+            // terminal means the data doesn't matter
+            if ((c &amp; (c_t::total | c_t::terminal)) != c_t::none)
+                throw system::system_error(ec);
+            // partial means we need to finish the loop
+            // so we just do nothing and do NOT reset the filter!
+        }
+        else if (ec) // indiscriminately throw everything else
+            throw system::system_error(ec);
+        else
+                    // reset it to partial after the first read;
+            co_await asio::this_coro::reset_cancellation_state(
+                asio::enable_partial_cancellation());
+
+        buf.commit(read_n);
+        const auto wbuf = buf.cdata();
+        const std::size_t writ_n = 
+                    parser.write(static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size());
+        buf.consume(writ_n);
+    }
+
+    asio::cancellation_state cs = co_await asio::this_coro::cancellation_state;
+    if (cs.cancelled() != asio::cancellation_type::none)
+        throw system::system_error(asio::error::operation_aborted);
+
+    co_return parser.release();
+}
+</code></pre>
+
+<p>The above example is complex because it is considering different kinds of cancellation
+and when they can be provided to the caller.</p>
+
+<h1 id="timeouts">Timeouts</h1>
+
+<p>Based on the previous discussion, we may now use a timer 
+and connect it to a cancellation slot to provide a timeout.</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;std::string&gt; do_read(
+    asio::ip::tcp::socket &amp;sock,
+    std::chrono::seconds timeout = std::chrono::seconds(5)
+)
+{
+    asio::steady_timer tim{co_await asio::this_coro::executor, timeout};
+    asio::cancellation_signal cancel_read;
+    std::string read_buffer;
+
+    tim.async_wait(
+        [&amp;](system::error_code ec)
+        {
+            if (!ec) // timer completed without getting cancelled himself
+                cancel_read.emit(asio::cancellation_type::all);
+        });
+
+    co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), 
+        asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable));
+    tim.cancel();
+
+    co_return read_buffer;
+}
+</code></pre>
+
+<p>There is a problem in the above code: any cancellation delivered to <code>do_read</code> gets ignored. That is, the <code>awaitable</code> itself is an async operation that can get cancelled.</p>
+
+<pre><code class="language-cpp">extern asio::ip::tcp::socket sock;
+asio::cancellation_signal dr_c;
+asio::co_spawn(sock.get_executor(), do_read(sock), 
+               asio::bind_cancellation_slot(dr_c.slot(), asio::detached));
+dr_c.emit(asio::cancellation_type::all); // &lt; ignored!
+</code></pre>
+
+<p>In order to rectify this, we need to also need to forward the cancellation received by the <code>awaitable</code>:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;std::string&gt; do_read(
+    asio::ip::tcp::socket &amp;sock,
+    std::chrono::seconds timeout = std::chrono::seconds(5)
+)
+{
+    asio::steady_timer tim{co_await asio::this_coro::executor, timeout};
+    asio::cancellation_signal cancel_read;
+    asio::cancellation_slot sl = 
+        (co_await asio::this_coro::cancellation_state).slot();
+
+    std::string read_buffer;
+    sl.assign(
+        [&amp;](asio::cancellation_type ct)
+        {
+            // cancel the timer, we don't need it anymore
+            tim.cancel();
+            // forward the cancellation
+            cancel_read.emit(ct);
+        });
+
+    // reset the signal when we're done
+    // this is very important, the outer signal might fire after we're out of scope!
+    struct scope_exit
+    {
+        asio::cancellation_slot sl;
+        ~scope_exit() { if(sl.is_connected()) sl.clear();}
+    } scope_exit_{sl};
+
+    // regular timeout with a timer.
+    tim.async_wait(
+        [&amp;](system::error_code ec)
+        {
+            if (!ec) // timer completed without getting cancelled himself
+                cancel_read.emit(asio::cancellation_type::all);
+        });
+
+    // the actual op
+    co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), 
+        asio::bind_cancellation_slot(cancel_read.slot(), asio::use_awaitable));
+    tim.cancel();
+
+    co_return read_buffer;
+}
+</code></pre>
+
+<p>This is getting a bit verbose, so that users might look for alternatives.</p>
+
+<h2 id="parallel_group--operator"><code>parallel_group</code> / <code>operator||</code></h2>
+
+<p>Thus the easiest way to implement a timeout is with a <code>parallel_group</code>. You might have seen the <code>awaitable_operators</code> used like this:</p>
+
+<pre><code class="language-cpp">using namespace asio::experimental::awaitable_operators;
+
+extern asio::ip::tcp::socket sock;
+extern steady_timer tim;
+extern std::string read_buffer;
+
+co_await (
+    asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::use_awaitable) || tim.async_wait(asio::use_awaitable));
+</code></pre>
+
+<p>The <code>operator||</code> runs two awaitables in parallel, waiting for one to finish. When the first completes it cancels the other ones <code>terminal</code>y.</p>
+
+<p>This gives us a timeout, that will always be terminal, and is implement by means of <a href="https://www.boost.org/doc/libs/master/doc/html/boost_asio/reference/experimental__parallel_group/async_wait.html">parallel_group</a>, i.e. similar to this:</p>
+
+<pre><code class="language-cpp">co_await 
+    experimental::make_parallel_group(
+        asio::async_read(sock, asio::dynamic_buffer(read_buffer), asio::deferred),
+    tim.async_await(asio::deferred)
+        ).async_wait(
+            experimental::wait_for_one(),
+            asio::use_awaitable
+        );
+</code></pre>
+
+<p>This is fine for many simple solutions &amp; examples, 
+but it’s a very blunt &amp; not terribly efficient way to achieve only terminal cancellation.</p>
+
+<p>It is important to mention, that a per low level operation timeout might also not be the right approach altogether. On the one hand, it might not be required that a particular single operation (like connect) completes within a certain amount of time, but that a series of operations does so (like resolve + connect + handshake).</p>
+
+<p>This means choosing where to put timeouts is a task for careful engineering.</p>
+
+<h2 id="watchdogs">Watchdogs</h2>
+
+<p>Another popular pattern is a watchdog, 
+when the requirement is to assure continuous progress. 
+That is, we want to make sure, that a long running does not get stuck, but every so often does some successful work.
+Consider downloading a huge file; we can’t really put a timeout on it, but we can check that it did download some bytes every few seconds.</p>
+
+<p>You would usually use this for complex &amp; long running operations, but for our example, we’ll just reuse the 
+async_read_json function.</p>
+
+<pre><code class="language-cpp">
+template&lt;typename Stream, typename DynamicBuffer&gt;
+auto async_read_json(Stream &amp; stream, 
+                json::stream_parser &amp; parser, 
+                DynamicBuffer &amp; buf, /*&lt; beast style buffer! */
+                watchdog &amp; wuff)
+    -&gt; asio::awaitable&lt;json::value&gt;
+{
+    wuff.reset();
+    while (!parser.done())
+    {
+        const std::size_t read_n = 
+                co_await stream.async_read_some(
+                    buf.prepare(4096), asio::use_awaitable);
+        wuff.reset();
+        buf.commit(read_n);
+        const auto wbuf = buf.cdata();
+        const std::size_t writ_n = parser.write(
+            static_cast&lt;const char*&gt;(wbuf.data()), wbuf.size());
+
+        buf.consume(writ_n);
+    }
+
+    co_return parser.release();
+}
+</code></pre>
+
+<p>If the <code>.reset</code> function on the watchdog isn’t called during the watchdog interval, 
+it will cancel the operation.</p>
+
+<p>This watchdog can be as simple as this:</p>
+
+<pre><code class="language-cpp">struct watchdog
+{
+    watchdog(asio::any_io_executor exec, std::chrono::milliseconds interval) 
+        : tim(exec, interval), interval(interval)
+    {}
+    
+    asio::steady_timer tim;
+    std::chrono::milliseconds interval;
+    asio::cancellation_signal cancel;
+    void reset()
+    {
+        tim.expires_after(interval);
+        tim.async_wait( 
+            [this](system::error_code ec)
+            {
+                if (!ec)
+                    cancel.emit(asio::cancellation_type::terminal);
+            });
+    }
+};
+</code></pre>
+
+<p>And we can use it with our awaitable by a simple bind:</p>
+
+<pre><code class="language-cpp">extern asio::ip::tcp::socket sock;
+
+beast::flat_buffer buf;
+json::stream_parser parser;
+
+watchdog wuff{sock.get_executor(), std::chrono::milliseconds(5000)};
+asio::co_spawn(sock.get_executor(),
+                async_read_json(sock, parser, buf, wuff)
+                asio::bind_cancellation_slot(wuff.cancel.slot(), asio::detached)
+                );
+</code></pre>
+
+<h1 id="a-custom-timeout-token">A custom timeout token</h1>
+
+<p>While writing your own completion tokens is a bit of a hassle, 
+it may be worth the effort if an entire application is using it.</p>
+
+<p>Here, we will write a <code>timeout</code> utility that utilizes different timeouts
+to fire a sequence of all cancellation types. The idea is that we do not want to use terminal cancellation right away, as we might corrupt data unnecessarily with that.</p>
+
+<p>Instead we have three intervals. After the first, we try <code>total</code> cancellation; 
+if that doesn’t do anything, we wait the second interval and use <code>partial</code> cancellation.
+If nothing happens after that, we go for <code>terminal</code>.</p>
+
+<pre><code class="language-cpp">struct timeout_provider;
+
+// that's our completion token with the timeout attached
+template&lt;typename Token&gt;
+struct with_timeout
+{
+    timeout_provider * provider;
+    Token token;
+};
+
+// this is the timeout source
+struct timeout_provider
+{
+    timeout_provider(
+        asio::any_io_executor exec
+    ) : tim{exec, std::chrono::steady_clock::time_point::max()} {}
+    
+    asio::steady_timer tim;
+
+    std::chrono::milliseconds tt_total   = std::chrono::milliseconds(2000);
+    std::chrono::milliseconds tt_partial = std::chrono::milliseconds(3000);
+    std::chrono::milliseconds tt_partial = std::chrono::milliseconds(5000);
+
+    asio::cancellation_slot parent;
+    asio::cancellation_signal timeout;
+
+    asio::cancellation_type last_fired{asio::cancellation_type::none};
+
+    ~timeout_provider()
+    {
+        if (parent.is_connected())
+            parent.clear();
+    }
+
+    // to use it 
+    template&lt;typename Token&gt;
+    auto operator()(Token &amp;&amp; token)
+    {
+        return with_timeout&lt;std::decay_t&lt;Token&gt;&gt;{
+                this, std::forward&lt;Token&gt;(token)
+        };
+    }
+
+    // set up the timer and get ready to trigger
+    void arm()
+    {
+        last_fired = asio::cancellation_type::none;
+        tim.expires_after(tt_total);
+        if (parent.is_connected())
+            parent.assign([this](asio::cancellation_type ct){timeout.emit(ct);});
+        tim.async_wait(
+            [this](system::error_code ec)
+            {
+                if (!ec) fire_total();
+            });
+    }
+
+    void fire_total()
+    {
+        timeout.emit(last_fired = asio::cancellation_type::total);
+        tim.expires_after(tt_partial);
+        tim.async_wait(
+            [this](system::error_code ec)
+            {
+                if (!ec) fire_partial();
+            });
+    }
+
+    void fire_partial()
+    {
+        timeout.emit(last_fired = asio::cancellation_type::partial);
+        tim.expires_after(tt_terminal);
+        tim.async_wait(
+            [this](system::error_code ec)
+            {
+                if (!ec) fire_terminal();
+            });
+    }
+    
+    void fire_terminal()
+    {
+        timeout.emit(last_fired = asio::cancellation_type::terminal);
+    }    
+};
+</code></pre>
+
+<p>The plan is then to use this like so:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;std::string&gt; do_read(
+    asio::ip::tcp::socket &amp;sock,
+    timeout_provider &amp; timeout)
+{
+    std::string read_buffer;
+    co_await asio::async_read(sock, asio::dynamic_buffer(read_buffer), 
+        timeout(asio::use_awaitable));
+    co_return read_buffer;
+}
+</code></pre>
+
+<p>In order to do that we need to provide a custom async_initiate with a 
+custom token. The reason we need a custom handler is that lazy operations like use_awaitable and deferred still work.</p>
+
+<p>Before we jump into a rather long piece of code, let’s recap how async initiation works.</p>
+
+<p>We pass a completion token to async_initiate, together with the initiation of our op (e.g. <code>async_initiate_read</code>).
+The completion token must have a specialization of <code>async_result</code> that will call <code>initiate</code> with it’s completion handler
+and return a result value. The handler is usually some internal type, that has associators (e.g. an associated allocator).
+For example, <code>use_awaitable</code> is a token, <code>awaitable</code> the return type of it’s initialization and some <code>detail</code> type it’s handler.</p>
+
+<p>In order for our timeout to work, we need to wrap the other completion token, and then intercept the call to the initiation 
+to obtain the handler, and wrap it as well.</p>
+
+<pre><code class="language-cpp">// the completion handler
+// that's our completion token with the timeout attached
+template&lt;typename Handler&gt;
+struct with_timeout_binder
+{
+    timeout_provider * provider;
+    Handler handler;
+
+    template&lt;typename ...Args&gt;
+    void operator()(Args &amp;&amp; ... args)
+    {
+        //cancel the time, we're done!
+        provider-&gt;tim.cancel();
+        std::move(handler)(std::forward&lt;Args&gt;(args)...);
+    }
+};
+
+namespace boost::asio
+{
+
+// This is the class to specialize when implementing a completion token.
+template&lt;typename InnerToken, typename ... Signatures&gt;
+struct async_result&lt;with_timeout&lt;InnerToken&gt;, Signatures...&gt;
+{
+    using return_type = typename async_result&lt;InnerToken, Signatures...&gt;::return_type;
+
+    // this wrapper goes around the inner initiation, because we need to capture their cancellation slot
+    template&lt;typename Initiation&gt;
+    struct init_wrapper
+    {
+        Initiation initiation;
+        timeout_provider * provider;
+
+        // the forwards to the initiation and lets us access the actual handler.
+        template &lt;typename Handler, typename... Args&gt;
+        void operator()(
+            Handler &amp;&amp; handler,
+            Args &amp;&amp; ... args)
+        {
+            auto sl = asio::get_associated_cancellation_slot(handler);
+            if (sl.is_connected())
+                provider-&gt;parent = sl;
+            provider-&gt;arm();
+            std::move(initiation)(
+                with_timeout_binder&lt;std::decay_t&lt;Handler&gt;&gt;{
+                    provider,
+                    std::forward&lt;Handler&gt;(handler)
+                }, std::forward&lt;Args&gt;(args)...);
+        }        
+    }
+
+    // the actual initiation
+    template&lt;typename Initiation, typename RawToken,
+             typename ... Args&gt;
+    static auto initiate(Initiation &amp;&amp; init,
+                    RawToken &amp;&amp; token,
+                    Args &amp;&amp; ... args) -&gt; return_type
+    {
+        return async_result&lt;InnerToken, Signatures...&gt;::initiate(
+            // here we wrap the initiation so we enable the above injection
+            init_wrapper&lt;std::decay_t&lt;Initiation&gt;&gt;(std::forward&lt;Initiation&gt;(init), token.provider),
+            std::move(token.token), 
+            std::forward&lt;Args&gt;(args)...);
+    }
+};
+
+
+// forward the other associators, such as allocator &amp; executor
+template &lt;template &lt;typename, typename&gt; class Associator,
+    typename T, typename DefaultCandidate&gt;
+struct associator&lt;Associator,
+    with_timeout_binder&lt;T&gt;,
+    DefaultCandidate&gt;
+{
+  typedef typename Associator&lt;T, DefaultCandidate&gt;::type type;
+
+  static type get(const with_timeout_binder&lt;T&gt;&amp; b,
+      const DefaultCandidate&amp; c = DefaultCandidate()) noexcept
+  {
+    return Associator&lt;T, DefaultCandidate&gt;::get(b.handler, c);
+  }
+};
+
+// set the slot explicitly
+template &lt;typename T, typename CancellationSlot1&gt;
+struct associated_cancellation_slot&lt;
+    with_timeout_binder&lt;T&gt;,
+    CancellationSlot1&gt;
+{
+  typedef asio::cancellation_slot type;
+
+  static type get(const with_timeout_binder&lt;T&gt;&amp; b,
+      const CancellationSlot1&amp; = CancellationSlot1()) noexcept
+  {
+    return b.provider-&gt;timeout.slot();
+  }
+};
+
+}
+</code></pre>
+
+<p>The above code can be found in a working example <a href="https://gcc.godbolt.org/z/ndxes7Gaf">here</a></p>
+
+<p>While the above code is quite a handful, it does create a new completion token. 
+It does however give us more fine-tuned control over timeouts in a very readable 
+&amp; fine-tuned way.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/27/2023</span>
+          <a class='text-l news-title link' href="/asio/2023/07/27/Coroutines.html">Coroutine 101 - A simple serializer</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/02/2023</span>
+          <a class='text-l news-title link' href="/asio/2023/01/02/Asio201Timeouts.html">Asio 201 - timeouts, cancellation & custom tokens</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/11/2022</span>
+          <a class='text-l news-title link' href="/asio/2022/12/11/Asio201Deferred.html">Asio 201 - deferred</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

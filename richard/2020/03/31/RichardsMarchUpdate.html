@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's March Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s March Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s March Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Coding in the time of a Pandemic It has been an interesting month, there having been the minor distraction of a lockdown of our little country. The borders with Spain and France were closed about three weeks ago and all residents have been asked to stay at home other than to buy groceries or walk their dogs. Fortunately I have dogs so I at least have a legitimate reason to see the sun. One of the advantages of living in a tiny country is that the government has been able to secure the supply of 150,000 COVID-19 testing kits, which represents two tests per resident. They are also working on supplying every resident with masks for use when shopping. I am hoping to report in my next blog that we are allowed outside subject to a negative test and the wearing of a mask and gloves. Fortunately, until today, our internet has been uninterrupted. Communication with my friends and colleagues at the C++ Alliance and the wider developer community has continued. Boost Release The Boost 1.73 release is imminent. Thus much of my focus in the latter half of the month has been on addressing any remaining issues in Beast that represent an easy win in terms of demonstrating progress between releases. This brings to a close my first quarter as a maintainer of the Beast library. I would have liked to have produced more in terms of feature development and architectural improvements, but a few interesting things came up which delayed this; some of which I will share with you here. (Possibly) Interesting Asio Things To say that Boost.Beast has a strong dependency on Boost.Asio would be an understatement. It should therefore come as no surprise that the Beast team spend a lot of time working with Asio and (certainly in my case) a lot of time working to understand the internals. We had cause to reach out to Chris Kohlhoff, Asio’s author, on two occasions in recent times. If you read my February blog you would have seen the issues we have faced with the DynamicBuffer concept. This month it was about the thread-safety of composed operations and IO objects. But first, the result of a question I asked myself: Is it possible to write an asynchronous composed operation entirely as a lambda? In short, if you’re using c++14 or better, the answer is happily yes! Here is the smallest program I could think of: a: Implemented asynchronously b: Targeting a POSIX system (just because I happen to know more about POSIX than Windows) This program simply copies the contents of stdin to stdout: int main() { asio::io_context ioc; auto exec = ioc.get_executor(); auto in = asio::posix::stream_descriptor(exec, ::dup(STDIN_FILENO)); auto out = asio::posix::stream_descriptor(exec, ::dup(STDOUT_FILENO)); async_copy_all(in, out, [](auto&amp;&amp; ec, auto total){ std::cout &lt;&lt; &quot;\ntransferred &quot; &lt;&lt; total &lt;&lt; &quot; bytes\n&quot;; if (ec.failed()) { std::cerr &lt;&lt; &quot;transfer failure: &quot; &lt;&lt; ec.message() &lt;&lt; std::endl; std::exit(ec.value()); } }); ioc.run(); return 0; } People who are unused to writing composed operations (asynchronous operations that fit into the ASIO ecosystem), or people who have written them longer ago than last year, might at this stage feel their hearts sinking in anticipation of the complex horror show awaiting them when writing the function async_copy_all. Fortunately, Asio’s new(ish) async_compose template function makes this reasonably painless: template&lt;class InStream, class OutStream, class CompletionToken&gt; auto async_copy_all( InStream &amp;fd_in, OutStream &amp;fd_out, CompletionToken &amp;&amp;completion) { return asio::async_compose&lt; CompletionToken, void(system::error_code const &amp;,std::size_t)&gt;( [&amp;fd_in, &amp;fd_out, coro = asio::coroutine(), total = std::size_t(0), store = std::make_unique&lt;char[]&gt;(4096)] (auto &amp;self, system::error_code ec = {}, std::size_t bytes_transferred = 0) mutable { BOOST_ASIO_CORO_REENTER(coro) for(;;) { BOOST_ASIO_CORO_YIELD { auto buf = asio::buffer(store.get(), 4096); fd_in.async_read_some(buf, std::move(self)); } if (ec.failed() || bytes_transferred == 0) { if (ec == asio::error::eof) ec.clear(); return self.complete(ec, total); } BOOST_ASIO_CORO_YIELD { auto buf = asio::buffer(store.get(), bytes_transferred); fd_out.async_write_some(buf, std::move(self)); } total += bytes_transferred; if (ec.failed()) return self.complete(ec, total); } }, completion, fd_in, fd_out); } There are a few things to note in the implementation. The first is that the entire asynchronous operation’s implementation state is captured in the capture block of the lambda (this is why we need c++14 or higher) Secondly, the lambda is mutable. This is so we can update the state and then move it into the completion handler of each internal asynchronous operation. The second and third arguments of the lambda’s function signature are defaulted. This is because async_compose will cause the implementation (in this case, our lambda) to be called once with no arguments (other than self) during initiation. There is an explicit check for eof after the yielding call to fd_in.async_read_some. In Asio, eof is one of a few error codes that represents an informational condition rather than an actual error. Another is connection_aborted, which can occur during an accept operation on a TCP socket. Failing to check for this error-that-is-not-an-error can result in asio-based servers suddenly going quiet for ‘no apparent reason’. Notice that the un-named object created by async_compose intercepts every invocation on it and transfers control to our lambda by prepending a reference to itself to the argument list. The type of Self is actually a specialisation of an asio::detail::composed_op&lt;...&gt; (as at Boost 1.72). However, since this class is in the detail namespace, this should never be relied on in any program or library. Note that I create the buffer object buf in separate statements to the initiations of the async operations on the streams. This is because the unique_ptr called store is going to be moved during the initiating function call. Remember that arguments to function calls are evaluated in unknowable order in c++, so accessing store in the same statement in which the entire completion handler has been moved would result in UB. Finally, async_compose is passed both the input and output stream (in addition to their references being captured in the lambda) so that both streams’ associated executors can be informed that there is outstanding work. It may be surprising to some that the input and output streams may legally be associated with different executors. Actually, now that I write this, it occurs to me that it is unclear to me what is the ‘associated executor’ of the composed operation we just created. Asio’s documentation is silent on the subject. Inspecting the code while single-stepping through a debug build revealed that the executor is taken from the first of the io_objects_or_executors&amp;&amp;... arguments to async_compose which itself has an associated executor. If none of them do, then the system_executor is chosen as the default executor (more on why this may cause surprises and headaches later). Note that as always, wrapping the lambda in a call to bind_executor will force the composed operation’s intermediate invocations to happen on the bound executor. In our case, it is fd_in which will be providing the executor and as a result, every invocation of our lambda (except the first) is guaranteed to be happen by being invoked as if by post(fd_in.get_executor(), &lt;lambda&gt;(...)). system_executor and “What Could Possibly Go Wrong?” Once upon a time, when I first started using Asio, there were no executors at all. In fact, there were no io_contexts either. There was an io_service object. At some point (I don’t remember the exact version of Asio, but it was at least five years ago) the io_service was replace with io_context, an object which did basically the same job. More recently, the io_context represents the shared state of a model of the Executor Named Type Requirement (aka Concept). The state of the art is moving towards passing copies of Executors rather than references to io_contexts. Asio now contains a concrete type, the executor which is a type-erased wrapper which may be assigned any any class which models an Executor. As you might expect, we are heading into a world where there might be more than one model of Executor. In anticipation of this, by default, all Asio IO objects are now associated with the polymorphic wrapper type executor rather than a io_context::executor_type. One such model of Executor supplied by Asio is the system_executor, which is actually chosen as the default associated executor of any completion handler. That is, if you initiate an asynchronous operation in Asio today, against a hypothetical io_object that does not have an associated executor and you do not bind your handler to an executor of your own, then your handler will be invoked as-if by post(asio::system_executor(), &lt;handler&gt;) - that is, it will be called on some implementation-defined thread. Now that the basics are covered, back to what could possibly go wrong? Well imagine a hypothetical home-grown IO Object or AsyncStream. Older versions of the Asio documentation used to include an example user IO Object, the logging socket. The basic premise of our logging socket is that it will do everything a socket will do, plus log the sending and receiving of data, along with the error codes associated with each read or write operation. Clearly the implementation of this object will contain an asio socket object and some kind of logger. The internal state must be touched on every asynchronous operation initiation (to actually initiate the underlying operation and record the event) and during every completion handler invocation, in order to update the logger with the results of the asynchronous operation. As we know, invocations of intermediate completion handlers happen on the executor associated with the final completion handler provided by the user, so in our case, the actions will be something like this: on the initiating thread: logging_socket::async_write_some logging_socket::async_write_some_op::operator()() logging_socket::impl::update_logger(...) socket::async_write_some(...) ... time passes... on a thread associated with the associated executor: logging_socket::async_write_some_op::operator()(ec, bytes_transferred) logging_socket::impl::update_logger() user_completion_handler(ec, bytes_transferred) The situation will be similar for a write operation. Now consider the following code (ls is an object of our hypothetical type logging_socket: ls.async_write_some( get_tx_buffer(), net::bind_executor( net::system_executor(), [](auto ec, auto size){ /* what happens here is not relevant */ })); ls.async_read_some( get_rx_buffer(), net::bind_executor( net::system_executor(), [](auto ec, auto size){ /* what happens here is not relevant */ })); What have I done? Not much, simply initiated a read and a write at the same time - a perfectly normal state of affairs for a socket. The interesting part is that I have bound both asynchronous completion handlers to the system_executor. This means that each of the handlers will be invoked (without synchronisation) on two arbitrary threads. Looking at our pseudo-code above, it becomes clear that there will be a race for the logging_socket’s implementation: Between the initiation of the read and the completion of the write, and between the completion of the read and the completion of the write Again the Asio documentation is silent on the correct method of mitigating this situation. Two possible workarounds have occurred to me so far: Never use a system_executor unless first wrapping it in a strand. Ensure that all composed operations of IO objects are thread-safe with respect to mutation of the implementation. If this is made true, it almost inevitably follows that the entire IO Object may as well be made thread-safe (which Asio IO Objects are not). I have reached out to Chris for final judgement and will update the blog (and possibly much of Beast!) in response to a definitive answer. Unified Web Client I have been given the go-ahead to make a start on exploring a unified web-client library which will eventually become a candidate for inclusion into Boost. The obvious course of action, building directly on top of Beast is a no-go. If the library is to be used on platforms such as tablets and phones, or appear in the various app stores of vendors, there are restrictions on which implementations of communications libraries may be used. To cut a long story short, vendors want to minimise the risk of security vulnerabilities being introduced by people’s home-grown communications and encryption code. So my initial focus will be on establishing an object model that: Provides a high degree of utility (make simple things simple). Emulates or captures the subtleties of vendor’s Web Client frameworks. Efficiently slots into the Asio asynchronous completion model. Of course, linux and proprietary embedded systems do not have a mandated communications libraries, so there will certainly be heavy use of Beast in the unconstrained platform- specific code. More information as it becomes available." />
+<meta property="og:description" content="Coding in the time of a Pandemic It has been an interesting month, there having been the minor distraction of a lockdown of our little country. The borders with Spain and France were closed about three weeks ago and all residents have been asked to stay at home other than to buy groceries or walk their dogs. Fortunately I have dogs so I at least have a legitimate reason to see the sun. One of the advantages of living in a tiny country is that the government has been able to secure the supply of 150,000 COVID-19 testing kits, which represents two tests per resident. They are also working on supplying every resident with masks for use when shopping. I am hoping to report in my next blog that we are allowed outside subject to a negative test and the wearing of a mask and gloves. Fortunately, until today, our internet has been uninterrupted. Communication with my friends and colleagues at the C++ Alliance and the wider developer community has continued. Boost Release The Boost 1.73 release is imminent. Thus much of my focus in the latter half of the month has been on addressing any remaining issues in Beast that represent an easy win in terms of demonstrating progress between releases. This brings to a close my first quarter as a maintainer of the Beast library. I would have liked to have produced more in terms of feature development and architectural improvements, but a few interesting things came up which delayed this; some of which I will share with you here. (Possibly) Interesting Asio Things To say that Boost.Beast has a strong dependency on Boost.Asio would be an understatement. It should therefore come as no surprise that the Beast team spend a lot of time working with Asio and (certainly in my case) a lot of time working to understand the internals. We had cause to reach out to Chris Kohlhoff, Asio’s author, on two occasions in recent times. If you read my February blog you would have seen the issues we have faced with the DynamicBuffer concept. This month it was about the thread-safety of composed operations and IO objects. But first, the result of a question I asked myself: Is it possible to write an asynchronous composed operation entirely as a lambda? In short, if you’re using c++14 or better, the answer is happily yes! Here is the smallest program I could think of: a: Implemented asynchronously b: Targeting a POSIX system (just because I happen to know more about POSIX than Windows) This program simply copies the contents of stdin to stdout: int main() { asio::io_context ioc; auto exec = ioc.get_executor(); auto in = asio::posix::stream_descriptor(exec, ::dup(STDIN_FILENO)); auto out = asio::posix::stream_descriptor(exec, ::dup(STDOUT_FILENO)); async_copy_all(in, out, [](auto&amp;&amp; ec, auto total){ std::cout &lt;&lt; &quot;\ntransferred &quot; &lt;&lt; total &lt;&lt; &quot; bytes\n&quot;; if (ec.failed()) { std::cerr &lt;&lt; &quot;transfer failure: &quot; &lt;&lt; ec.message() &lt;&lt; std::endl; std::exit(ec.value()); } }); ioc.run(); return 0; } People who are unused to writing composed operations (asynchronous operations that fit into the ASIO ecosystem), or people who have written them longer ago than last year, might at this stage feel their hearts sinking in anticipation of the complex horror show awaiting them when writing the function async_copy_all. Fortunately, Asio’s new(ish) async_compose template function makes this reasonably painless: template&lt;class InStream, class OutStream, class CompletionToken&gt; auto async_copy_all( InStream &amp;fd_in, OutStream &amp;fd_out, CompletionToken &amp;&amp;completion) { return asio::async_compose&lt; CompletionToken, void(system::error_code const &amp;,std::size_t)&gt;( [&amp;fd_in, &amp;fd_out, coro = asio::coroutine(), total = std::size_t(0), store = std::make_unique&lt;char[]&gt;(4096)] (auto &amp;self, system::error_code ec = {}, std::size_t bytes_transferred = 0) mutable { BOOST_ASIO_CORO_REENTER(coro) for(;;) { BOOST_ASIO_CORO_YIELD { auto buf = asio::buffer(store.get(), 4096); fd_in.async_read_some(buf, std::move(self)); } if (ec.failed() || bytes_transferred == 0) { if (ec == asio::error::eof) ec.clear(); return self.complete(ec, total); } BOOST_ASIO_CORO_YIELD { auto buf = asio::buffer(store.get(), bytes_transferred); fd_out.async_write_some(buf, std::move(self)); } total += bytes_transferred; if (ec.failed()) return self.complete(ec, total); } }, completion, fd_in, fd_out); } There are a few things to note in the implementation. The first is that the entire asynchronous operation’s implementation state is captured in the capture block of the lambda (this is why we need c++14 or higher) Secondly, the lambda is mutable. This is so we can update the state and then move it into the completion handler of each internal asynchronous operation. The second and third arguments of the lambda’s function signature are defaulted. This is because async_compose will cause the implementation (in this case, our lambda) to be called once with no arguments (other than self) during initiation. There is an explicit check for eof after the yielding call to fd_in.async_read_some. In Asio, eof is one of a few error codes that represents an informational condition rather than an actual error. Another is connection_aborted, which can occur during an accept operation on a TCP socket. Failing to check for this error-that-is-not-an-error can result in asio-based servers suddenly going quiet for ‘no apparent reason’. Notice that the un-named object created by async_compose intercepts every invocation on it and transfers control to our lambda by prepending a reference to itself to the argument list. The type of Self is actually a specialisation of an asio::detail::composed_op&lt;...&gt; (as at Boost 1.72). However, since this class is in the detail namespace, this should never be relied on in any program or library. Note that I create the buffer object buf in separate statements to the initiations of the async operations on the streams. This is because the unique_ptr called store is going to be moved during the initiating function call. Remember that arguments to function calls are evaluated in unknowable order in c++, so accessing store in the same statement in which the entire completion handler has been moved would result in UB. Finally, async_compose is passed both the input and output stream (in addition to their references being captured in the lambda) so that both streams’ associated executors can be informed that there is outstanding work. It may be surprising to some that the input and output streams may legally be associated with different executors. Actually, now that I write this, it occurs to me that it is unclear to me what is the ‘associated executor’ of the composed operation we just created. Asio’s documentation is silent on the subject. Inspecting the code while single-stepping through a debug build revealed that the executor is taken from the first of the io_objects_or_executors&amp;&amp;... arguments to async_compose which itself has an associated executor. If none of them do, then the system_executor is chosen as the default executor (more on why this may cause surprises and headaches later). Note that as always, wrapping the lambda in a call to bind_executor will force the composed operation’s intermediate invocations to happen on the bound executor. In our case, it is fd_in which will be providing the executor and as a result, every invocation of our lambda (except the first) is guaranteed to be happen by being invoked as if by post(fd_in.get_executor(), &lt;lambda&gt;(...)). system_executor and “What Could Possibly Go Wrong?” Once upon a time, when I first started using Asio, there were no executors at all. In fact, there were no io_contexts either. There was an io_service object. At some point (I don’t remember the exact version of Asio, but it was at least five years ago) the io_service was replace with io_context, an object which did basically the same job. More recently, the io_context represents the shared state of a model of the Executor Named Type Requirement (aka Concept). The state of the art is moving towards passing copies of Executors rather than references to io_contexts. Asio now contains a concrete type, the executor which is a type-erased wrapper which may be assigned any any class which models an Executor. As you might expect, we are heading into a world where there might be more than one model of Executor. In anticipation of this, by default, all Asio IO objects are now associated with the polymorphic wrapper type executor rather than a io_context::executor_type. One such model of Executor supplied by Asio is the system_executor, which is actually chosen as the default associated executor of any completion handler. That is, if you initiate an asynchronous operation in Asio today, against a hypothetical io_object that does not have an associated executor and you do not bind your handler to an executor of your own, then your handler will be invoked as-if by post(asio::system_executor(), &lt;handler&gt;) - that is, it will be called on some implementation-defined thread. Now that the basics are covered, back to what could possibly go wrong? Well imagine a hypothetical home-grown IO Object or AsyncStream. Older versions of the Asio documentation used to include an example user IO Object, the logging socket. The basic premise of our logging socket is that it will do everything a socket will do, plus log the sending and receiving of data, along with the error codes associated with each read or write operation. Clearly the implementation of this object will contain an asio socket object and some kind of logger. The internal state must be touched on every asynchronous operation initiation (to actually initiate the underlying operation and record the event) and during every completion handler invocation, in order to update the logger with the results of the asynchronous operation. As we know, invocations of intermediate completion handlers happen on the executor associated with the final completion handler provided by the user, so in our case, the actions will be something like this: on the initiating thread: logging_socket::async_write_some logging_socket::async_write_some_op::operator()() logging_socket::impl::update_logger(...) socket::async_write_some(...) ... time passes... on a thread associated with the associated executor: logging_socket::async_write_some_op::operator()(ec, bytes_transferred) logging_socket::impl::update_logger() user_completion_handler(ec, bytes_transferred) The situation will be similar for a write operation. Now consider the following code (ls is an object of our hypothetical type logging_socket: ls.async_write_some( get_tx_buffer(), net::bind_executor( net::system_executor(), [](auto ec, auto size){ /* what happens here is not relevant */ })); ls.async_read_some( get_rx_buffer(), net::bind_executor( net::system_executor(), [](auto ec, auto size){ /* what happens here is not relevant */ })); What have I done? Not much, simply initiated a read and a write at the same time - a perfectly normal state of affairs for a socket. The interesting part is that I have bound both asynchronous completion handlers to the system_executor. This means that each of the handlers will be invoked (without synchronisation) on two arbitrary threads. Looking at our pseudo-code above, it becomes clear that there will be a race for the logging_socket’s implementation: Between the initiation of the read and the completion of the write, and between the completion of the read and the completion of the write Again the Asio documentation is silent on the correct method of mitigating this situation. Two possible workarounds have occurred to me so far: Never use a system_executor unless first wrapping it in a strand. Ensure that all composed operations of IO objects are thread-safe with respect to mutation of the implementation. If this is made true, it almost inevitably follows that the entire IO Object may as well be made thread-safe (which Asio IO Objects are not). I have reached out to Chris for final judgement and will update the blog (and possibly much of Beast!) in response to a definitive answer. Unified Web Client I have been given the go-ahead to make a start on exploring a unified web-client library which will eventually become a candidate for inclusion into Boost. The obvious course of action, building directly on top of Beast is a no-go. If the library is to be used on platforms such as tablets and phones, or appear in the various app stores of vendors, there are restrictions on which implementations of communications libraries may be used. To cut a long story short, vendors want to minimise the risk of security vulnerabilities being introduced by people’s home-grown communications and encryption code. So my initial focus will be on establishing an object model that: Provides a high degree of utility (make simple things simple). Emulates or captures the subtleties of vendor’s Web Client frameworks. Efficiently slots into the Asio asynchronous completion model. Of course, linux and proprietary embedded systems do not have a mandated communications libraries, so there will certainly be heavy use of Beast in the unconstrained platform- specific code. More information as it becomes available." />
+<link rel="canonical" href="http://cppalliance.org/richard/2020/03/31/RichardsMarchUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2020/03/31/RichardsMarchUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-03-31T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s March Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Coding in the time of a Pandemic It has been an interesting month, there having been the minor distraction of a lockdown of our little country. The borders with Spain and France were closed about three weeks ago and all residents have been asked to stay at home other than to buy groceries or walk their dogs. Fortunately I have dogs so I at least have a legitimate reason to see the sun. One of the advantages of living in a tiny country is that the government has been able to secure the supply of 150,000 COVID-19 testing kits, which represents two tests per resident. They are also working on supplying every resident with masks for use when shopping. I am hoping to report in my next blog that we are allowed outside subject to a negative test and the wearing of a mask and gloves. Fortunately, until today, our internet has been uninterrupted. Communication with my friends and colleagues at the C++ Alliance and the wider developer community has continued. Boost Release The Boost 1.73 release is imminent. Thus much of my focus in the latter half of the month has been on addressing any remaining issues in Beast that represent an easy win in terms of demonstrating progress between releases. This brings to a close my first quarter as a maintainer of the Beast library. I would have liked to have produced more in terms of feature development and architectural improvements, but a few interesting things came up which delayed this; some of which I will share with you here. (Possibly) Interesting Asio Things To say that Boost.Beast has a strong dependency on Boost.Asio would be an understatement. It should therefore come as no surprise that the Beast team spend a lot of time working with Asio and (certainly in my case) a lot of time working to understand the internals. We had cause to reach out to Chris Kohlhoff, Asio’s author, on two occasions in recent times. If you read my February blog you would have seen the issues we have faced with the DynamicBuffer concept. This month it was about the thread-safety of composed operations and IO objects. But first, the result of a question I asked myself: Is it possible to write an asynchronous composed operation entirely as a lambda? In short, if you’re using c++14 or better, the answer is happily yes! Here is the smallest program I could think of: a: Implemented asynchronously b: Targeting a POSIX system (just because I happen to know more about POSIX than Windows) This program simply copies the contents of stdin to stdout: int main() { asio::io_context ioc; auto exec = ioc.get_executor(); auto in = asio::posix::stream_descriptor(exec, ::dup(STDIN_FILENO)); auto out = asio::posix::stream_descriptor(exec, ::dup(STDOUT_FILENO)); async_copy_all(in, out, [](auto&amp;&amp; ec, auto total){ std::cout &lt;&lt; &quot;\\ntransferred &quot; &lt;&lt; total &lt;&lt; &quot; bytes\\n&quot;; if (ec.failed()) { std::cerr &lt;&lt; &quot;transfer failure: &quot; &lt;&lt; ec.message() &lt;&lt; std::endl; std::exit(ec.value()); } }); ioc.run(); return 0; } People who are unused to writing composed operations (asynchronous operations that fit into the ASIO ecosystem), or people who have written them longer ago than last year, might at this stage feel their hearts sinking in anticipation of the complex horror show awaiting them when writing the function async_copy_all. Fortunately, Asio’s new(ish) async_compose template function makes this reasonably painless: template&lt;class InStream, class OutStream, class CompletionToken&gt; auto async_copy_all( InStream &amp;fd_in, OutStream &amp;fd_out, CompletionToken &amp;&amp;completion) { return asio::async_compose&lt; CompletionToken, void(system::error_code const &amp;,std::size_t)&gt;( [&amp;fd_in, &amp;fd_out, coro = asio::coroutine(), total = std::size_t(0), store = std::make_unique&lt;char[]&gt;(4096)] (auto &amp;self, system::error_code ec = {}, std::size_t bytes_transferred = 0) mutable { BOOST_ASIO_CORO_REENTER(coro) for(;;) { BOOST_ASIO_CORO_YIELD { auto buf = asio::buffer(store.get(), 4096); fd_in.async_read_some(buf, std::move(self)); } if (ec.failed() || bytes_transferred == 0) { if (ec == asio::error::eof) ec.clear(); return self.complete(ec, total); } BOOST_ASIO_CORO_YIELD { auto buf = asio::buffer(store.get(), bytes_transferred); fd_out.async_write_some(buf, std::move(self)); } total += bytes_transferred; if (ec.failed()) return self.complete(ec, total); } }, completion, fd_in, fd_out); } There are a few things to note in the implementation. The first is that the entire asynchronous operation’s implementation state is captured in the capture block of the lambda (this is why we need c++14 or higher) Secondly, the lambda is mutable. This is so we can update the state and then move it into the completion handler of each internal asynchronous operation. The second and third arguments of the lambda’s function signature are defaulted. This is because async_compose will cause the implementation (in this case, our lambda) to be called once with no arguments (other than self) during initiation. There is an explicit check for eof after the yielding call to fd_in.async_read_some. In Asio, eof is one of a few error codes that represents an informational condition rather than an actual error. Another is connection_aborted, which can occur during an accept operation on a TCP socket. Failing to check for this error-that-is-not-an-error can result in asio-based servers suddenly going quiet for ‘no apparent reason’. Notice that the un-named object created by async_compose intercepts every invocation on it and transfers control to our lambda by prepending a reference to itself to the argument list. The type of Self is actually a specialisation of an asio::detail::composed_op&lt;...&gt; (as at Boost 1.72). However, since this class is in the detail namespace, this should never be relied on in any program or library. Note that I create the buffer object buf in separate statements to the initiations of the async operations on the streams. This is because the unique_ptr called store is going to be moved during the initiating function call. Remember that arguments to function calls are evaluated in unknowable order in c++, so accessing store in the same statement in which the entire completion handler has been moved would result in UB. Finally, async_compose is passed both the input and output stream (in addition to their references being captured in the lambda) so that both streams’ associated executors can be informed that there is outstanding work. It may be surprising to some that the input and output streams may legally be associated with different executors. Actually, now that I write this, it occurs to me that it is unclear to me what is the ‘associated executor’ of the composed operation we just created. Asio’s documentation is silent on the subject. Inspecting the code while single-stepping through a debug build revealed that the executor is taken from the first of the io_objects_or_executors&amp;&amp;... arguments to async_compose which itself has an associated executor. If none of them do, then the system_executor is chosen as the default executor (more on why this may cause surprises and headaches later). Note that as always, wrapping the lambda in a call to bind_executor will force the composed operation’s intermediate invocations to happen on the bound executor. In our case, it is fd_in which will be providing the executor and as a result, every invocation of our lambda (except the first) is guaranteed to be happen by being invoked as if by post(fd_in.get_executor(), &lt;lambda&gt;(...)). system_executor and “What Could Possibly Go Wrong?” Once upon a time, when I first started using Asio, there were no executors at all. In fact, there were no io_contexts either. There was an io_service object. At some point (I don’t remember the exact version of Asio, but it was at least five years ago) the io_service was replace with io_context, an object which did basically the same job. More recently, the io_context represents the shared state of a model of the Executor Named Type Requirement (aka Concept). The state of the art is moving towards passing copies of Executors rather than references to io_contexts. Asio now contains a concrete type, the executor which is a type-erased wrapper which may be assigned any any class which models an Executor. As you might expect, we are heading into a world where there might be more than one model of Executor. In anticipation of this, by default, all Asio IO objects are now associated with the polymorphic wrapper type executor rather than a io_context::executor_type. One such model of Executor supplied by Asio is the system_executor, which is actually chosen as the default associated executor of any completion handler. That is, if you initiate an asynchronous operation in Asio today, against a hypothetical io_object that does not have an associated executor and you do not bind your handler to an executor of your own, then your handler will be invoked as-if by post(asio::system_executor(), &lt;handler&gt;) - that is, it will be called on some implementation-defined thread. Now that the basics are covered, back to what could possibly go wrong? Well imagine a hypothetical home-grown IO Object or AsyncStream. Older versions of the Asio documentation used to include an example user IO Object, the logging socket. The basic premise of our logging socket is that it will do everything a socket will do, plus log the sending and receiving of data, along with the error codes associated with each read or write operation. Clearly the implementation of this object will contain an asio socket object and some kind of logger. The internal state must be touched on every asynchronous operation initiation (to actually initiate the underlying operation and record the event) and during every completion handler invocation, in order to update the logger with the results of the asynchronous operation. As we know, invocations of intermediate completion handlers happen on the executor associated with the final completion handler provided by the user, so in our case, the actions will be something like this: on the initiating thread: logging_socket::async_write_some logging_socket::async_write_some_op::operator()() logging_socket::impl::update_logger(...) socket::async_write_some(...) ... time passes... on a thread associated with the associated executor: logging_socket::async_write_some_op::operator()(ec, bytes_transferred) logging_socket::impl::update_logger() user_completion_handler(ec, bytes_transferred) The situation will be similar for a write operation. Now consider the following code (ls is an object of our hypothetical type logging_socket: ls.async_write_some( get_tx_buffer(), net::bind_executor( net::system_executor(), [](auto ec, auto size){ /* what happens here is not relevant */ })); ls.async_read_some( get_rx_buffer(), net::bind_executor( net::system_executor(), [](auto ec, auto size){ /* what happens here is not relevant */ })); What have I done? Not much, simply initiated a read and a write at the same time - a perfectly normal state of affairs for a socket. The interesting part is that I have bound both asynchronous completion handlers to the system_executor. This means that each of the handlers will be invoked (without synchronisation) on two arbitrary threads. Looking at our pseudo-code above, it becomes clear that there will be a race for the logging_socket’s implementation: Between the initiation of the read and the completion of the write, and between the completion of the read and the completion of the write Again the Asio documentation is silent on the correct method of mitigating this situation. Two possible workarounds have occurred to me so far: Never use a system_executor unless first wrapping it in a strand. Ensure that all composed operations of IO objects are thread-safe with respect to mutation of the implementation. If this is made true, it almost inevitably follows that the entire IO Object may as well be made thread-safe (which Asio IO Objects are not). I have reached out to Chris for final judgement and will update the blog (and possibly much of Beast!) in response to a definitive answer. Unified Web Client I have been given the go-ahead to make a start on exploring a unified web-client library which will eventually become a candidate for inclusion into Boost. The obvious course of action, building directly on top of Beast is a no-go. If the library is to be used on platforms such as tablets and phones, or appear in the various app stores of vendors, there are restrictions on which implementations of communications libraries may be used. To cut a long story short, vendors want to minimise the risk of security vulnerabilities being introduced by people’s home-grown communications and encryption code. So my initial focus will be on establishing an object model that: Provides a high degree of utility (make simple things simple). Emulates or captures the subtleties of vendor’s Web Client frameworks. Efficiently slots into the Asio asynchronous completion model. Of course, linux and proprietary embedded systems do not have a mandated communications libraries, so there will certainly be heavy use of Beast in the unconstrained platform- specific code. More information as it becomes available.","@type":"BlogPosting","url":"http://cppalliance.org/richard/2020/03/31/RichardsMarchUpdate.html","headline":"Richard’s March Update","dateModified":"2020-03-31T00:00:00+00:00","datePublished":"2020-03-31T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2020/03/31/RichardsMarchUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's March Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Mar 31, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="coding-in-the-time-of-a-pandemic">Coding in the time of a Pandemic</h1>
+
+<p>It has been an interesting month, there having been the minor distraction of a lockdown of our
+little country. The borders with Spain and France were closed about three weeks ago and
+all residents have been asked to stay at home other than to buy groceries or walk their dogs.
+Fortunately I have dogs so I at least have a legitimate reason to see the sun.</p>
+
+<p>One of the advantages of living in a tiny country is that the government has been able to
+secure the supply of 150,000 COVID-19 testing kits, which represents two tests per resident.
+They are also working on supplying every resident with masks for use when shopping.
+I am hoping to report in my next blog that we are allowed outside subject to a negative
+test and the wearing of a mask and gloves.</p>
+
+<p>Fortunately, until today, our internet has been uninterrupted. Communication with my friends
+and colleagues at the C++ Alliance and the wider developer community has continued.</p>
+
+<h1 id="boost-release">Boost Release</h1>
+
+<p>The Boost 1.73 release is imminent. Thus much of my focus in the latter half of the month has
+been on addressing any remaining issues in Beast that represent an easy win in terms of
+demonstrating progress between releases.</p>
+
+<p>This brings to a close my first quarter as a maintainer of the Beast library. I would have
+liked to have produced more in terms of feature development and architectural improvements,
+but a few interesting things came up which delayed this; some of which I will share with you
+here.</p>
+
+<h1 id="possibly-interesting-asio-things">(Possibly) Interesting Asio Things</h1>
+
+<p>To say that Boost.Beast has a strong dependency on Boost.Asio would be an understatement. It
+should therefore come as no surprise that the Beast team spend a lot of time working with
+Asio and (certainly in my case) a lot of time working to understand the internals.</p>
+
+<p>We had cause to reach out to Chris Kohlhoff, Asio’s author, on two occasions in recent
+times. If you read my February blog you would have seen the issues we have faced with the
+<code>DynamicBuffer</code> concept. This month it was about the thread-safety of composed operations and
+IO objects.</p>
+
+<p>But first, the result of a question I asked myself:</p>
+
+<h2 id="is-it-possible-to-write-an-asynchronous-composed-operation-entirely-as-a-lambda">Is it possible to write an asynchronous composed operation entirely as a lambda?</h2>
+
+<p>In short, if you’re using c++14 or better, the answer is happily yes!</p>
+
+<p>Here is the smallest program I could think of:</p>
+
+<p>a: Implemented asynchronously</p>
+
+<p>b: Targeting a POSIX system (just because I happen to know more about POSIX than Windows)</p>
+
+<p>This program simply copies the contents of <code>stdin</code> to <code>stdout</code>:</p>
+
+<pre><code class="language-cpp">int
+main()
+{
+    asio::io_context ioc;
+    auto exec = ioc.get_executor();
+
+    auto in = asio::posix::stream_descriptor(exec, ::dup(STDIN_FILENO));
+    auto out = asio::posix::stream_descriptor(exec, ::dup(STDOUT_FILENO));
+
+    async_copy_all(in, out, [](auto&amp;&amp; ec, auto total){
+        std::cout &lt;&lt; "\ntransferred " &lt;&lt; total &lt;&lt; " bytes\n";
+        if (ec.failed())
+        {
+            std::cerr &lt;&lt; "transfer failure: " &lt;&lt; ec.message() &lt;&lt; std::endl;
+            std::exit(ec.value());
+        }
+    });
+
+    ioc.run();
+
+    return 0;
+}
+</code></pre>
+
+<p>People who are unused to writing composed operations (asynchronous operations that fit into
+the  ASIO ecosystem), or people who have written them longer ago than last year, might at
+this stage feel their hearts sinking in anticipation of the complex horror show awaiting
+them when writing the function <code>async_copy_all</code>.</p>
+
+<p>Fortunately, Asio’s new(ish) <code>async_compose</code> template function makes this reasonably
+painless:</p>
+
+<pre><code class="language-cpp">template&lt;class InStream, class OutStream, class CompletionToken&gt;
+auto
+async_copy_all(
+    InStream &amp;fd_in,
+    OutStream &amp;fd_out,
+    CompletionToken &amp;&amp;completion)
+{
+    return asio::async_compose&lt;
+        CompletionToken,
+        void(system::error_code const &amp;,std::size_t)&gt;(
+            [&amp;fd_in, &amp;fd_out,
+                    coro = asio::coroutine(),
+                    total = std::size_t(0),
+                    store = std::make_unique&lt;char[]&gt;(4096)]
+               (auto &amp;self,
+                system::error_code ec = {},
+                std::size_t bytes_transferred = 0) mutable
+        {
+            BOOST_ASIO_CORO_REENTER(coro)
+            for(;;)
+            {
+                BOOST_ASIO_CORO_YIELD
+                {
+                    auto buf = asio::buffer(store.get(), 4096);
+                    fd_in.async_read_some(buf, std::move(self));
+                }
+                if (ec.failed() || bytes_transferred == 0)
+                {
+                    if (ec == asio::error::eof)
+                        ec.clear();
+                    return self.complete(ec, total);
+                }
+
+                BOOST_ASIO_CORO_YIELD
+                {
+                    auto buf = asio::buffer(store.get(), bytes_transferred);
+                    fd_out.async_write_some(buf, std::move(self));
+                }
+                total += bytes_transferred;
+                if (ec.failed())
+                    return self.complete(ec, total);
+            }
+        },
+        completion, fd_in, fd_out);
+}
+</code></pre>
+
+<p>There are a few things to note in the implementation.</p>
+
+<ol>
+  <li>The first is that the entire asynchronous operation’s implementation state is captured
+in the capture block of the lambda (this is why we need c++14 or higher)</li>
+  <li>Secondly, the lambda is mutable. This is so we can update the state and then <code>move</code> it
+into the completion handler of each internal asynchronous operation.</li>
+  <li>The second and third arguments of the lambda’s function signature are defaulted. This is
+because <code>async_compose</code> will cause the implementation (in this case, our lambda) to be called
+once with no arguments (other than <code>self</code>) during initiation.</li>
+  <li>There is an explicit check for <code>eof</code> after the yielding call to <code>fd_in.async_read_some</code>.
+In Asio, <code>eof</code> is one of a few error codes that represents an informational condition
+rather than an actual error. Another is <code>connection_aborted</code>, which can occur during
+an <code>accept</code> operation on a TCP socket. Failing to check for this error-that-is-not-an-error
+can result in asio-based servers suddenly going quiet for ‘no apparent reason’.</li>
+  <li>Notice that the un-named object created by <code>async_compose</code> intercepts every invocation on
+it and transfers control to our lambda by prepending a reference to itself to the argument
+list. The type of <code>Self</code> is actually a specialisation of an <code>asio::detail::composed_op&lt;...&gt;</code>
+(as at Boost 1.72). However, since this class is in the detail namespace, this should never
+be relied on in any program or library.</li>
+  <li>Note that I create the buffer object <code>buf</code> in separate statements to the initiations of
+the async operations on the streams. This is because the <code>unique_ptr</code> called <code>store</code> is going
+to be <code>move</code>d during the initiating function call. Remember that arguments to function calls
+are evaluated in unknowable order in c++, so accessing <code>store</code> in the same statement in
+which the entire completion handler has been <code>move</code>d would result in UB.</li>
+  <li>Finally, <code>async_compose</code> is passed both the input and output stream (in addition to their
+references being captured in the lambda) so that both streams’ associated executors can be
+informed that there is outstanding work. It may be surprising to some that the input and
+output streams may legally be associated with different executors.</li>
+</ol>
+
+<p>Actually, now that I write this, it occurs to me that it is unclear to me what is the
+‘associated executor’ of the composed operation we just created. Asio’s documentation is
+silent on the subject.</p>
+
+<p>Inspecting the code while single-stepping through a debug build revealed that the executor is
+taken from the first of the <code>io_objects_or_executors&amp;&amp;...</code> arguments to <code>async_compose</code> which
+itself has an associated executor. If none of them do, then the <code>system_executor</code> is chosen as
+the default executor (more on why this may cause surprises and headaches later). Note that as
+always, wrapping the lambda in a call to <code>bind_executor</code> will force the composed operation’s
+intermediate invocations to happen on the bound executor.</p>
+
+<p>In our case, it is <code>fd_in</code> which will be providing the executor and as a result, every
+invocation of our lambda (except the first) is guaranteed to be happen by being invoked
+as if by <code>post(fd_in.get_executor(), &lt;lambda&gt;(...))</code>.</p>
+
+<h2 id="system_executor-and-what-could-possibly-go-wrong"><code>system_executor</code> and “What Could Possibly Go Wrong?”</h2>
+
+<p>Once upon a time, when I first started using Asio, there were no <code>executor</code>s at all. In
+fact, there were no <code>io_context</code>s either. There was an <code>io_service</code> object. At some point
+(I don’t remember the exact version of Asio, but it was at least five years ago) the
+<code>io_service</code> was replace with <code>io_context</code>, an object which did basically the same job.</p>
+
+<p>More recently, the <code>io_context</code> represents the shared state of a model of the <code>Executor</code>
+Named Type Requirement (aka Concept). The state of the art is moving towards passing copies
+of <code>Executor</code>s rather than references to <code>io_context</code>s.</p>
+
+<p>Asio now contains a concrete type, the <code>executor</code> which is a type-erased wrapper which
+may be assigned any any class which models an <code>Executor</code>.</p>
+
+<p>As you might expect, we are heading into a world where there might be more than one model
+of <code>Executor</code>. In anticipation of this, by default, all Asio IO objects are now associated
+with the polymorphic wrapper type <code>executor</code> rather than a <code>io_context::executor_type</code>.</p>
+
+<p>One such model of <code>Executor</code> supplied by Asio is the <code>system_executor</code>, which is actually
+chosen as the default associated executor of any completion handler. That is, if you initiate
+an asynchronous operation in Asio today, against a hypothetical io_object that does not have
+an associated executor and you do not bind your handler to an executor of your own, then
+your handler will be invoked as-if by <code>post(asio::system_executor(), &lt;handler&gt;)</code> - that is,
+it will be called on some implementation-defined thread.</p>
+
+<p>Now that the basics are covered, back to <em>what could possibly go wrong</em>?</p>
+
+<p>Well imagine a hypothetical home-grown IO Object or <em>AsyncStream</em>. Older versions of the Asio
+documentation used to include an example user IO Object, the logging socket.</p>
+
+<p>The basic premise of our logging socket is that it will do everything a socket will do, plus
+log the sending and receiving of data, along with the error codes associated with each read
+or write operation.</p>
+
+<p>Clearly the implementation of this object will contain an asio socket object and some kind of
+logger. The internal state must be touched on every asynchronous operation initiation (to
+actually initiate the underlying operation and record the event) <em>and</em> during every
+completion handler invocation, in order to update the logger with the results of the
+asynchronous operation.</p>
+
+<p>As we know, invocations of intermediate completion handlers happen on the executor associated
+with the final completion handler provided by the user, so in our case, the actions will be
+something like this:</p>
+
+<pre><code>on the initiating thread:
+  logging_socket::async_write_some
+    logging_socket::async_write_some_op::operator()()
+      logging_socket::impl::update_logger(...)
+      socket::async_write_some(...)
+
+... time passes...
+
+on a thread associated with the associated executor:
+  logging_socket::async_write_some_op::operator()(ec, bytes_transferred)
+    logging_socket::impl::update_logger()
+    user_completion_handler(ec, bytes_transferred)
+</code></pre>
+
+<p>The situation will be similar for a write operation.</p>
+
+<p>Now consider the following code (<code>ls</code> is an object of our hypothetical type <code>logging_socket</code>:</p>
+
+<pre><code class="language-cpp">  ls.async_write_some(
+    get_tx_buffer(),
+    net::bind_executor(
+      net::system_executor(),
+      [](auto ec, auto size){
+        /* what happens here is not relevant */
+      }));
+  ls.async_read_some(
+    get_rx_buffer(),
+    net::bind_executor(
+      net::system_executor(),
+      [](auto ec, auto size){
+        /* what happens here is not relevant */
+      }));
+</code></pre>
+
+<p>What have I done? Not much, simply initiated a read and a write at the same time - a
+perfectly normal state of affairs for a socket. The interesting part is that I have
+bound both asynchronous completion handlers to the <code>system_executor</code>. This means that
+each of the handlers will be invoked (without synchronisation) on two arbitrary threads.</p>
+
+<p>Looking at our pseudo-code above, it becomes clear that there will be a race for the
+<code>logging_socket</code>’s implementation:</p>
+
+<ul>
+  <li>Between the initiation of the read and the completion of the write, and</li>
+  <li>between the completion of the read and the completion of the write</li>
+</ul>
+
+<p>Again the Asio documentation is silent on the correct method of mitigating this situation.
+Two possible workarounds have occurred to me so far:</p>
+
+<ol>
+  <li>Never use a <code>system_executor</code> unless first wrapping it in a <code>strand</code>.</li>
+  <li>Ensure that all composed operations of IO objects are thread-safe with respect to
+mutation of the implementation. If this is made true, it almost inevitably follows that
+the entire IO Object may as well be made thread-safe (which Asio IO Objects are not).</li>
+</ol>
+
+<p>I have reached out to Chris for final judgement and will update the blog (and possibly much
+of Beast!) in response to a definitive answer.</p>
+
+<h1 id="unified-web-client">Unified Web Client</h1>
+
+<p>I have been given the go-ahead to make a start on exploring a unified web-client library
+which will eventually become a candidate for inclusion into Boost.</p>
+
+<p>The obvious course of action, building directly on top of Beast is a no-go. If the
+library is to be used on platforms such as tablets and phones, or appear in the various
+app stores of vendors, there are restrictions on which implementations of communications
+libraries may be used. To cut a long story short, vendors want to minimise the risk of
+security vulnerabilities being introduced by people’s home-grown communications and
+encryption code.</p>
+
+<p>So my initial focus will be on establishing an object model that:</p>
+
+<ul>
+  <li>Provides a high degree of utility (make simple things simple).</li>
+  <li>Emulates or captures the subtleties of vendor’s Web Client frameworks.</li>
+  <li>Efficiently slots into the Asio asynchronous completion model.</li>
+</ul>
+
+<p>Of course, linux and proprietary embedded systems do not have a mandated communications
+libraries, so there will certainly be heavy use of Beast in the unconstrained platform-
+specific code.</p>
+
+<p>More information as it becomes available.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

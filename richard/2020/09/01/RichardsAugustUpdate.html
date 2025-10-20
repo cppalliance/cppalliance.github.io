@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's August Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s August Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s August Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="New Debugging Feature in Asio and Beast As covered previously, Boost 1.74 brought an implementation of the new unified executors model to Boost.Asio. Support for this is not the only thing that is new in Beast. Chris Kohlhoff recently submitted a PR to Beast’s repository demonstrating how to annotate source code with the BOOST_ASIO_HANDLER_LOCATION macro. I have since followed up and annotated all asynchronous operations in Beast this way. In a normal build, there is no effect (and zero extra code generation). However, defining the preprocessor macro BOOST_ASIO_ENABLE_HANDLER_TRACKING will cause these macros to generate code which will emit handler tracking log data to stdout in a very specific format. The output is designed to describe the flow of asynchronous events in a format suitable for generating a visualisation in linear terms. i.e. the asynchronous events are flattened and linked to show causality. Here is an example of the output: @asio|1597543084.233257|&gt;33| @asio|1597543084.233273|33|deadline_timer@0x7fa6cac25218.cancel @asio|1597543084.233681|33^34|in &#39;basic_stream::async_write_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:321) @asio|1597543084.233681|33^34|called from &#39;async_write&#39; (../../../../../../boost/asio/impl/write.hpp:331) @asio|1597543084.233681|33^34|called from &#39;ssl::stream&lt;&gt;::async_write_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:201) @asio|1597543084.233681|33^34|called from &#39;http::async_write_some&#39; (../../../../../../boost/beast/http/impl/write.hpp:64) @asio|1597543084.233681|33^34|called from &#39;http::async_write&#39; (../../../../../../boost/beast/http/impl/write.hpp:223) @asio|1597543084.233681|33^34|called from &#39;http::async_write(msg)&#39; (../../../../../../boost/beast/http/impl/write.hpp:277) @asio|1597543084.233681|33*34|deadline_timer@0x7fa6cac25298.async_wait @asio|1597543084.233801|33^35|in &#39;basic_stream::async_write_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:373) @asio|1597543084.233801|33^35|called from &#39;async_write&#39; (../../../../../../boost/asio/impl/write.hpp:331) @asio|1597543084.233801|33^35|called from &#39;ssl::stream&lt;&gt;::async_write_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:201) @asio|1597543084.233801|33^35|called from &#39;http::async_write_some&#39; (../../../../../../boost/beast/http/impl/write.hpp:64) @asio|1597543084.233801|33^35|called from &#39;http::async_write&#39; (../../../../../../boost/beast/http/impl/write.hpp:223) @asio|1597543084.233801|33^35|called from &#39;http::async_write(msg)&#39; (../../../../../../boost/beast/http/impl/write.hpp:277) @asio|1597543084.233801|33*35|socket@0x7fa6cac251c8.async_send @asio|1597543084.233910|.35|non_blocking_send,ec=system:0,bytes_transferred=103 @asio|1597543084.233949|&lt;33| @asio|1597543084.233983|&lt;31| @asio|1597543084.234031|&gt;30|ec=system:89 @asio|1597543084.234045|30*36|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234054|&gt;36| @asio|1597543084.234064|&lt;36| @asio|1597543084.234072|&lt;30| @asio|1597543084.234086|&gt;35|ec=system:0,bytes_transferred=103 @asio|1597543084.234100|35*37|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234109|&gt;37| @asio|1597543084.234119|37|deadline_timer@0x7fa6cac25298.cancel @asio|1597543084.234198|37^38|in &#39;basic_stream::async_read_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:321) @asio|1597543084.234198|37^38|called from &#39;ssl::stream&lt;&gt;::async_read_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:168) @asio|1597543084.234198|37^38|called from &#39;http::async_read_some&#39; (../../../../../../boost/beast/http/impl/read.hpp:212) @asio|1597543084.234198|37^38|called from &#39;http::async_read&#39; (../../../../../../boost/beast/http/impl/read.hpp:297) @asio|1597543084.234198|37^38|called from &#39;http::async_read(msg)&#39; (../../../../../../boost/beast/http/impl/read.hpp:101) @asio|1597543084.234198|37*38|deadline_timer@0x7fa6cac25218.async_wait @asio|1597543084.234288|37^39|in &#39;basic_stream::async_read_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:373) @asio|1597543084.234288|37^39|called from &#39;ssl::stream&lt;&gt;::async_read_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:168) @asio|1597543084.234288|37^39|called from &#39;http::async_read_some&#39; (../../../../../../boost/beast/http/impl/read.hpp:212) @asio|1597543084.234288|37^39|called from &#39;http::async_read&#39; (../../../../../../boost/beast/http/impl/read.hpp:297) @asio|1597543084.234288|37^39|called from &#39;http::async_read(msg)&#39; (../../../../../../boost/beast/http/impl/read.hpp:101) @asio|1597543084.234288|37*39|socket@0x7fa6cac251c8.async_receive @asio|1597543084.234334|.39|non_blocking_recv,ec=system:35,bytes_transferred=0 @asio|1597543084.234353|&lt;37| @asio|1597543084.234364|&lt;35| @asio|1597543084.234380|&gt;34|ec=system:89 @asio|1597543084.234392|34*40|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234401|&gt;40| @asio|1597543084.234408|&lt;40| @asio|1597543084.234416|&lt;34| @asio|1597543084.427594|.39|non_blocking_recv,ec=system:0,bytes_transferred=534 @asio|1597543084.427680|&gt;39|ec=system:0,bytes_transferred=534 So far, so good. But not very informative or friendly to the native eye. Fortunately as of Boost 1.74 there is a tool in the Asio source tree to convert this data into something consumable by the open source tool dot, which can then output the resulting execution graph in one of a number of common graphical formats such as PNG, BMP, SVG and many others. Here is an example of a visualisation of a simple execution graph: The tool you need to do this is in the asio subproject of the Boost repo. The full path is libs/asio/tools/handlerviz.pl. The command is self-documenting but for clarity, the process would be like this: Compile and link your program with the compiler flag -DBOOST_ASIO_ENABLE_HANDLER_TRACKING run your program, capturing stdout to a file (say mylog.txt) (or you can pipe it to the next step) handlerviz.pl &lt; mylog.txt | dot -Tpng mygraph.png You should now be able to view your graph in a web browser, editor or picture viewer. The documentation for dot is here dot is usually available in the graphviz package of your linux distro/brew cask. Windows users can download an executable suite here. If you have written your own asynchronous operations to compliment Beast or Asio, or indeed you just wish you add your handler locations to the graph output, you can do so by inserting the BOOST_ASIO_HANDLER_LOCATION macro just before each asynchronous suspension point (i.e. just before the call to async_xxx). If you’re doing this in an Asio coroutine (not to be confused with C++ coroutines) then be sure to place the macro in curly braces after the YIELD macro, for example: ... // this marks a suspension point of the coroutine BOOST_ASIO_CORO_YIELD { // This macro creates scoped variables so must be in a private scope BOOST_ASIO_HANDLER_LOCATION(( // note: double open brackets __FILE__, __LINE__, // source location &quot;websocket::tcp::async_teardown&quot; // name of the initiating function )); // this is the initiation of the next inner asynchronous operation s_.async_wait( net::socket_base::wait_read, beast::detail::bind_continuation(std::move(*this))); // there is an implied return statement here } ... When writing applications, people historically have used Continuation Passing Style when calling asynchronous operations, capturing a shared_ptr to the connection implementation in each handler (continuation). When using this macro in user code with written in continuation passing style, you might do so like this: void send_request(http::request&lt;http::string_body&gt; req) { send_queue_.push_back(std::move(req)); if (!sending_) { sending_ = true; maybe_initiate_send(); } } void my_connection_impl::maybe_initiate_send() { if (send_queue_.empty()) { sending_ = false; return; } // assume request_queue_ is a std::deque so elements will have stable addresses auto&amp; current_request = request_queue_.front(); BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::maybe_initiate_send&quot; )); // suspension point boost::beast::http::async_write(stream_, current_request_, [self = this-&gt;shared_from_this()](boost::beast::error_code ec, std::size_t) { // continuation if (!ec) { self-&gt;request_queue_.pop_front(); self-&gt;maybe_initiate_send(); } else { // handle error } }); } If you’re using c++ coroutines it becomes a little more complicated as you want the lifetime of the tracking state to be destroyed after the asynchronous initiation function but before the coroutine continuation: namespace net = boost::asio; namespace http = boost::beast::http; auto connect_and_send( boost::asio::ip::tcp::socket&amp; stream, std::string host, std::string port, http::request&lt;http::string_body&gt; req) -&gt; net::awaitable&lt;void&gt; { namespace net = boost::asio; auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor); // suspension point coming up auto oresults = std::optional&lt;net::awaitable&lt;net::ip::tcp::resolver::results_type&gt;&gt;(); { BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::connect_and_send&quot; )); oresults.emplace(resolver.async_resolve(host, port, net::use_awaitable)); } auto results = co_await std::move(*oresults); auto oconnect = std::optional&lt;net::awaitable&lt;net::ip::tcp::endpoint&gt;&gt;(); { BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::connect_and_send&quot; )); oconnect.emplace(net::async_connect(stream, results, net::use_awaitable)); } auto ep = co_await *std::move(oconnect); // ... and so on ... } Which might look a little unwieldy compared to the unannotated code, which could look like this: auto connect_and_send( boost::asio::ip::tcp::socket&amp; stream, std::string host, std::string port, http::request&lt;http::string_body&gt; req) -&gt; net::awaitable&lt;void&gt; { namespace net = boost::asio; auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor); auto ep = co_await net::async_connect(stream, co_await resolver.async_resolve(host, port, net::use_awaitable), net::use_awaitable); // ... and so on ... }" />
+<meta property="og:description" content="New Debugging Feature in Asio and Beast As covered previously, Boost 1.74 brought an implementation of the new unified executors model to Boost.Asio. Support for this is not the only thing that is new in Beast. Chris Kohlhoff recently submitted a PR to Beast’s repository demonstrating how to annotate source code with the BOOST_ASIO_HANDLER_LOCATION macro. I have since followed up and annotated all asynchronous operations in Beast this way. In a normal build, there is no effect (and zero extra code generation). However, defining the preprocessor macro BOOST_ASIO_ENABLE_HANDLER_TRACKING will cause these macros to generate code which will emit handler tracking log data to stdout in a very specific format. The output is designed to describe the flow of asynchronous events in a format suitable for generating a visualisation in linear terms. i.e. the asynchronous events are flattened and linked to show causality. Here is an example of the output: @asio|1597543084.233257|&gt;33| @asio|1597543084.233273|33|deadline_timer@0x7fa6cac25218.cancel @asio|1597543084.233681|33^34|in &#39;basic_stream::async_write_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:321) @asio|1597543084.233681|33^34|called from &#39;async_write&#39; (../../../../../../boost/asio/impl/write.hpp:331) @asio|1597543084.233681|33^34|called from &#39;ssl::stream&lt;&gt;::async_write_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:201) @asio|1597543084.233681|33^34|called from &#39;http::async_write_some&#39; (../../../../../../boost/beast/http/impl/write.hpp:64) @asio|1597543084.233681|33^34|called from &#39;http::async_write&#39; (../../../../../../boost/beast/http/impl/write.hpp:223) @asio|1597543084.233681|33^34|called from &#39;http::async_write(msg)&#39; (../../../../../../boost/beast/http/impl/write.hpp:277) @asio|1597543084.233681|33*34|deadline_timer@0x7fa6cac25298.async_wait @asio|1597543084.233801|33^35|in &#39;basic_stream::async_write_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:373) @asio|1597543084.233801|33^35|called from &#39;async_write&#39; (../../../../../../boost/asio/impl/write.hpp:331) @asio|1597543084.233801|33^35|called from &#39;ssl::stream&lt;&gt;::async_write_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:201) @asio|1597543084.233801|33^35|called from &#39;http::async_write_some&#39; (../../../../../../boost/beast/http/impl/write.hpp:64) @asio|1597543084.233801|33^35|called from &#39;http::async_write&#39; (../../../../../../boost/beast/http/impl/write.hpp:223) @asio|1597543084.233801|33^35|called from &#39;http::async_write(msg)&#39; (../../../../../../boost/beast/http/impl/write.hpp:277) @asio|1597543084.233801|33*35|socket@0x7fa6cac251c8.async_send @asio|1597543084.233910|.35|non_blocking_send,ec=system:0,bytes_transferred=103 @asio|1597543084.233949|&lt;33| @asio|1597543084.233983|&lt;31| @asio|1597543084.234031|&gt;30|ec=system:89 @asio|1597543084.234045|30*36|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234054|&gt;36| @asio|1597543084.234064|&lt;36| @asio|1597543084.234072|&lt;30| @asio|1597543084.234086|&gt;35|ec=system:0,bytes_transferred=103 @asio|1597543084.234100|35*37|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234109|&gt;37| @asio|1597543084.234119|37|deadline_timer@0x7fa6cac25298.cancel @asio|1597543084.234198|37^38|in &#39;basic_stream::async_read_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:321) @asio|1597543084.234198|37^38|called from &#39;ssl::stream&lt;&gt;::async_read_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:168) @asio|1597543084.234198|37^38|called from &#39;http::async_read_some&#39; (../../../../../../boost/beast/http/impl/read.hpp:212) @asio|1597543084.234198|37^38|called from &#39;http::async_read&#39; (../../../../../../boost/beast/http/impl/read.hpp:297) @asio|1597543084.234198|37^38|called from &#39;http::async_read(msg)&#39; (../../../../../../boost/beast/http/impl/read.hpp:101) @asio|1597543084.234198|37*38|deadline_timer@0x7fa6cac25218.async_wait @asio|1597543084.234288|37^39|in &#39;basic_stream::async_read_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:373) @asio|1597543084.234288|37^39|called from &#39;ssl::stream&lt;&gt;::async_read_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:168) @asio|1597543084.234288|37^39|called from &#39;http::async_read_some&#39; (../../../../../../boost/beast/http/impl/read.hpp:212) @asio|1597543084.234288|37^39|called from &#39;http::async_read&#39; (../../../../../../boost/beast/http/impl/read.hpp:297) @asio|1597543084.234288|37^39|called from &#39;http::async_read(msg)&#39; (../../../../../../boost/beast/http/impl/read.hpp:101) @asio|1597543084.234288|37*39|socket@0x7fa6cac251c8.async_receive @asio|1597543084.234334|.39|non_blocking_recv,ec=system:35,bytes_transferred=0 @asio|1597543084.234353|&lt;37| @asio|1597543084.234364|&lt;35| @asio|1597543084.234380|&gt;34|ec=system:89 @asio|1597543084.234392|34*40|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234401|&gt;40| @asio|1597543084.234408|&lt;40| @asio|1597543084.234416|&lt;34| @asio|1597543084.427594|.39|non_blocking_recv,ec=system:0,bytes_transferred=534 @asio|1597543084.427680|&gt;39|ec=system:0,bytes_transferred=534 So far, so good. But not very informative or friendly to the native eye. Fortunately as of Boost 1.74 there is a tool in the Asio source tree to convert this data into something consumable by the open source tool dot, which can then output the resulting execution graph in one of a number of common graphical formats such as PNG, BMP, SVG and many others. Here is an example of a visualisation of a simple execution graph: The tool you need to do this is in the asio subproject of the Boost repo. The full path is libs/asio/tools/handlerviz.pl. The command is self-documenting but for clarity, the process would be like this: Compile and link your program with the compiler flag -DBOOST_ASIO_ENABLE_HANDLER_TRACKING run your program, capturing stdout to a file (say mylog.txt) (or you can pipe it to the next step) handlerviz.pl &lt; mylog.txt | dot -Tpng mygraph.png You should now be able to view your graph in a web browser, editor or picture viewer. The documentation for dot is here dot is usually available in the graphviz package of your linux distro/brew cask. Windows users can download an executable suite here. If you have written your own asynchronous operations to compliment Beast or Asio, or indeed you just wish you add your handler locations to the graph output, you can do so by inserting the BOOST_ASIO_HANDLER_LOCATION macro just before each asynchronous suspension point (i.e. just before the call to async_xxx). If you’re doing this in an Asio coroutine (not to be confused with C++ coroutines) then be sure to place the macro in curly braces after the YIELD macro, for example: ... // this marks a suspension point of the coroutine BOOST_ASIO_CORO_YIELD { // This macro creates scoped variables so must be in a private scope BOOST_ASIO_HANDLER_LOCATION(( // note: double open brackets __FILE__, __LINE__, // source location &quot;websocket::tcp::async_teardown&quot; // name of the initiating function )); // this is the initiation of the next inner asynchronous operation s_.async_wait( net::socket_base::wait_read, beast::detail::bind_continuation(std::move(*this))); // there is an implied return statement here } ... When writing applications, people historically have used Continuation Passing Style when calling asynchronous operations, capturing a shared_ptr to the connection implementation in each handler (continuation). When using this macro in user code with written in continuation passing style, you might do so like this: void send_request(http::request&lt;http::string_body&gt; req) { send_queue_.push_back(std::move(req)); if (!sending_) { sending_ = true; maybe_initiate_send(); } } void my_connection_impl::maybe_initiate_send() { if (send_queue_.empty()) { sending_ = false; return; } // assume request_queue_ is a std::deque so elements will have stable addresses auto&amp; current_request = request_queue_.front(); BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::maybe_initiate_send&quot; )); // suspension point boost::beast::http::async_write(stream_, current_request_, [self = this-&gt;shared_from_this()](boost::beast::error_code ec, std::size_t) { // continuation if (!ec) { self-&gt;request_queue_.pop_front(); self-&gt;maybe_initiate_send(); } else { // handle error } }); } If you’re using c++ coroutines it becomes a little more complicated as you want the lifetime of the tracking state to be destroyed after the asynchronous initiation function but before the coroutine continuation: namespace net = boost::asio; namespace http = boost::beast::http; auto connect_and_send( boost::asio::ip::tcp::socket&amp; stream, std::string host, std::string port, http::request&lt;http::string_body&gt; req) -&gt; net::awaitable&lt;void&gt; { namespace net = boost::asio; auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor); // suspension point coming up auto oresults = std::optional&lt;net::awaitable&lt;net::ip::tcp::resolver::results_type&gt;&gt;(); { BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::connect_and_send&quot; )); oresults.emplace(resolver.async_resolve(host, port, net::use_awaitable)); } auto results = co_await std::move(*oresults); auto oconnect = std::optional&lt;net::awaitable&lt;net::ip::tcp::endpoint&gt;&gt;(); { BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::connect_and_send&quot; )); oconnect.emplace(net::async_connect(stream, results, net::use_awaitable)); } auto ep = co_await *std::move(oconnect); // ... and so on ... } Which might look a little unwieldy compared to the unannotated code, which could look like this: auto connect_and_send( boost::asio::ip::tcp::socket&amp; stream, std::string host, std::string port, http::request&lt;http::string_body&gt; req) -&gt; net::awaitable&lt;void&gt; { namespace net = boost::asio; auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor); auto ep = co_await net::async_connect(stream, co_await resolver.async_resolve(host, port, net::use_awaitable), net::use_awaitable); // ... and so on ... }" />
+<link rel="canonical" href="http://cppalliance.org/richard/2020/09/01/RichardsAugustUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2020/09/01/RichardsAugustUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-09-01T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s August Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"New Debugging Feature in Asio and Beast As covered previously, Boost 1.74 brought an implementation of the new unified executors model to Boost.Asio. Support for this is not the only thing that is new in Beast. Chris Kohlhoff recently submitted a PR to Beast’s repository demonstrating how to annotate source code with the BOOST_ASIO_HANDLER_LOCATION macro. I have since followed up and annotated all asynchronous operations in Beast this way. In a normal build, there is no effect (and zero extra code generation). However, defining the preprocessor macro BOOST_ASIO_ENABLE_HANDLER_TRACKING will cause these macros to generate code which will emit handler tracking log data to stdout in a very specific format. The output is designed to describe the flow of asynchronous events in a format suitable for generating a visualisation in linear terms. i.e. the asynchronous events are flattened and linked to show causality. Here is an example of the output: @asio|1597543084.233257|&gt;33| @asio|1597543084.233273|33|deadline_timer@0x7fa6cac25218.cancel @asio|1597543084.233681|33^34|in &#39;basic_stream::async_write_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:321) @asio|1597543084.233681|33^34|called from &#39;async_write&#39; (../../../../../../boost/asio/impl/write.hpp:331) @asio|1597543084.233681|33^34|called from &#39;ssl::stream&lt;&gt;::async_write_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:201) @asio|1597543084.233681|33^34|called from &#39;http::async_write_some&#39; (../../../../../../boost/beast/http/impl/write.hpp:64) @asio|1597543084.233681|33^34|called from &#39;http::async_write&#39; (../../../../../../boost/beast/http/impl/write.hpp:223) @asio|1597543084.233681|33^34|called from &#39;http::async_write(msg)&#39; (../../../../../../boost/beast/http/impl/write.hpp:277) @asio|1597543084.233681|33*34|deadline_timer@0x7fa6cac25298.async_wait @asio|1597543084.233801|33^35|in &#39;basic_stream::async_write_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:373) @asio|1597543084.233801|33^35|called from &#39;async_write&#39; (../../../../../../boost/asio/impl/write.hpp:331) @asio|1597543084.233801|33^35|called from &#39;ssl::stream&lt;&gt;::async_write_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:201) @asio|1597543084.233801|33^35|called from &#39;http::async_write_some&#39; (../../../../../../boost/beast/http/impl/write.hpp:64) @asio|1597543084.233801|33^35|called from &#39;http::async_write&#39; (../../../../../../boost/beast/http/impl/write.hpp:223) @asio|1597543084.233801|33^35|called from &#39;http::async_write(msg)&#39; (../../../../../../boost/beast/http/impl/write.hpp:277) @asio|1597543084.233801|33*35|socket@0x7fa6cac251c8.async_send @asio|1597543084.233910|.35|non_blocking_send,ec=system:0,bytes_transferred=103 @asio|1597543084.233949|&lt;33| @asio|1597543084.233983|&lt;31| @asio|1597543084.234031|&gt;30|ec=system:89 @asio|1597543084.234045|30*36|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234054|&gt;36| @asio|1597543084.234064|&lt;36| @asio|1597543084.234072|&lt;30| @asio|1597543084.234086|&gt;35|ec=system:0,bytes_transferred=103 @asio|1597543084.234100|35*37|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234109|&gt;37| @asio|1597543084.234119|37|deadline_timer@0x7fa6cac25298.cancel @asio|1597543084.234198|37^38|in &#39;basic_stream::async_read_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:321) @asio|1597543084.234198|37^38|called from &#39;ssl::stream&lt;&gt;::async_read_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:168) @asio|1597543084.234198|37^38|called from &#39;http::async_read_some&#39; (../../../../../../boost/beast/http/impl/read.hpp:212) @asio|1597543084.234198|37^38|called from &#39;http::async_read&#39; (../../../../../../boost/beast/http/impl/read.hpp:297) @asio|1597543084.234198|37^38|called from &#39;http::async_read(msg)&#39; (../../../../../../boost/beast/http/impl/read.hpp:101) @asio|1597543084.234198|37*38|deadline_timer@0x7fa6cac25218.async_wait @asio|1597543084.234288|37^39|in &#39;basic_stream::async_read_some&#39; (../../../../../../boost/beast/core/impl/basic_stream.hpp:373) @asio|1597543084.234288|37^39|called from &#39;ssl::stream&lt;&gt;::async_read_some&#39; (../../../../../../boost/asio/ssl/detail/io.hpp:168) @asio|1597543084.234288|37^39|called from &#39;http::async_read_some&#39; (../../../../../../boost/beast/http/impl/read.hpp:212) @asio|1597543084.234288|37^39|called from &#39;http::async_read&#39; (../../../../../../boost/beast/http/impl/read.hpp:297) @asio|1597543084.234288|37^39|called from &#39;http::async_read(msg)&#39; (../../../../../../boost/beast/http/impl/read.hpp:101) @asio|1597543084.234288|37*39|socket@0x7fa6cac251c8.async_receive @asio|1597543084.234334|.39|non_blocking_recv,ec=system:35,bytes_transferred=0 @asio|1597543084.234353|&lt;37| @asio|1597543084.234364|&lt;35| @asio|1597543084.234380|&gt;34|ec=system:89 @asio|1597543084.234392|34*40|strand_executor@0x7fa6cac24bd0.execute @asio|1597543084.234401|&gt;40| @asio|1597543084.234408|&lt;40| @asio|1597543084.234416|&lt;34| @asio|1597543084.427594|.39|non_blocking_recv,ec=system:0,bytes_transferred=534 @asio|1597543084.427680|&gt;39|ec=system:0,bytes_transferred=534 So far, so good. But not very informative or friendly to the native eye. Fortunately as of Boost 1.74 there is a tool in the Asio source tree to convert this data into something consumable by the open source tool dot, which can then output the resulting execution graph in one of a number of common graphical formats such as PNG, BMP, SVG and many others. Here is an example of a visualisation of a simple execution graph: The tool you need to do this is in the asio subproject of the Boost repo. The full path is libs/asio/tools/handlerviz.pl. The command is self-documenting but for clarity, the process would be like this: Compile and link your program with the compiler flag -DBOOST_ASIO_ENABLE_HANDLER_TRACKING run your program, capturing stdout to a file (say mylog.txt) (or you can pipe it to the next step) handlerviz.pl &lt; mylog.txt | dot -Tpng mygraph.png You should now be able to view your graph in a web browser, editor or picture viewer. The documentation for dot is here dot is usually available in the graphviz package of your linux distro/brew cask. Windows users can download an executable suite here. If you have written your own asynchronous operations to compliment Beast or Asio, or indeed you just wish you add your handler locations to the graph output, you can do so by inserting the BOOST_ASIO_HANDLER_LOCATION macro just before each asynchronous suspension point (i.e. just before the call to async_xxx). If you’re doing this in an Asio coroutine (not to be confused with C++ coroutines) then be sure to place the macro in curly braces after the YIELD macro, for example: ... // this marks a suspension point of the coroutine BOOST_ASIO_CORO_YIELD { // This macro creates scoped variables so must be in a private scope BOOST_ASIO_HANDLER_LOCATION(( // note: double open brackets __FILE__, __LINE__, // source location &quot;websocket::tcp::async_teardown&quot; // name of the initiating function )); // this is the initiation of the next inner asynchronous operation s_.async_wait( net::socket_base::wait_read, beast::detail::bind_continuation(std::move(*this))); // there is an implied return statement here } ... When writing applications, people historically have used Continuation Passing Style when calling asynchronous operations, capturing a shared_ptr to the connection implementation in each handler (continuation). When using this macro in user code with written in continuation passing style, you might do so like this: void send_request(http::request&lt;http::string_body&gt; req) { send_queue_.push_back(std::move(req)); if (!sending_) { sending_ = true; maybe_initiate_send(); } } void my_connection_impl::maybe_initiate_send() { if (send_queue_.empty()) { sending_ = false; return; } // assume request_queue_ is a std::deque so elements will have stable addresses auto&amp; current_request = request_queue_.front(); BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::maybe_initiate_send&quot; )); // suspension point boost::beast::http::async_write(stream_, current_request_, [self = this-&gt;shared_from_this()](boost::beast::error_code ec, std::size_t) { // continuation if (!ec) { self-&gt;request_queue_.pop_front(); self-&gt;maybe_initiate_send(); } else { // handle error } }); } If you’re using c++ coroutines it becomes a little more complicated as you want the lifetime of the tracking state to be destroyed after the asynchronous initiation function but before the coroutine continuation: namespace net = boost::asio; namespace http = boost::beast::http; auto connect_and_send( boost::asio::ip::tcp::socket&amp; stream, std::string host, std::string port, http::request&lt;http::string_body&gt; req) -&gt; net::awaitable&lt;void&gt; { namespace net = boost::asio; auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor); // suspension point coming up auto oresults = std::optional&lt;net::awaitable&lt;net::ip::tcp::resolver::results_type&gt;&gt;(); { BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::connect_and_send&quot; )); oresults.emplace(resolver.async_resolve(host, port, net::use_awaitable)); } auto results = co_await std::move(*oresults); auto oconnect = std::optional&lt;net::awaitable&lt;net::ip::tcp::endpoint&gt;&gt;(); { BOOST_ASIO_HANDLER_LOCATION(( __FILE__, __LINE__, &quot;my_connection_impl::connect_and_send&quot; )); oconnect.emplace(net::async_connect(stream, results, net::use_awaitable)); } auto ep = co_await *std::move(oconnect); // ... and so on ... } Which might look a little unwieldy compared to the unannotated code, which could look like this: auto connect_and_send( boost::asio::ip::tcp::socket&amp; stream, std::string host, std::string port, http::request&lt;http::string_body&gt; req) -&gt; net::awaitable&lt;void&gt; { namespace net = boost::asio; auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor); auto ep = co_await net::async_connect(stream, co_await resolver.async_resolve(host, port, net::use_awaitable), net::use_awaitable); // ... and so on ... }","@type":"BlogPosting","url":"http://cppalliance.org/richard/2020/09/01/RichardsAugustUpdate.html","headline":"Richard’s August Update","dateModified":"2020-09-01T00:00:00+00:00","datePublished":"2020-09-01T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2020/09/01/RichardsAugustUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's August Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Sep 1, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="new-debugging-feature-in-asio-and-beast">New Debugging Feature in Asio and Beast</h1>
+
+<p>As covered previously, Boost 1.74 brought an implementation of the new unified executors model to Boost.Asio.</p>
+
+<p>Support for this is not the only thing that is new in Beast.</p>
+
+<p>Chris Kohlhoff recently submitted a <a href="https://github.com/boostorg/beast/pull/2053">PR</a> to Beast’s repository 
+demonstrating how to annotate source code with the <code>BOOST_ASIO_HANDLER_LOCATION</code> macro. I have since followed up and 
+annotated all asynchronous operations in Beast this way.</p>
+
+<p>In a normal build, there is no effect (and zero extra code generation). However, defining the preprocessor macro 
+<code>BOOST_ASIO_ENABLE_HANDLER_TRACKING</code> will cause these macros to generate code which will emit handler tracking
+log data to stdout in a very specific format.</p>
+
+<p>The output is designed to describe the flow of asynchronous events in a format suitable for generating a visualisation
+in linear terms. i.e. the asynchronous events are flattened and linked to show causality.</p>
+
+<p>Here is an example of the output:</p>
+
+<pre><code>@asio|1597543084.233257|&gt;33|
+@asio|1597543084.233273|33|deadline_timer@0x7fa6cac25218.cancel
+@asio|1597543084.233681|33^34|in 'basic_stream::async_write_some' (../../../../../../boost/beast/core/impl/basic_stream.hpp:321)
+@asio|1597543084.233681|33^34|called from 'async_write' (../../../../../../boost/asio/impl/write.hpp:331)
+@asio|1597543084.233681|33^34|called from 'ssl::stream&lt;&gt;::async_write_some' (../../../../../../boost/asio/ssl/detail/io.hpp:201)
+@asio|1597543084.233681|33^34|called from 'http::async_write_some' (../../../../../../boost/beast/http/impl/write.hpp:64)
+@asio|1597543084.233681|33^34|called from 'http::async_write' (../../../../../../boost/beast/http/impl/write.hpp:223)
+@asio|1597543084.233681|33^34|called from 'http::async_write(msg)' (../../../../../../boost/beast/http/impl/write.hpp:277)
+@asio|1597543084.233681|33*34|deadline_timer@0x7fa6cac25298.async_wait
+@asio|1597543084.233801|33^35|in 'basic_stream::async_write_some' (../../../../../../boost/beast/core/impl/basic_stream.hpp:373)
+@asio|1597543084.233801|33^35|called from 'async_write' (../../../../../../boost/asio/impl/write.hpp:331)
+@asio|1597543084.233801|33^35|called from 'ssl::stream&lt;&gt;::async_write_some' (../../../../../../boost/asio/ssl/detail/io.hpp:201)
+@asio|1597543084.233801|33^35|called from 'http::async_write_some' (../../../../../../boost/beast/http/impl/write.hpp:64)
+@asio|1597543084.233801|33^35|called from 'http::async_write' (../../../../../../boost/beast/http/impl/write.hpp:223)
+@asio|1597543084.233801|33^35|called from 'http::async_write(msg)' (../../../../../../boost/beast/http/impl/write.hpp:277)
+@asio|1597543084.233801|33*35|socket@0x7fa6cac251c8.async_send
+@asio|1597543084.233910|.35|non_blocking_send,ec=system:0,bytes_transferred=103
+@asio|1597543084.233949|&lt;33|
+@asio|1597543084.233983|&lt;31|
+@asio|1597543084.234031|&gt;30|ec=system:89
+@asio|1597543084.234045|30*36|strand_executor@0x7fa6cac24bd0.execute
+@asio|1597543084.234054|&gt;36|
+@asio|1597543084.234064|&lt;36|
+@asio|1597543084.234072|&lt;30|
+@asio|1597543084.234086|&gt;35|ec=system:0,bytes_transferred=103
+@asio|1597543084.234100|35*37|strand_executor@0x7fa6cac24bd0.execute
+@asio|1597543084.234109|&gt;37|
+@asio|1597543084.234119|37|deadline_timer@0x7fa6cac25298.cancel
+@asio|1597543084.234198|37^38|in 'basic_stream::async_read_some' (../../../../../../boost/beast/core/impl/basic_stream.hpp:321)
+@asio|1597543084.234198|37^38|called from 'ssl::stream&lt;&gt;::async_read_some' (../../../../../../boost/asio/ssl/detail/io.hpp:168)
+@asio|1597543084.234198|37^38|called from 'http::async_read_some' (../../../../../../boost/beast/http/impl/read.hpp:212)
+@asio|1597543084.234198|37^38|called from 'http::async_read' (../../../../../../boost/beast/http/impl/read.hpp:297)
+@asio|1597543084.234198|37^38|called from 'http::async_read(msg)' (../../../../../../boost/beast/http/impl/read.hpp:101)
+@asio|1597543084.234198|37*38|deadline_timer@0x7fa6cac25218.async_wait
+@asio|1597543084.234288|37^39|in 'basic_stream::async_read_some' (../../../../../../boost/beast/core/impl/basic_stream.hpp:373)
+@asio|1597543084.234288|37^39|called from 'ssl::stream&lt;&gt;::async_read_some' (../../../../../../boost/asio/ssl/detail/io.hpp:168)
+@asio|1597543084.234288|37^39|called from 'http::async_read_some' (../../../../../../boost/beast/http/impl/read.hpp:212)
+@asio|1597543084.234288|37^39|called from 'http::async_read' (../../../../../../boost/beast/http/impl/read.hpp:297)
+@asio|1597543084.234288|37^39|called from 'http::async_read(msg)' (../../../../../../boost/beast/http/impl/read.hpp:101)
+@asio|1597543084.234288|37*39|socket@0x7fa6cac251c8.async_receive
+@asio|1597543084.234334|.39|non_blocking_recv,ec=system:35,bytes_transferred=0
+@asio|1597543084.234353|&lt;37|
+@asio|1597543084.234364|&lt;35|
+@asio|1597543084.234380|&gt;34|ec=system:89
+@asio|1597543084.234392|34*40|strand_executor@0x7fa6cac24bd0.execute
+@asio|1597543084.234401|&gt;40|
+@asio|1597543084.234408|&lt;40|
+@asio|1597543084.234416|&lt;34|
+@asio|1597543084.427594|.39|non_blocking_recv,ec=system:0,bytes_transferred=534
+@asio|1597543084.427680|&gt;39|ec=system:0,bytes_transferred=534
+</code></pre>
+
+<p>So far, so good. But not very informative or friendly to the native eye.</p>
+
+<p>Fortunately as of Boost 1.74 there is a tool in the Asio source tree to convert this data into something consumable by the open source
+tool dot, which can then output the resulting execution graph in one of a number of common graphical formats such as
+PNG, BMP, SVG and many others.</p>
+
+<p>Here is an example of a visualisation of a simple execution graph:</p>
+
+<p><img src="/images/posts/richard/2020-09-01-handler-tracking-example.png" alt="" /></p>
+
+<p>The tool you need to do this is in the <code>asio</code> subproject of the Boost repo. The full path is 
+<code>libs/asio/tools/handlerviz.pl</code>. The command is self-documenting but for clarity, the process would be like this:</p>
+<ul>
+  <li>Compile and link your program with the compiler flag <code>-DBOOST_ASIO_ENABLE_HANDLER_TRACKING</code></li>
+  <li>run your program, capturing stdout to a file (say <code>mylog.txt</code>) (or you can pipe it to the next step)</li>
+  <li><code>handlerviz.pl &lt; mylog.txt | dot -Tpng mygraph.png</code></li>
+  <li>You should now be able to view your graph in a web browser, editor or picture viewer.</li>
+</ul>
+
+<p>The documentation for dot is <a href="https://linux.die.net/man/1/dot">here</a> dot is usually available in the graphviz package 
+of your linux distro/brew cask. Windows users can download an executable suite 
+<a href="https://www.graphviz.org/download/">here</a>.</p>
+
+<p>If you have written your own asynchronous operations to compliment Beast or Asio, or indeed you just wish you add your
+handler locations to the graph output, you can do so by inserting the <code>BOOST_ASIO_HANDLER_LOCATION</code> macro just before
+each asynchronous suspension point (i.e. just before the call to <code>async_xxx</code>). If you’re doing this in an Asio 
+<code>coroutine</code> (not to be confused with C++ coroutines) then be sure to place the macro in curly braces after the 
+YIELD macro, for example:</p>
+
+<pre><code>    ...
+
+    // this marks a suspension point of the coroutine
+    BOOST_ASIO_CORO_YIELD
+    {
+        // This macro creates scoped variables so must be in a private scope
+        BOOST_ASIO_HANDLER_LOCATION((           // note: double open brackets
+            __FILE__, __LINE__,                 // source location
+            "websocket::tcp::async_teardown"    // name of the initiating function
+        ));
+
+        // this is the initiation of the next inner asynchronous operation
+        s_.async_wait(
+            net::socket_base::wait_read,
+                beast::detail::bind_continuation(std::move(*this)));
+
+        // there is an implied return statement here
+    }
+
+    ...
+</code></pre>
+
+<p>When writing applications, people historically have used Continuation Passing Style when calling asynchronous 
+operations, capturing a shared_ptr to the connection implementation in each handler (continuation).</p>
+
+<p>When using this macro in user code with written in continuation passing style, you might do so like this:</p>
+
+<pre><code>void send_request(http::request&lt;http::string_body&gt; req)
+{
+    send_queue_.push_back(std::move(req));
+    if (!sending_)
+    {
+        sending_ = true;
+        maybe_initiate_send();
+    }
+}
+
+void my_connection_impl::maybe_initiate_send()
+{
+    if (send_queue_.empty())
+    {
+        sending_ = false;
+        return;
+    }
+
+    // assume request_queue_ is a std::deque so elements will have stable addresses
+    auto&amp; current_request = request_queue_.front(); 
+
+    BOOST_ASIO_HANDLER_LOCATION((
+        __FILE__, __LINE__,
+        "my_connection_impl::maybe_initiate_send"
+    ));
+
+    // suspension point
+
+    boost::beast::http::async_write(stream_, current_request_, 
+        [self = this-&gt;shared_from_this()](boost::beast::error_code ec, std::size_t)
+        {
+            // continuation
+
+            if (!ec)
+            {
+                self-&gt;request_queue_.pop_front();
+                self-&gt;maybe_initiate_send();
+            }
+            else
+            {
+                // handle error
+            }
+        });
+}
+</code></pre>
+
+<p>If you’re using c++ coroutines it becomes a little more complicated as you want the lifetime of the tracking
+state to be destroyed after the asynchronous initiation function but before the coroutine continuation:</p>
+
+<pre><code>namespace net = boost::asio;
+namespace http = boost::beast::http;
+
+auto connect_and_send(
+    boost::asio::ip::tcp::socket&amp; stream, 
+    std::string host, 
+    std::string port, 
+    http::request&lt;http::string_body&gt; req) 
+-&gt; net::awaitable&lt;void&gt;
+{
+    namespace net = boost::asio;
+    
+    auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor);
+
+    // suspension point coming up
+
+    auto oresults = std::optional&lt;net::awaitable&lt;net::ip::tcp::resolver::results_type&gt;&gt;();
+    {
+        BOOST_ASIO_HANDLER_LOCATION((
+            __FILE__, __LINE__,
+            "my_connection_impl::connect_and_send"
+        ));
+        oresults.emplace(resolver.async_resolve(host, port, net::use_awaitable));
+    }
+    auto results = co_await std::move(*oresults);
+
+    auto oconnect = std::optional&lt;net::awaitable&lt;net::ip::tcp::endpoint&gt;&gt;();
+    {
+        BOOST_ASIO_HANDLER_LOCATION((
+            __FILE__, __LINE__,
+            "my_connection_impl::connect_and_send"
+        ));
+        oconnect.emplace(net::async_connect(stream, results, net::use_awaitable));
+    }
+    auto ep = co_await *std::move(oconnect);
+
+    // ... and so on ...
+
+}
+</code></pre>
+
+<p>Which might look a little unwieldy compared to the unannotated code, which could look like this:</p>
+
+<pre><code>auto connect_and_send(
+    boost::asio::ip::tcp::socket&amp; stream, 
+    std::string host, 
+    std::string port, 
+    http::request&lt;http::string_body&gt; req) 
+-&gt; net::awaitable&lt;void&gt;
+{
+    namespace net = boost::asio;
+    
+    auto resolver = net::ip::tcp::resolver(co_await net::this_coro::executor);
+
+    auto ep = co_await net::async_connect(stream, 
+                            co_await resolver.async_resolve(host, port, net::use_awaitable), 
+                            net::use_awaitable);
+
+    // ... and so on ...
+
+}
+</code></pre>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

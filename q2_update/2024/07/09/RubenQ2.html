@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruben's Q2 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Ruben’s Q2 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Ruben’s Q2 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="On C++20 modules and Boost This quarter started with exciting discussions about the possibility to introduce C++20 modules in Boost. I’ve dedicated a lot of time to study and reduce Boost.MySQL build times, so I promptly volunteered to conduct some investigation on the benefits and costs of modules. I’ve written two articles (available here and here) about this topic. They can be roughly summed up as: Module clean builds aren’t as fast as I’d expect, but partial re-builds are much faster. Modules are still poorly supported by compilers and tooling, although work is being performed on them. Making a library consumable as a module requires non-trivial development, testing and maintenance effort. At the point of writing, mixing standard includes and imports causes problems (although the standard mandates the opposite). As a consequence, if we’re to support consuming a certain Boost library as a module, all its dependencies must support it, too. At the point of writing, most of the Boost community considers the effort is too big, and prefers to wait until modules are more stable. Distributing modules so they can be consumed by CMake is highly non-trivial and one of the biggest blockers. I’m happy for this discussion to have taken place. We’ve all learnt a lot, and we now know enough to make informed decisions. using std::cpp 2024 I’ve had the honor of getting a talk on Boost.Asio’s universal async model accepted for using std::cpp 2024. You can find the slides and code samples here. The best part of it has been getting in touch with the community. I’ve met a lot of real Asio users and been able to discuss their pain-points in person. I’m happy to see most people working with C++17 and C++20 rather than old standards. Many people manifested interest in C++20 coroutines, but are not willing to roll their own awaitable types - they just wanted to call co_await and go. I was surprised to learn that they didn’t know that asio::deferred already could do this for them, so I think I got the talk topic right. I think we need to lead by example, and I’d like to re-write servertech-chat using C++20 coroutines - it’s a great example for newcomers to learn these. I’ve also been answering many of the questions coming up in #boost-asio in Slack. Client-side SQL formatting enhancements Boost.MySQL client-side SQL allows composing queries client-side without incurring in injection vulnerabilities. It works great for simple queries, but it was too verbose for cases involving ranges. Consider batch lookup: // Retrieve all users matching the IDs provided in ids asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids) { // Compose the query mysql::format_context ctx(conn.format_opts().value()); ctx.append_raw(&quot;SELECT * FROM user WHERE id IN (&quot;); bool is_first = true; for (auto id: ids) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual id mysql::format_sql_to(ctx, &quot;{}&quot;, id); } ctx.append_raw(&quot;)&quot;); std::string query = std::move(ctx).get().value(); // Run it mysql::static_results&lt;user&gt; res; co_await conn.async_execute(query, res); co_return {res.rows().begin(), res.rows().end()}; } That’s verbose and easy to get wrong. And the price of an error here can be a vulnerability. To solve this, we’ve added built-in support for ranges: asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids) { // Compose the query. May generate &quot;SELECT * FROM user WHERE id IN (10, 21, 202)&quot; auto query = mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM user WHERE id IN ({})&quot;, ids); // Run it mysql::static_results&lt;user&gt; res; co_await conn.async_execute(query, res); co_return {res.rows().begin(), res.rows().end()}; } Much better, isn’t it? And if you need additional functionality, mysql::sequence allows to pass custom glue strings and per-element formatting functions. Most cases, including batch inserts, can be expressed in terms of a single format string. Our next step here is implementing an easy-to-use execution request that colaesces composing the query and executing it in a single step. This came up during the review, and it’s finally going to be a reality. Pipeline mode MySQL client/server protocol is strictly half duplex. The client sends a request, and the server responds. Performing some measuring, some use cases involving lightweight requests are dominated by round-trip time. In these cases, coalescing individual requests into a single message helps performance. Use cases fitting this description include connection setup code and preparing/closing statements in batch. The connection_pool class has been using this feature internally for a release, and we now expose it for the general public: // Sets up a connection for re-use. connection_pool cleans up connections in a similar way asio::awaitable&lt;void&gt; setup_connection(any_connection&amp; conn) { // Build a pipeline describing what to do. mysql::pipeline_request req; req.add_reset_connection() // wipe session state .add_set_character_set(mysql::utf8mb4_charset) // SET NAMES utf8mb4 .add_execute(&quot;SET time_zone = &#39;+00:00&#39;&quot;); // Use UTC as time zone std::vector&lt;mysql::stage_response&gt; res; // Execute the pipeline co_await conn.async_run_pipeline(req, res, asio::deferred); } We can write this because we fully control the library’s serialization and networking, rather than wrapping other MySQL clients. Other Boost.MySQL work I’ve also worked on lesser (but necessary) tasks on Boost.MySQL, including enabling buffer size limits for any_connection, adding support for C++20 time types to our date and datetime types, as well as some bug fixing and refactoring." />
+<meta property="og:description" content="On C++20 modules and Boost This quarter started with exciting discussions about the possibility to introduce C++20 modules in Boost. I’ve dedicated a lot of time to study and reduce Boost.MySQL build times, so I promptly volunteered to conduct some investigation on the benefits and costs of modules. I’ve written two articles (available here and here) about this topic. They can be roughly summed up as: Module clean builds aren’t as fast as I’d expect, but partial re-builds are much faster. Modules are still poorly supported by compilers and tooling, although work is being performed on them. Making a library consumable as a module requires non-trivial development, testing and maintenance effort. At the point of writing, mixing standard includes and imports causes problems (although the standard mandates the opposite). As a consequence, if we’re to support consuming a certain Boost library as a module, all its dependencies must support it, too. At the point of writing, most of the Boost community considers the effort is too big, and prefers to wait until modules are more stable. Distributing modules so they can be consumed by CMake is highly non-trivial and one of the biggest blockers. I’m happy for this discussion to have taken place. We’ve all learnt a lot, and we now know enough to make informed decisions. using std::cpp 2024 I’ve had the honor of getting a talk on Boost.Asio’s universal async model accepted for using std::cpp 2024. You can find the slides and code samples here. The best part of it has been getting in touch with the community. I’ve met a lot of real Asio users and been able to discuss their pain-points in person. I’m happy to see most people working with C++17 and C++20 rather than old standards. Many people manifested interest in C++20 coroutines, but are not willing to roll their own awaitable types - they just wanted to call co_await and go. I was surprised to learn that they didn’t know that asio::deferred already could do this for them, so I think I got the talk topic right. I think we need to lead by example, and I’d like to re-write servertech-chat using C++20 coroutines - it’s a great example for newcomers to learn these. I’ve also been answering many of the questions coming up in #boost-asio in Slack. Client-side SQL formatting enhancements Boost.MySQL client-side SQL allows composing queries client-side without incurring in injection vulnerabilities. It works great for simple queries, but it was too verbose for cases involving ranges. Consider batch lookup: // Retrieve all users matching the IDs provided in ids asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids) { // Compose the query mysql::format_context ctx(conn.format_opts().value()); ctx.append_raw(&quot;SELECT * FROM user WHERE id IN (&quot;); bool is_first = true; for (auto id: ids) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual id mysql::format_sql_to(ctx, &quot;{}&quot;, id); } ctx.append_raw(&quot;)&quot;); std::string query = std::move(ctx).get().value(); // Run it mysql::static_results&lt;user&gt; res; co_await conn.async_execute(query, res); co_return {res.rows().begin(), res.rows().end()}; } That’s verbose and easy to get wrong. And the price of an error here can be a vulnerability. To solve this, we’ve added built-in support for ranges: asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids) { // Compose the query. May generate &quot;SELECT * FROM user WHERE id IN (10, 21, 202)&quot; auto query = mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM user WHERE id IN ({})&quot;, ids); // Run it mysql::static_results&lt;user&gt; res; co_await conn.async_execute(query, res); co_return {res.rows().begin(), res.rows().end()}; } Much better, isn’t it? And if you need additional functionality, mysql::sequence allows to pass custom glue strings and per-element formatting functions. Most cases, including batch inserts, can be expressed in terms of a single format string. Our next step here is implementing an easy-to-use execution request that colaesces composing the query and executing it in a single step. This came up during the review, and it’s finally going to be a reality. Pipeline mode MySQL client/server protocol is strictly half duplex. The client sends a request, and the server responds. Performing some measuring, some use cases involving lightweight requests are dominated by round-trip time. In these cases, coalescing individual requests into a single message helps performance. Use cases fitting this description include connection setup code and preparing/closing statements in batch. The connection_pool class has been using this feature internally for a release, and we now expose it for the general public: // Sets up a connection for re-use. connection_pool cleans up connections in a similar way asio::awaitable&lt;void&gt; setup_connection(any_connection&amp; conn) { // Build a pipeline describing what to do. mysql::pipeline_request req; req.add_reset_connection() // wipe session state .add_set_character_set(mysql::utf8mb4_charset) // SET NAMES utf8mb4 .add_execute(&quot;SET time_zone = &#39;+00:00&#39;&quot;); // Use UTC as time zone std::vector&lt;mysql::stage_response&gt; res; // Execute the pipeline co_await conn.async_run_pipeline(req, res, asio::deferred); } We can write this because we fully control the library’s serialization and networking, rather than wrapping other MySQL clients. Other Boost.MySQL work I’ve also worked on lesser (but necessary) tasks on Boost.MySQL, including enabling buffer size limits for any_connection, adding support for C++20 time types to our date and datetime types, as well as some bug fixing and refactoring." />
+<link rel="canonical" href="http://cppalliance.org/q2_update/2024/07/09/RubenQ2.html" />
+<meta property="og:url" content="http://cppalliance.org/q2_update/2024/07/09/RubenQ2.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-07-09T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Ruben’s Q2 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"On C++20 modules and Boost This quarter started with exciting discussions about the possibility to introduce C++20 modules in Boost. I’ve dedicated a lot of time to study and reduce Boost.MySQL build times, so I promptly volunteered to conduct some investigation on the benefits and costs of modules. I’ve written two articles (available here and here) about this topic. They can be roughly summed up as: Module clean builds aren’t as fast as I’d expect, but partial re-builds are much faster. Modules are still poorly supported by compilers and tooling, although work is being performed on them. Making a library consumable as a module requires non-trivial development, testing and maintenance effort. At the point of writing, mixing standard includes and imports causes problems (although the standard mandates the opposite). As a consequence, if we’re to support consuming a certain Boost library as a module, all its dependencies must support it, too. At the point of writing, most of the Boost community considers the effort is too big, and prefers to wait until modules are more stable. Distributing modules so they can be consumed by CMake is highly non-trivial and one of the biggest blockers. I’m happy for this discussion to have taken place. We’ve all learnt a lot, and we now know enough to make informed decisions. using std::cpp 2024 I’ve had the honor of getting a talk on Boost.Asio’s universal async model accepted for using std::cpp 2024. You can find the slides and code samples here. The best part of it has been getting in touch with the community. I’ve met a lot of real Asio users and been able to discuss their pain-points in person. I’m happy to see most people working with C++17 and C++20 rather than old standards. Many people manifested interest in C++20 coroutines, but are not willing to roll their own awaitable types - they just wanted to call co_await and go. I was surprised to learn that they didn’t know that asio::deferred already could do this for them, so I think I got the talk topic right. I think we need to lead by example, and I’d like to re-write servertech-chat using C++20 coroutines - it’s a great example for newcomers to learn these. I’ve also been answering many of the questions coming up in #boost-asio in Slack. Client-side SQL formatting enhancements Boost.MySQL client-side SQL allows composing queries client-side without incurring in injection vulnerabilities. It works great for simple queries, but it was too verbose for cases involving ranges. Consider batch lookup: // Retrieve all users matching the IDs provided in ids asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids) { // Compose the query mysql::format_context ctx(conn.format_opts().value()); ctx.append_raw(&quot;SELECT * FROM user WHERE id IN (&quot;); bool is_first = true; for (auto id: ids) { // Comma separator if (!is_first) ctx.append_raw(&quot;, &quot;); is_first = false; // Actual id mysql::format_sql_to(ctx, &quot;{}&quot;, id); } ctx.append_raw(&quot;)&quot;); std::string query = std::move(ctx).get().value(); // Run it mysql::static_results&lt;user&gt; res; co_await conn.async_execute(query, res); co_return {res.rows().begin(), res.rows().end()}; } That’s verbose and easy to get wrong. And the price of an error here can be a vulnerability. To solve this, we’ve added built-in support for ranges: asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids) { // Compose the query. May generate &quot;SELECT * FROM user WHERE id IN (10, 21, 202)&quot; auto query = mysql::format_sql(conn.format_opts().value(), &quot;SELECT * FROM user WHERE id IN ({})&quot;, ids); // Run it mysql::static_results&lt;user&gt; res; co_await conn.async_execute(query, res); co_return {res.rows().begin(), res.rows().end()}; } Much better, isn’t it? And if you need additional functionality, mysql::sequence allows to pass custom glue strings and per-element formatting functions. Most cases, including batch inserts, can be expressed in terms of a single format string. Our next step here is implementing an easy-to-use execution request that colaesces composing the query and executing it in a single step. This came up during the review, and it’s finally going to be a reality. Pipeline mode MySQL client/server protocol is strictly half duplex. The client sends a request, and the server responds. Performing some measuring, some use cases involving lightweight requests are dominated by round-trip time. In these cases, coalescing individual requests into a single message helps performance. Use cases fitting this description include connection setup code and preparing/closing statements in batch. The connection_pool class has been using this feature internally for a release, and we now expose it for the general public: // Sets up a connection for re-use. connection_pool cleans up connections in a similar way asio::awaitable&lt;void&gt; setup_connection(any_connection&amp; conn) { // Build a pipeline describing what to do. mysql::pipeline_request req; req.add_reset_connection() // wipe session state .add_set_character_set(mysql::utf8mb4_charset) // SET NAMES utf8mb4 .add_execute(&quot;SET time_zone = &#39;+00:00&#39;&quot;); // Use UTC as time zone std::vector&lt;mysql::stage_response&gt; res; // Execute the pipeline co_await conn.async_run_pipeline(req, res, asio::deferred); } We can write this because we fully control the library’s serialization and networking, rather than wrapping other MySQL clients. Other Boost.MySQL work I’ve also worked on lesser (but necessary) tasks on Boost.MySQL, including enabling buffer size limits for any_connection, adding support for C++20 time types to our date and datetime types, as well as some bug fixing and refactoring.","@type":"BlogPosting","url":"http://cppalliance.org/q2_update/2024/07/09/RubenQ2.html","headline":"Ruben’s Q2 2024 Update","dateModified":"2024-07-09T00:00:00+00:00","datePublished":"2024-07-09T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/q2_update/2024/07/09/RubenQ2.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Ruben's Q2 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 9, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="on-c20-modules-and-boost">On C++20 modules and Boost</h2>
+
+<p>This quarter started with exciting discussions about the possibility to introduce C++20 modules in Boost. I’ve dedicated a lot of time to study and reduce Boost.MySQL build times, so I promptly volunteered to conduct some investigation on the benefits and costs of modules.</p>
+
+<p>I’ve written two articles (available <a href="https://anarthal.github.io/cppblog/modules">here</a> and <a href="https://anarthal.github.io/cppblog/modules2">here</a>) about this topic. They can be roughly summed up as:</p>
+
+<ul>
+  <li>Module clean builds aren’t as fast as I’d expect, but partial re-builds are much faster.</li>
+  <li>Modules are still poorly supported by compilers and tooling, although work is being performed on them.</li>
+  <li>Making a library consumable as a module requires non-trivial development, testing and maintenance effort.</li>
+  <li>At the point of writing, mixing standard includes and imports causes problems (although the standard mandates the opposite). As a consequence, if we’re to support consuming a certain Boost library as a module, all its dependencies must support it, too.</li>
+  <li>At the point of writing, most of the Boost community considers the effort is too big, and prefers to wait until modules are more stable.</li>
+  <li>Distributing modules so they can be consumed by CMake is highly non-trivial and one of the biggest blockers.</li>
+</ul>
+
+<p>I’m happy for this discussion to have taken place. We’ve all learnt a lot, and we now know enough to make informed decisions.</p>
+
+<h2 id="using-stdcpp-2024">using std::cpp 2024</h2>
+
+<p>I’ve had the honor of getting a talk on Boost.Asio’s universal async model accepted for <a href="https://eventos.uc3m.es/105614/section/47656/using-std-cpp-2024.html">using std::cpp 2024</a>. You can find the slides and code samples <a href="https://github.com/anarthal/usingstdcpp-2024">here</a>.</p>
+
+<p>The best part of it has been getting in touch with the community. I’ve met a lot of real Asio users and been able to discuss their pain-points in person. I’m happy to see most people working with C++17 and C++20 rather than old standards. Many people manifested interest in C++20 coroutines, but are not willing to roll their own awaitable types - they just wanted to call <code>co_await</code> and go. I was surprised to learn that they didn’t know that <code>asio::deferred</code> already could do this for them, so I think I got the talk topic right.</p>
+
+<p>I think we need to lead by example, and I’d like to re-write <a href="https://github.com/anarthal/servertech-chat">servertech-chat</a> using C++20 coroutines - it’s a great example for newcomers to learn these.</p>
+
+<p>I’ve also been answering many of the questions coming up in #boost-asio in Slack.</p>
+
+<h2 id="client-side-sql-formatting-enhancements">Client-side SQL formatting enhancements</h2>
+
+<p>Boost.MySQL client-side SQL allows composing queries client-side without incurring in injection vulnerabilities. It works great for simple queries, but it was too verbose for cases involving ranges. Consider batch lookup:</p>
+
+<pre><code class="language-cpp">// Retrieve all users matching the IDs provided in ids
+asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids)
+{
+    // Compose the query
+    mysql::format_context ctx(conn.format_opts().value());
+    ctx.append_raw("SELECT * FROM user WHERE id IN (");
+    bool is_first = true;
+    for (auto id: ids)
+    {
+        // Comma separator
+        if (!is_first) ctx.append_raw(", ");
+        is_first = false;
+
+        // Actual id
+        mysql::format_sql_to(ctx, "{}", id);
+    }
+    ctx.append_raw(")");
+    std::string query = std::move(ctx).get().value();
+
+    // Run it
+    mysql::static_results&lt;user&gt; res;
+    co_await conn.async_execute(query, res);
+    co_return {res.rows().begin(), res.rows().end()};
+}
+</code></pre>
+
+<p>That’s verbose and easy to get wrong. And the price of an error here can be a vulnerability.
+To solve this, we’ve added built-in support for ranges:</p>
+
+<pre><code class="language-cpp">asio::awaitable&lt;std::vector&lt;user&gt;&gt; lookup_users(any_connection&amp; conn, std::span&lt;const std::int64_t&gt; ids)
+{
+    // Compose the query. May generate "SELECT * FROM user WHERE id IN (10, 21, 202)"
+    auto query = mysql::format_sql(conn.format_opts().value(), "SELECT * FROM user WHERE id IN ({})", ids);
+
+    // Run it
+    mysql::static_results&lt;user&gt; res;
+    co_await conn.async_execute(query, res);
+    co_return {res.rows().begin(), res.rows().end()};
+}
+</code></pre>
+
+<p>Much better, isn’t it? And if you need additional functionality, <code>mysql::sequence</code> allows to pass custom glue strings and per-element formatting functions. Most cases, including batch inserts, can be expressed in terms of a single format string.</p>
+
+<p>Our next step here is implementing an easy-to-use execution request that colaesces composing the query and executing it in a single step. This came up during the review, and it’s finally going to be a reality.</p>
+
+<h2 id="pipeline-mode">Pipeline mode</h2>
+
+<p>MySQL client/server protocol is strictly half duplex. The client sends a request, and the server responds. Performing some measuring, some use cases involving lightweight requests are dominated by round-trip time. In these cases, coalescing individual requests into a single message helps performance.</p>
+
+<p>Use cases fitting this description include connection setup code and preparing/closing statements in batch.</p>
+
+<p>The <code>connection_pool</code> class has been using this feature internally for a release, and we now expose it for the general public:</p>
+
+<pre><code class="language-cpp">// Sets up a connection for re-use. connection_pool cleans up connections in a similar way
+asio::awaitable&lt;void&gt; setup_connection(any_connection&amp; conn)
+{
+    // Build a pipeline describing what to do.
+    mysql::pipeline_request req;
+    req.add_reset_connection() // wipe session state
+        .add_set_character_set(mysql::utf8mb4_charset) // SET NAMES utf8mb4
+        .add_execute("SET time_zone = '+00:00'"); // Use UTC as time zone
+    std::vector&lt;mysql::stage_response&gt; res;
+
+    // Execute the pipeline
+    co_await conn.async_run_pipeline(req, res, asio::deferred);
+}
+</code></pre>
+
+<p>We can write this because we fully control the library’s serialization and networking, rather than wrapping other MySQL clients.</p>
+
+<h2 id="other-boostmysql-work">Other Boost.MySQL work</h2>
+
+<p>I’ve also worked on lesser (but necessary) tasks on Boost.MySQL, including enabling buffer size limits for <code>any_connection</code>, adding support for C++20 time types to our <code>date</code> and <code>datetime</code> types, as well as some bug fixing and refactoring.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/09/2024</span>
+          <a class='text-l news-title link' href="/q2_update/2024/07/09/RubenQ2.html">Ruben's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

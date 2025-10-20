@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ready, Set, Redis! | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Ready, Set, Redis! | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Ready, Set, Redis!" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="I’m happy to announce that I’m now a co-maintainer of Boost.Redis, a high-level Redis client written on top of Asio, and hence sister of Boost.MySQL. I’m working with its author, Marcelo, to make it even better than what it is now (and that’s a lot to say). First of all, we’re working on improving test coverage. Boost.Redis was originally written making heavy use of asio::async_compose. If you have a JavaScript or Python background, this approach will feel natural to you, since it’s similar to async/await. Unfortunately, this approach makes code difficult to test. For instance, consider redis::connection::async_exec, which enqueues a request to be executed by the Redis server and then waits for its response. This is a (considerably simplified) snippet of how this function could be implemented with async_compose: struct exec_op { connection* conn; std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info asio::coroutine coro{}; // a coroutine polyfill that uses switch/case statements // Will be called by Asio until self.complete() is called template &lt;class Self&gt; void operator()(Self&amp; self , system::error_code = {}, std::size_t = 0) { BOOST_ASIO_CORO_REENTER(coro) { // Check whether the user wants to wait for the connection to // be stablished. if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !conn-&gt;state.is_open) { BOOST_ASIO_CORO_YIELD asio::async_immediate(self.get_io_executor(), std::move(self)); return self.complete(error::not_connected, 0); } // Add the request to the queue conn-&gt;state.add_request(info); // Notify the writer task that there is a new request available conn-&gt;writer_timer.cancel(); while (true) { // Wait for the request to complete. We will be notified using a channel BOOST_ASIO_CORO_YIELD info-&gt;channel.async_wait(std::move(self)); // Are we done yet? if (info-&gt;is_done) { self.complete(info-&gt;ec, info-&gt;bytes_read); return; } // Check for cancellations if (self.get_cancellation_state().cancelled() != asio::cancellation_type_t::none) { // We can only honor cancellations if the request hasn&#39;t been sent to the server if (!info-&gt;request_sent()) { conn-&gt;state.remove_request(info); self.complete(asio::error::operation_aborted, 0); return; } else { // Can&#39;t cancel, keep waiting } } } } } }; template &lt;class CompletionToken, class Response&gt; auto connection::async_exec(const request&amp; req, Response&amp; res, CompletionToken&amp;&amp; token) { return asio::async_compose&lt;CompletionToken, void(system::error_code, std::size_t)&gt;( exec_op{this, detail::make_info(req, res)}, token, *this ); } The snippet above contains non-trivial logic, specially regarding cancellation. While the code is understandable, it is difficult to test, since Asio doesn’t include lots of testing utilities. The end result is usually untested code, prune to difficult to diagnose bugs. As an alternative, we can refactor this code into two classes: A finite state machine object that encapsulates all logic. This should be a lightweight and should never interact with any Asio I/O object, so we can test logic easily. A dumb async_compose function that just applies the actions mandated by the finite state machine. The finite state machine for the above code could be like: // The finite state machine returns exec_action objects // communicating what should be done next so the algorithm can progress enum class exec_action_type { notify_writer, // We should notify the writer task wait, // We should wait for the channel to be notified immediate, // We should invoke asio::async_immediate() to avoid recursion problems done, // We&#39;re done and should call self.complete() }; struct exec_action { exec_action_type type; error_code ec; // has meaning if type == exec_action_type::done std::size_t bytes_read{}; // has meaning if type == exec_action_type::done }; // Contains all the algorithm logic. It is cheap to create and copy. // It is conceptually similar to a coroutine. class exec_fsm { asio::coroutine coro{}; std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info public: explicit exec_fsm(std::shared_ptr&lt;detail::request_info&gt; info) : info(std::move(info)) {} std::shared_ptr&lt;detail::request_info&gt; get_info() const { return info; } // To run the algorithm, run the resume() function until it returns exec_action_type::done. exec_action resume( connection_state&amp; st, // Contains connection state, but not any I/O objects asio::cancellation_type_t cancel_state // The cancellation state of the composed operation ) { BOOST_ASIO_REENTER(coro) { // Check whether the user wants to wait for the connection to // be stablished. if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !st.is_open) { BOOST_ASIO_CORO_YIELD {exec_action_type::immediate}; return {exec_action_type::done, error::not_connected, 0}; } // Add the request to the queue st.add_request(info); // Notify the writer task that there is a new request available BOOST_ASIO_CORO_YIELD {exec_action_type::notify_writer}; while (true) { // Wait for the request to complete. We will be notified using a channel BOOST_ASIO_CORO_YIELD {exec_action_type::wait}; // Are we done yet? if (info-&gt;is_done) { return {exec_action_type::done, info-&gt;ec, info-&gt;bytes_read}; } // Check for cancellations if (cancel_state != asio::cancellation_type_t::none) { // We can only honor cancellations if the request hasn&#39;t been sent to the server if (!info-&gt;request_sent()) { conn-&gt;state.remove_request(info); return {exec_action_type::done, asio::error::operation_aborted}; } else { // Can&#39;t cancel, keep waiting } } } } } }; exec_op no longer contains any logic: struct exec_op { connection* conn; exec_fsm fsm; // Will be called by Asio until self.complete() is called template &lt;class Self&gt; void operator()(Self&amp; self, system::error_code = {}, std::size_t = 0) { // Call the FSM auto action = fsm.resume(conn-&gt;state, self.get_cancellation_state().cancelled()); // Apply the required action switch (action.type) { case exec_action_type::notify_writer: conn-&gt;writer_timer.cancel(); (*this)(self); // This action doesn&#39;t involve a callback, so invoke ourselves again break; case exec_action_type::wait: fsm.get_info()-&gt;channel.async_wait(std::move(self)); break; case exec_action_type::immediate: asio::async_immediate(self.get_io_executor(), std::move(self)); break; case exec_action_type::done: self.complete(action.ec, action.bytes_read); break; } } }; With this setup, exec_fsm is now trivial to test, since it doesn’t invoke any I/O. We’re migrating most of the algorithms towards this approach, and we’re finding and fixing many subtle problems in the process. There is still lots to do, but efforts are already paying off. Boost.Redis features and docs While I tend to get very excited about this new sans-io approach, I’ve also made other contributions that had likely had more impact on users. For instance, I’ve implemented support for UNIX sockets, which had been something recurrently requested by users that want to squeeze the last bit of performance from their setup. I’ve also worked on logging. Since the reconnection algorithm is complex, Boost.Redis logs some messages by default to simplify diagnostics. This is now performed through a simple, extensible and well-documented API, allowing users to integrate third-party logging libraries like spdlog. Last (but not least), I’ve migrated Boost.Redis docs to the new asciidoc/antora/mrdocs toolchain. I’m pretty impressed with the results, and would like to thank the MrDocs and Boostlook people for their efforts. I know that comparisons are odious, but… Old docs for basic_connection. New docs for basic_connection. A great MySQL comes with a great responsibility It’s not all been Redis these days. Boost.MySQL users also deserve some attention. I’ve rewritten the MySQL handshake algorithm, so the caching_sha2_password plugin can work without TLS. For most of you, the sentence above will likely say nothing, so let’s provide some context. When a client connects to the MySQL server, it performs a connection establishment packet exchange where several connection parameters are negotiated, the client is authenticated, and the TLS layer is optionally installed. This is collectively called the MySQL handshake, and it’s not very clean in design. Clients can authenticate using several authentication mechanisms, called authentication plugins. The most widespread one is mysql_native_password, a challenge/response mechanism where the client sends a hashed password to the server. It doesn’t require a TLS layer, and it’s supported by MySQL 5.x, MySQL 8.x and MariaDB. The problem with mysql_native_password is that it uses SHA1, which is considered nowadays weak. MySQL 8.x introduced caching_sha2_password and deprecated mysql_native_password, and MySQL 9.x has removed the latter. caching_sha2_password uses SHA256, but it also introduces a cache in the server. If your user is in the cache, the password is sent hashed, as with mysql_native_password. But if it’s not, things get more complex: When using a TLS layer, the password is sent in plain text. When not using a TLS layer, the server supplies an RSA key, and the password is sent encrypted using it. I never got to implement the second point, since most people were just using the simpler mysql_native_password. With the advent of MySQL 9, this was becoming a problem, since it meant using TLS even for local network connections (like the ones between Docker containers), with the overhead it implies. Implementing this new exchange has required a big refactor and many tests, but it has paid off, as it unravelled some buggy edge-cases. Remember the async_compose vs sans-io discussion at the beginning of this post? For such complex exchanges, going sans-io has been key. Three databases are better than two Why MySQL and not Postgres? Well, I found myself asking this question, too. Following what I’ve learnt with Boost.MySQL, I’m writing a new library to interact with Postgres. It’s not usable yet, but it’s made some progress. You can check it out here. New Boost citizens: OpenMethod and Bloom I’ve also had the pleasure to participate in the review of two wonderful libraries that have been accepted into Boost: OpenMethod, which allows defining virtual functions outside classes; and Bloom, which implements Bloom filters. The family keeps growing. C++20 modules and Boost I’m happy to see some more Boost authors adding support for C++20 modules in their libraries. Concretely, I’ve reviewed PRs for Boost.Pfr and Boost.Any. This is really exciting for me, and I hope to be able to dedicate some time soon to progress my C++20 prototype for Boost.Core and Boost.Mp11. Lightweight test context Boost.Core contains a small component to write unit tests: the lightweight test framework. It’s extremely simple, and that makes it fast, both at runtime and compile-time. It’s sometimes too simple. I’m a big fan of parametric tests, where you run a test case over a set of different values. You can do so with lightweight test by just using a loop, but that makes failures difficult to diagnose. I’m implementing an equivalent to BOOST_TEST_CONTEXT for lightweight test. I’m still on the middle of it, so I’ll dive deeper onto this in my next post. All I can say is that this addition makes lightweight test a perfect fit for most of my testing needs! Next steps It looks like databases, Asio and modules are definitely part of my future. So many exciting things that I sometimes struggle to decide on which one to focus!" />
+<meta property="og:description" content="I’m happy to announce that I’m now a co-maintainer of Boost.Redis, a high-level Redis client written on top of Asio, and hence sister of Boost.MySQL. I’m working with its author, Marcelo, to make it even better than what it is now (and that’s a lot to say). First of all, we’re working on improving test coverage. Boost.Redis was originally written making heavy use of asio::async_compose. If you have a JavaScript or Python background, this approach will feel natural to you, since it’s similar to async/await. Unfortunately, this approach makes code difficult to test. For instance, consider redis::connection::async_exec, which enqueues a request to be executed by the Redis server and then waits for its response. This is a (considerably simplified) snippet of how this function could be implemented with async_compose: struct exec_op { connection* conn; std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info asio::coroutine coro{}; // a coroutine polyfill that uses switch/case statements // Will be called by Asio until self.complete() is called template &lt;class Self&gt; void operator()(Self&amp; self , system::error_code = {}, std::size_t = 0) { BOOST_ASIO_CORO_REENTER(coro) { // Check whether the user wants to wait for the connection to // be stablished. if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !conn-&gt;state.is_open) { BOOST_ASIO_CORO_YIELD asio::async_immediate(self.get_io_executor(), std::move(self)); return self.complete(error::not_connected, 0); } // Add the request to the queue conn-&gt;state.add_request(info); // Notify the writer task that there is a new request available conn-&gt;writer_timer.cancel(); while (true) { // Wait for the request to complete. We will be notified using a channel BOOST_ASIO_CORO_YIELD info-&gt;channel.async_wait(std::move(self)); // Are we done yet? if (info-&gt;is_done) { self.complete(info-&gt;ec, info-&gt;bytes_read); return; } // Check for cancellations if (self.get_cancellation_state().cancelled() != asio::cancellation_type_t::none) { // We can only honor cancellations if the request hasn&#39;t been sent to the server if (!info-&gt;request_sent()) { conn-&gt;state.remove_request(info); self.complete(asio::error::operation_aborted, 0); return; } else { // Can&#39;t cancel, keep waiting } } } } } }; template &lt;class CompletionToken, class Response&gt; auto connection::async_exec(const request&amp; req, Response&amp; res, CompletionToken&amp;&amp; token) { return asio::async_compose&lt;CompletionToken, void(system::error_code, std::size_t)&gt;( exec_op{this, detail::make_info(req, res)}, token, *this ); } The snippet above contains non-trivial logic, specially regarding cancellation. While the code is understandable, it is difficult to test, since Asio doesn’t include lots of testing utilities. The end result is usually untested code, prune to difficult to diagnose bugs. As an alternative, we can refactor this code into two classes: A finite state machine object that encapsulates all logic. This should be a lightweight and should never interact with any Asio I/O object, so we can test logic easily. A dumb async_compose function that just applies the actions mandated by the finite state machine. The finite state machine for the above code could be like: // The finite state machine returns exec_action objects // communicating what should be done next so the algorithm can progress enum class exec_action_type { notify_writer, // We should notify the writer task wait, // We should wait for the channel to be notified immediate, // We should invoke asio::async_immediate() to avoid recursion problems done, // We&#39;re done and should call self.complete() }; struct exec_action { exec_action_type type; error_code ec; // has meaning if type == exec_action_type::done std::size_t bytes_read{}; // has meaning if type == exec_action_type::done }; // Contains all the algorithm logic. It is cheap to create and copy. // It is conceptually similar to a coroutine. class exec_fsm { asio::coroutine coro{}; std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info public: explicit exec_fsm(std::shared_ptr&lt;detail::request_info&gt; info) : info(std::move(info)) {} std::shared_ptr&lt;detail::request_info&gt; get_info() const { return info; } // To run the algorithm, run the resume() function until it returns exec_action_type::done. exec_action resume( connection_state&amp; st, // Contains connection state, but not any I/O objects asio::cancellation_type_t cancel_state // The cancellation state of the composed operation ) { BOOST_ASIO_REENTER(coro) { // Check whether the user wants to wait for the connection to // be stablished. if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !st.is_open) { BOOST_ASIO_CORO_YIELD {exec_action_type::immediate}; return {exec_action_type::done, error::not_connected, 0}; } // Add the request to the queue st.add_request(info); // Notify the writer task that there is a new request available BOOST_ASIO_CORO_YIELD {exec_action_type::notify_writer}; while (true) { // Wait for the request to complete. We will be notified using a channel BOOST_ASIO_CORO_YIELD {exec_action_type::wait}; // Are we done yet? if (info-&gt;is_done) { return {exec_action_type::done, info-&gt;ec, info-&gt;bytes_read}; } // Check for cancellations if (cancel_state != asio::cancellation_type_t::none) { // We can only honor cancellations if the request hasn&#39;t been sent to the server if (!info-&gt;request_sent()) { conn-&gt;state.remove_request(info); return {exec_action_type::done, asio::error::operation_aborted}; } else { // Can&#39;t cancel, keep waiting } } } } } }; exec_op no longer contains any logic: struct exec_op { connection* conn; exec_fsm fsm; // Will be called by Asio until self.complete() is called template &lt;class Self&gt; void operator()(Self&amp; self, system::error_code = {}, std::size_t = 0) { // Call the FSM auto action = fsm.resume(conn-&gt;state, self.get_cancellation_state().cancelled()); // Apply the required action switch (action.type) { case exec_action_type::notify_writer: conn-&gt;writer_timer.cancel(); (*this)(self); // This action doesn&#39;t involve a callback, so invoke ourselves again break; case exec_action_type::wait: fsm.get_info()-&gt;channel.async_wait(std::move(self)); break; case exec_action_type::immediate: asio::async_immediate(self.get_io_executor(), std::move(self)); break; case exec_action_type::done: self.complete(action.ec, action.bytes_read); break; } } }; With this setup, exec_fsm is now trivial to test, since it doesn’t invoke any I/O. We’re migrating most of the algorithms towards this approach, and we’re finding and fixing many subtle problems in the process. There is still lots to do, but efforts are already paying off. Boost.Redis features and docs While I tend to get very excited about this new sans-io approach, I’ve also made other contributions that had likely had more impact on users. For instance, I’ve implemented support for UNIX sockets, which had been something recurrently requested by users that want to squeeze the last bit of performance from their setup. I’ve also worked on logging. Since the reconnection algorithm is complex, Boost.Redis logs some messages by default to simplify diagnostics. This is now performed through a simple, extensible and well-documented API, allowing users to integrate third-party logging libraries like spdlog. Last (but not least), I’ve migrated Boost.Redis docs to the new asciidoc/antora/mrdocs toolchain. I’m pretty impressed with the results, and would like to thank the MrDocs and Boostlook people for their efforts. I know that comparisons are odious, but… Old docs for basic_connection. New docs for basic_connection. A great MySQL comes with a great responsibility It’s not all been Redis these days. Boost.MySQL users also deserve some attention. I’ve rewritten the MySQL handshake algorithm, so the caching_sha2_password plugin can work without TLS. For most of you, the sentence above will likely say nothing, so let’s provide some context. When a client connects to the MySQL server, it performs a connection establishment packet exchange where several connection parameters are negotiated, the client is authenticated, and the TLS layer is optionally installed. This is collectively called the MySQL handshake, and it’s not very clean in design. Clients can authenticate using several authentication mechanisms, called authentication plugins. The most widespread one is mysql_native_password, a challenge/response mechanism where the client sends a hashed password to the server. It doesn’t require a TLS layer, and it’s supported by MySQL 5.x, MySQL 8.x and MariaDB. The problem with mysql_native_password is that it uses SHA1, which is considered nowadays weak. MySQL 8.x introduced caching_sha2_password and deprecated mysql_native_password, and MySQL 9.x has removed the latter. caching_sha2_password uses SHA256, but it also introduces a cache in the server. If your user is in the cache, the password is sent hashed, as with mysql_native_password. But if it’s not, things get more complex: When using a TLS layer, the password is sent in plain text. When not using a TLS layer, the server supplies an RSA key, and the password is sent encrypted using it. I never got to implement the second point, since most people were just using the simpler mysql_native_password. With the advent of MySQL 9, this was becoming a problem, since it meant using TLS even for local network connections (like the ones between Docker containers), with the overhead it implies. Implementing this new exchange has required a big refactor and many tests, but it has paid off, as it unravelled some buggy edge-cases. Remember the async_compose vs sans-io discussion at the beginning of this post? For such complex exchanges, going sans-io has been key. Three databases are better than two Why MySQL and not Postgres? Well, I found myself asking this question, too. Following what I’ve learnt with Boost.MySQL, I’m writing a new library to interact with Postgres. It’s not usable yet, but it’s made some progress. You can check it out here. New Boost citizens: OpenMethod and Bloom I’ve also had the pleasure to participate in the review of two wonderful libraries that have been accepted into Boost: OpenMethod, which allows defining virtual functions outside classes; and Bloom, which implements Bloom filters. The family keeps growing. C++20 modules and Boost I’m happy to see some more Boost authors adding support for C++20 modules in their libraries. Concretely, I’ve reviewed PRs for Boost.Pfr and Boost.Any. This is really exciting for me, and I hope to be able to dedicate some time soon to progress my C++20 prototype for Boost.Core and Boost.Mp11. Lightweight test context Boost.Core contains a small component to write unit tests: the lightweight test framework. It’s extremely simple, and that makes it fast, both at runtime and compile-time. It’s sometimes too simple. I’m a big fan of parametric tests, where you run a test case over a set of different values. You can do so with lightweight test by just using a loop, but that makes failures difficult to diagnose. I’m implementing an equivalent to BOOST_TEST_CONTEXT for lightweight test. I’m still on the middle of it, so I’ll dive deeper onto this in my next post. All I can say is that this addition makes lightweight test a perfect fit for most of my testing needs! Next steps It looks like databases, Asio and modules are definitely part of my future. So many exciting things that I sometimes struggle to decide on which one to focus!" />
+<link rel="canonical" href="http://cppalliance.org/ruben/2025/07/10/Ruben2025Q2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/ruben/2025/07/10/Ruben2025Q2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-07-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Ready, Set, Redis!" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"I’m happy to announce that I’m now a co-maintainer of Boost.Redis, a high-level Redis client written on top of Asio, and hence sister of Boost.MySQL. I’m working with its author, Marcelo, to make it even better than what it is now (and that’s a lot to say). First of all, we’re working on improving test coverage. Boost.Redis was originally written making heavy use of asio::async_compose. If you have a JavaScript or Python background, this approach will feel natural to you, since it’s similar to async/await. Unfortunately, this approach makes code difficult to test. For instance, consider redis::connection::async_exec, which enqueues a request to be executed by the Redis server and then waits for its response. This is a (considerably simplified) snippet of how this function could be implemented with async_compose: struct exec_op { connection* conn; std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info asio::coroutine coro{}; // a coroutine polyfill that uses switch/case statements // Will be called by Asio until self.complete() is called template &lt;class Self&gt; void operator()(Self&amp; self , system::error_code = {}, std::size_t = 0) { BOOST_ASIO_CORO_REENTER(coro) { // Check whether the user wants to wait for the connection to // be stablished. if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !conn-&gt;state.is_open) { BOOST_ASIO_CORO_YIELD asio::async_immediate(self.get_io_executor(), std::move(self)); return self.complete(error::not_connected, 0); } // Add the request to the queue conn-&gt;state.add_request(info); // Notify the writer task that there is a new request available conn-&gt;writer_timer.cancel(); while (true) { // Wait for the request to complete. We will be notified using a channel BOOST_ASIO_CORO_YIELD info-&gt;channel.async_wait(std::move(self)); // Are we done yet? if (info-&gt;is_done) { self.complete(info-&gt;ec, info-&gt;bytes_read); return; } // Check for cancellations if (self.get_cancellation_state().cancelled() != asio::cancellation_type_t::none) { // We can only honor cancellations if the request hasn&#39;t been sent to the server if (!info-&gt;request_sent()) { conn-&gt;state.remove_request(info); self.complete(asio::error::operation_aborted, 0); return; } else { // Can&#39;t cancel, keep waiting } } } } } }; template &lt;class CompletionToken, class Response&gt; auto connection::async_exec(const request&amp; req, Response&amp; res, CompletionToken&amp;&amp; token) { return asio::async_compose&lt;CompletionToken, void(system::error_code, std::size_t)&gt;( exec_op{this, detail::make_info(req, res)}, token, *this ); } The snippet above contains non-trivial logic, specially regarding cancellation. While the code is understandable, it is difficult to test, since Asio doesn’t include lots of testing utilities. The end result is usually untested code, prune to difficult to diagnose bugs. As an alternative, we can refactor this code into two classes: A finite state machine object that encapsulates all logic. This should be a lightweight and should never interact with any Asio I/O object, so we can test logic easily. A dumb async_compose function that just applies the actions mandated by the finite state machine. The finite state machine for the above code could be like: // The finite state machine returns exec_action objects // communicating what should be done next so the algorithm can progress enum class exec_action_type { notify_writer, // We should notify the writer task wait, // We should wait for the channel to be notified immediate, // We should invoke asio::async_immediate() to avoid recursion problems done, // We&#39;re done and should call self.complete() }; struct exec_action { exec_action_type type; error_code ec; // has meaning if type == exec_action_type::done std::size_t bytes_read{}; // has meaning if type == exec_action_type::done }; // Contains all the algorithm logic. It is cheap to create and copy. // It is conceptually similar to a coroutine. class exec_fsm { asio::coroutine coro{}; std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info public: explicit exec_fsm(std::shared_ptr&lt;detail::request_info&gt; info) : info(std::move(info)) {} std::shared_ptr&lt;detail::request_info&gt; get_info() const { return info; } // To run the algorithm, run the resume() function until it returns exec_action_type::done. exec_action resume( connection_state&amp; st, // Contains connection state, but not any I/O objects asio::cancellation_type_t cancel_state // The cancellation state of the composed operation ) { BOOST_ASIO_REENTER(coro) { // Check whether the user wants to wait for the connection to // be stablished. if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !st.is_open) { BOOST_ASIO_CORO_YIELD {exec_action_type::immediate}; return {exec_action_type::done, error::not_connected, 0}; } // Add the request to the queue st.add_request(info); // Notify the writer task that there is a new request available BOOST_ASIO_CORO_YIELD {exec_action_type::notify_writer}; while (true) { // Wait for the request to complete. We will be notified using a channel BOOST_ASIO_CORO_YIELD {exec_action_type::wait}; // Are we done yet? if (info-&gt;is_done) { return {exec_action_type::done, info-&gt;ec, info-&gt;bytes_read}; } // Check for cancellations if (cancel_state != asio::cancellation_type_t::none) { // We can only honor cancellations if the request hasn&#39;t been sent to the server if (!info-&gt;request_sent()) { conn-&gt;state.remove_request(info); return {exec_action_type::done, asio::error::operation_aborted}; } else { // Can&#39;t cancel, keep waiting } } } } } }; exec_op no longer contains any logic: struct exec_op { connection* conn; exec_fsm fsm; // Will be called by Asio until self.complete() is called template &lt;class Self&gt; void operator()(Self&amp; self, system::error_code = {}, std::size_t = 0) { // Call the FSM auto action = fsm.resume(conn-&gt;state, self.get_cancellation_state().cancelled()); // Apply the required action switch (action.type) { case exec_action_type::notify_writer: conn-&gt;writer_timer.cancel(); (*this)(self); // This action doesn&#39;t involve a callback, so invoke ourselves again break; case exec_action_type::wait: fsm.get_info()-&gt;channel.async_wait(std::move(self)); break; case exec_action_type::immediate: asio::async_immediate(self.get_io_executor(), std::move(self)); break; case exec_action_type::done: self.complete(action.ec, action.bytes_read); break; } } }; With this setup, exec_fsm is now trivial to test, since it doesn’t invoke any I/O. We’re migrating most of the algorithms towards this approach, and we’re finding and fixing many subtle problems in the process. There is still lots to do, but efforts are already paying off. Boost.Redis features and docs While I tend to get very excited about this new sans-io approach, I’ve also made other contributions that had likely had more impact on users. For instance, I’ve implemented support for UNIX sockets, which had been something recurrently requested by users that want to squeeze the last bit of performance from their setup. I’ve also worked on logging. Since the reconnection algorithm is complex, Boost.Redis logs some messages by default to simplify diagnostics. This is now performed through a simple, extensible and well-documented API, allowing users to integrate third-party logging libraries like spdlog. Last (but not least), I’ve migrated Boost.Redis docs to the new asciidoc/antora/mrdocs toolchain. I’m pretty impressed with the results, and would like to thank the MrDocs and Boostlook people for their efforts. I know that comparisons are odious, but… Old docs for basic_connection. New docs for basic_connection. A great MySQL comes with a great responsibility It’s not all been Redis these days. Boost.MySQL users also deserve some attention. I’ve rewritten the MySQL handshake algorithm, so the caching_sha2_password plugin can work without TLS. For most of you, the sentence above will likely say nothing, so let’s provide some context. When a client connects to the MySQL server, it performs a connection establishment packet exchange where several connection parameters are negotiated, the client is authenticated, and the TLS layer is optionally installed. This is collectively called the MySQL handshake, and it’s not very clean in design. Clients can authenticate using several authentication mechanisms, called authentication plugins. The most widespread one is mysql_native_password, a challenge/response mechanism where the client sends a hashed password to the server. It doesn’t require a TLS layer, and it’s supported by MySQL 5.x, MySQL 8.x and MariaDB. The problem with mysql_native_password is that it uses SHA1, which is considered nowadays weak. MySQL 8.x introduced caching_sha2_password and deprecated mysql_native_password, and MySQL 9.x has removed the latter. caching_sha2_password uses SHA256, but it also introduces a cache in the server. If your user is in the cache, the password is sent hashed, as with mysql_native_password. But if it’s not, things get more complex: When using a TLS layer, the password is sent in plain text. When not using a TLS layer, the server supplies an RSA key, and the password is sent encrypted using it. I never got to implement the second point, since most people were just using the simpler mysql_native_password. With the advent of MySQL 9, this was becoming a problem, since it meant using TLS even for local network connections (like the ones between Docker containers), with the overhead it implies. Implementing this new exchange has required a big refactor and many tests, but it has paid off, as it unravelled some buggy edge-cases. Remember the async_compose vs sans-io discussion at the beginning of this post? For such complex exchanges, going sans-io has been key. Three databases are better than two Why MySQL and not Postgres? Well, I found myself asking this question, too. Following what I’ve learnt with Boost.MySQL, I’m writing a new library to interact with Postgres. It’s not usable yet, but it’s made some progress. You can check it out here. New Boost citizens: OpenMethod and Bloom I’ve also had the pleasure to participate in the review of two wonderful libraries that have been accepted into Boost: OpenMethod, which allows defining virtual functions outside classes; and Bloom, which implements Bloom filters. The family keeps growing. C++20 modules and Boost I’m happy to see some more Boost authors adding support for C++20 modules in their libraries. Concretely, I’ve reviewed PRs for Boost.Pfr and Boost.Any. This is really exciting for me, and I hope to be able to dedicate some time soon to progress my C++20 prototype for Boost.Core and Boost.Mp11. Lightweight test context Boost.Core contains a small component to write unit tests: the lightweight test framework. It’s extremely simple, and that makes it fast, both at runtime and compile-time. It’s sometimes too simple. I’m a big fan of parametric tests, where you run a test case over a set of different values. You can do so with lightweight test by just using a loop, but that makes failures difficult to diagnose. I’m implementing an equivalent to BOOST_TEST_CONTEXT for lightweight test. I’m still on the middle of it, so I’ll dive deeper onto this in my next post. All I can say is that this addition makes lightweight test a perfect fit for most of my testing needs! Next steps It looks like databases, Asio and modules are definitely part of my future. So many exciting things that I sometimes struggle to decide on which one to focus!","@type":"BlogPosting","url":"http://cppalliance.org/ruben/2025/07/10/Ruben2025Q2Update.html","headline":"Ready, Set, Redis!","dateModified":"2025-07-10T00:00:00+00:00","datePublished":"2025-07-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/ruben/2025/07/10/Ruben2025Q2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Ready, Set, Redis!</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 10, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>I’m happy to announce that I’m now a co-maintainer of <a href="https://github.com/boostorg/redis">Boost.Redis</a>,
+a high-level Redis client written on top of Asio, and hence sister of Boost.MySQL.
+I’m working with its author, Marcelo, to make it even better than what it is now
+(and that’s a lot to say).</p>
+
+<p>First of all, we’re working on improving test coverage. Boost.Redis was originally
+written making heavy use of <code>asio::async_compose</code>. If you have a
+JavaScript or Python background, this approach will feel natural to you, since it’s similar
+to <code>async</code>/<code>await</code>. Unfortunately, this approach makes code difficult to test.</p>
+
+<p>For instance, consider <code>redis::connection::async_exec</code>, which enqueues a request to be
+executed by the Redis server and then waits for its response. This is a (considerably simplified)
+snippet of how this function could be implemented with <code>async_compose</code>:</p>
+
+<pre><code class="language-cpp">struct exec_op {
+    connection* conn;
+    std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info
+    asio::coroutine coro{}; // a coroutine polyfill that uses switch/case statements
+
+    // Will be called by Asio until self.complete() is called
+    template &lt;class Self&gt;
+    void operator()(Self&amp; self , system::error_code = {}, std::size_t = 0)
+    {
+        BOOST_ASIO_CORO_REENTER(coro)
+        {
+            // Check whether the user wants to wait for the connection to
+            // be stablished.
+            if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !conn-&gt;state.is_open) {
+                BOOST_ASIO_CORO_YIELD asio::async_immediate(self.get_io_executor(), std::move(self));
+                return self.complete(error::not_connected, 0);
+            }
+
+            // Add the request to the queue
+            conn-&gt;state.add_request(info);
+
+            // Notify the writer task that there is a new request available
+            conn-&gt;writer_timer.cancel();
+
+            while (true) {
+                // Wait for the request to complete. We will be notified using a channel
+                BOOST_ASIO_CORO_YIELD info-&gt;channel.async_wait(std::move(self));
+
+                // Are we done yet?
+                if (info-&gt;is_done) {
+                    self.complete(info-&gt;ec, info-&gt;bytes_read);
+                    return;
+                }
+
+                // Check for cancellations
+                if (self.get_cancellation_state().cancelled() != asio::cancellation_type_t::none) {
+                    // We can only honor cancellations if the request hasn't been sent to the server
+                    if (!info-&gt;request_sent()) {
+                        conn-&gt;state.remove_request(info);
+                        self.complete(asio::error::operation_aborted, 0);
+                        return;
+                    } else {
+                        // Can't cancel, keep waiting
+                    }
+                }
+            }
+        }
+    }
+};
+
+template &lt;class CompletionToken, class Response&gt;
+auto connection::async_exec(const request&amp; req, Response&amp; res, CompletionToken&amp;&amp; token)
+{
+    return asio::async_compose&lt;CompletionToken, void(system::error_code, std::size_t)&gt;(
+        exec_op{this, detail::make_info(req, res)},
+        token,
+        *this
+    );
+}
+</code></pre>
+
+<p>The snippet above contains non-trivial logic, specially regarding cancellation.
+While the code is understandable, it is difficult to test,
+since Asio doesn’t include lots of testing utilities.
+The end result is usually untested code, prune to difficult to diagnose bugs.</p>
+
+<p>As an alternative, we can refactor this code into two classes:</p>
+
+<ul>
+  <li>A finite state machine object that encapsulates all logic. This should be a
+lightweight and should never interact with any Asio I/O object, so we can test
+logic easily.</li>
+  <li>A dumb <code>async_compose</code> function that just applies the actions mandated by the
+finite state machine.</li>
+</ul>
+
+<p>The finite state machine for the above code could be like:</p>
+
+<pre><code class="language-cpp">
+// The finite state machine returns exec_action objects
+// communicating what should be done next so the algorithm can progress
+enum class exec_action_type
+{
+    notify_writer, // We should notify the writer task
+    wait,          // We should wait for the channel to be notified
+    immediate,     // We should invoke asio::async_immediate() to avoid recursion problems
+    done,          // We're done and should call self.complete()
+};
+
+struct exec_action
+{
+    exec_action_type type;
+    error_code ec;            // has meaning if type == exec_action_type::done
+    std::size_t bytes_read{}; // has meaning if type == exec_action_type::done
+};
+
+// Contains all the algorithm logic. It is cheap to create and copy.
+// It is conceptually similar to a coroutine.
+class exec_fsm {
+    asio::coroutine coro{};
+    std::shared_ptr&lt;detail::request_info&gt; info; // a request + extra info
+public:
+    explicit exec_fsm(std::shared_ptr&lt;detail::request_info&gt; info) : info(std::move(info)) {}
+    
+    std::shared_ptr&lt;detail::request_info&gt; get_info() const { return info; }
+
+    // To run the algorithm, run the resume() function until it returns exec_action_type::done.
+    exec_action resume(
+        connection_state&amp; st, // Contains connection state, but not any I/O objects
+        asio::cancellation_type_t cancel_state // The cancellation state of the composed operation
+    )
+    {
+        BOOST_ASIO_REENTER(coro)
+        {
+            // Check whether the user wants to wait for the connection to
+            // be stablished.
+            if (info-&gt;req-&gt;get_config().cancel_if_not_connected &amp;&amp; !st.is_open) {
+                BOOST_ASIO_CORO_YIELD {exec_action_type::immediate};
+                return {exec_action_type::done, error::not_connected, 0};
+            }
+
+            // Add the request to the queue
+            st.add_request(info);
+
+            // Notify the writer task that there is a new request available
+            BOOST_ASIO_CORO_YIELD {exec_action_type::notify_writer};
+
+            while (true) {
+                // Wait for the request to complete. We will be notified using a channel
+                BOOST_ASIO_CORO_YIELD {exec_action_type::wait};
+
+                // Are we done yet?
+                if (info-&gt;is_done) {
+                    return {exec_action_type::done, info-&gt;ec, info-&gt;bytes_read};
+                }
+
+                // Check for cancellations
+                if (cancel_state != asio::cancellation_type_t::none) {
+                    // We can only honor cancellations if the request hasn't been sent to the server
+                    if (!info-&gt;request_sent()) {
+                        conn-&gt;state.remove_request(info);
+                        return {exec_action_type::done, asio::error::operation_aborted};
+                    } else {
+                        // Can't cancel, keep waiting
+                    }
+                }
+            }
+        }
+    }
+};
+</code></pre>
+
+<p><code>exec_op</code> no longer contains any logic:</p>
+
+<pre><code class="language-cpp">struct exec_op {
+    connection* conn;
+    exec_fsm fsm;
+
+    // Will be called by Asio until self.complete() is called
+    template &lt;class Self&gt;
+    void operator()(Self&amp; self, system::error_code = {}, std::size_t = 0)
+    {
+        // Call the FSM
+        auto action = fsm.resume(conn-&gt;state, self.get_cancellation_state().cancelled());
+
+        // Apply the required action
+        switch (action.type)
+        {
+            case exec_action_type::notify_writer:
+                conn-&gt;writer_timer.cancel();
+                (*this)(self); // This action doesn't involve a callback, so invoke ourselves again
+                break;
+            case exec_action_type::wait:
+                fsm.get_info()-&gt;channel.async_wait(std::move(self));
+                break;
+            case exec_action_type::immediate:
+                asio::async_immediate(self.get_io_executor(), std::move(self));
+                break;
+            case exec_action_type::done:
+                self.complete(action.ec, action.bytes_read);
+                break;
+        }
+    }
+};
+</code></pre>
+
+<p>With this setup, <code>exec_fsm</code> is now trivial to test, since it doesn’t invoke any I/O.</p>
+
+<p>We’re migrating most of the algorithms towards this approach, and we’re
+finding and fixing many subtle problems in the process. There is still lots to do,
+but efforts are already paying off.</p>
+
+<h2 id="boostredis-features-and-docs">Boost.Redis features and docs</h2>
+
+<p>While I tend to get very excited about this new sans-io approach, I’ve also
+made other contributions that had likely had more impact on users. For instance,
+I’ve implemented support for UNIX sockets, which had been something recurrently
+requested by users that want to squeeze the last bit of performance from their setup.</p>
+
+<p>I’ve also worked on logging. Since the reconnection algorithm is complex, Boost.Redis
+logs some messages by default to simplify diagnostics. This is now performed through
+a simple, extensible and well-documented API, allowing users to integrate third-party
+logging libraries like <code>spdlog</code>.</p>
+
+<p>Last (but not least), I’ve migrated Boost.Redis docs to the new asciidoc/antora/mrdocs
+toolchain. I’m pretty impressed with <a href="https://www.boost.org/doc/libs/develop/libs/redis/doc/html/redis/index.html">the results</a>,
+and would like to thank the MrDocs and Boostlook people for their efforts.</p>
+
+<p>I know that comparisons are odious, but…</p>
+
+<ul>
+  <li><a href="https://www.boost.org/doc/libs/1_88_0/libs/redis/doc/html/classboost_1_1redis_1_1basic__connection.html">Old docs for <code>basic_connection</code></a>.</li>
+  <li><a href="https://www.boost.org/doc/libs/develop/libs/redis/doc/html/redis/reference/boost/redis/basic_connection.html">New docs for <code>basic_connection</code></a>.</li>
+</ul>
+
+<h2 id="a-great-mysql-comes-with-a-great-responsibility">A great MySQL comes with a great responsibility</h2>
+
+<p>It’s not all been Redis these days. Boost.MySQL users also deserve some attention.
+I’ve rewritten the MySQL handshake algorithm, so the <code>caching_sha2_password</code> plugin
+can work without TLS.</p>
+
+<p>For most of you, the sentence above will likely say nothing, so let’s provide some context.
+When a client connects to the MySQL server, it performs a connection establishment packet
+exchange where several connection parameters are negotiated, the client is authenticated,
+and the TLS layer is optionally installed. This is collectively called the MySQL handshake,
+and it’s not very clean in design.</p>
+
+<p>Clients can authenticate using several authentication mechanisms, called authentication
+plugins. The most widespread one is <code>mysql_native_password</code>, a challenge/response mechanism
+where the client sends a hashed password to the server. It doesn’t require a TLS layer,
+and it’s supported by MySQL 5.x, MySQL 8.x and MariaDB.</p>
+
+<p>The problem with <code>mysql_native_password</code> is that it uses <code>SHA1</code>, which is considered nowadays weak.
+MySQL 8.x introduced <code>caching_sha2_password</code> and deprecated <code>mysql_native_password</code>, and MySQL 9.x
+has removed the latter. <code>caching_sha2_password</code> uses <code>SHA256</code>, but it also introduces a cache in the server.
+If your user is in the cache, the password is sent hashed, as with <code>mysql_native_password</code>.
+But if it’s not, things get more complex:</p>
+
+<ul>
+  <li>When using a TLS layer, the password is sent in plain text.</li>
+  <li>When not using a TLS layer, the server supplies an RSA key, and the password is sent encrypted using it.</li>
+</ul>
+
+<p>I never got to implement the second point, since most people were just using
+the simpler <code>mysql_native_password</code>. With the advent of MySQL 9, this was becoming a problem,
+since it meant using TLS even for local network connections (like the ones between Docker containers),
+with the overhead it implies.</p>
+
+<p>Implementing this new exchange has required a big refactor and many tests,
+but it has paid off, as it unravelled some buggy edge-cases.
+Remember the <code>async_compose</code> vs sans-io discussion at the beginning of this post?
+For such complex exchanges, going sans-io has been key.</p>
+
+<h2 id="three-databases-are-better-than-two">Three databases are better than two</h2>
+
+<p>Why MySQL and not Postgres? Well, I found myself asking this question, too.
+Following what I’ve learnt with Boost.MySQL, I’m writing a new library
+to interact with Postgres. It’s not usable yet, but it’s made some
+progress. You can check it out <a href="https://github.com/anarthal/nativepg">here</a>.</p>
+
+<h2 id="new-boost-citizens-openmethod-and-bloom">New Boost citizens: OpenMethod and Bloom</h2>
+
+<p>I’ve also had the pleasure to participate in the review of two wonderful
+libraries that have been accepted into Boost: <a href="https://github.com/jll63/Boost.OpenMethod">OpenMethod</a>,
+which allows defining virtual functions outside classes; and <a href="https://github.com/boostorg/bloom">Bloom</a>,
+which implements Bloom filters. The family keeps growing.</p>
+
+<h2 id="c20-modules-and-boost">C++20 modules and Boost</h2>
+
+<p>I’m happy to see some more Boost authors adding support for C++20 modules
+in their libraries. Concretely, I’ve reviewed PRs for Boost.Pfr and Boost.Any.</p>
+
+<p>This is really exciting for me, and I hope to be able to dedicate some time soon
+to progress my C++20 prototype for Boost.Core and Boost.Mp11.</p>
+
+<h2 id="lightweight-test-context">Lightweight test context</h2>
+
+<p>Boost.Core contains a small component to write unit tests: the <a href="https://live.boost.org/doc/libs/master/libs/core/doc/html/core/lightweight_test.html">lightweight test</a>
+framework. It’s extremely simple, and that makes it fast, both at runtime and compile-time.</p>
+
+<p>It’s sometimes too simple. I’m a big fan of parametric tests, where you run a test case
+over a set of different values. You can do so with lightweight test by just using a loop,
+but that makes failures difficult to diagnose.</p>
+
+<p>I’m implementing an equivalent to <a href="https://live.boost.org/doc/libs/1_88_0/libs/test/doc/html/boost_test/test_output/test_tools_support_for_logging/contexts.html"><code>BOOST_TEST_CONTEXT</code></a>
+for lightweight test. I’m still on the middle of it, so I’ll dive deeper onto this
+in my next post. All I can say is that this addition makes lightweight test
+a perfect fit for most of my testing needs!</p>
+
+<h2 id="next-steps">Next steps</h2>
+
+<p>It looks like databases, Asio and modules are definitely part of my future.
+So many exciting things that I sometimes struggle to decide on which one to focus!</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/07/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/10/07/Ruben2025Q3Update.html">Levelling up Boost.Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/07/10/Ruben2025Q2Update.html">Ready, Set, Redis!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/04/10/Ruben2025Q1Update.html">Moving Boost forward: Asio, coroutines, and maybe even modules</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/06/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/01/06/Ruben2024Q4Update.html">Boost.MySQL 1.87 and the new Boost citizens</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/ruben/2024/10/20/Ruben2024Q3Update.html">Boost.MySQL 1.87 features: with_params and with_diagnostics</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/ruben/2023/10/27/Rubens2023Q3Update.html">Ruben's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

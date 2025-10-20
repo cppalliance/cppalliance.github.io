@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost.Http.Proto Project Highlights | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Boost.Http.Proto Project Highlights | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Boost.Http.Proto Project Highlights" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Here’s a look at some recent projects I’ve been focusing on: Boost.Http.Proto Parsing Chunked Bodies The http_proto::parser uses a circular buffer internally, which sometimes causes HTTP message bodies to span across two buffers. Previously, this required copying data into a temporary buffer for chunked parsing, ensuring continuous memory access. To address this, I introduced a chained_sequence abstraction, which lets two buffers appear as a single, contiguous buffer without the need for copying. This approach streamlines the parser implementation and improves efficiency by reducing memory operations. Iterating over chained_sequence is nearly as fast as iterating over a single range because it requires only a single comparison per iteration. gzip/deflate Support One goal for Http.Proto is to offer optional support for compression algorithms like gzip, deflate, and brotli, keeping dependencies optional. This allows flexibility, as users may not need compression or might lack libraries like Zlib on their platform. To enable this, we introduced an optional Zlib interface within http_proto, allowing gzip/deflate support in http_proto::parser without mandatory linking. Now, the parser can read the Content-Encoding field and apply the necessary decoding if a suitable compression service is available. Boost.Http.Io Following updates in Http.Proto, I refactored the C++20 coroutine client example in Http.Io. The client now requests with Accept-Encoding: gzip, deflate and decodes responses accordingly. It also includes basic redirect support and streams the response body piece by piece to standard output, allowing it to handle large file downloads. Boost.Beast Alongside routine bug fixes and responses to user-reported issues, here are a few notable changes in the Boost.Beast project: beast::basic_parser Enhancement: A new trailer_fields state was added for parsing trailer fields in chunked HTTP message bodies. This state respects user-defined header_limit settings and provides appropriate error messages when limits are exceeded. Error Handling in basic_fields: basic_fields interfaces now include an overload that accepts a system::error_code instead of throwing exceptions. This enables parsers to report insertion errors directly to the caller. skip_ Variable Removal: The parser previously used a state variable skip_ to track parsed characters in CRLF processing within chunk headers. Benchmarks showed that removing skip_ improves performance, as the parser can find CRLF directly within the buffer. This change has also simplified the parser’s implementation. Forward-Declared Headers for beast::http: New forward-declared headers are now available for all types in the beast::http namespace, enabling users to separate implementation and usage sites more effectively by including only the necessary *_fwd headers." />
+<meta property="og:description" content="Here’s a look at some recent projects I’ve been focusing on: Boost.Http.Proto Parsing Chunked Bodies The http_proto::parser uses a circular buffer internally, which sometimes causes HTTP message bodies to span across two buffers. Previously, this required copying data into a temporary buffer for chunked parsing, ensuring continuous memory access. To address this, I introduced a chained_sequence abstraction, which lets two buffers appear as a single, contiguous buffer without the need for copying. This approach streamlines the parser implementation and improves efficiency by reducing memory operations. Iterating over chained_sequence is nearly as fast as iterating over a single range because it requires only a single comparison per iteration. gzip/deflate Support One goal for Http.Proto is to offer optional support for compression algorithms like gzip, deflate, and brotli, keeping dependencies optional. This allows flexibility, as users may not need compression or might lack libraries like Zlib on their platform. To enable this, we introduced an optional Zlib interface within http_proto, allowing gzip/deflate support in http_proto::parser without mandatory linking. Now, the parser can read the Content-Encoding field and apply the necessary decoding if a suitable compression service is available. Boost.Http.Io Following updates in Http.Proto, I refactored the C++20 coroutine client example in Http.Io. The client now requests with Accept-Encoding: gzip, deflate and decodes responses accordingly. It also includes basic redirect support and streams the response body piece by piece to standard output, allowing it to handle large file downloads. Boost.Beast Alongside routine bug fixes and responses to user-reported issues, here are a few notable changes in the Boost.Beast project: beast::basic_parser Enhancement: A new trailer_fields state was added for parsing trailer fields in chunked HTTP message bodies. This state respects user-defined header_limit settings and provides appropriate error messages when limits are exceeded. Error Handling in basic_fields: basic_fields interfaces now include an overload that accepts a system::error_code instead of throwing exceptions. This enables parsers to report insertion errors directly to the caller. skip_ Variable Removal: The parser previously used a state variable skip_ to track parsed characters in CRLF processing within chunk headers. Benchmarks showed that removing skip_ improves performance, as the parser can find CRLF directly within the buffer. This change has also simplified the parser’s implementation. Forward-Declared Headers for beast::http: New forward-declared headers are now available for all types in the beast::http namespace, enabling users to separate implementation and usage sites more effectively by including only the necessary *_fwd headers." />
+<link rel="canonical" href="http://cppalliance.org/mohammad/2024/10/25/MohammadsQ3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/mohammad/2024/10/25/MohammadsQ3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-10-25T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Boost.Http.Proto Project Highlights" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Here’s a look at some recent projects I’ve been focusing on: Boost.Http.Proto Parsing Chunked Bodies The http_proto::parser uses a circular buffer internally, which sometimes causes HTTP message bodies to span across two buffers. Previously, this required copying data into a temporary buffer for chunked parsing, ensuring continuous memory access. To address this, I introduced a chained_sequence abstraction, which lets two buffers appear as a single, contiguous buffer without the need for copying. This approach streamlines the parser implementation and improves efficiency by reducing memory operations. Iterating over chained_sequence is nearly as fast as iterating over a single range because it requires only a single comparison per iteration. gzip/deflate Support One goal for Http.Proto is to offer optional support for compression algorithms like gzip, deflate, and brotli, keeping dependencies optional. This allows flexibility, as users may not need compression or might lack libraries like Zlib on their platform. To enable this, we introduced an optional Zlib interface within http_proto, allowing gzip/deflate support in http_proto::parser without mandatory linking. Now, the parser can read the Content-Encoding field and apply the necessary decoding if a suitable compression service is available. Boost.Http.Io Following updates in Http.Proto, I refactored the C++20 coroutine client example in Http.Io. The client now requests with Accept-Encoding: gzip, deflate and decodes responses accordingly. It also includes basic redirect support and streams the response body piece by piece to standard output, allowing it to handle large file downloads. Boost.Beast Alongside routine bug fixes and responses to user-reported issues, here are a few notable changes in the Boost.Beast project: beast::basic_parser Enhancement: A new trailer_fields state was added for parsing trailer fields in chunked HTTP message bodies. This state respects user-defined header_limit settings and provides appropriate error messages when limits are exceeded. Error Handling in basic_fields: basic_fields interfaces now include an overload that accepts a system::error_code instead of throwing exceptions. This enables parsers to report insertion errors directly to the caller. skip_ Variable Removal: The parser previously used a state variable skip_ to track parsed characters in CRLF processing within chunk headers. Benchmarks showed that removing skip_ improves performance, as the parser can find CRLF directly within the buffer. This change has also simplified the parser’s implementation. Forward-Declared Headers for beast::http: New forward-declared headers are now available for all types in the beast::http namespace, enabling users to separate implementation and usage sites more effectively by including only the necessary *_fwd headers.","@type":"BlogPosting","url":"http://cppalliance.org/mohammad/2024/10/25/MohammadsQ3Update.html","headline":"Boost.Http.Proto Project Highlights","dateModified":"2024-10-25T00:00:00+00:00","datePublished":"2024-10-25T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/mohammad/2024/10/25/MohammadsQ3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Boost.Http.Proto Project Highlights</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/mohammad">
+                  Mohammad Nejati
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 25, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Here’s a look at some recent projects I’ve been focusing on:</p>
+
+<h3 id="boosthttpproto">Boost.Http.Proto</h3>
+
+<h4 id="parsing-chunked-bodies">Parsing Chunked Bodies</h4>
+
+<p>The <code>http_proto::parser</code> uses a circular buffer internally, which sometimes causes HTTP message bodies to span across two buffers. Previously, this required copying data into a temporary buffer for chunked parsing, ensuring continuous memory access. To address this, I introduced a <code>chained_sequence</code> abstraction, which lets two buffers appear as a single, contiguous buffer without the need for copying. This approach streamlines the parser implementation and improves efficiency by reducing memory operations. Iterating over <code>chained_sequence</code> is nearly as fast as iterating over a single range because it requires only a single comparison per iteration.</p>
+
+<h4 id="gzipdeflate-support">gzip/deflate Support</h4>
+
+<p>One goal for <code>Http.Proto</code> is to offer optional support for compression algorithms like gzip, deflate, and brotli, keeping dependencies optional. This allows flexibility, as users may not need compression or might lack libraries like Zlib on their platform. To enable this, we introduced an optional Zlib interface within <code>http_proto</code>, allowing gzip/deflate support in <code>http_proto::parser</code> without mandatory linking. Now, the parser can read the <code>Content-Encoding</code> field and apply the necessary decoding if a suitable compression service is available.</p>
+
+<h3 id="boosthttpio">Boost.Http.Io</h3>
+
+<p>Following updates in <code>Http.Proto</code>, I refactored the <a href="https://github.com/cppalliance/http_io/blob/develop/example/client/flex_await">C++20 coroutine client example</a> in <code>Http.Io</code>. The client now requests with <code>Accept-Encoding: gzip, deflate</code> and decodes responses accordingly. It also includes basic redirect support and streams the response body piece by piece to standard output, allowing it to handle large file downloads.</p>
+
+<h3 id="boostbeast">Boost.Beast</h3>
+
+<p>Alongside routine bug fixes and responses to user-reported issues, here are a few notable changes in the Boost.Beast project:</p>
+
+<ul>
+  <li><strong><code>beast::basic_parser</code> Enhancement</strong>: A new <code>trailer_fields</code> state was added for parsing trailer fields in chunked HTTP message bodies. This state respects user-defined <code>header_limit</code> settings and provides appropriate error messages when limits are exceeded.</li>
+  <li><strong>Error Handling in <code>basic_fields</code></strong>: <code>basic_fields</code> interfaces now include an overload that accepts a <code>system::error_code</code> instead of throwing exceptions. This enables parsers to report insertion errors directly to the caller.</li>
+  <li><strong><code>skip_</code> Variable Removal</strong>: The parser previously used a state variable <code>skip_</code> to track parsed characters in <code>CRLF</code> processing within chunk headers. Benchmarks showed that removing <code>skip_</code> improves performance, as the parser can find <code>CRLF</code> directly within the buffer. This change has also simplified the parser’s implementation.</li>
+  <li><strong>Forward-Declared Headers for <code>beast::http</code></strong>: New forward-declared headers are now available for all types in the <code>beast::http</code> namespace, enabling users to separate implementation and usage sites more effectively by including only the necessary <code>*_fwd</code> headers.</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/16/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/07/16/MohammadsQ2Update.html">Boost.RunTimeServices: The Glue for Optional Runtime Features</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/01/10/MohammadsQ4Update.html">Boost.Http.Io and Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/10/25/MohammadsQ3Update.html">Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/07/10/MohammadsQ2Update.html">Mohammad's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/04/22/MohammadsQ1Update.html">Mohammad's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/01/10/MohammadsQ4Update.html">Mohammad's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/mohammad/2023/10/27/MohammadsQ3Update.html">Mohammad's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

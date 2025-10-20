@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Include Hallucinations for Adventures in AI-Generated C++ | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Include Hallucinations for Adventures in AI-Generated C++ | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Include Hallucinations for Adventures in AI-Generated C++" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="AI generated code has some fun side effects. Whilst generating a lot of code and testing it using Microsoft Visual Studio I had the odd experience of giving the AI model a line of buggy code, and it forthrightly states to replace this faulty line with this new line. On close inspection both lines are identical! Ha - in the AI world this is known as a “hallucination” - amusing but not the answer I was looking for. Other odd side effects of AI generated code include having unused “#include &lt;header&gt;” statements - I commented out a bunch of #includes that I was not sure about, and presto the code compiled and ran unimpressed with my efforts to disable it. Unused #includes don’t so much add errors but the appearance of complexity. As I am in the education business, complexity is something I try to avoid. I did find that the more complex the syntax - say in metaprogamming with templates, or shorthand means of referencing elements within a multi-dimensional matrix perhaps - the more likely AI would not get it right. My simplistic conclusion is that a C++ AI model will get the code right as long as you don’t veer too far from the standard language and the fewer libraries the better. In my also simplistic opinion this is not ready for prime time - we all use, and want to use, libraries to take much of the heavy-lifting away from development effort and time. Investigating the use of the enormous precision available using libraries such as Boost.Multiprecision, I am impressed by the huge prime numbers used in cryptography and the accuracy of constants in science such as astrophysics (gravitational constants, pi, zeta constants in string theory and the like). At the same time - fun fact - NASA’s orbital calculations use only around 15 digits of pi to get very precise orbits, so precision can become an obsession devolved of any practical application! With recent library releases, such as Boost.Hash, it seemed prudent to add pertinent hash terminology to the User Guide Glossary - help the uninitiated understand what it’s all about. Same for Open Methods and Bloom Filters - all adding more terminology to our already overloaded capacity. Another fun fact - Bloom filters are not named after anything to do with blooming - but simply after the name of the inventor - Burton Howard Bloom. Testing Boost libraries did pique my imagination several times. Many years ago, working with a smart human friend - a computer analyst - we devised a language to be used for giving orders in a battle simulation. “Marshal Davout, order one infantry and one cavalry division to attack the hill to the NorthEast”, for example. This involved three distinct steps - syntax analysis to check for correct wording, semantic analysis to check for correct grammar, and interpretation. The first two steps are logical and complete. The third step - interpretation is a toughie - “is there a hill to the NorthEast?” - and if not, what do I do? Similarly, “what if I have two infantry divisions available, but no cavalry, should I still attack?”. Duh - interpretation can be ambiguous and difficult. Wish Boost.Spirit had been available way back then, it has a granular approach to syntax and semantics I could recognize as being intuitive and useful - would have taken a lot of the work out of syntax and semantics, and left time for battling with the ambiguities of interpretation. Talking of useful Boost libraries, I did some testing with Boost.Asio, and writing and running client-server and peer-to-peer samples on multiple computers. Yikes it worked well and is largely intuitive. Go Asio. Perhaps one of the less-well documented topics involving Boost libraries is the topic of which libraries play well together, and which do not. I started building up some knowledge on this and added a “Combining Libraries” section to the User Guide FAQ - it is what I would want to know if I was a newcomer to Boost - many hands make light work - or many libraries make light work. May your AI always hallucinate slightly less than your compiler does." />
+<meta property="og:description" content="AI generated code has some fun side effects. Whilst generating a lot of code and testing it using Microsoft Visual Studio I had the odd experience of giving the AI model a line of buggy code, and it forthrightly states to replace this faulty line with this new line. On close inspection both lines are identical! Ha - in the AI world this is known as a “hallucination” - amusing but not the answer I was looking for. Other odd side effects of AI generated code include having unused “#include &lt;header&gt;” statements - I commented out a bunch of #includes that I was not sure about, and presto the code compiled and ran unimpressed with my efforts to disable it. Unused #includes don’t so much add errors but the appearance of complexity. As I am in the education business, complexity is something I try to avoid. I did find that the more complex the syntax - say in metaprogamming with templates, or shorthand means of referencing elements within a multi-dimensional matrix perhaps - the more likely AI would not get it right. My simplistic conclusion is that a C++ AI model will get the code right as long as you don’t veer too far from the standard language and the fewer libraries the better. In my also simplistic opinion this is not ready for prime time - we all use, and want to use, libraries to take much of the heavy-lifting away from development effort and time. Investigating the use of the enormous precision available using libraries such as Boost.Multiprecision, I am impressed by the huge prime numbers used in cryptography and the accuracy of constants in science such as astrophysics (gravitational constants, pi, zeta constants in string theory and the like). At the same time - fun fact - NASA’s orbital calculations use only around 15 digits of pi to get very precise orbits, so precision can become an obsession devolved of any practical application! With recent library releases, such as Boost.Hash, it seemed prudent to add pertinent hash terminology to the User Guide Glossary - help the uninitiated understand what it’s all about. Same for Open Methods and Bloom Filters - all adding more terminology to our already overloaded capacity. Another fun fact - Bloom filters are not named after anything to do with blooming - but simply after the name of the inventor - Burton Howard Bloom. Testing Boost libraries did pique my imagination several times. Many years ago, working with a smart human friend - a computer analyst - we devised a language to be used for giving orders in a battle simulation. “Marshal Davout, order one infantry and one cavalry division to attack the hill to the NorthEast”, for example. This involved three distinct steps - syntax analysis to check for correct wording, semantic analysis to check for correct grammar, and interpretation. The first two steps are logical and complete. The third step - interpretation is a toughie - “is there a hill to the NorthEast?” - and if not, what do I do? Similarly, “what if I have two infantry divisions available, but no cavalry, should I still attack?”. Duh - interpretation can be ambiguous and difficult. Wish Boost.Spirit had been available way back then, it has a granular approach to syntax and semantics I could recognize as being intuitive and useful - would have taken a lot of the work out of syntax and semantics, and left time for battling with the ambiguities of interpretation. Talking of useful Boost libraries, I did some testing with Boost.Asio, and writing and running client-server and peer-to-peer samples on multiple computers. Yikes it worked well and is largely intuitive. Go Asio. Perhaps one of the less-well documented topics involving Boost libraries is the topic of which libraries play well together, and which do not. I started building up some knowledge on this and added a “Combining Libraries” section to the User Guide FAQ - it is what I would want to know if I was a newcomer to Boost - many hands make light work - or many libraries make light work. May your AI always hallucinate slightly less than your compiler does." />
+<link rel="canonical" href="http://cppalliance.org/peter/2025/07/07/PeterTurcan-Q2-2025.html" />
+<meta property="og:url" content="http://cppalliance.org/peter/2025/07/07/PeterTurcan-Q2-2025.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-07-07T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Include Hallucinations for Adventures in AI-Generated C++" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"AI generated code has some fun side effects. Whilst generating a lot of code and testing it using Microsoft Visual Studio I had the odd experience of giving the AI model a line of buggy code, and it forthrightly states to replace this faulty line with this new line. On close inspection both lines are identical! Ha - in the AI world this is known as a “hallucination” - amusing but not the answer I was looking for. Other odd side effects of AI generated code include having unused “#include &lt;header&gt;” statements - I commented out a bunch of #includes that I was not sure about, and presto the code compiled and ran unimpressed with my efforts to disable it. Unused #includes don’t so much add errors but the appearance of complexity. As I am in the education business, complexity is something I try to avoid. I did find that the more complex the syntax - say in metaprogamming with templates, or shorthand means of referencing elements within a multi-dimensional matrix perhaps - the more likely AI would not get it right. My simplistic conclusion is that a C++ AI model will get the code right as long as you don’t veer too far from the standard language and the fewer libraries the better. In my also simplistic opinion this is not ready for prime time - we all use, and want to use, libraries to take much of the heavy-lifting away from development effort and time. Investigating the use of the enormous precision available using libraries such as Boost.Multiprecision, I am impressed by the huge prime numbers used in cryptography and the accuracy of constants in science such as astrophysics (gravitational constants, pi, zeta constants in string theory and the like). At the same time - fun fact - NASA’s orbital calculations use only around 15 digits of pi to get very precise orbits, so precision can become an obsession devolved of any practical application! With recent library releases, such as Boost.Hash, it seemed prudent to add pertinent hash terminology to the User Guide Glossary - help the uninitiated understand what it’s all about. Same for Open Methods and Bloom Filters - all adding more terminology to our already overloaded capacity. Another fun fact - Bloom filters are not named after anything to do with blooming - but simply after the name of the inventor - Burton Howard Bloom. Testing Boost libraries did pique my imagination several times. Many years ago, working with a smart human friend - a computer analyst - we devised a language to be used for giving orders in a battle simulation. “Marshal Davout, order one infantry and one cavalry division to attack the hill to the NorthEast”, for example. This involved three distinct steps - syntax analysis to check for correct wording, semantic analysis to check for correct grammar, and interpretation. The first two steps are logical and complete. The third step - interpretation is a toughie - “is there a hill to the NorthEast?” - and if not, what do I do? Similarly, “what if I have two infantry divisions available, but no cavalry, should I still attack?”. Duh - interpretation can be ambiguous and difficult. Wish Boost.Spirit had been available way back then, it has a granular approach to syntax and semantics I could recognize as being intuitive and useful - would have taken a lot of the work out of syntax and semantics, and left time for battling with the ambiguities of interpretation. Talking of useful Boost libraries, I did some testing with Boost.Asio, and writing and running client-server and peer-to-peer samples on multiple computers. Yikes it worked well and is largely intuitive. Go Asio. Perhaps one of the less-well documented topics involving Boost libraries is the topic of which libraries play well together, and which do not. I started building up some knowledge on this and added a “Combining Libraries” section to the User Guide FAQ - it is what I would want to know if I was a newcomer to Boost - many hands make light work - or many libraries make light work. May your AI always hallucinate slightly less than your compiler does.","@type":"BlogPosting","url":"http://cppalliance.org/peter/2025/07/07/PeterTurcan-Q2-2025.html","headline":"Include Hallucinations for Adventures in AI-Generated C++","dateModified":"2025-07-07T00:00:00+00:00","datePublished":"2025-07-07T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/peter/2025/07/07/PeterTurcan-Q2-2025.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Include Hallucinations for Adventures in AI-Generated C++</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/peter">
+                  Peter Turcan
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 7, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>AI generated code has some fun side effects. Whilst generating a lot of code and testing it using Microsoft Visual Studio I had the odd experience of giving the AI model a line of buggy code, and it forthrightly states to replace this faulty line with this new line. On close inspection both lines are identical! Ha - in the AI world this is known as a “hallucination” - amusing but not the answer I was looking for.</p>
+
+<p>Other odd side effects of AI generated code include having unused “#include &lt;header&gt;” statements - I commented out a bunch of #includes that I was not sure about, and presto the code compiled and ran unimpressed with my efforts to disable it. Unused #includes don’t so much add errors but the appearance of complexity. As I am in the education business, complexity is something I try to avoid.</p>
+
+<p>I did find that the more complex the syntax - say in metaprogamming with templates, or shorthand means of referencing elements within a multi-dimensional matrix perhaps - the more likely AI would not get it right. My simplistic conclusion is that a C++ AI model will get the code right as long as you don’t veer too far from the standard language and the fewer libraries the better. In my also simplistic opinion this is not ready for prime time - we all use, and want to use, libraries to take much of the heavy-lifting away from development effort and time.</p>
+
+<p>Investigating the use of the enormous precision available using libraries such as Boost.Multiprecision, I am impressed by the huge prime numbers used in cryptography and the accuracy of constants in science such as astrophysics (gravitational constants, pi, zeta constants in string theory and the like). At the same time - fun fact - NASA’s orbital calculations use only around 15 digits of pi to get very precise orbits, so precision can become an obsession devolved of any practical application!</p>
+
+<p>With recent library releases, such as Boost.Hash, it seemed prudent to add pertinent hash terminology to the User Guide Glossary - help the uninitiated understand what it’s all about. Same for Open Methods and Bloom Filters - all adding more terminology to our already overloaded capacity. Another fun fact - Bloom filters are not named after anything to do with blooming - but simply after the name of the inventor - Burton Howard Bloom.</p>
+
+<p>Testing Boost libraries did pique my imagination several times. Many years ago, working with a smart human friend - a computer analyst - we devised a language to be used for giving orders in a battle simulation. “Marshal Davout, order one infantry and one cavalry division to attack the hill to the NorthEast”, for example. This involved three distinct steps - syntax analysis to check for correct wording, semantic analysis to check for correct grammar, and interpretation. The first two steps are logical and complete. The third step - interpretation is a toughie - “is there a hill to the NorthEast?”  -  and if not, what do I do? Similarly, “what if I have two infantry divisions available, but no cavalry, should I still attack?”.  Duh - interpretation can be ambiguous and difficult. Wish Boost.Spirit had been available way back then, it has a granular approach to syntax and semantics I could recognize as being intuitive and useful - would have taken a lot of the work out of syntax and semantics, and left time for battling with the ambiguities of interpretation.</p>
+
+<p>Talking of useful Boost libraries, I did some testing with Boost.Asio, and writing and running client-server and peer-to-peer samples on multiple computers. Yikes it worked well and is largely intuitive. Go Asio.</p>
+
+<p>Perhaps one of the less-well documented topics involving Boost libraries is the topic of which libraries play well together, and which do not. I started building up some knowledge on this and added a “Combining Libraries” section to the User Guide FAQ - it is what I would want to know if I was a newcomer to Boost - many hands make light work - or many libraries make light work.</p>
+
+<p>May your AI always hallucinate slightly less than your compiler does.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/15/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/10/15/Peter-Turcan-Q3-2025.html">Writing Docs with Visuals and Verve</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/07/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/07/07/PeterTurcan-Q2-2025.html">Include Hallucinations for Adventures in AI-Generated C++</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/04/08/PeterTurcan-Q1-2025.html">Documentation and Samples - undefined behavior isn’t a bug — it’s a lifestyle</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/peter/2025/01/10/PeterTurcanQ4-2024.html">Documentation - or the Art of Preparing for the Unknown</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/10/25/PeterTurcan-Q3-2024.html">Peter Turcan Q3 2024 - From Murky to Clear - Shedding Light on the Foggy Bits – User Guide and Contributor Guide Status Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/07/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/07/07/PeterTurcan-Q2-2024.html">Peter Turcan Q2 2024 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/19/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/04/19/PeterTurcan-Q1-2024.html">Peter Turcan Q1 2024 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2024</span>
+          <a class='text-l news-title link' href="/peter/2024/01/11/PeterTurcan-Q4-2023.html">Peter Turcan Q4 2023 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/peter/2023/10/27/PeterTurcan-Q3.html">Peter Turcan Q3 2023 Status</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

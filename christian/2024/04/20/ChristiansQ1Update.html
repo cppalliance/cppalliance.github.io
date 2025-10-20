@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Christian's Q1 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Christian’s Q1 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Christian’s Q1 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In the past few months, I’ve been busy getting up to speed on the slate of proposed-for-Boost libraries: Boost.Buffers and Boost.Http.Proto. The first real task was getting the CI setup for that and we chose to use an in-house solution. I was never really an expert in GitHub Actions nor CI so there was a definite learning curve in how to debug CI issues and what’s an effective use of time versus not. But more importantly I was able to discern what was and what wasn’t important to automate in the CI pipeline. The actual actions you can define in GHA are incredibly powerful and as someone who’s well-versed in JavaScript, I find them quite nice and easy to use. The in-house tools we use are called cpp-actions, available here if one is interested or wants to try them out. I’d say they’re all good except for the one that generates the actual build matrix. This is something I learned via trial by fire. This gist of actions is that they’re essentially functions with inputs and outputs. An action that generates your inputs for you such as compiler and compiler flags inverts the benefits and turns actions into a burden instead of a boon. This is because not every project will aim to support the same compilers and the same flags. Some entries of the build matrix will have even more special requirements than others so being able to edit the matrix and add flags or other configuration options becomes paramount. The action can attempt to accomodate these use-cases but the resulting syntax is likely to be poor and more trouble than it’s worth. I noted a stark improvement in my CI experience once I was fully in control of the inputs and simply treated actions like an opaque functional pipeline. The ability to just add a new field to a matrix entry was a huge convenience in comparison to the process it took to update the matrix-building action which requires updating a separate repo and then a SHA in the repo actually being tested. But CI is worth it. We introduce all this complexity in our development pipelines because taking some C++ and compiling it on as many platforms as we can is the best way to root out undefined behavior and other bugs. I found GitHub Actions to be an enjoyable experience but there’s caveats. Most Boost libraries use ad hoc CI configuration so I laud the work that’s been done to abstract all this. The wisdom here is that not all forms of automation are free and there’s different requirements and costs to be considered. Sometimes, rote copy-paste with inline editing just wins out and it’s only through experience that we get a sense of when this is the case. As for buffer operations and HTTP, they’re still being actively developed and worked on. Good progress has been made on that front. The container types and serialization routines have received a lot of love and are that much closer to being fully production-ready. CI took a long time to understand and setup so the next quarter will be more focused on actual C++ and the pedantry of HTTP RFCs." />
+<meta property="og:description" content="In the past few months, I’ve been busy getting up to speed on the slate of proposed-for-Boost libraries: Boost.Buffers and Boost.Http.Proto. The first real task was getting the CI setup for that and we chose to use an in-house solution. I was never really an expert in GitHub Actions nor CI so there was a definite learning curve in how to debug CI issues and what’s an effective use of time versus not. But more importantly I was able to discern what was and what wasn’t important to automate in the CI pipeline. The actual actions you can define in GHA are incredibly powerful and as someone who’s well-versed in JavaScript, I find them quite nice and easy to use. The in-house tools we use are called cpp-actions, available here if one is interested or wants to try them out. I’d say they’re all good except for the one that generates the actual build matrix. This is something I learned via trial by fire. This gist of actions is that they’re essentially functions with inputs and outputs. An action that generates your inputs for you such as compiler and compiler flags inverts the benefits and turns actions into a burden instead of a boon. This is because not every project will aim to support the same compilers and the same flags. Some entries of the build matrix will have even more special requirements than others so being able to edit the matrix and add flags or other configuration options becomes paramount. The action can attempt to accomodate these use-cases but the resulting syntax is likely to be poor and more trouble than it’s worth. I noted a stark improvement in my CI experience once I was fully in control of the inputs and simply treated actions like an opaque functional pipeline. The ability to just add a new field to a matrix entry was a huge convenience in comparison to the process it took to update the matrix-building action which requires updating a separate repo and then a SHA in the repo actually being tested. But CI is worth it. We introduce all this complexity in our development pipelines because taking some C++ and compiling it on as many platforms as we can is the best way to root out undefined behavior and other bugs. I found GitHub Actions to be an enjoyable experience but there’s caveats. Most Boost libraries use ad hoc CI configuration so I laud the work that’s been done to abstract all this. The wisdom here is that not all forms of automation are free and there’s different requirements and costs to be considered. Sometimes, rote copy-paste with inline editing just wins out and it’s only through experience that we get a sense of when this is the case. As for buffer operations and HTTP, they’re still being actively developed and worked on. Good progress has been made on that front. The container types and serialization routines have received a lot of love and are that much closer to being fully production-ready. CI took a long time to understand and setup so the next quarter will be more focused on actual C++ and the pedantry of HTTP RFCs." />
+<link rel="canonical" href="http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-20T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Christian’s Q1 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In the past few months, I’ve been busy getting up to speed on the slate of proposed-for-Boost libraries: Boost.Buffers and Boost.Http.Proto. The first real task was getting the CI setup for that and we chose to use an in-house solution. I was never really an expert in GitHub Actions nor CI so there was a definite learning curve in how to debug CI issues and what’s an effective use of time versus not. But more importantly I was able to discern what was and what wasn’t important to automate in the CI pipeline. The actual actions you can define in GHA are incredibly powerful and as someone who’s well-versed in JavaScript, I find them quite nice and easy to use. The in-house tools we use are called cpp-actions, available here if one is interested or wants to try them out. I’d say they’re all good except for the one that generates the actual build matrix. This is something I learned via trial by fire. This gist of actions is that they’re essentially functions with inputs and outputs. An action that generates your inputs for you such as compiler and compiler flags inverts the benefits and turns actions into a burden instead of a boon. This is because not every project will aim to support the same compilers and the same flags. Some entries of the build matrix will have even more special requirements than others so being able to edit the matrix and add flags or other configuration options becomes paramount. The action can attempt to accomodate these use-cases but the resulting syntax is likely to be poor and more trouble than it’s worth. I noted a stark improvement in my CI experience once I was fully in control of the inputs and simply treated actions like an opaque functional pipeline. The ability to just add a new field to a matrix entry was a huge convenience in comparison to the process it took to update the matrix-building action which requires updating a separate repo and then a SHA in the repo actually being tested. But CI is worth it. We introduce all this complexity in our development pipelines because taking some C++ and compiling it on as many platforms as we can is the best way to root out undefined behavior and other bugs. I found GitHub Actions to be an enjoyable experience but there’s caveats. Most Boost libraries use ad hoc CI configuration so I laud the work that’s been done to abstract all this. The wisdom here is that not all forms of automation are free and there’s different requirements and costs to be considered. Sometimes, rote copy-paste with inline editing just wins out and it’s only through experience that we get a sense of when this is the case. As for buffer operations and HTTP, they’re still being actively developed and worked on. Good progress has been made on that front. The container types and serialization routines have received a lot of love and are that much closer to being fully production-ready. CI took a long time to understand and setup so the next quarter will be more focused on actual C++ and the pedantry of HTTP RFCs.","@type":"BlogPosting","url":"http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update.html","headline":"Christian’s Q1 2024 Update","dateModified":"2024-04-20T00:00:00+00:00","datePublished":"2024-04-20T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/christian/2024/04/20/ChristiansQ1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Christian's Q1 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/christian">
+                  Christian Mazakas
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 20, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In the past few months, I’ve been busy getting up to speed on the slate of proposed-for-Boost libraries:
+Boost.Buffers and Boost.Http.Proto.</p>
+
+<p>The first real task was getting the CI setup for that and we chose to use an in-house solution. I was never really an
+expert in GitHub Actions nor CI so there was a definite learning curve in how to debug CI issues and what’s an effective
+use of time versus not.</p>
+
+<p>But more importantly I was able to discern what was and what wasn’t important to automate in the CI pipeline. The actual
+actions you can define in GHA are incredibly powerful and as someone who’s well-versed in JavaScript, I find them quite
+nice and easy to use.</p>
+
+<p>The in-house tools we use are called cpp-actions, available <a href="https://github.com/alandefreitas/cpp-actions">here</a> if
+one is interested or wants to try them out. I’d say they’re all good except for the one that generates the actual
+build matrix. This is something I learned via trial by fire.</p>
+
+<p>This gist of actions is that they’re essentially functions with inputs and outputs. An action that generates your inputs
+for you such as compiler and compiler flags inverts the benefits and turns actions into a burden instead of a boon. This
+is because not every project will aim to support the same compilers and the same flags. Some entries of the build matrix
+will have even more special requirements than others so being able to edit the matrix and add flags or other configuration
+options becomes paramount.</p>
+
+<p>The action can attempt to accomodate these use-cases but the resulting syntax is likely to be poor and more trouble than
+it’s worth. I noted a stark improvement in my CI experience once I was fully in control of the inputs and simply treated
+actions like an opaque functional pipeline. The ability to just add a new field to a matrix entry was a huge convenience
+in comparison to the process it took to update the matrix-building action which requires updating a separate repo and then
+a SHA in the repo actually being tested.</p>
+
+<p>But CI is worth it. We introduce all this complexity in our development pipelines because taking some C++ and compiling
+it on as many platforms as we can is the best way to root out undefined behavior and other bugs. I found GitHub Actions
+to be an enjoyable experience but there’s caveats. Most Boost libraries use ad hoc CI configuration so I laud the work
+that’s been done to abstract all this. The wisdom here is that not all forms of automation are free and there’s
+different requirements and costs to be considered. Sometimes, rote copy-paste with inline editing just wins out and it’s
+only through experience that we get a sense of when this is the case.</p>
+
+<p>As for buffer operations and HTTP, they’re still being actively developed and worked on. Good progress has been made on
+that front. The container types and serialization routines have received a lot of love and are that much closer to being
+fully production-ready. CI took a long time to understand and setup so the next quarter will be more focused on actual
+C++ and the pedantry of HTTP RFCs.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/17/2025</span>
+          <a class='text-l news-title link' href="/christian/2025/04/17/Christians2025Q1Update.html">Unordered's New Look</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/christian/2025/01/07/Christian2024Q4Update.html">Hashing and Matching</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/10/20/Christian2024Q3Update.html">The Safe C++ Saga</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/07/10/ChristiansQ2Update.html">Christian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/04/20/ChristiansQ1Update.html">Christian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/01/10/ChristiansQ4Update.html">Christian's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/christian/2023/10/27/Christians2023Q3Update.html">Christian's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's February Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s February Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s February Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The Lesser HTTP Refactor Aside from the normal answering of queries and issues, February has been a month dominated by the difference between the asio::DynamicBuffer_v1 and asio::DynamicBuffer_v2 concepts. As I understand things, both Beast and Asio libraries developed the idea of the DynamicBuffer concept (or more correctly, Named Type Requirement [NTR]) at roughly the same time, but with slightly different needs. The original Asio DyanmicBuffer describes a move-only type, designed to be a short-lived wrapper over storage which would allow a composed operation to easily manage data insertions or retrievals from that storage through models of the MutableBufferSequence and ConstBufferSequence NTRs. In Beast, it was found that DynamicBuffer objects being move-only caused a difficultly, because the necessarily complex composed operations in Beast need to create a DynamicBuffer, perform operations on it, pass it to a sub-operation for further manipulation and then continue performing operations on the same buffer. If the DynamicBuffer as been passed by move to a sub operation, then before the buffer can be used again, it will have to be moved back to the caller by the callee. Rather than complicate algorithms, Beast’s authors took a slightly different track - Beast DynamicBuffers were specified to be pass-by-reference. That is, the caller is responsible for the lifetime of the DynamicBuffer and the callee is passed a reference. This satisfied Beast’s needs but created an incompatibility with Asio and Net.TS. Vinnie Falco wrote a paper on the problem offering a solution to enabling complex composed operations involving DynamicBuffers. On reflection, LEWG took a different view and solved the problem by re-engineering the DynamicBuffer NTR. The result is that Boost.Beast objects are now likely to encounter three versions of DynamicBuffer objects in the wild and needs to be able to cope gracefully. Boost.Asio now has the NTRs DynamicBuffer_v1 and DynamicBuffer_v2, with the NTR DynamicBuffer being a synonym for either depending on configuration flags (defaulting to DynamicBuffer_v2). We have had to go a little further and add a new NTR in Beast, DynamicBuffer_v0. The meanings of these NTRs are: NTR Mapping in Asio Mapping in previous Beast Overview DynamicBuffer_v0 none DynamicBuffer A dynamic buffer with a version 1 interface which must be passed by reference DynamicBuffer_v1 DynamicBuffer_v1 Asio DynamicBuffer (v1) A dynamic buffer with a version 1 interface which must be passed by move DynamicBuffer_v2 DynamicBuffer_v2 none A dynamic buffer with a version 2 interface which is passed by copy My intention this month was to migrate the entire Beast code base to use Asio’s (and current net.ts’s) DynamicBuffer_v2 concepts while still remaining fully compatible with DynamicBuffer_v0 objects (which will be in existing user code). The first attempt sought to change as little of the Beast code as possible, by writing DynamicBuffer_v0 wrappers for DynamicBuffer_v[1|2] objects, with those wrappers automatically created on demand in the initiating function of Beast IO operations. The problem with this approach is that it penalised the use of DynamicBuffer_v2 with an additional memory allocation (in order to manage a proxy of DynamicBuffer_v1’s input and output regions). On reflection, it became apparent that in the future, use of DynamicBuffer_v2 will be the norm, so it would be inappropriate for Beast to punish its use. Therefore, we have chosen to take the harder road of refactoring Beast to use DynamicBuffer_v2 in all composed operations involving dynamic buffers, and refactor the existing DynamicBuffer_v0 types in order to allow them to act as storage providers for DynamicBuffer_v2 proxies while still retaining their DynamicBuffer_v0 public interfaces. I had hoped to get all this done during February, but alas - in terms of released code - I only got as far as the refactoring of existing types. The code has been released into the develop branch as part of Version 286. The refactor of HTTP operations and Websocket Streams in terms of DynamicBuffer_v2 is underway and indeed mostly complete, but there was not sufficient time to release a sufficiently robust, reviewed and tested version this month. I plan to finish off this work in the first part of March, which will hopefully leave time for more interesting challenges ahead. What’s Next Well, the Beast Issue Tracker is far from clear, so there is plenty of work to do. At some point though, I’d like to make a start on a fully featured higher level HTTP client library built on Boost.Beast. We’ll have to see what unfolds." />
+<meta property="og:description" content="The Lesser HTTP Refactor Aside from the normal answering of queries and issues, February has been a month dominated by the difference between the asio::DynamicBuffer_v1 and asio::DynamicBuffer_v2 concepts. As I understand things, both Beast and Asio libraries developed the idea of the DynamicBuffer concept (or more correctly, Named Type Requirement [NTR]) at roughly the same time, but with slightly different needs. The original Asio DyanmicBuffer describes a move-only type, designed to be a short-lived wrapper over storage which would allow a composed operation to easily manage data insertions or retrievals from that storage through models of the MutableBufferSequence and ConstBufferSequence NTRs. In Beast, it was found that DynamicBuffer objects being move-only caused a difficultly, because the necessarily complex composed operations in Beast need to create a DynamicBuffer, perform operations on it, pass it to a sub-operation for further manipulation and then continue performing operations on the same buffer. If the DynamicBuffer as been passed by move to a sub operation, then before the buffer can be used again, it will have to be moved back to the caller by the callee. Rather than complicate algorithms, Beast’s authors took a slightly different track - Beast DynamicBuffers were specified to be pass-by-reference. That is, the caller is responsible for the lifetime of the DynamicBuffer and the callee is passed a reference. This satisfied Beast’s needs but created an incompatibility with Asio and Net.TS. Vinnie Falco wrote a paper on the problem offering a solution to enabling complex composed operations involving DynamicBuffers. On reflection, LEWG took a different view and solved the problem by re-engineering the DynamicBuffer NTR. The result is that Boost.Beast objects are now likely to encounter three versions of DynamicBuffer objects in the wild and needs to be able to cope gracefully. Boost.Asio now has the NTRs DynamicBuffer_v1 and DynamicBuffer_v2, with the NTR DynamicBuffer being a synonym for either depending on configuration flags (defaulting to DynamicBuffer_v2). We have had to go a little further and add a new NTR in Beast, DynamicBuffer_v0. The meanings of these NTRs are: NTR Mapping in Asio Mapping in previous Beast Overview DynamicBuffer_v0 none DynamicBuffer A dynamic buffer with a version 1 interface which must be passed by reference DynamicBuffer_v1 DynamicBuffer_v1 Asio DynamicBuffer (v1) A dynamic buffer with a version 1 interface which must be passed by move DynamicBuffer_v2 DynamicBuffer_v2 none A dynamic buffer with a version 2 interface which is passed by copy My intention this month was to migrate the entire Beast code base to use Asio’s (and current net.ts’s) DynamicBuffer_v2 concepts while still remaining fully compatible with DynamicBuffer_v0 objects (which will be in existing user code). The first attempt sought to change as little of the Beast code as possible, by writing DynamicBuffer_v0 wrappers for DynamicBuffer_v[1|2] objects, with those wrappers automatically created on demand in the initiating function of Beast IO operations. The problem with this approach is that it penalised the use of DynamicBuffer_v2 with an additional memory allocation (in order to manage a proxy of DynamicBuffer_v1’s input and output regions). On reflection, it became apparent that in the future, use of DynamicBuffer_v2 will be the norm, so it would be inappropriate for Beast to punish its use. Therefore, we have chosen to take the harder road of refactoring Beast to use DynamicBuffer_v2 in all composed operations involving dynamic buffers, and refactor the existing DynamicBuffer_v0 types in order to allow them to act as storage providers for DynamicBuffer_v2 proxies while still retaining their DynamicBuffer_v0 public interfaces. I had hoped to get all this done during February, but alas - in terms of released code - I only got as far as the refactoring of existing types. The code has been released into the develop branch as part of Version 286. The refactor of HTTP operations and Websocket Streams in terms of DynamicBuffer_v2 is underway and indeed mostly complete, but there was not sufficient time to release a sufficiently robust, reviewed and tested version this month. I plan to finish off this work in the first part of March, which will hopefully leave time for more interesting challenges ahead. What’s Next Well, the Beast Issue Tracker is far from clear, so there is plenty of work to do. At some point though, I’d like to make a start on a fully featured higher level HTTP client library built on Boost.Beast. We’ll have to see what unfolds." />
+<link rel="canonical" href="http://cppalliance.org/richard/2020/02/29/RichardsFebruaryUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2020/02/29/RichardsFebruaryUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-02-29T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s February Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"The Lesser HTTP Refactor Aside from the normal answering of queries and issues, February has been a month dominated by the difference between the asio::DynamicBuffer_v1 and asio::DynamicBuffer_v2 concepts. As I understand things, both Beast and Asio libraries developed the idea of the DynamicBuffer concept (or more correctly, Named Type Requirement [NTR]) at roughly the same time, but with slightly different needs. The original Asio DyanmicBuffer describes a move-only type, designed to be a short-lived wrapper over storage which would allow a composed operation to easily manage data insertions or retrievals from that storage through models of the MutableBufferSequence and ConstBufferSequence NTRs. In Beast, it was found that DynamicBuffer objects being move-only caused a difficultly, because the necessarily complex composed operations in Beast need to create a DynamicBuffer, perform operations on it, pass it to a sub-operation for further manipulation and then continue performing operations on the same buffer. If the DynamicBuffer as been passed by move to a sub operation, then before the buffer can be used again, it will have to be moved back to the caller by the callee. Rather than complicate algorithms, Beast’s authors took a slightly different track - Beast DynamicBuffers were specified to be pass-by-reference. That is, the caller is responsible for the lifetime of the DynamicBuffer and the callee is passed a reference. This satisfied Beast’s needs but created an incompatibility with Asio and Net.TS. Vinnie Falco wrote a paper on the problem offering a solution to enabling complex composed operations involving DynamicBuffers. On reflection, LEWG took a different view and solved the problem by re-engineering the DynamicBuffer NTR. The result is that Boost.Beast objects are now likely to encounter three versions of DynamicBuffer objects in the wild and needs to be able to cope gracefully. Boost.Asio now has the NTRs DynamicBuffer_v1 and DynamicBuffer_v2, with the NTR DynamicBuffer being a synonym for either depending on configuration flags (defaulting to DynamicBuffer_v2). We have had to go a little further and add a new NTR in Beast, DynamicBuffer_v0. The meanings of these NTRs are: NTR Mapping in Asio Mapping in previous Beast Overview DynamicBuffer_v0 none DynamicBuffer A dynamic buffer with a version 1 interface which must be passed by reference DynamicBuffer_v1 DynamicBuffer_v1 Asio DynamicBuffer (v1) A dynamic buffer with a version 1 interface which must be passed by move DynamicBuffer_v2 DynamicBuffer_v2 none A dynamic buffer with a version 2 interface which is passed by copy My intention this month was to migrate the entire Beast code base to use Asio’s (and current net.ts’s) DynamicBuffer_v2 concepts while still remaining fully compatible with DynamicBuffer_v0 objects (which will be in existing user code). The first attempt sought to change as little of the Beast code as possible, by writing DynamicBuffer_v0 wrappers for DynamicBuffer_v[1|2] objects, with those wrappers automatically created on demand in the initiating function of Beast IO operations. The problem with this approach is that it penalised the use of DynamicBuffer_v2 with an additional memory allocation (in order to manage a proxy of DynamicBuffer_v1’s input and output regions). On reflection, it became apparent that in the future, use of DynamicBuffer_v2 will be the norm, so it would be inappropriate for Beast to punish its use. Therefore, we have chosen to take the harder road of refactoring Beast to use DynamicBuffer_v2 in all composed operations involving dynamic buffers, and refactor the existing DynamicBuffer_v0 types in order to allow them to act as storage providers for DynamicBuffer_v2 proxies while still retaining their DynamicBuffer_v0 public interfaces. I had hoped to get all this done during February, but alas - in terms of released code - I only got as far as the refactoring of existing types. The code has been released into the develop branch as part of Version 286. The refactor of HTTP operations and Websocket Streams in terms of DynamicBuffer_v2 is underway and indeed mostly complete, but there was not sufficient time to release a sufficiently robust, reviewed and tested version this month. I plan to finish off this work in the first part of March, which will hopefully leave time for more interesting challenges ahead. What’s Next Well, the Beast Issue Tracker is far from clear, so there is plenty of work to do. At some point though, I’d like to make a start on a fully featured higher level HTTP client library built on Boost.Beast. We’ll have to see what unfolds.","@type":"BlogPosting","url":"http://cppalliance.org/richard/2020/02/29/RichardsFebruaryUpdate.html","headline":"Richard’s February Update","dateModified":"2020-02-29T00:00:00+00:00","datePublished":"2020-02-29T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2020/02/29/RichardsFebruaryUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's February Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Feb 29, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="the-lesser-http-refactor">The Lesser HTTP Refactor</h1>
+
+<p>Aside from the normal answering of queries and <a href="https://github.com/boostorg/beast/issues">issues</a>, February has been a
+month dominated by the difference between the <code>asio::DynamicBuffer_v1</code> and <code>asio::DynamicBuffer_v2</code> concepts.</p>
+
+<p>As I understand things, both Beast and Asio libraries developed the idea of the <code>DynamicBuffer</code> concept (or more
+correctly, Named Type Requirement [NTR]) at roughly the same time, but with slightly different needs.</p>
+
+<p>The original Asio <code>DyanmicBuffer</code> describes a move-only type, designed to be a short-lived wrapper over storage which
+would allow a composed operation to easily manage data insertions or retrievals from that storage through models of the
+<code>MutableBufferSequence</code> and <code>ConstBufferSequence</code> NTRs.</p>
+
+<p>In Beast, it was found that <code>DynamicBuffer</code> objects being move-only caused a difficultly, because the necessarily
+complex composed operations in Beast need to create a <code>DynamicBuffer</code>, perform operations on it, pass it to a
+sub-operation for further manipulation and then continue performing operations on the same buffer.</p>
+
+<p>If the <code>DynamicBuffer</code> as been passed by move to a sub operation, then before the buffer can be used again, it will
+have to be moved back to the caller by the callee.</p>
+
+<p>Rather than complicate algorithms, Beast’s authors took a slightly different track - Beast <code>DynamicBuffer</code>s were specified
+to be pass-by-reference. That is, the caller is responsible for the lifetime of the <code>DynamicBuffer</code> and the callee is
+passed a reference.</p>
+
+<p>This satisfied Beast’s needs but created an incompatibility with Asio and Net.TS.</p>
+
+<p>Vinnie Falco wrote a <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1100r0.html">paper</a> on the problem
+offering a solution to enabling complex composed operations involving <code>DynamicBuffer</code>s. On reflection, LEWG took a
+different view and solved the problem by
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1790r1.html">re-engineering</a> the <code>DynamicBuffer</code> NTR.</p>
+
+<p>The result is that Boost.Beast objects are now likely to encounter three versions of <code>DynamicBuffer</code> objects in the wild
+and needs to be able to cope gracefully.</p>
+
+<p>Boost.Asio now has the NTRs <code>DynamicBuffer_v1</code> and <code>DynamicBuffer_v2</code>, with the NTR <code>DynamicBuffer</code> being a synonym for
+either depending on configuration flags (defaulting to <code>DynamicBuffer_v2</code>).</p>
+
+<p>We have had to go a little further and add a new NTR in Beast, <code>DynamicBuffer_v0</code>. The meanings of these NTRs are:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>NTR</th>
+      <th>Mapping in Asio</th>
+      <th>Mapping in previous Beast</th>
+      <th>Overview</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DynamicBuffer_v0</td>
+      <td>none</td>
+      <td>DynamicBuffer</td>
+      <td>A dynamic buffer with a version 1 interface which must be passed by reference</td>
+    </tr>
+    <tr>
+      <td>DynamicBuffer_v1</td>
+      <td>DynamicBuffer_v1</td>
+      <td>Asio DynamicBuffer (v1)</td>
+      <td>A dynamic buffer with a version 1 interface which must be passed by move</td>
+    </tr>
+    <tr>
+      <td>DynamicBuffer_v2</td>
+      <td>DynamicBuffer_v2</td>
+      <td>none</td>
+      <td>A dynamic buffer with a version 2 interface which is passed by copy</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>My intention this month was to migrate the entire Beast code base to use Asio’s (and current net.ts’s) <code>DynamicBuffer_v2</code>
+concepts while still remaining fully compatible with <code>DynamicBuffer_v0</code> objects (which will be in existing user code).</p>
+
+<p>The first attempt sought to change as little of the Beast code as possible, by writing <code>DynamicBuffer_v0</code> wrappers for
+DynamicBuffer_v[1|2] objects, with those wrappers automatically created on demand in the initiating function of Beast IO
+operations. The problem with this approach is that it penalised the use of DynamicBuffer_v2 with an additional memory
+allocation (in order to manage a proxy of DynamicBuffer_v1’s input and output regions). On reflection, it became
+apparent that in the future, use of <code>DynamicBuffer_v2</code> will be the norm, so it would be inappropriate for Beast to
+punish its use.</p>
+
+<p>Therefore, we have chosen to take the harder road of refactoring Beast to use <code>DynamicBuffer_v2</code> in all composed
+operations involving dynamic buffers, and refactor the existing <code>DynamicBuffer_v0</code> types in order to allow them to
+act as storage providers for <code>DynamicBuffer_v2</code> proxies while still retaining their <code>DynamicBuffer_v0</code> public
+interfaces.</p>
+
+<p>I had hoped to get all this done during February, but alas - in terms of released code - I only got as far as the
+refactoring of existing types.</p>
+
+<p>The code has been released into the <a href="https://github.com/boostorg/beast/tree/develop">develop</a> branch as part of
+<a href="https://github.com/boostorg/beast/commit/c8a726f962b2fbf77d00b273b3c6fb0dd975a6b5">Version 286</a>.</p>
+
+<p>The refactor of HTTP operations and Websocket Streams in terms of <code>DynamicBuffer_v2</code> is underway and indeed mostly
+complete, but there was not sufficient time to release a sufficiently robust, reviewed and tested version this month.</p>
+
+<p>I plan to finish off this work in the first part of March, which will hopefully leave time for more interesting
+challenges ahead.</p>
+
+<h1 id="whats-next">What’s Next</h1>
+
+<p>Well, the Beast <a href="https://github.com/boostorg/beast/issues">Issue Tracker</a> is far from clear, so there is plenty of
+work to do.</p>
+
+<p>At some point though, I’d like to make a start on a fully featured higher level HTTP client library built on
+Boost.Beast.</p>
+
+<p>We’ll have to see what unfolds.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

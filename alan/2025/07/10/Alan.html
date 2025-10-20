@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bringing B2-Style Test Granularity to CMake | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Bringing B2-Style Test Granularity to CMake | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Bringing B2-Style Test Granularity to CMake" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction Boost libraries typically maintain granular unit tests using Boost.Build (B2). B2 provides a run rule that makes it easy to define many independent test targets from a single source file or executable. Each test case can be listed, invoked, and reported separately, which improves developer workflow, test clarity, and CI diagnostics. However, Boost’s CMake integration has lacked this granularity. When Boost libraries are built with CMake, the typical approach is to define a single test executable and add all test suites as a single test in CTest with add_test(). As a result, when running tests with CTest, developers lose the ability to see individual test failures in isolation, run only subsets of tests, or leverage parallel execution at the test level. The goal of this work is to bridge that gap. We want to replicate the B2 “one executable, many independent tests” idiom in CMake. Specifically, we want to use modern CMake techniques to split a single unit test executable into multiple independent CTest targets, while preserving the flexibility and simplicity of the Boost testing style. Problem Analysis To understand why splitting tests into independent CTest targets is non-trivial, it helps to look at how CMake’s build and test model is structured. When building and testing libraries with CMake, the developer usually has a workflow of four key phases: Configuration step: This is where CMakeLists.txt files are processed and commands like add_executable and add_test() are called. Test targets must be defined here, so CTest knows about them. Build step: This is when the underlying build system (the CMake “generator”: e.g., Ninja or Make) compiles sources and produces executables, including unit test binaries. Test step: This is when ctest runs the defined tests, using the executables built in the previous step. Installation step: This is where the built libraries and executables are installed to their final locations. This step is not directly relevant to the problem at hand, but it’s part of the overall CMake workflow. At the configuration step, we would like to have something like add_test(NAME test_a COMMAND my_unit_test_executable a) add_test(NAME test_b COMMAND my_unit_test_executable b) add_test(NAME test_c COMMAND my_unit_test_executable c) instead of add_test(NAME my_unit_test_executable COMMAND my_unit_test_executable) The fundamental obstacle is that, in the general case, you cannot know what tests exist inside a unit test executable until you can run it. Many modern test frameworks (like Boost.Test, Catch2, GoogleTest) support listing their available tests by running the executable with a special argument (e.g., --list-tests). But this only works after the executable is built. In other words: You need the executable to discover the tests, but CMake requires you to declare the tests in the configuration phase before building the executable in the build step. This dependency cycle is the core problem that makes it difficult to reproduce B2’s run rule semantics in CMake. Without special handling, you’re forced to treat the entire unit test binary as a single test, losing the ability to register its internal test cases as independent CTest targets. The solution to this problem involves the TEST_INCLUDE_FILES directory property, which allows you to specify additional files that CTest should consider when running tests. By leveraging this property, we can dynamically generate a CMake script that defines individual add_test() calls for each test case found in the unit test executable. So we can use set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES &quot;${TEST_SUITE_CTEST_INCLUDE_FILE}&quot; ) to include a generated CMake script that contains the individual test definitions. This allows us to run the executable post-build, extract the test names, and then register them with CTest in a way that mimics the B2 experience. Other modern test frameworks have explored this feature to provide an automated test discovery mechanism for their libraries in CMake. For example, Catch2’s catch_discover_tests() and GoogleTest’s gtest_discover_tests() run the built test executable with a listing flag (like --list-tests) to extract individual test cases and generate separate add_test() entries for each. Design Overview Since CMake requires test registration in the configuration step, but we can only discover test cases after building the executable, we introduce an approach to bridge that gap. The high-level plan is: Build the executable: Compile the unit test executable as usual. The target is defined in the configuration step and built in the build step. Post-build step: After building, run the executable with --list-tests (or equivalent) to enumerate all available test cases. This is achieved with a custom command that runs after the build completes. Generate a CMake script: This post-build step writes a .cmake file containing one add_test() call for each discovered test case. Conditional inclusion: The main CMake configuration includes this generated script only if it exists, so the tests appear in CTest after they’re generated. The new script is included using the TEST_INCLUDE_FILES property, which allows CTest to pick it up automatically. This approach effectively moves test discovery to the build phase while still registering the resulting tests with CTest in the configuration phase for subsequent runs. This process is transparent to the user. In Boost.URL, where we implemented the functionality, the test registration process went from: add_test(NAME boost_url_unit_tests COMMAND boost_url_unit_tests) to boost_url_test_suite_discover_tests(boost_url_unit_tests) Implementation Details This section describes the approach bottom-up, showing the overall mechanism of discovering and registering independent test targets in CMake. The Test Listing Extractor Script The first piece is a small CMake script that runs the compiled test executable with --list-tests (or an equivalent flag your test framework supports). It captures the output, which is expected to be a plain list of test case names. For example, suppose your unit test executable outputs: UnitA.TestAlpha UnitA.TestBeta UnitB.TestGamma The script saves these names so they can be transformed into separate CTest targets. Example command in CMake: execute_process( COMMAND &quot;${TEST_SUITE_TEST_EXECUTABLE}&quot; ${TEST_SUITE_TEST_SPEC} --list-tests OUTPUT_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT ERROR_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT RESULT_VARIABLE TEST_SUITE_RESULT WORKING_DIRECTORY &quot;${TEST_SUITE_TEST_WORKING_DIR}&quot; ) Generator of CMake Test Definitions Once the list of tests is available, the script generates a new .cmake file containing one add_test() call per discovered test. This file effectively defines the independent CTest targets. Example generated tests.cmake content: add_test(NAME UnitA.TestAlpha COMMAND my_test_executable UnitA.TestAlpha) add_test(NAME UnitA.TestBeta COMMAND my_test_executable UnitA.TestBeta) add_test(NAME UnitB.TestGamma COMMAND my_test_executable UnitB.TestGamma) This approach ensures each test is addressable, selectable, and independently reported by CTest. Post-Build Step Integration CMake can’t know these test names at configuration time, so we hook the test listing step to the build phase using a POST_BUILD custom command. After the test executable is built, this command runs the extractor and generates the script file defining the tests. Example: add_custom_command( # The executable target with the unit tests TARGET ${TARGET} POST_BUILD BYPRODUCTS &quot;${TEST_SUITE_CTEST_TESTS_FILE}&quot; # Run the CMake script to discover tests after the build step COMMAND &quot;${CMAKE_COMMAND}&quot; # Arguments to the script -D &quot;TEST_TARGET=${TARGET}&quot; -D &quot;TEST_EXECUTABLE=$&lt;TARGET_FILE:${TARGET}&gt;&quot; -D &quot;TEST_WORKING_DIR=${TEST_SUITE_WORKING_DIRECTORY}&quot; # ... # The output file where the test definitions will be written -D &quot;CTEST_FILE=${TEST_SUITE_CTEST_TESTS_FILE}&quot; # The script that generates the test definitions -P &quot;${TEST_SUITE_DISCOVER_AND_WRITE_TESTS_SCRIPT}&quot; VERBATIM ) This ensures the test listing happens automatically as part of the build. Including Generated Tests The main CMake configuration includes the generated .cmake file, but only if it exists. This avoids errors on a test pass before the executable is built. This could happen because the user is calling ctest before the build step completes, because the test executable was not built, or because the cache was invalidated. So the discovery function uses the example pattern: if(EXISTS &quot;${CMAKE_BINARY_DIR}/generated/tests.cmake&quot;) include(&quot;${CMAKE_BINARY_DIR}/generated/tests.cmake&quot;) endif() And this is the file that the test step will ultimately include in the CTest run, allowing CTest to see all the individual test targets. CMake Function for Reuse To make this easy for other libraries, the pattern can be wrapped in a CMake function. This function: Defines the POST_BUILD rule for the given target. Encapsulates the details of running the extractor script. Ensures consistent output locations for the generated test definitions. Example usage: boost_url_test_suite_discover_tests(boost_url_unit_tests) This approach lets library maintainers adopt the system with minimal changes to their existing CMake setup, while maintaining Boost’s fine-grained, many-target test philosophy. When we look at CI results for Boost.URL, this is the only thing we used to have: /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure Internal ctest changing into directory: /__w/url/boost-root/build_cmake Test project /__w/url/boost-root/build_cmake Start 1: boost_url_unit_tests Start 2: boost_url_extra Start 3: boost_url_limits 1/3 Test #2: boost_url_extra .................. Passed 0.00 sec 2/3 Test #3: boost_url_limits ................. Passed 0.00 sec 3/3 Test #1: boost_url_unit_tests ............. Passed 0.02 sec 100% tests passed, 0 tests failed out of 3 Total Test time (real) = 0.02 sec And now we see one unit test per test case: /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure Internal ctest changing into directory: /__w/url/boost-root/build_cmake Test project /__w/url/boost-root/build_cmake Start 1: boost.url.absolute_uri_rule Start 2: boost.url.authority_rule Start 3: boost.url.authority_view Start 4: boost.url.compat.ada 1/76 Test #1: boost.url.absolute_uri_rule .......... Passed 0.01 sec Start 5: boost.url.decode_view 2/76 Test #2: boost.url.authority_rule ............. Passed 0.01 sec Start 6: boost.url.doc.3_urls 3/76 Test #3: boost.url.authority_view ............. Passed 0.01 sec Start 7: boost.url.doc.grammar 4/76 Test #5: boost.url.decode_view ................ Passed 0.01 sec Start 8: boost.url.encode 5/76 Test #4: boost.url.compat.ada ................. Passed 0.01 sec Start 9: boost.url.error 6/76 Test #6: boost.url.doc.3_urls ................. Passed 0.01 sec Start 10: boost.url.format 7/76 Test #7: boost.url.doc.grammar ................ Passed 0.01 sec Start 11: boost.url.gen_delim_chars 8/76 Test #8: boost.url.encode ..................... Passed 0.01 sec Start 12: boost.url.grammar.alnum_chars ... meaning that each test is now executed and reported individually and in parallel, allowing developers to see which specific tests passed or failed, and enabling more granular control over test execution. Conclusion This approach brings fine-grained tests into the modern CMake Boost workflow. By splitting a single test executable into multiple independent CTest targets, maintainers gain: More granular failure reporting: CI logs show exactly which test case failed. Better developer experience: Developers can run or re-run individual tests easily. Improved parallel execution: Faster test runs in CI and locally. Better IDE integration: IDEs can show individual test cases. For other Boost libraries considering adopting this pattern, the only requirement is that their test executables support a --list-tests (or equivalent) command that outputs the available test cases. Once that’s available, the necessary CMake changes to define an equivalent function are minimal: Add a POST_BUILD step that runs the listing command and generates the .cmake file. Conditionally include that generated file in the main CMakeLists. If the output of --list-tests is one test suite per line, the existing script can be used as-is. This small investment pays off with a much more maintainable and CI-friendly testing setup. I encourage other maintainers and contributors to try this technique, refine it, and share feedback. The complete script and CMake snippets are available in the Boost.URL repository at commit #a1a5d18." />
+<meta property="og:description" content="Introduction Boost libraries typically maintain granular unit tests using Boost.Build (B2). B2 provides a run rule that makes it easy to define many independent test targets from a single source file or executable. Each test case can be listed, invoked, and reported separately, which improves developer workflow, test clarity, and CI diagnostics. However, Boost’s CMake integration has lacked this granularity. When Boost libraries are built with CMake, the typical approach is to define a single test executable and add all test suites as a single test in CTest with add_test(). As a result, when running tests with CTest, developers lose the ability to see individual test failures in isolation, run only subsets of tests, or leverage parallel execution at the test level. The goal of this work is to bridge that gap. We want to replicate the B2 “one executable, many independent tests” idiom in CMake. Specifically, we want to use modern CMake techniques to split a single unit test executable into multiple independent CTest targets, while preserving the flexibility and simplicity of the Boost testing style. Problem Analysis To understand why splitting tests into independent CTest targets is non-trivial, it helps to look at how CMake’s build and test model is structured. When building and testing libraries with CMake, the developer usually has a workflow of four key phases: Configuration step: This is where CMakeLists.txt files are processed and commands like add_executable and add_test() are called. Test targets must be defined here, so CTest knows about them. Build step: This is when the underlying build system (the CMake “generator”: e.g., Ninja or Make) compiles sources and produces executables, including unit test binaries. Test step: This is when ctest runs the defined tests, using the executables built in the previous step. Installation step: This is where the built libraries and executables are installed to their final locations. This step is not directly relevant to the problem at hand, but it’s part of the overall CMake workflow. At the configuration step, we would like to have something like add_test(NAME test_a COMMAND my_unit_test_executable a) add_test(NAME test_b COMMAND my_unit_test_executable b) add_test(NAME test_c COMMAND my_unit_test_executable c) instead of add_test(NAME my_unit_test_executable COMMAND my_unit_test_executable) The fundamental obstacle is that, in the general case, you cannot know what tests exist inside a unit test executable until you can run it. Many modern test frameworks (like Boost.Test, Catch2, GoogleTest) support listing their available tests by running the executable with a special argument (e.g., --list-tests). But this only works after the executable is built. In other words: You need the executable to discover the tests, but CMake requires you to declare the tests in the configuration phase before building the executable in the build step. This dependency cycle is the core problem that makes it difficult to reproduce B2’s run rule semantics in CMake. Without special handling, you’re forced to treat the entire unit test binary as a single test, losing the ability to register its internal test cases as independent CTest targets. The solution to this problem involves the TEST_INCLUDE_FILES directory property, which allows you to specify additional files that CTest should consider when running tests. By leveraging this property, we can dynamically generate a CMake script that defines individual add_test() calls for each test case found in the unit test executable. So we can use set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES &quot;${TEST_SUITE_CTEST_INCLUDE_FILE}&quot; ) to include a generated CMake script that contains the individual test definitions. This allows us to run the executable post-build, extract the test names, and then register them with CTest in a way that mimics the B2 experience. Other modern test frameworks have explored this feature to provide an automated test discovery mechanism for their libraries in CMake. For example, Catch2’s catch_discover_tests() and GoogleTest’s gtest_discover_tests() run the built test executable with a listing flag (like --list-tests) to extract individual test cases and generate separate add_test() entries for each. Design Overview Since CMake requires test registration in the configuration step, but we can only discover test cases after building the executable, we introduce an approach to bridge that gap. The high-level plan is: Build the executable: Compile the unit test executable as usual. The target is defined in the configuration step and built in the build step. Post-build step: After building, run the executable with --list-tests (or equivalent) to enumerate all available test cases. This is achieved with a custom command that runs after the build completes. Generate a CMake script: This post-build step writes a .cmake file containing one add_test() call for each discovered test case. Conditional inclusion: The main CMake configuration includes this generated script only if it exists, so the tests appear in CTest after they’re generated. The new script is included using the TEST_INCLUDE_FILES property, which allows CTest to pick it up automatically. This approach effectively moves test discovery to the build phase while still registering the resulting tests with CTest in the configuration phase for subsequent runs. This process is transparent to the user. In Boost.URL, where we implemented the functionality, the test registration process went from: add_test(NAME boost_url_unit_tests COMMAND boost_url_unit_tests) to boost_url_test_suite_discover_tests(boost_url_unit_tests) Implementation Details This section describes the approach bottom-up, showing the overall mechanism of discovering and registering independent test targets in CMake. The Test Listing Extractor Script The first piece is a small CMake script that runs the compiled test executable with --list-tests (or an equivalent flag your test framework supports). It captures the output, which is expected to be a plain list of test case names. For example, suppose your unit test executable outputs: UnitA.TestAlpha UnitA.TestBeta UnitB.TestGamma The script saves these names so they can be transformed into separate CTest targets. Example command in CMake: execute_process( COMMAND &quot;${TEST_SUITE_TEST_EXECUTABLE}&quot; ${TEST_SUITE_TEST_SPEC} --list-tests OUTPUT_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT ERROR_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT RESULT_VARIABLE TEST_SUITE_RESULT WORKING_DIRECTORY &quot;${TEST_SUITE_TEST_WORKING_DIR}&quot; ) Generator of CMake Test Definitions Once the list of tests is available, the script generates a new .cmake file containing one add_test() call per discovered test. This file effectively defines the independent CTest targets. Example generated tests.cmake content: add_test(NAME UnitA.TestAlpha COMMAND my_test_executable UnitA.TestAlpha) add_test(NAME UnitA.TestBeta COMMAND my_test_executable UnitA.TestBeta) add_test(NAME UnitB.TestGamma COMMAND my_test_executable UnitB.TestGamma) This approach ensures each test is addressable, selectable, and independently reported by CTest. Post-Build Step Integration CMake can’t know these test names at configuration time, so we hook the test listing step to the build phase using a POST_BUILD custom command. After the test executable is built, this command runs the extractor and generates the script file defining the tests. Example: add_custom_command( # The executable target with the unit tests TARGET ${TARGET} POST_BUILD BYPRODUCTS &quot;${TEST_SUITE_CTEST_TESTS_FILE}&quot; # Run the CMake script to discover tests after the build step COMMAND &quot;${CMAKE_COMMAND}&quot; # Arguments to the script -D &quot;TEST_TARGET=${TARGET}&quot; -D &quot;TEST_EXECUTABLE=$&lt;TARGET_FILE:${TARGET}&gt;&quot; -D &quot;TEST_WORKING_DIR=${TEST_SUITE_WORKING_DIRECTORY}&quot; # ... # The output file where the test definitions will be written -D &quot;CTEST_FILE=${TEST_SUITE_CTEST_TESTS_FILE}&quot; # The script that generates the test definitions -P &quot;${TEST_SUITE_DISCOVER_AND_WRITE_TESTS_SCRIPT}&quot; VERBATIM ) This ensures the test listing happens automatically as part of the build. Including Generated Tests The main CMake configuration includes the generated .cmake file, but only if it exists. This avoids errors on a test pass before the executable is built. This could happen because the user is calling ctest before the build step completes, because the test executable was not built, or because the cache was invalidated. So the discovery function uses the example pattern: if(EXISTS &quot;${CMAKE_BINARY_DIR}/generated/tests.cmake&quot;) include(&quot;${CMAKE_BINARY_DIR}/generated/tests.cmake&quot;) endif() And this is the file that the test step will ultimately include in the CTest run, allowing CTest to see all the individual test targets. CMake Function for Reuse To make this easy for other libraries, the pattern can be wrapped in a CMake function. This function: Defines the POST_BUILD rule for the given target. Encapsulates the details of running the extractor script. Ensures consistent output locations for the generated test definitions. Example usage: boost_url_test_suite_discover_tests(boost_url_unit_tests) This approach lets library maintainers adopt the system with minimal changes to their existing CMake setup, while maintaining Boost’s fine-grained, many-target test philosophy. When we look at CI results for Boost.URL, this is the only thing we used to have: /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure Internal ctest changing into directory: /__w/url/boost-root/build_cmake Test project /__w/url/boost-root/build_cmake Start 1: boost_url_unit_tests Start 2: boost_url_extra Start 3: boost_url_limits 1/3 Test #2: boost_url_extra .................. Passed 0.00 sec 2/3 Test #3: boost_url_limits ................. Passed 0.00 sec 3/3 Test #1: boost_url_unit_tests ............. Passed 0.02 sec 100% tests passed, 0 tests failed out of 3 Total Test time (real) = 0.02 sec And now we see one unit test per test case: /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure Internal ctest changing into directory: /__w/url/boost-root/build_cmake Test project /__w/url/boost-root/build_cmake Start 1: boost.url.absolute_uri_rule Start 2: boost.url.authority_rule Start 3: boost.url.authority_view Start 4: boost.url.compat.ada 1/76 Test #1: boost.url.absolute_uri_rule .......... Passed 0.01 sec Start 5: boost.url.decode_view 2/76 Test #2: boost.url.authority_rule ............. Passed 0.01 sec Start 6: boost.url.doc.3_urls 3/76 Test #3: boost.url.authority_view ............. Passed 0.01 sec Start 7: boost.url.doc.grammar 4/76 Test #5: boost.url.decode_view ................ Passed 0.01 sec Start 8: boost.url.encode 5/76 Test #4: boost.url.compat.ada ................. Passed 0.01 sec Start 9: boost.url.error 6/76 Test #6: boost.url.doc.3_urls ................. Passed 0.01 sec Start 10: boost.url.format 7/76 Test #7: boost.url.doc.grammar ................ Passed 0.01 sec Start 11: boost.url.gen_delim_chars 8/76 Test #8: boost.url.encode ..................... Passed 0.01 sec Start 12: boost.url.grammar.alnum_chars ... meaning that each test is now executed and reported individually and in parallel, allowing developers to see which specific tests passed or failed, and enabling more granular control over test execution. Conclusion This approach brings fine-grained tests into the modern CMake Boost workflow. By splitting a single test executable into multiple independent CTest targets, maintainers gain: More granular failure reporting: CI logs show exactly which test case failed. Better developer experience: Developers can run or re-run individual tests easily. Improved parallel execution: Faster test runs in CI and locally. Better IDE integration: IDEs can show individual test cases. For other Boost libraries considering adopting this pattern, the only requirement is that their test executables support a --list-tests (or equivalent) command that outputs the available test cases. Once that’s available, the necessary CMake changes to define an equivalent function are minimal: Add a POST_BUILD step that runs the listing command and generates the .cmake file. Conditionally include that generated file in the main CMakeLists. If the output of --list-tests is one test suite per line, the existing script can be used as-is. This small investment pays off with a much more maintainable and CI-friendly testing setup. I encourage other maintainers and contributors to try this technique, refine it, and share feedback. The complete script and CMake snippets are available in the Boost.URL repository at commit #a1a5d18." />
+<link rel="canonical" href="http://cppalliance.org/alan/2025/07/10/Alan.html" />
+<meta property="og:url" content="http://cppalliance.org/alan/2025/07/10/Alan.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-07-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Bringing B2-Style Test Granularity to CMake" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Introduction Boost libraries typically maintain granular unit tests using Boost.Build (B2). B2 provides a run rule that makes it easy to define many independent test targets from a single source file or executable. Each test case can be listed, invoked, and reported separately, which improves developer workflow, test clarity, and CI diagnostics. However, Boost’s CMake integration has lacked this granularity. When Boost libraries are built with CMake, the typical approach is to define a single test executable and add all test suites as a single test in CTest with add_test(). As a result, when running tests with CTest, developers lose the ability to see individual test failures in isolation, run only subsets of tests, or leverage parallel execution at the test level. The goal of this work is to bridge that gap. We want to replicate the B2 “one executable, many independent tests” idiom in CMake. Specifically, we want to use modern CMake techniques to split a single unit test executable into multiple independent CTest targets, while preserving the flexibility and simplicity of the Boost testing style. Problem Analysis To understand why splitting tests into independent CTest targets is non-trivial, it helps to look at how CMake’s build and test model is structured. When building and testing libraries with CMake, the developer usually has a workflow of four key phases: Configuration step: This is where CMakeLists.txt files are processed and commands like add_executable and add_test() are called. Test targets must be defined here, so CTest knows about them. Build step: This is when the underlying build system (the CMake “generator”: e.g., Ninja or Make) compiles sources and produces executables, including unit test binaries. Test step: This is when ctest runs the defined tests, using the executables built in the previous step. Installation step: This is where the built libraries and executables are installed to their final locations. This step is not directly relevant to the problem at hand, but it’s part of the overall CMake workflow. At the configuration step, we would like to have something like add_test(NAME test_a COMMAND my_unit_test_executable a) add_test(NAME test_b COMMAND my_unit_test_executable b) add_test(NAME test_c COMMAND my_unit_test_executable c) instead of add_test(NAME my_unit_test_executable COMMAND my_unit_test_executable) The fundamental obstacle is that, in the general case, you cannot know what tests exist inside a unit test executable until you can run it. Many modern test frameworks (like Boost.Test, Catch2, GoogleTest) support listing their available tests by running the executable with a special argument (e.g., --list-tests). But this only works after the executable is built. In other words: You need the executable to discover the tests, but CMake requires you to declare the tests in the configuration phase before building the executable in the build step. This dependency cycle is the core problem that makes it difficult to reproduce B2’s run rule semantics in CMake. Without special handling, you’re forced to treat the entire unit test binary as a single test, losing the ability to register its internal test cases as independent CTest targets. The solution to this problem involves the TEST_INCLUDE_FILES directory property, which allows you to specify additional files that CTest should consider when running tests. By leveraging this property, we can dynamically generate a CMake script that defines individual add_test() calls for each test case found in the unit test executable. So we can use set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES &quot;${TEST_SUITE_CTEST_INCLUDE_FILE}&quot; ) to include a generated CMake script that contains the individual test definitions. This allows us to run the executable post-build, extract the test names, and then register them with CTest in a way that mimics the B2 experience. Other modern test frameworks have explored this feature to provide an automated test discovery mechanism for their libraries in CMake. For example, Catch2’s catch_discover_tests() and GoogleTest’s gtest_discover_tests() run the built test executable with a listing flag (like --list-tests) to extract individual test cases and generate separate add_test() entries for each. Design Overview Since CMake requires test registration in the configuration step, but we can only discover test cases after building the executable, we introduce an approach to bridge that gap. The high-level plan is: Build the executable: Compile the unit test executable as usual. The target is defined in the configuration step and built in the build step. Post-build step: After building, run the executable with --list-tests (or equivalent) to enumerate all available test cases. This is achieved with a custom command that runs after the build completes. Generate a CMake script: This post-build step writes a .cmake file containing one add_test() call for each discovered test case. Conditional inclusion: The main CMake configuration includes this generated script only if it exists, so the tests appear in CTest after they’re generated. The new script is included using the TEST_INCLUDE_FILES property, which allows CTest to pick it up automatically. This approach effectively moves test discovery to the build phase while still registering the resulting tests with CTest in the configuration phase for subsequent runs. This process is transparent to the user. In Boost.URL, where we implemented the functionality, the test registration process went from: add_test(NAME boost_url_unit_tests COMMAND boost_url_unit_tests) to boost_url_test_suite_discover_tests(boost_url_unit_tests) Implementation Details This section describes the approach bottom-up, showing the overall mechanism of discovering and registering independent test targets in CMake. The Test Listing Extractor Script The first piece is a small CMake script that runs the compiled test executable with --list-tests (or an equivalent flag your test framework supports). It captures the output, which is expected to be a plain list of test case names. For example, suppose your unit test executable outputs: UnitA.TestAlpha UnitA.TestBeta UnitB.TestGamma The script saves these names so they can be transformed into separate CTest targets. Example command in CMake: execute_process( COMMAND &quot;${TEST_SUITE_TEST_EXECUTABLE}&quot; ${TEST_SUITE_TEST_SPEC} --list-tests OUTPUT_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT ERROR_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT RESULT_VARIABLE TEST_SUITE_RESULT WORKING_DIRECTORY &quot;${TEST_SUITE_TEST_WORKING_DIR}&quot; ) Generator of CMake Test Definitions Once the list of tests is available, the script generates a new .cmake file containing one add_test() call per discovered test. This file effectively defines the independent CTest targets. Example generated tests.cmake content: add_test(NAME UnitA.TestAlpha COMMAND my_test_executable UnitA.TestAlpha) add_test(NAME UnitA.TestBeta COMMAND my_test_executable UnitA.TestBeta) add_test(NAME UnitB.TestGamma COMMAND my_test_executable UnitB.TestGamma) This approach ensures each test is addressable, selectable, and independently reported by CTest. Post-Build Step Integration CMake can’t know these test names at configuration time, so we hook the test listing step to the build phase using a POST_BUILD custom command. After the test executable is built, this command runs the extractor and generates the script file defining the tests. Example: add_custom_command( # The executable target with the unit tests TARGET ${TARGET} POST_BUILD BYPRODUCTS &quot;${TEST_SUITE_CTEST_TESTS_FILE}&quot; # Run the CMake script to discover tests after the build step COMMAND &quot;${CMAKE_COMMAND}&quot; # Arguments to the script -D &quot;TEST_TARGET=${TARGET}&quot; -D &quot;TEST_EXECUTABLE=$&lt;TARGET_FILE:${TARGET}&gt;&quot; -D &quot;TEST_WORKING_DIR=${TEST_SUITE_WORKING_DIRECTORY}&quot; # ... # The output file where the test definitions will be written -D &quot;CTEST_FILE=${TEST_SUITE_CTEST_TESTS_FILE}&quot; # The script that generates the test definitions -P &quot;${TEST_SUITE_DISCOVER_AND_WRITE_TESTS_SCRIPT}&quot; VERBATIM ) This ensures the test listing happens automatically as part of the build. Including Generated Tests The main CMake configuration includes the generated .cmake file, but only if it exists. This avoids errors on a test pass before the executable is built. This could happen because the user is calling ctest before the build step completes, because the test executable was not built, or because the cache was invalidated. So the discovery function uses the example pattern: if(EXISTS &quot;${CMAKE_BINARY_DIR}/generated/tests.cmake&quot;) include(&quot;${CMAKE_BINARY_DIR}/generated/tests.cmake&quot;) endif() And this is the file that the test step will ultimately include in the CTest run, allowing CTest to see all the individual test targets. CMake Function for Reuse To make this easy for other libraries, the pattern can be wrapped in a CMake function. This function: Defines the POST_BUILD rule for the given target. Encapsulates the details of running the extractor script. Ensures consistent output locations for the generated test definitions. Example usage: boost_url_test_suite_discover_tests(boost_url_unit_tests) This approach lets library maintainers adopt the system with minimal changes to their existing CMake setup, while maintaining Boost’s fine-grained, many-target test philosophy. When we look at CI results for Boost.URL, this is the only thing we used to have: /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure Internal ctest changing into directory: /__w/url/boost-root/build_cmake Test project /__w/url/boost-root/build_cmake Start 1: boost_url_unit_tests Start 2: boost_url_extra Start 3: boost_url_limits 1/3 Test #2: boost_url_extra .................. Passed 0.00 sec 2/3 Test #3: boost_url_limits ................. Passed 0.00 sec 3/3 Test #1: boost_url_unit_tests ............. Passed 0.02 sec 100% tests passed, 0 tests failed out of 3 Total Test time (real) = 0.02 sec And now we see one unit test per test case: /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure Internal ctest changing into directory: /__w/url/boost-root/build_cmake Test project /__w/url/boost-root/build_cmake Start 1: boost.url.absolute_uri_rule Start 2: boost.url.authority_rule Start 3: boost.url.authority_view Start 4: boost.url.compat.ada 1/76 Test #1: boost.url.absolute_uri_rule .......... Passed 0.01 sec Start 5: boost.url.decode_view 2/76 Test #2: boost.url.authority_rule ............. Passed 0.01 sec Start 6: boost.url.doc.3_urls 3/76 Test #3: boost.url.authority_view ............. Passed 0.01 sec Start 7: boost.url.doc.grammar 4/76 Test #5: boost.url.decode_view ................ Passed 0.01 sec Start 8: boost.url.encode 5/76 Test #4: boost.url.compat.ada ................. Passed 0.01 sec Start 9: boost.url.error 6/76 Test #6: boost.url.doc.3_urls ................. Passed 0.01 sec Start 10: boost.url.format 7/76 Test #7: boost.url.doc.grammar ................ Passed 0.01 sec Start 11: boost.url.gen_delim_chars 8/76 Test #8: boost.url.encode ..................... Passed 0.01 sec Start 12: boost.url.grammar.alnum_chars ... meaning that each test is now executed and reported individually and in parallel, allowing developers to see which specific tests passed or failed, and enabling more granular control over test execution. Conclusion This approach brings fine-grained tests into the modern CMake Boost workflow. By splitting a single test executable into multiple independent CTest targets, maintainers gain: More granular failure reporting: CI logs show exactly which test case failed. Better developer experience: Developers can run or re-run individual tests easily. Improved parallel execution: Faster test runs in CI and locally. Better IDE integration: IDEs can show individual test cases. For other Boost libraries considering adopting this pattern, the only requirement is that their test executables support a --list-tests (or equivalent) command that outputs the available test cases. Once that’s available, the necessary CMake changes to define an equivalent function are minimal: Add a POST_BUILD step that runs the listing command and generates the .cmake file. Conditionally include that generated file in the main CMakeLists. If the output of --list-tests is one test suite per line, the existing script can be used as-is. This small investment pays off with a much more maintainable and CI-friendly testing setup. I encourage other maintainers and contributors to try this technique, refine it, and share feedback. The complete script and CMake snippets are available in the Boost.URL repository at commit #a1a5d18.","@type":"BlogPosting","url":"http://cppalliance.org/alan/2025/07/10/Alan.html","headline":"Bringing B2-Style Test Granularity to CMake","dateModified":"2025-07-10T00:00:00+00:00","datePublished":"2025-07-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/alan/2025/07/10/Alan.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Bringing B2-Style Test Granularity to CMake</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/alan">
+                  Alan Freitas
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 10, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="introduction">Introduction</h1>
+
+<p>Boost libraries typically maintain granular unit tests using Boost.Build (B2). B2 provides a <code>run</code> rule that makes it easy to define many independent test targets from a single source file or executable. Each test case can be listed, invoked, and reported separately, which improves developer workflow, test clarity, and CI diagnostics.</p>
+
+<p>However, Boost’s CMake integration has lacked this granularity. When Boost libraries are built with CMake, the typical approach is to define a single test executable and add all test suites as a single test in CTest with <code>add_test()</code>. As a result, when running tests with CTest, developers lose the ability to see individual test failures in isolation, run only subsets of tests, or leverage parallel execution at the test level.</p>
+
+<p>The goal of this work is to bridge that gap. We want to replicate the B2 “one executable, many independent tests” idiom in CMake. Specifically, we want to use modern CMake techniques to split a single unit test executable into multiple independent CTest targets, while preserving the flexibility and simplicity of the Boost testing style.</p>
+
+<h1 id="problem-analysis">Problem Analysis</h1>
+
+<p>To understand why splitting tests into independent CTest targets is non-trivial, it helps to look at <strong>how CMake’s build and test model is structured</strong>.</p>
+
+<p>When building and testing libraries with CMake, the developer usually has a workflow of four key phases:</p>
+
+<ul>
+  <li><strong>Configuration step</strong>: This is where CMakeLists.txt files are processed and commands like <code>add_executable</code> and <code>add_test()</code> are called. Test targets must be defined here, so CTest knows about them.</li>
+  <li><strong>Build step</strong>: This is when the underlying build system (the CMake “generator”: e.g., Ninja or Make) compiles sources and produces executables, including unit test binaries.</li>
+  <li><strong>Test step</strong>: This is when <code>ctest</code> runs the defined tests, using the executables built in the previous step.</li>
+  <li><strong>Installation step</strong>: This is where the built libraries and executables are installed to their final locations. This step is not directly relevant to the problem at hand, but it’s part of the overall CMake workflow.</li>
+</ul>
+
+<p>At the configuration step, we would like to have something like</p>
+
+<pre><code class="language-cmake">add_test(NAME test_a COMMAND my_unit_test_executable a)
+add_test(NAME test_b COMMAND my_unit_test_executable b)
+add_test(NAME test_c COMMAND my_unit_test_executable c)
+</code></pre>
+
+<p>instead of</p>
+
+<pre><code class="language-cmake">add_test(NAME my_unit_test_executable COMMAND my_unit_test_executable)
+</code></pre>
+
+<p>The fundamental obstacle is that, in the general case, <strong>you cannot know what tests exist inside a unit test executable until you can <em>run</em> it</strong>. Many modern test frameworks (like Boost.Test, Catch2, GoogleTest) support listing their available tests by running the executable with a special argument (e.g., <code>--list-tests</code>). But this only works <em>after</em> the executable is built.</p>
+
+<p>In other words:</p>
+
+<blockquote>
+  <p>You need the executable to discover the tests, but CMake requires you to declare the tests in the configuration phase before building the executable in the build step.</p>
+</blockquote>
+
+<p>This dependency cycle is the core problem that makes it difficult to reproduce B2’s <code>run</code> rule semantics in CMake. Without special handling, you’re forced to treat the entire unit test binary as a single test, losing the ability to register its internal test cases as independent CTest targets.</p>
+
+<p>The solution to this problem involves the <a href="https://cmake.org/cmake/help/latest/prop_dir/TEST_INCLUDE_FILES.html"><code>TEST_INCLUDE_FILES</code></a> directory property, which allows you to specify additional files that CTest should consider when running tests. By leveraging this property, we can dynamically generate a CMake script that defines individual <code>add_test()</code> calls for each test case found in the unit test executable.</p>
+
+<p>So we can use</p>
+
+<pre><code class="language-cmake">set_property(DIRECTORY
+    APPEND PROPERTY TEST_INCLUDE_FILES "${TEST_SUITE_CTEST_INCLUDE_FILE}"
+)
+</code></pre>
+
+<p>to include a generated CMake script that contains the individual test definitions. This allows us to run the executable post-build, extract the test names, and then register them with CTest in a way that mimics the B2 experience. Other modern test frameworks have explored this feature to provide an automated test discovery mechanism for their libraries in CMake. For example, Catch2’s <code>catch_discover_tests()</code> and GoogleTest’s <code>gtest_discover_tests()</code> run the built test executable with a listing flag (like <code>--list-tests</code>) to extract individual test cases and generate separate <code>add_test()</code> entries for each.</p>
+
+<h1 id="design-overview">Design Overview</h1>
+
+<p>Since CMake requires test registration in the configuration step, but we can only discover test cases <em>after</em> building the executable, we introduce an approach to bridge that gap. The high-level plan is:</p>
+
+<ul>
+  <li><strong>Build the executable</strong>: Compile the unit test executable as usual. The target is defined in the configuration step and built in the build step.</li>
+  <li><strong>Post-build step</strong>: After building, run the executable with <code>--list-tests</code> (or equivalent) to enumerate all available test cases. This is achieved with a custom command that runs after the build completes.</li>
+  <li><strong>Generate a CMake script</strong>: This post-build step writes a <code>.cmake</code> file containing one <code>add_test()</code> call for each discovered test case.</li>
+  <li><strong>Conditional inclusion</strong>: The main CMake configuration includes this generated script <em>only if it exists</em>, so the tests appear in CTest after they’re generated. The new script is included using the <code>TEST_INCLUDE_FILES</code> property, which allows CTest to pick it up automatically.</li>
+</ul>
+
+<p>This approach effectively moves test discovery to the build phase while still registering the resulting tests with CTest in the configuration phase for subsequent runs.</p>
+
+<p>This process is transparent to the user. In Boost.URL, where we implemented the functionality, the test registration process went from:</p>
+
+<pre><code class="language-cmake">add_test(NAME boost_url_unit_tests COMMAND boost_url_unit_tests)
+</code></pre>
+
+<p>to</p>
+
+<pre><code class="language-cmake">boost_url_test_suite_discover_tests(boost_url_unit_tests)
+</code></pre>
+
+<h1 id="implementation-details">Implementation Details</h1>
+
+<p>This section describes the approach bottom-up, showing the overall mechanism of discovering and registering independent test targets in CMake.</p>
+
+<h2 id="the-test-listing-extractor-script">The Test Listing Extractor Script</h2>
+
+<p>The first piece is a small CMake script that <strong>runs the compiled test executable</strong> with <code>--list-tests</code> (or an equivalent flag your test framework supports). It captures the output, which is expected to be a plain list of test case names.</p>
+
+<p>For example, suppose your unit test executable outputs:</p>
+
+<pre><code class="language-cmake">UnitA.TestAlpha
+UnitA.TestBeta
+UnitB.TestGamma
+</code></pre>
+
+<p>The script saves these names so they can be transformed into separate CTest targets.</p>
+
+<p>Example command in CMake:</p>
+
+<pre><code class="language-cmake">execute_process(
+        COMMAND "${TEST_SUITE_TEST_EXECUTABLE}" ${TEST_SUITE_TEST_SPEC} --list-tests
+        OUTPUT_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT
+        ERROR_VARIABLE TEST_SUITE_LIST_TESTS_OUTPUT
+        RESULT_VARIABLE TEST_SUITE_RESULT
+        WORKING_DIRECTORY "${TEST_SUITE_TEST_WORKING_DIR}"
+)
+</code></pre>
+
+<h2 id="generator-of-cmake-test-definitions">Generator of CMake Test Definitions</h2>
+
+<p>Once the list of tests is available, the script generates a new <code>.cmake</code> file containing one <code>add_test()</code> call per discovered test. This file effectively defines the independent CTest targets.</p>
+
+<p>Example generated <code>tests.cmake</code> content:</p>
+
+<pre><code class="language-cmake">add_test(NAME UnitA.TestAlpha COMMAND my_test_executable UnitA.TestAlpha)
+add_test(NAME UnitA.TestBeta COMMAND my_test_executable UnitA.TestBeta)
+add_test(NAME UnitB.TestGamma COMMAND my_test_executable UnitB.TestGamma)
+</code></pre>
+
+<p>This approach ensures each test is addressable, selectable, and independently reported by CTest.</p>
+
+<h2 id="post-build-step-integration">Post-Build Step Integration</h2>
+
+<p>CMake can’t know these test names at configuration time, so we hook the test listing step to the build phase using a <code>POST_BUILD</code> custom command. After the test executable is built, this command runs the extractor and generates the script file defining the tests.</p>
+
+<p>Example:</p>
+
+<pre><code class="language-cmake">add_custom_command(
+        # The executable target with the unit tests
+        TARGET ${TARGET}
+        POST_BUILD
+        BYPRODUCTS "${TEST_SUITE_CTEST_TESTS_FILE}"
+        # Run the CMake script to discover tests after the build step
+        COMMAND "${CMAKE_COMMAND}"
+        # Arguments to the script
+        -D "TEST_TARGET=${TARGET}"
+        -D "TEST_EXECUTABLE=$&lt;TARGET_FILE:${TARGET}&gt;"
+        -D "TEST_WORKING_DIR=${TEST_SUITE_WORKING_DIRECTORY}"
+        # ...
+        # The output file where the test definitions will be written
+        -D "CTEST_FILE=${TEST_SUITE_CTEST_TESTS_FILE}"
+        # The script that generates the test definitions
+        -P "${TEST_SUITE_DISCOVER_AND_WRITE_TESTS_SCRIPT}"
+        VERBATIM
+)
+</code></pre>
+
+<p>This ensures the test listing happens automatically as part of the build.</p>
+
+<h2 id="including-generated-tests">Including Generated Tests</h2>
+
+<p>The main CMake configuration includes the generated <code>.cmake</code> file, but only if it exists. This avoids errors on a test pass before the executable is built. This could happen because the user is calling <code>ctest</code> before the build step completes, because the test executable was not built, or because the cache was invalidated.</p>
+
+<p>So the discovery function uses the example pattern:</p>
+
+<pre><code class="language-cmake">if(EXISTS "${CMAKE_BINARY_DIR}/generated/tests.cmake")
+    include("${CMAKE_BINARY_DIR}/generated/tests.cmake")
+endif()
+</code></pre>
+
+<p>And this is the file that the test step will ultimately include in the CTest run, allowing CTest to see all the individual test targets.</p>
+
+<h2 id="cmake-function-for-reuse">CMake Function for Reuse</h2>
+
+<p>To make this easy for other libraries, the pattern can be wrapped in a CMake function. This function:</p>
+
+<ul>
+  <li>Defines the <code>POST_BUILD</code> rule for the given target.</li>
+  <li>Encapsulates the details of running the extractor script.</li>
+  <li>Ensures consistent output locations for the generated test definitions.</li>
+</ul>
+
+<p>Example usage:</p>
+
+<pre><code class="language-cmake">boost_url_test_suite_discover_tests(boost_url_unit_tests)
+</code></pre>
+
+<p>This approach lets library maintainers adopt the system with minimal changes to their existing CMake setup, while maintaining Boost’s fine-grained, many-target test philosophy.</p>
+
+<p>When we look at CI results for Boost.URL, this is the only thing we used to have:</p>
+
+<pre><code>  /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure
+  Internal ctest changing into directory: /__w/url/boost-root/build_cmake
+  Test project /__w/url/boost-root/build_cmake
+      Start 1: boost_url_unit_tests
+      Start 2: boost_url_extra
+      Start 3: boost_url_limits
+  1/3 Test #2: boost_url_extra ..................   Passed    0.00 sec
+  2/3 Test #3: boost_url_limits .................   Passed    0.00 sec
+  3/3 Test #1: boost_url_unit_tests .............   Passed    0.02 sec
+  
+  100% tests passed, 0 tests failed out of 3
+  
+  Total Test time (real) =   0.02 sec
+</code></pre>
+
+<p>And now we see one unit test per test case:</p>
+
+<pre><code>  /__w/_tool/cmake/3.20.0/x64/bin/ctest --test-dir /__w/url/boost-root/build_cmake --parallel 4 --no-tests=error --progress --output-on-failure
+  Internal ctest changing into directory: /__w/url/boost-root/build_cmake
+  Test project /__w/url/boost-root/build_cmake
+        Start  1: boost.url.absolute_uri_rule
+        Start  2: boost.url.authority_rule
+        Start  3: boost.url.authority_view
+        Start  4: boost.url.compat.ada
+   1/76 Test  #1: boost.url.absolute_uri_rule ..........   Passed    0.01 sec
+        Start  5: boost.url.decode_view
+   2/76 Test  #2: boost.url.authority_rule .............   Passed    0.01 sec
+        Start  6: boost.url.doc.3_urls
+   3/76 Test  #3: boost.url.authority_view .............   Passed    0.01 sec
+        Start  7: boost.url.doc.grammar
+   4/76 Test  #5: boost.url.decode_view ................   Passed    0.01 sec
+        Start  8: boost.url.encode
+   5/76 Test  #4: boost.url.compat.ada .................   Passed    0.01 sec
+        Start  9: boost.url.error
+   6/76 Test  #6: boost.url.doc.3_urls .................   Passed    0.01 sec
+        Start 10: boost.url.format
+   7/76 Test  #7: boost.url.doc.grammar ................   Passed    0.01 sec
+        Start 11: boost.url.gen_delim_chars
+   8/76 Test  #8: boost.url.encode .....................   Passed    0.01 sec
+        Start 12: boost.url.grammar.alnum_chars   
+  ...
+</code></pre>
+
+<p>meaning that each test is now executed and reported individually and in parallel, allowing developers to see which specific tests passed or failed, and enabling more granular control over test execution.</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>This approach brings fine-grained tests into the modern CMake Boost workflow. By splitting a single test executable into multiple independent CTest targets, maintainers gain:</p>
+
+<ul>
+  <li><strong>More granular failure reporting</strong>: CI logs show exactly which test case failed.</li>
+  <li><strong>Better developer experience</strong>: Developers can run or re-run individual tests easily.</li>
+  <li><strong>Improved parallel execution</strong>: Faster test runs in CI and locally.</li>
+  <li><strong>Better IDE integration</strong>: IDEs can show individual test cases.</li>
+</ul>
+
+<p>For other Boost libraries considering adopting this pattern, the only requirement is that their test executables support a <code>--list-tests</code> (or equivalent) command that outputs the available test cases. Once that’s available, the necessary CMake changes to define an equivalent function are minimal:</p>
+
+<ul>
+  <li>Add a <code>POST_BUILD</code> step that runs the listing command and generates the <code>.cmake</code> file.</li>
+  <li>Conditionally include that generated file in the main CMakeLists.</li>
+</ul>
+
+<p>If the output of <code>--list-tests</code> is one test suite per line, the existing script can be used as-is. This small investment pays off with a much more maintainable and CI-friendly testing setup. I encourage other maintainers and contributors to try this technique, refine it, and share feedback.</p>
+
+<p>The complete script and CMake snippets are available in the Boost.URL repository at commit <a href="https://github.com/boostorg/url/commit/a1a5d18e9356036e446f98fc774eb1a1f5e242af">#a1a5d18</a>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/07/10/Alan.html">Bringing B2-Style Test Granularity to CMake</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/01/10/AlanQ4Update.html">Alan's Q4 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/13/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/07/13/AlanQ2Update.html">Alan's Q2 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/07/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/05/07/AlanQ1Update.html">Alan's Q1 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/01/12/AlanQ4Update.html">Alan's Q4 Update 2023</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/alan/2023/10/27/AlanQ3Update.html">Alan's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

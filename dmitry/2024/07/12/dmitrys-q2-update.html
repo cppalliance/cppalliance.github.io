@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dmitry's Q2 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Dmitry’s Q2 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Dmitry’s Q2 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In the second quarter of 2024 implementing direct parsing for Boost.JSON has finally been completed. Direct serialisation will support all the same types as direct parsing, including recently-added std::path. After this addition, Boost.JSON’s set of conversion features is almost full. The only missing part is the ability to use a sort of temporary proxy type for conversion. E.g. converting from user type to std::string, then converting the string to JSON string. This is not strictly needed for value_to/from set of functions, as you can always fully customise their behaviour by extending them. But it can be very useful for direct parsing, as it allows using an ancillary type that matches the structure of the JSON, and can convert to/from the intended user type. A little more than a year ago it was argued in a Boost.JSON issue that object::if_contains should return optional&lt;value&amp;&gt; rather than value*. I have experimented with that, but also went on to research whether there are any projects on GitHub that would be broken due to such change. Turns out there’s a lot of such projects. Which is why I decided against that change. But on the other hand, there are some benefits to having non-throwing accessors that communicate their inability to produce a value in their return value. And it’s better to use a single kind of type for this. There is in fact an ideal candidate for such return type: boost::system::result. And in fact Boost.URL is using it in its return types extensively, eschewing the classic dual API approach (where one overload throws, and another overload uses an error_code&amp; out parameter). If I could turn back time, I would have replaced the out-parameter overloads with ones returning boost::system::result. But as that would be way too significant API change now, I instead added those accessors, giving them try_ prefix (modelled after the already existing try_value_to). As a tangentially-related change, I added a defaulted source_location parameter to throwing accessor functions. This is a small quality of life improvement, that (if supported by the compiler) stores the location of the call site in the exception. The result is that the exception stores both the line where the user calls a Boost.JSON function, and (inside the error_code) the line where the error state was originally reached. This information should greatly simplify investigating issues that occur when using the library. A significant amount of time these past few months was occupied by a somewhat new project: Python-based reimplementation of Docca. Docca is a set of XSLT stylesheets that converts Doxygen XML output into an API reference written in Quickbook markup language. Unfortunately, XSLT is both rather obscure, and rather cryptic, which results in difficulty fixing its bugs. As my frustrations piled up, I decided to write a new tool that would essentially do the same job, but in a more popular language, and designed for higher genericity. I chose Python for implementation largely due to its Jinja text template engine (another reason is Python’s availability on virtually all platforms). The core of the design is operating in two steps: 1) collecting data from Doxygen XML output, organising it in a usable way, and sometimes even fixing Doxygen’s warts and 2) generating output using Jinja. This kind of model/view separation isn’t just philosophically more pleasant, but also makes the tool more generally useful. As previously mentioned Docca produces a specific style of API reference written in Quickbook. But this new implementation can use a different Jinja template to produce a different style of API reference: e.g. using another approach to sectioning, or having all overloads on one page a-la Cppreference. It can also produce output in an entirely different format, and I intend to take advantage of that in order to switch Boost.JSON’s documentation to Asciidoc. I am also experimenting with running the tool an additional time to generate “macros” that expand into links to documented entities and could be used in the narrative documentation that precedes the reference. On the opposite side of this two phase arrangement is the ability to add alternative data collection algorithms. While currently Doxygen reigns supreme in the field of collecting documentation comments from C++ sources, there is a very ambitious project from the C++ Alliance called Mr. Docs. As soon as it reaches enough maturity, a new data collector could be added to Docca. And finally, I wanted to tell about some changes I’ve contributed to Boost’s build infrastructure, but I need to start from a far. The build system officially supported by Boost is called b2 (formally known as Boost.Build). Unlike most modern build systems it doesn’t use the 2 step configure-build approach championed by Autotools, and instead does the whole build by itself. As a result, it’s a fully multi-config build system, that is a single invocation of the build system can request targets built with different values for particular property, resulting in building of multiple variations of those targets. For example, you can request a target to be built by different compilers, targeting different OSes and architectures, using different C++ standards and dialects, and so on. b2 would calculate the Cartesian product of all requested options, and create the resulting binaries for each of the variations. For historical reasons, there was no good support for this multi-config paradigm with installation. install targets explicitly specified their intended installation location, which resulted in build errors if a multi-config installation was attempted. The issue wasn’t fundamental to the build system, and Boost had employed a particular mitigation to that issue. But I wasn’t satisfied with the status quo, so a few years ago I added explicit support for named installation directories to the install rule, with those directories’ configuration being a part of the build variation. After the change a project could do something like exe app : app.cpp ; # executable target app install install : app : &lt;location&gt;(bindir) ; # install target install And then with b2 install-prefix=/usr/local install app into /usr/local/bin, and with b2 install-prefix=/opt/myapp install app into /opt/myapp/bin. You could then go with a conditional property configuration, where e.g. target OS a implies location 1, and OS b requires location 2, and so on. The feature did require changing build scripts, and so at the time Boost remained with the set up it already had. But this spring, inspired by other needs I finally got around to changing Boost.Install (an ancillary project used by Boost’s build scripts) to use this functionality. One thing led to another, and now not only users can configure per-config installation directories, but finally Boost has staging directory support via staging-prefix. E.g. b2 --prefix=/opt/Boost/ staging-prefix=/var/tmp/1 installs into /var/tmp/1, but files are created with the intention to be later moved to /opt/Boost/." />
+<meta property="og:description" content="In the second quarter of 2024 implementing direct parsing for Boost.JSON has finally been completed. Direct serialisation will support all the same types as direct parsing, including recently-added std::path. After this addition, Boost.JSON’s set of conversion features is almost full. The only missing part is the ability to use a sort of temporary proxy type for conversion. E.g. converting from user type to std::string, then converting the string to JSON string. This is not strictly needed for value_to/from set of functions, as you can always fully customise their behaviour by extending them. But it can be very useful for direct parsing, as it allows using an ancillary type that matches the structure of the JSON, and can convert to/from the intended user type. A little more than a year ago it was argued in a Boost.JSON issue that object::if_contains should return optional&lt;value&amp;&gt; rather than value*. I have experimented with that, but also went on to research whether there are any projects on GitHub that would be broken due to such change. Turns out there’s a lot of such projects. Which is why I decided against that change. But on the other hand, there are some benefits to having non-throwing accessors that communicate their inability to produce a value in their return value. And it’s better to use a single kind of type for this. There is in fact an ideal candidate for such return type: boost::system::result. And in fact Boost.URL is using it in its return types extensively, eschewing the classic dual API approach (where one overload throws, and another overload uses an error_code&amp; out parameter). If I could turn back time, I would have replaced the out-parameter overloads with ones returning boost::system::result. But as that would be way too significant API change now, I instead added those accessors, giving them try_ prefix (modelled after the already existing try_value_to). As a tangentially-related change, I added a defaulted source_location parameter to throwing accessor functions. This is a small quality of life improvement, that (if supported by the compiler) stores the location of the call site in the exception. The result is that the exception stores both the line where the user calls a Boost.JSON function, and (inside the error_code) the line where the error state was originally reached. This information should greatly simplify investigating issues that occur when using the library. A significant amount of time these past few months was occupied by a somewhat new project: Python-based reimplementation of Docca. Docca is a set of XSLT stylesheets that converts Doxygen XML output into an API reference written in Quickbook markup language. Unfortunately, XSLT is both rather obscure, and rather cryptic, which results in difficulty fixing its bugs. As my frustrations piled up, I decided to write a new tool that would essentially do the same job, but in a more popular language, and designed for higher genericity. I chose Python for implementation largely due to its Jinja text template engine (another reason is Python’s availability on virtually all platforms). The core of the design is operating in two steps: 1) collecting data from Doxygen XML output, organising it in a usable way, and sometimes even fixing Doxygen’s warts and 2) generating output using Jinja. This kind of model/view separation isn’t just philosophically more pleasant, but also makes the tool more generally useful. As previously mentioned Docca produces a specific style of API reference written in Quickbook. But this new implementation can use a different Jinja template to produce a different style of API reference: e.g. using another approach to sectioning, or having all overloads on one page a-la Cppreference. It can also produce output in an entirely different format, and I intend to take advantage of that in order to switch Boost.JSON’s documentation to Asciidoc. I am also experimenting with running the tool an additional time to generate “macros” that expand into links to documented entities and could be used in the narrative documentation that precedes the reference. On the opposite side of this two phase arrangement is the ability to add alternative data collection algorithms. While currently Doxygen reigns supreme in the field of collecting documentation comments from C++ sources, there is a very ambitious project from the C++ Alliance called Mr. Docs. As soon as it reaches enough maturity, a new data collector could be added to Docca. And finally, I wanted to tell about some changes I’ve contributed to Boost’s build infrastructure, but I need to start from a far. The build system officially supported by Boost is called b2 (formally known as Boost.Build). Unlike most modern build systems it doesn’t use the 2 step configure-build approach championed by Autotools, and instead does the whole build by itself. As a result, it’s a fully multi-config build system, that is a single invocation of the build system can request targets built with different values for particular property, resulting in building of multiple variations of those targets. For example, you can request a target to be built by different compilers, targeting different OSes and architectures, using different C++ standards and dialects, and so on. b2 would calculate the Cartesian product of all requested options, and create the resulting binaries for each of the variations. For historical reasons, there was no good support for this multi-config paradigm with installation. install targets explicitly specified their intended installation location, which resulted in build errors if a multi-config installation was attempted. The issue wasn’t fundamental to the build system, and Boost had employed a particular mitigation to that issue. But I wasn’t satisfied with the status quo, so a few years ago I added explicit support for named installation directories to the install rule, with those directories’ configuration being a part of the build variation. After the change a project could do something like exe app : app.cpp ; # executable target app install install : app : &lt;location&gt;(bindir) ; # install target install And then with b2 install-prefix=/usr/local install app into /usr/local/bin, and with b2 install-prefix=/opt/myapp install app into /opt/myapp/bin. You could then go with a conditional property configuration, where e.g. target OS a implies location 1, and OS b requires location 2, and so on. The feature did require changing build scripts, and so at the time Boost remained with the set up it already had. But this spring, inspired by other needs I finally got around to changing Boost.Install (an ancillary project used by Boost’s build scripts) to use this functionality. One thing led to another, and now not only users can configure per-config installation directories, but finally Boost has staging directory support via staging-prefix. E.g. b2 --prefix=/opt/Boost/ staging-prefix=/var/tmp/1 installs into /var/tmp/1, but files are created with the intention to be later moved to /opt/Boost/." />
+<link rel="canonical" href="http://cppalliance.org/dmitry/2024/07/12/dmitrys-q2-update.html" />
+<meta property="og:url" content="http://cppalliance.org/dmitry/2024/07/12/dmitrys-q2-update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-07-12T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Dmitry’s Q2 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In the second quarter of 2024 implementing direct parsing for Boost.JSON has finally been completed. Direct serialisation will support all the same types as direct parsing, including recently-added std::path. After this addition, Boost.JSON’s set of conversion features is almost full. The only missing part is the ability to use a sort of temporary proxy type for conversion. E.g. converting from user type to std::string, then converting the string to JSON string. This is not strictly needed for value_to/from set of functions, as you can always fully customise their behaviour by extending them. But it can be very useful for direct parsing, as it allows using an ancillary type that matches the structure of the JSON, and can convert to/from the intended user type. A little more than a year ago it was argued in a Boost.JSON issue that object::if_contains should return optional&lt;value&amp;&gt; rather than value*. I have experimented with that, but also went on to research whether there are any projects on GitHub that would be broken due to such change. Turns out there’s a lot of such projects. Which is why I decided against that change. But on the other hand, there are some benefits to having non-throwing accessors that communicate their inability to produce a value in their return value. And it’s better to use a single kind of type for this. There is in fact an ideal candidate for such return type: boost::system::result. And in fact Boost.URL is using it in its return types extensively, eschewing the classic dual API approach (where one overload throws, and another overload uses an error_code&amp; out parameter). If I could turn back time, I would have replaced the out-parameter overloads with ones returning boost::system::result. But as that would be way too significant API change now, I instead added those accessors, giving them try_ prefix (modelled after the already existing try_value_to). As a tangentially-related change, I added a defaulted source_location parameter to throwing accessor functions. This is a small quality of life improvement, that (if supported by the compiler) stores the location of the call site in the exception. The result is that the exception stores both the line where the user calls a Boost.JSON function, and (inside the error_code) the line where the error state was originally reached. This information should greatly simplify investigating issues that occur when using the library. A significant amount of time these past few months was occupied by a somewhat new project: Python-based reimplementation of Docca. Docca is a set of XSLT stylesheets that converts Doxygen XML output into an API reference written in Quickbook markup language. Unfortunately, XSLT is both rather obscure, and rather cryptic, which results in difficulty fixing its bugs. As my frustrations piled up, I decided to write a new tool that would essentially do the same job, but in a more popular language, and designed for higher genericity. I chose Python for implementation largely due to its Jinja text template engine (another reason is Python’s availability on virtually all platforms). The core of the design is operating in two steps: 1) collecting data from Doxygen XML output, organising it in a usable way, and sometimes even fixing Doxygen’s warts and 2) generating output using Jinja. This kind of model/view separation isn’t just philosophically more pleasant, but also makes the tool more generally useful. As previously mentioned Docca produces a specific style of API reference written in Quickbook. But this new implementation can use a different Jinja template to produce a different style of API reference: e.g. using another approach to sectioning, or having all overloads on one page a-la Cppreference. It can also produce output in an entirely different format, and I intend to take advantage of that in order to switch Boost.JSON’s documentation to Asciidoc. I am also experimenting with running the tool an additional time to generate “macros” that expand into links to documented entities and could be used in the narrative documentation that precedes the reference. On the opposite side of this two phase arrangement is the ability to add alternative data collection algorithms. While currently Doxygen reigns supreme in the field of collecting documentation comments from C++ sources, there is a very ambitious project from the C++ Alliance called Mr. Docs. As soon as it reaches enough maturity, a new data collector could be added to Docca. And finally, I wanted to tell about some changes I’ve contributed to Boost’s build infrastructure, but I need to start from a far. The build system officially supported by Boost is called b2 (formally known as Boost.Build). Unlike most modern build systems it doesn’t use the 2 step configure-build approach championed by Autotools, and instead does the whole build by itself. As a result, it’s a fully multi-config build system, that is a single invocation of the build system can request targets built with different values for particular property, resulting in building of multiple variations of those targets. For example, you can request a target to be built by different compilers, targeting different OSes and architectures, using different C++ standards and dialects, and so on. b2 would calculate the Cartesian product of all requested options, and create the resulting binaries for each of the variations. For historical reasons, there was no good support for this multi-config paradigm with installation. install targets explicitly specified their intended installation location, which resulted in build errors if a multi-config installation was attempted. The issue wasn’t fundamental to the build system, and Boost had employed a particular mitigation to that issue. But I wasn’t satisfied with the status quo, so a few years ago I added explicit support for named installation directories to the install rule, with those directories’ configuration being a part of the build variation. After the change a project could do something like exe app : app.cpp ; # executable target app install install : app : &lt;location&gt;(bindir) ; # install target install And then with b2 install-prefix=/usr/local install app into /usr/local/bin, and with b2 install-prefix=/opt/myapp install app into /opt/myapp/bin. You could then go with a conditional property configuration, where e.g. target OS a implies location 1, and OS b requires location 2, and so on. The feature did require changing build scripts, and so at the time Boost remained with the set up it already had. But this spring, inspired by other needs I finally got around to changing Boost.Install (an ancillary project used by Boost’s build scripts) to use this functionality. One thing led to another, and now not only users can configure per-config installation directories, but finally Boost has staging directory support via staging-prefix. E.g. b2 --prefix=/opt/Boost/ staging-prefix=/var/tmp/1 installs into /var/tmp/1, but files are created with the intention to be later moved to /opt/Boost/.","@type":"BlogPosting","url":"http://cppalliance.org/dmitry/2024/07/12/dmitrys-q2-update.html","headline":"Dmitry’s Q2 2024 Update","dateModified":"2024-07-12T00:00:00+00:00","datePublished":"2024-07-12T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/dmitry/2024/07/12/dmitrys-q2-update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Dmitry's Q2 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/dmitry">
+                  Dmitry Arkhipov
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 12, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In the second quarter of 2024 implementing direct parsing for Boost.JSON has
+finally been completed. Direct serialisation will support all the same types as
+direct parsing, including recently-added <code>std::path</code>. After this addition,
+Boost.JSON’s set of conversion features is almost full. The only missing part
+is the ability to use a sort of temporary proxy type for conversion. E.g.
+converting from user type to <code>std::string</code>, then converting the string to JSON
+string. This is not strictly needed for <code>value_to/from</code> set of functions, as
+you can always fully customise their behaviour by extending them. But it can be
+very useful for direct parsing, as it allows using an ancillary type that
+matches the structure of the JSON, and can convert to/from the intended user
+type.</p>
+
+<p>A little more than a year ago it was argued in a Boost.JSON issue that
+<code>object::if_contains</code> should return <code>optional&lt;value&amp;&gt;</code> rather than <code>value*</code>.
+I have experimented with that, but also went on to research whether there are
+any projects on GitHub that would be broken due to such change. Turns out
+there’s a lot of such projects. Which is why I decided against that change. But
+on the other hand, there are some benefits to having non-throwing accessors
+that communicate their inability to produce a value in their return value. And
+it’s better to use a single kind of type for this. There is in fact an ideal
+candidate for such return type: <code>boost::system::result</code>. And in fact Boost.URL
+is using it in its return types extensively, eschewing the classic dual API
+approach (where one overload throws, and another overload uses an <code>error_code&amp;</code>
+out parameter). If I could turn back time, I would have replaced the
+out-parameter overloads with ones returning <code>boost::system::result</code>. But as
+that would be way too significant API change now, I instead added those
+accessors, giving them <code>try_</code> prefix (modelled after the already existing
+<code>try_value_to</code>). As a tangentially-related change, I added a defaulted
+<code>source_location</code> parameter to throwing accessor functions. This is a small
+quality of life improvement, that (if supported by the compiler) stores the
+location of the call site in the exception. The result is that the exception
+stores both the line where the user calls a Boost.JSON function, and (inside
+the <code>error_code</code>) the line where the error state was originally reached. This
+information should greatly simplify investigating issues that occur when using
+the library.</p>
+
+<p>A significant amount of time these past few months was occupied by a somewhat
+new project: Python-based reimplementation of
+<a href="https://github.com/boostorg/docca">Docca</a>. Docca is a set of XSLT stylesheets
+that converts <a href="https://www.doxygen.nl">Doxygen</a> XML output into an API
+reference written in <a href="https://github.com/boostorg/quickbook">Quickbook</a> markup
+language. Unfortunately, XSLT is both rather obscure, and rather cryptic, which
+results in difficulty fixing its bugs. As my frustrations piled up, I decided
+to write a new tool that would essentially do the same job, but in a more
+popular language, and designed for higher genericity. I chose Python for
+implementation largely due to its <a href="https://palletsprojects.com/p/jinja/">Jinja</a>
+text template engine (another reason is Python’s availability on virtually all
+platforms).</p>
+
+<p>The core of the design is operating in two steps: 1) collecting
+data from Doxygen XML output, organising it in a usable way, and sometimes even
+fixing Doxygen’s warts and 2) generating output using Jinja. This kind of
+model/view separation isn’t just philosophically more pleasant, but also makes
+the tool more generally useful. As previously mentioned Docca produces a
+specific style of API reference written in Quickbook. But this new
+implementation can use a different Jinja template to produce a different style
+of API reference: e.g. using another approach to sectioning, or having all
+overloads on one page a-la
+<a href="https://en.cppreference.com/w/cpp/container/vector/vector">Cppreference</a>. It
+can also produce output in an entirely different format, and I intend to take
+advantage of that in order to switch Boost.JSON’s documentation to Asciidoc. I
+am also experimenting with running the tool an additional time to generate
+“macros” that expand into links to documented entities and could be used in the
+narrative documentation that precedes the reference.</p>
+
+<p>On the opposite side of this two phase arrangement is the ability to add
+alternative data collection algorithms. While currently Doxygen reigns supreme
+in the field of collecting documentation comments from C++ sources, there is a
+very ambitious project from the C++ Alliance called
+<a href="https://github.com/cppalliance/mrdocs">Mr. Docs</a>. As soon as it reaches enough
+maturity, a new data collector could be added to Docca.</p>
+
+<p>And finally, I wanted to tell about some changes I’ve contributed to Boost’s
+build infrastructure, but I need to start from a far. The build system
+officially supported by Boost is called <a href="https://www.bfgroup.xyz/b2/">b2</a>
+(formally known as Boost.Build). Unlike most modern build systems it doesn’t
+use the 2 step configure-build approach championed by Autotools, and instead
+does the whole build by itself. As a result, it’s a fully multi-config build
+system, that is a single invocation of the build system can request targets
+built with different values for particular property, resulting in building of
+multiple variations of those targets. For example, you can request a target to
+be built by different compilers, targeting different OSes and architectures,
+using different C++ standards and dialects, and so on. b2 would calculate the
+Cartesian product of all requested options, and create the resulting binaries
+for each of the variations. For historical reasons, there was no good support
+for this multi-config paradigm with installation. <code>install</code> targets explicitly
+specified their intended installation location, which resulted in build errors
+if a multi-config installation was attempted. The issue wasn’t fundamental to
+the build system, and Boost had employed a particular mitigation to that issue.
+But I wasn’t satisfied with the status quo, so a few years ago I added explicit
+support for named installation directories to the <code>install</code> rule, with those
+directories’ configuration being a part of the build variation. After the
+change a project could do something like</p>
+
+<pre><code>exe app : app.cpp ; # executable target app
+install install : app : &lt;location&gt;(bindir) ; # install target install
+</code></pre>
+
+<p>And then with <code>b2 install-prefix=/usr/local</code> install <code>app</code> into
+<code>/usr/local/bin</code>, and with <code>b2 install-prefix=/opt/myapp</code> install <code>app</code> into
+<code>/opt/myapp/bin</code>. You could then go with a conditional property configuration,
+where e.g. target OS <code>a</code> implies location 1, and OS <code>b</code> requires location 2,
+and so on.</p>
+
+<p>The feature did require changing build scripts, and so at the time Boost
+remained with the set up it already had. But this spring, inspired by other
+needs I finally got around to changing Boost.Install (an ancillary project used
+by Boost’s build scripts) to use this functionality. One thing led to another,
+and now not only users can configure per-config installation directories, but
+finally Boost has staging directory support via <code>staging-prefix</code>. E.g.
+<code>b2 --prefix=/opt/Boost/ staging-prefix=/var/tmp/1</code> installs into <code>/var/tmp/1</code>,
+but files are created with the intention to be later moved to <code>/opt/Boost/</code>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/16/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/10/16/dmitrys-q3-update.html">Conan Packages for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/04/22/dmitrys-q1-update.html">Some Thoughts on Documentation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/10/25/dmitrys-q3-update.html">How to Get More Utility from the Debugger in CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/07/12/dmitrys-q2-update.html">Dmitry's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/29/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/04/29/dmitrys-q1-update.html">Dmitry's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/01/12/dmitrys-q4-update.html">Dmitry's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/30/2023</span>
+          <a class='text-l news-title link' href="/dmitry/2023/10/30/dmitrys-q3-update.html">Dmitry's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/15/2021</span>
+          <a class='text-l news-title link' href="/dmitry/2021/02/15/dmitrys-january-update.html">Dmitry's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

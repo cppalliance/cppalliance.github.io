@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automated Documentation Previews | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Automated Documentation Previews | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Automated Documentation Previews" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Overview Greetings, and welcome to my first blog post at The C++ Alliance. I’ve recently begun working on an interesting project for the Alliance which might also have more widespread applicability. The same requirement could possibly apply to your organization as well. Consider an open-source project that has multiple contributors who are submitting changes via pull-requests in Github. You’d like to have assurances that a pull-request passes all tests before being merged. That is done with continuous integration solutions such as Travis or Circle-CI, which are quite popular and well-known. Similarly, if the submission is documentation, you would like to be able to view the formatted output in it’s final published format so you can review the layout, the colors, and so on. What would be the best way to build and publish documentation from pull requests? Perhaps the first thought would be to include the functionality in Travis or Circle-CI. And that is certainly possible. However, in some cases there may be sensitive passwords, ssh keys, or other tokens in the configuration. Is it safe to allow random pull requests, from conceivably anyone on the whole internet, to trigger a Circle-CI build that contains authentication information? Let’s explore that question, and then present a possible alternative that should be more secure. Security In Circle-CI, you can choose to enable or disable jobs for Pull Requests. It’s clearly safer to leave them disabled, but if the goal is to run automatic tests, this feature must be turned on. Next, you may choose to enable or disable access to sensitive keys for Pull Requests. This sounds like a great feature that will allow the jobs to be run safely. You could build Pull Requests with limited authorization. But what if you’d like to include secret keys in the build, that are needed to publish the documentation to an external server which is going to host the resulting content. After building the docs, they must be transferred to wherever they will be hosted. That means you must either include the secret keys in plain text, or toggle the setting to enable sensitive keys in Circle-CI. Let’s briefly think about the latter option. If secret keys are enabled in Circle-CI, they are not outright published or visible to the end-user. The build system obfuscates them. The obfuscation is a good first step. Unfortunately, there’s a file called .circleci/config.yml in the project, which contains all the commands to be run by the build system. A pull request could modify that file so that it prints the secrets in clear text. What can be done? The answer - which is not overly difficult if you already have some experience - is to run an in-house build server such as Jenkins. This adds multiple layers of security: Optionally, does not publicly print the build output. Optionally, does not run based on a .circleci file or Jenkinsfile, so modifying the configuration file is not an avenue for external attacks. For each build job, it will only include the minimal number of secret keys required for the current task, and nothing more. While the new system may not be impregnable, it’s a major improvement compared to the security issues with Circle-CI for this specific requirement. Design Here is a high level overview of how the system operates, before getting into further details. A jenkins server is installed. It builds the documentation jobs, and then copies the resulting files to AWS S3. The job posts a message in the GitHub pull request conversation with a hyperlink to the new docs. Each pull request will get it’s own separate “website”. There could be hundreds of versions being simultaneously hosted. An nginx proxy server which sits in front of S3 serves the documents with a consistent URL format, and allows multiple repositories to share the same S3 bucket. The resulting functionality can be seen in action. On this pull request https://github.com/boostorg/beast/pull/1973 a message appears: An automated preview of the documentation is available at http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html The link takes you to the preview, and will be updated with each new commit to the pull request. More Details The Jenkins server polls each configured repository at a 5 minute interval, to see if a new pull request has been added. Alternatively, instead of polling, you may add a webhook in Github. Each repository corresponds to a separate Jenkins “project” on the server. A job checks out a copy of the submitted code, runs the specific steps necessary for that codebase, and uploads the resulting website to an AWS S3 bucket. The configuration leverages a few Jenkins plugins: “GitHub Pull Request Builder” to launch jobs based on the existence of a new pull request. “S3 Publisher Plugin” for copying files to S3. “CloudBees Docker Custom Build Environment Plugin” to run the build inside an isolated docker container. One previews bucket is created in S3 such as s3://example-previews The file path in the S3 bucket is formatted to be “repository”/”PR #”. For example, the filepath of pull request #60 for the repo called “website” is s3://example-previews/website/60 The web URL is generated by inverting this path, so “website/60” becomes “60.website”. The full URL has the format “60.website.prtest.example.com”. This translation is accomplished with an nginx reverse proxy, hosted on the same Jenkins server. nginx rule: rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break; A wildcard DNS entry sends the preview visitors to nginx: *.prtest.example.com -&gt; jenkins.example.com Implementation In this section, we will go over all the steps in detail, as a tutorial. In the following code sections, Replace “example.com” with your domain. Replace “website” with your repository name. Replace “example-previews” with your S3 bucket name. General Server Setup Install Jenkins - https://www.jenkins.io/doc/book/installing/ Install SSL certificate for Jenkins (jenkins.example.com): apt install certbot certbot certonly Install nginx. apt install nginx Create a website, as follows: server { listen 80; listen [::]:80; server_name jenkins.example.com; location &#39;/.well-known/acme-challenge&#39; { default_type &quot;text/plain&quot;; root /var/www/letsencrypt; } location / { return 301 https://jenkins.example.com:8443$request_uri; } } server { listen 8443 ssl default_server; listen [::]:8443 ssl default_server; ssl_certificate /etc/letsencrypt/live/jenkins.example.com/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/jenkins.example.com/privkey.pem; #include snippets/snakeoil.conf; location / { include /etc/nginx/proxy_params; proxy_pass http://localhost:8080; proxy_read_timeout 90s; } } Set the URL inside of Jenkins-&gt;Manage Jenkins-&gt;Configure System to be https://url , replacing url with the hostname such as jenkins.example.com. Install the plugin “GitHub pull requests builder” Go to Manage Jenkins -&gt; Configure System -&gt; GitHub pull requests builder section. Click “Create API Token”. Log into github. Update “Commit Status Build Triggered”, “Commit Status Build Start” to –none– Create all three types of “Commit Status Build Result” with –none– On the server: apt install git build-essential Install the plugin “CloudBees Docker Custom Build Environment” add Jenkins to docker group usermod -a -G docker jenkins Restart jenkins. systemctl restart jenkins Install the “S3 publisher plugin” In Manage Jenkins-&gt;Configure System, go to S3 Profiles, create profile. Assuming the IAM user in AWS is called “example-bot”, then create example-bot-profile with the AWS creds. The necessary IAM permissions are covered a bit further down in this document. Install the “Post Build Task plugin” Nginx Setup Create a wildcard DNS entry at your DNS hosting provider: *.prtest.website.example.com CNAME to jenkins.example.com Create an nginx site for previews: server { # Listen on port 80 for all IPs associated with your machine listen 80 default_server; # Catch all other server names server_name _; if ($host ~* ([0-9]+)\.(.*?)\.(.*)) { set $pullrequest $1; set $repo $2; } location / { set $backendserver &#39;http://example-previews.s3-website-us-east-1.amazonaws.com&#39;; #CUSTOMIZATIONS if ($repo = &quot;example&quot; ) { rewrite ^(.*)/something$ $1/something.html ; } #FINAL REWRITE rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break; # The rewritten request is passed to S3 proxy_pass http://example-previews.s3-website-us-east-1.amazonaws.com; #proxy_pass $backendserver; include /etc/nginx/proxy_params; proxy_redirect /$repo/$pullrequest / ; } } AWS Setup Turn on static web hosting on the bucket. Endpoint is http://example-previews.s3-website-us-east-1.amazonaws.com Add bucket policy { &quot;Version&quot;: &quot;2012-10-17&quot;, &quot;Statement&quot;: [ { &quot;Sid&quot;: &quot;PublicReadGetObject&quot;, &quot;Effect&quot;: &quot;Allow&quot;, &quot;Principal&quot;: &quot;*&quot;, &quot;Action&quot;: &quot;s3:GetObject&quot;, &quot;Resource&quot;: &quot;arn:aws:s3:::example-previews/*&quot; } ] } Create an IAM user and add these permissions &quot;Version&quot;: &quot;2012-10-17&quot;, &quot;Statement&quot;: [ { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:GetBucketLocation&quot;, &quot;s3:ListAllMyBuckets&quot; ], &quot;Resource&quot;: &quot;*&quot; }, { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:ListBucket&quot; ], &quot;Resource&quot;: [ &quot;arn:aws:s3:::example-previews&quot; ] }, { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:PutObject&quot;, &quot;s3:GetObject&quot;, &quot;s3:DeleteObject&quot; ], &quot;Resource&quot;: [ &quot;arn:aws:s3:::example-previews/*&quot; ] } ] } JENKINS FREESTYLE PROJECTS Create a new Freestyle Project Github Project (checked) Project URL: https://github.com/yourorg/website/ Source Code Management Git (checked) Repositories: https://github.com/yourorg/website Credentials: github-example-bot (you should add a credential here, that successfully connects to github) Advanced: Refspec: +refs/pull/:refs/remotes/origin/pr/ Branch Specifier: ${ghprbActualCommit} Build Triggers GitHub Pull Request Builder (checked) GitHub API Credentials: mybot #Consider whether to enable the following setting. #It is optional. You may also approve each PR. Advanced: Build every pull request automatically without asking. Trigger Setup: Build Status Message: An automated preview of this PR is available at [http://$ghprbPullId.website.prtest.example.com](http://$ghprbPullId.website.prtest.example.com) Update Commit Message during build: Commit Status Build Triggered: –none– Commit Status Build Started: –none– Commit Status Build Result: create all types of result, with message –none– Build Environment: Build inside a Docker container (checked) #Note: choose a Docker image that is appropriate for your project Pull docker image from repository: circleci/ruby:2.4-node-browsers-legacy Build: Execute Shell: #Note: whichever build steps your site requires. Post-build Actions Publish artifacts to S3 S3 Profile: example-bot-profile Source: _site/** (set this value as necessary for your code) Destination: example-previews/example/${ghprbPullId} Bucket Region: us-east-1 No upload on build failure (checked) #The following part is optional. It will post an alert into a Slack channel. Add Post Build Tasks Log Text: GitHub Script: #!/bin/bash PREVIEWMESSAGE=&quot;A preview of the example website is available at http://$ghprbPullId.example.prtest.example.com&quot; curl -X POST -H &#39;Content-type: application/json&#39; --data &quot;{\&quot;text\&quot;:\&quot;$PREVIEWMESSAGE\&quot;}&quot; https://hooks.slack.com/services/T21Q22/B0141JT/aPF___ Check box “Run script only if all previous steps were successful” In Slack administration, (not in jenkins), create a Slack app. Create a “webhook” for your channel. That webhook goes into the curl command." />
+<meta property="og:description" content="Overview Greetings, and welcome to my first blog post at The C++ Alliance. I’ve recently begun working on an interesting project for the Alliance which might also have more widespread applicability. The same requirement could possibly apply to your organization as well. Consider an open-source project that has multiple contributors who are submitting changes via pull-requests in Github. You’d like to have assurances that a pull-request passes all tests before being merged. That is done with continuous integration solutions such as Travis or Circle-CI, which are quite popular and well-known. Similarly, if the submission is documentation, you would like to be able to view the formatted output in it’s final published format so you can review the layout, the colors, and so on. What would be the best way to build and publish documentation from pull requests? Perhaps the first thought would be to include the functionality in Travis or Circle-CI. And that is certainly possible. However, in some cases there may be sensitive passwords, ssh keys, or other tokens in the configuration. Is it safe to allow random pull requests, from conceivably anyone on the whole internet, to trigger a Circle-CI build that contains authentication information? Let’s explore that question, and then present a possible alternative that should be more secure. Security In Circle-CI, you can choose to enable or disable jobs for Pull Requests. It’s clearly safer to leave them disabled, but if the goal is to run automatic tests, this feature must be turned on. Next, you may choose to enable or disable access to sensitive keys for Pull Requests. This sounds like a great feature that will allow the jobs to be run safely. You could build Pull Requests with limited authorization. But what if you’d like to include secret keys in the build, that are needed to publish the documentation to an external server which is going to host the resulting content. After building the docs, they must be transferred to wherever they will be hosted. That means you must either include the secret keys in plain text, or toggle the setting to enable sensitive keys in Circle-CI. Let’s briefly think about the latter option. If secret keys are enabled in Circle-CI, they are not outright published or visible to the end-user. The build system obfuscates them. The obfuscation is a good first step. Unfortunately, there’s a file called .circleci/config.yml in the project, which contains all the commands to be run by the build system. A pull request could modify that file so that it prints the secrets in clear text. What can be done? The answer - which is not overly difficult if you already have some experience - is to run an in-house build server such as Jenkins. This adds multiple layers of security: Optionally, does not publicly print the build output. Optionally, does not run based on a .circleci file or Jenkinsfile, so modifying the configuration file is not an avenue for external attacks. For each build job, it will only include the minimal number of secret keys required for the current task, and nothing more. While the new system may not be impregnable, it’s a major improvement compared to the security issues with Circle-CI for this specific requirement. Design Here is a high level overview of how the system operates, before getting into further details. A jenkins server is installed. It builds the documentation jobs, and then copies the resulting files to AWS S3. The job posts a message in the GitHub pull request conversation with a hyperlink to the new docs. Each pull request will get it’s own separate “website”. There could be hundreds of versions being simultaneously hosted. An nginx proxy server which sits in front of S3 serves the documents with a consistent URL format, and allows multiple repositories to share the same S3 bucket. The resulting functionality can be seen in action. On this pull request https://github.com/boostorg/beast/pull/1973 a message appears: An automated preview of the documentation is available at http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html The link takes you to the preview, and will be updated with each new commit to the pull request. More Details The Jenkins server polls each configured repository at a 5 minute interval, to see if a new pull request has been added. Alternatively, instead of polling, you may add a webhook in Github. Each repository corresponds to a separate Jenkins “project” on the server. A job checks out a copy of the submitted code, runs the specific steps necessary for that codebase, and uploads the resulting website to an AWS S3 bucket. The configuration leverages a few Jenkins plugins: “GitHub Pull Request Builder” to launch jobs based on the existence of a new pull request. “S3 Publisher Plugin” for copying files to S3. “CloudBees Docker Custom Build Environment Plugin” to run the build inside an isolated docker container. One previews bucket is created in S3 such as s3://example-previews The file path in the S3 bucket is formatted to be “repository”/”PR #”. For example, the filepath of pull request #60 for the repo called “website” is s3://example-previews/website/60 The web URL is generated by inverting this path, so “website/60” becomes “60.website”. The full URL has the format “60.website.prtest.example.com”. This translation is accomplished with an nginx reverse proxy, hosted on the same Jenkins server. nginx rule: rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break; A wildcard DNS entry sends the preview visitors to nginx: *.prtest.example.com -&gt; jenkins.example.com Implementation In this section, we will go over all the steps in detail, as a tutorial. In the following code sections, Replace “example.com” with your domain. Replace “website” with your repository name. Replace “example-previews” with your S3 bucket name. General Server Setup Install Jenkins - https://www.jenkins.io/doc/book/installing/ Install SSL certificate for Jenkins (jenkins.example.com): apt install certbot certbot certonly Install nginx. apt install nginx Create a website, as follows: server { listen 80; listen [::]:80; server_name jenkins.example.com; location &#39;/.well-known/acme-challenge&#39; { default_type &quot;text/plain&quot;; root /var/www/letsencrypt; } location / { return 301 https://jenkins.example.com:8443$request_uri; } } server { listen 8443 ssl default_server; listen [::]:8443 ssl default_server; ssl_certificate /etc/letsencrypt/live/jenkins.example.com/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/jenkins.example.com/privkey.pem; #include snippets/snakeoil.conf; location / { include /etc/nginx/proxy_params; proxy_pass http://localhost:8080; proxy_read_timeout 90s; } } Set the URL inside of Jenkins-&gt;Manage Jenkins-&gt;Configure System to be https://url , replacing url with the hostname such as jenkins.example.com. Install the plugin “GitHub pull requests builder” Go to Manage Jenkins -&gt; Configure System -&gt; GitHub pull requests builder section. Click “Create API Token”. Log into github. Update “Commit Status Build Triggered”, “Commit Status Build Start” to –none– Create all three types of “Commit Status Build Result” with –none– On the server: apt install git build-essential Install the plugin “CloudBees Docker Custom Build Environment” add Jenkins to docker group usermod -a -G docker jenkins Restart jenkins. systemctl restart jenkins Install the “S3 publisher plugin” In Manage Jenkins-&gt;Configure System, go to S3 Profiles, create profile. Assuming the IAM user in AWS is called “example-bot”, then create example-bot-profile with the AWS creds. The necessary IAM permissions are covered a bit further down in this document. Install the “Post Build Task plugin” Nginx Setup Create a wildcard DNS entry at your DNS hosting provider: *.prtest.website.example.com CNAME to jenkins.example.com Create an nginx site for previews: server { # Listen on port 80 for all IPs associated with your machine listen 80 default_server; # Catch all other server names server_name _; if ($host ~* ([0-9]+)\.(.*?)\.(.*)) { set $pullrequest $1; set $repo $2; } location / { set $backendserver &#39;http://example-previews.s3-website-us-east-1.amazonaws.com&#39;; #CUSTOMIZATIONS if ($repo = &quot;example&quot; ) { rewrite ^(.*)/something$ $1/something.html ; } #FINAL REWRITE rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break; # The rewritten request is passed to S3 proxy_pass http://example-previews.s3-website-us-east-1.amazonaws.com; #proxy_pass $backendserver; include /etc/nginx/proxy_params; proxy_redirect /$repo/$pullrequest / ; } } AWS Setup Turn on static web hosting on the bucket. Endpoint is http://example-previews.s3-website-us-east-1.amazonaws.com Add bucket policy { &quot;Version&quot;: &quot;2012-10-17&quot;, &quot;Statement&quot;: [ { &quot;Sid&quot;: &quot;PublicReadGetObject&quot;, &quot;Effect&quot;: &quot;Allow&quot;, &quot;Principal&quot;: &quot;*&quot;, &quot;Action&quot;: &quot;s3:GetObject&quot;, &quot;Resource&quot;: &quot;arn:aws:s3:::example-previews/*&quot; } ] } Create an IAM user and add these permissions &quot;Version&quot;: &quot;2012-10-17&quot;, &quot;Statement&quot;: [ { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:GetBucketLocation&quot;, &quot;s3:ListAllMyBuckets&quot; ], &quot;Resource&quot;: &quot;*&quot; }, { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:ListBucket&quot; ], &quot;Resource&quot;: [ &quot;arn:aws:s3:::example-previews&quot; ] }, { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:PutObject&quot;, &quot;s3:GetObject&quot;, &quot;s3:DeleteObject&quot; ], &quot;Resource&quot;: [ &quot;arn:aws:s3:::example-previews/*&quot; ] } ] } JENKINS FREESTYLE PROJECTS Create a new Freestyle Project Github Project (checked) Project URL: https://github.com/yourorg/website/ Source Code Management Git (checked) Repositories: https://github.com/yourorg/website Credentials: github-example-bot (you should add a credential here, that successfully connects to github) Advanced: Refspec: +refs/pull/:refs/remotes/origin/pr/ Branch Specifier: ${ghprbActualCommit} Build Triggers GitHub Pull Request Builder (checked) GitHub API Credentials: mybot #Consider whether to enable the following setting. #It is optional. You may also approve each PR. Advanced: Build every pull request automatically without asking. Trigger Setup: Build Status Message: An automated preview of this PR is available at [http://$ghprbPullId.website.prtest.example.com](http://$ghprbPullId.website.prtest.example.com) Update Commit Message during build: Commit Status Build Triggered: –none– Commit Status Build Started: –none– Commit Status Build Result: create all types of result, with message –none– Build Environment: Build inside a Docker container (checked) #Note: choose a Docker image that is appropriate for your project Pull docker image from repository: circleci/ruby:2.4-node-browsers-legacy Build: Execute Shell: #Note: whichever build steps your site requires. Post-build Actions Publish artifacts to S3 S3 Profile: example-bot-profile Source: _site/** (set this value as necessary for your code) Destination: example-previews/example/${ghprbPullId} Bucket Region: us-east-1 No upload on build failure (checked) #The following part is optional. It will post an alert into a Slack channel. Add Post Build Tasks Log Text: GitHub Script: #!/bin/bash PREVIEWMESSAGE=&quot;A preview of the example website is available at http://$ghprbPullId.example.prtest.example.com&quot; curl -X POST -H &#39;Content-type: application/json&#39; --data &quot;{\&quot;text\&quot;:\&quot;$PREVIEWMESSAGE\&quot;}&quot; https://hooks.slack.com/services/T21Q22/B0141JT/aPF___ Check box “Run script only if all previous steps were successful” In Slack administration, (not in jenkins), create a Slack app. Create a “webhook” for your channel. That webhook goes into the curl command." />
+<link rel="canonical" href="http://cppalliance.org/sam/2020/06/04/WebsitePreviews.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2020/06/04/WebsitePreviews.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-06-04T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Automated Documentation Previews" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Overview Greetings, and welcome to my first blog post at The C++ Alliance. I’ve recently begun working on an interesting project for the Alliance which might also have more widespread applicability. The same requirement could possibly apply to your organization as well. Consider an open-source project that has multiple contributors who are submitting changes via pull-requests in Github. You’d like to have assurances that a pull-request passes all tests before being merged. That is done with continuous integration solutions such as Travis or Circle-CI, which are quite popular and well-known. Similarly, if the submission is documentation, you would like to be able to view the formatted output in it’s final published format so you can review the layout, the colors, and so on. What would be the best way to build and publish documentation from pull requests? Perhaps the first thought would be to include the functionality in Travis or Circle-CI. And that is certainly possible. However, in some cases there may be sensitive passwords, ssh keys, or other tokens in the configuration. Is it safe to allow random pull requests, from conceivably anyone on the whole internet, to trigger a Circle-CI build that contains authentication information? Let’s explore that question, and then present a possible alternative that should be more secure. Security In Circle-CI, you can choose to enable or disable jobs for Pull Requests. It’s clearly safer to leave them disabled, but if the goal is to run automatic tests, this feature must be turned on. Next, you may choose to enable or disable access to sensitive keys for Pull Requests. This sounds like a great feature that will allow the jobs to be run safely. You could build Pull Requests with limited authorization. But what if you’d like to include secret keys in the build, that are needed to publish the documentation to an external server which is going to host the resulting content. After building the docs, they must be transferred to wherever they will be hosted. That means you must either include the secret keys in plain text, or toggle the setting to enable sensitive keys in Circle-CI. Let’s briefly think about the latter option. If secret keys are enabled in Circle-CI, they are not outright published or visible to the end-user. The build system obfuscates them. The obfuscation is a good first step. Unfortunately, there’s a file called .circleci/config.yml in the project, which contains all the commands to be run by the build system. A pull request could modify that file so that it prints the secrets in clear text. What can be done? The answer - which is not overly difficult if you already have some experience - is to run an in-house build server such as Jenkins. This adds multiple layers of security: Optionally, does not publicly print the build output. Optionally, does not run based on a .circleci file or Jenkinsfile, so modifying the configuration file is not an avenue for external attacks. For each build job, it will only include the minimal number of secret keys required for the current task, and nothing more. While the new system may not be impregnable, it’s a major improvement compared to the security issues with Circle-CI for this specific requirement. Design Here is a high level overview of how the system operates, before getting into further details. A jenkins server is installed. It builds the documentation jobs, and then copies the resulting files to AWS S3. The job posts a message in the GitHub pull request conversation with a hyperlink to the new docs. Each pull request will get it’s own separate “website”. There could be hundreds of versions being simultaneously hosted. An nginx proxy server which sits in front of S3 serves the documents with a consistent URL format, and allows multiple repositories to share the same S3 bucket. The resulting functionality can be seen in action. On this pull request https://github.com/boostorg/beast/pull/1973 a message appears: An automated preview of the documentation is available at http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html The link takes you to the preview, and will be updated with each new commit to the pull request. More Details The Jenkins server polls each configured repository at a 5 minute interval, to see if a new pull request has been added. Alternatively, instead of polling, you may add a webhook in Github. Each repository corresponds to a separate Jenkins “project” on the server. A job checks out a copy of the submitted code, runs the specific steps necessary for that codebase, and uploads the resulting website to an AWS S3 bucket. The configuration leverages a few Jenkins plugins: “GitHub Pull Request Builder” to launch jobs based on the existence of a new pull request. “S3 Publisher Plugin” for copying files to S3. “CloudBees Docker Custom Build Environment Plugin” to run the build inside an isolated docker container. One previews bucket is created in S3 such as s3://example-previews The file path in the S3 bucket is formatted to be “repository”/”PR #”. For example, the filepath of pull request #60 for the repo called “website” is s3://example-previews/website/60 The web URL is generated by inverting this path, so “website/60” becomes “60.website”. The full URL has the format “60.website.prtest.example.com”. This translation is accomplished with an nginx reverse proxy, hosted on the same Jenkins server. nginx rule: rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break; A wildcard DNS entry sends the preview visitors to nginx: *.prtest.example.com -&gt; jenkins.example.com Implementation In this section, we will go over all the steps in detail, as a tutorial. In the following code sections, Replace “example.com” with your domain. Replace “website” with your repository name. Replace “example-previews” with your S3 bucket name. General Server Setup Install Jenkins - https://www.jenkins.io/doc/book/installing/ Install SSL certificate for Jenkins (jenkins.example.com): apt install certbot certbot certonly Install nginx. apt install nginx Create a website, as follows: server { listen 80; listen [::]:80; server_name jenkins.example.com; location &#39;/.well-known/acme-challenge&#39; { default_type &quot;text/plain&quot;; root /var/www/letsencrypt; } location / { return 301 https://jenkins.example.com:8443$request_uri; } } server { listen 8443 ssl default_server; listen [::]:8443 ssl default_server; ssl_certificate /etc/letsencrypt/live/jenkins.example.com/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/jenkins.example.com/privkey.pem; #include snippets/snakeoil.conf; location / { include /etc/nginx/proxy_params; proxy_pass http://localhost:8080; proxy_read_timeout 90s; } } Set the URL inside of Jenkins-&gt;Manage Jenkins-&gt;Configure System to be https://url , replacing url with the hostname such as jenkins.example.com. Install the plugin “GitHub pull requests builder” Go to Manage Jenkins -&gt; Configure System -&gt; GitHub pull requests builder section. Click “Create API Token”. Log into github. Update “Commit Status Build Triggered”, “Commit Status Build Start” to –none– Create all three types of “Commit Status Build Result” with –none– On the server: apt install git build-essential Install the plugin “CloudBees Docker Custom Build Environment” add Jenkins to docker group usermod -a -G docker jenkins Restart jenkins. systemctl restart jenkins Install the “S3 publisher plugin” In Manage Jenkins-&gt;Configure System, go to S3 Profiles, create profile. Assuming the IAM user in AWS is called “example-bot”, then create example-bot-profile with the AWS creds. The necessary IAM permissions are covered a bit further down in this document. Install the “Post Build Task plugin” Nginx Setup Create a wildcard DNS entry at your DNS hosting provider: *.prtest.website.example.com CNAME to jenkins.example.com Create an nginx site for previews: server { # Listen on port 80 for all IPs associated with your machine listen 80 default_server; # Catch all other server names server_name _; if ($host ~* ([0-9]+)\\.(.*?)\\.(.*)) { set $pullrequest $1; set $repo $2; } location / { set $backendserver &#39;http://example-previews.s3-website-us-east-1.amazonaws.com&#39;; #CUSTOMIZATIONS if ($repo = &quot;example&quot; ) { rewrite ^(.*)/something$ $1/something.html ; } #FINAL REWRITE rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break; # The rewritten request is passed to S3 proxy_pass http://example-previews.s3-website-us-east-1.amazonaws.com; #proxy_pass $backendserver; include /etc/nginx/proxy_params; proxy_redirect /$repo/$pullrequest / ; } } AWS Setup Turn on static web hosting on the bucket. Endpoint is http://example-previews.s3-website-us-east-1.amazonaws.com Add bucket policy { &quot;Version&quot;: &quot;2012-10-17&quot;, &quot;Statement&quot;: [ { &quot;Sid&quot;: &quot;PublicReadGetObject&quot;, &quot;Effect&quot;: &quot;Allow&quot;, &quot;Principal&quot;: &quot;*&quot;, &quot;Action&quot;: &quot;s3:GetObject&quot;, &quot;Resource&quot;: &quot;arn:aws:s3:::example-previews/*&quot; } ] } Create an IAM user and add these permissions &quot;Version&quot;: &quot;2012-10-17&quot;, &quot;Statement&quot;: [ { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:GetBucketLocation&quot;, &quot;s3:ListAllMyBuckets&quot; ], &quot;Resource&quot;: &quot;*&quot; }, { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:ListBucket&quot; ], &quot;Resource&quot;: [ &quot;arn:aws:s3:::example-previews&quot; ] }, { &quot;Effect&quot;: &quot;Allow&quot;, &quot;Action&quot;: [ &quot;s3:PutObject&quot;, &quot;s3:GetObject&quot;, &quot;s3:DeleteObject&quot; ], &quot;Resource&quot;: [ &quot;arn:aws:s3:::example-previews/*&quot; ] } ] } JENKINS FREESTYLE PROJECTS Create a new Freestyle Project Github Project (checked) Project URL: https://github.com/yourorg/website/ Source Code Management Git (checked) Repositories: https://github.com/yourorg/website Credentials: github-example-bot (you should add a credential here, that successfully connects to github) Advanced: Refspec: +refs/pull/:refs/remotes/origin/pr/ Branch Specifier: ${ghprbActualCommit} Build Triggers GitHub Pull Request Builder (checked) GitHub API Credentials: mybot #Consider whether to enable the following setting. #It is optional. You may also approve each PR. Advanced: Build every pull request automatically without asking. Trigger Setup: Build Status Message: An automated preview of this PR is available at [http://$ghprbPullId.website.prtest.example.com](http://$ghprbPullId.website.prtest.example.com) Update Commit Message during build: Commit Status Build Triggered: –none– Commit Status Build Started: –none– Commit Status Build Result: create all types of result, with message –none– Build Environment: Build inside a Docker container (checked) #Note: choose a Docker image that is appropriate for your project Pull docker image from repository: circleci/ruby:2.4-node-browsers-legacy Build: Execute Shell: #Note: whichever build steps your site requires. Post-build Actions Publish artifacts to S3 S3 Profile: example-bot-profile Source: _site/** (set this value as necessary for your code) Destination: example-previews/example/${ghprbPullId} Bucket Region: us-east-1 No upload on build failure (checked) #The following part is optional. It will post an alert into a Slack channel. Add Post Build Tasks Log Text: GitHub Script: #!/bin/bash PREVIEWMESSAGE=&quot;A preview of the example website is available at http://$ghprbPullId.example.prtest.example.com&quot; curl -X POST -H &#39;Content-type: application/json&#39; --data &quot;{\\&quot;text\\&quot;:\\&quot;$PREVIEWMESSAGE\\&quot;}&quot; https://hooks.slack.com/services/T21Q22/B0141JT/aPF___ Check box “Run script only if all previous steps were successful” In Slack administration, (not in jenkins), create a Slack app. Create a “webhook” for your channel. That webhook goes into the curl command.","@type":"BlogPosting","url":"http://cppalliance.org/sam/2020/06/04/WebsitePreviews.html","headline":"Automated Documentation Previews","dateModified":"2020-06-04T00:00:00+00:00","datePublished":"2020-06-04T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2020/06/04/WebsitePreviews.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Automated Documentation Previews</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jun 4, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="overview">Overview</h1>
+
+<p>Greetings, and welcome to my first blog post at The C++ Alliance.</p>
+
+<p>I’ve recently begun working on an interesting project for the Alliance which might also have more widespread applicability. The same requirement could possibly apply to your organization as well.</p>
+
+<p>Consider an open-source project that has multiple contributors who are submitting changes via pull-requests in Github. You’d like to have assurances that a pull-request passes all tests before being merged. That is done with continuous integration solutions such as Travis or Circle-CI, which are quite popular and well-known. Similarly, if the submission is <em>documentation</em>, you would like to be able to view the formatted output in it’s final published format so you can review the layout, the colors, and so on. What would be the best way to build and publish documentation from pull requests?</p>
+
+<p>Perhaps the first thought would be to include the functionality in Travis or Circle-CI. And that is certainly possible. However, in some cases there may be sensitive passwords, ssh keys, or other tokens in the configuration. Is it safe to allow random pull requests, from conceivably anyone on the whole internet, to trigger a Circle-CI build that contains authentication information? Let’s explore that question, and then present a possible alternative that should be more secure.</p>
+
+<h1 id="security">Security</h1>
+
+<p>In Circle-CI, you can choose to enable or disable jobs for Pull Requests. It’s clearly safer to leave them disabled, but if the goal is to run automatic tests, this feature must be turned on. Next, you may choose to enable or disable access to sensitive keys for Pull Requests. This sounds like a great feature that will allow the jobs to be run safely. You could build Pull Requests with limited authorization. But what if you’d like to include secret keys in the build, that are needed to publish the documentation to an external server which is going to host the resulting content. After building the docs, they must be transferred to wherever they will be hosted. That means you must either include the secret keys in plain text, or toggle the setting to enable sensitive keys in Circle-CI.</p>
+
+<p>Let’s briefly think about the latter option. If secret keys are enabled in Circle-CI, they are not outright published or visible to the end-user. The build system obfuscates them. The obfuscation is a good first step. Unfortunately, there’s a file called .circleci/config.yml in the project, which contains all the commands to be run by the build system. A pull request could modify that file so that it prints the secrets in clear text.</p>
+
+<p>What can be done?</p>
+
+<p>The answer - which is not overly difficult if you already have some experience - is to run an in-house build server such as Jenkins. This adds multiple layers of security:</p>
+
+<ul>
+  <li>Optionally, does <em>not</em> publicly print the build output.</li>
+  <li>Optionally, does <em>not</em> run based on a .circleci file or Jenkinsfile, so modifying the configuration file is not an avenue for external attacks.</li>
+  <li>For each build job, it will only include the minimal number of secret keys required for the current task, and nothing more.</li>
+</ul>
+
+<p>While the new system may not be impregnable, it’s a major improvement compared to the security issues with Circle-CI for this specific requirement.</p>
+
+<h1 id="design">Design</h1>
+
+<p>Here is a high level overview of how the system operates, before getting into further details.</p>
+
+<p>A jenkins server is installed.</p>
+
+<p>It builds the documentation jobs, and then copies the resulting files to AWS S3.</p>
+
+<p>The job posts a message in the GitHub pull request conversation with a hyperlink to the new docs.</p>
+
+<p>Each pull request will get it’s own separate “website”. There could be hundreds of versions being simultaneously hosted.</p>
+
+<p>An nginx proxy server which sits in front of S3 serves the documents with a consistent URL format, and allows multiple repositories to share the same S3 bucket.</p>
+
+<p>The resulting functionality can be seen in action. On this pull request <a href="https://github.com/boostorg/beast/pull/1973">https://github.com/boostorg/beast/pull/1973</a> a message appears:</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>An automated preview of the documentation is available at <a href="http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html">http://1973.beastdocs.prtest.cppalliance.org/libs/beast/doc/html/index.html</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The link takes you to the preview, and will be updated with each new commit to the pull request.</p>
+
+<h1 id="more-details">More Details</h1>
+
+<p>The Jenkins server polls each configured repository at a 5 minute interval, to see if a new pull request has been added. Alternatively, instead of polling, you may add a webhook in Github.</p>
+
+<p>Each repository corresponds to a separate Jenkins “project” on the server. A job checks out a copy of the submitted code, runs the specific steps necessary for that codebase, and uploads the resulting website to an AWS S3 bucket.</p>
+
+<p>The configuration leverages a few Jenkins plugins:<br /></p>
+<ul>
+  <li>“GitHub Pull Request Builder” to launch jobs based on the existence of a new pull request.</li>
+  <li>“S3 Publisher Plugin” for copying files to S3.</li>
+  <li>“CloudBees Docker Custom Build Environment Plugin” to run the build inside an isolated docker container.</li>
+</ul>
+
+<p>One previews bucket is created in S3 such as s3://example-previews</p>
+
+<p>The file path in the S3 bucket is formatted to be “repository”/”PR #”. For example, the filepath of pull request #60 for the repo called “website” is s3://example-previews/website/60</p>
+
+<p>The web URL is generated by inverting this path, so “website/60” becomes “60.website”. The full URL has the format “60.website.prtest.example.com”. This translation is accomplished with an nginx reverse proxy, hosted on the same Jenkins server.</p>
+
+<p>nginx rule:<br />
+rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break;</p>
+
+<p>A wildcard DNS entry sends the preview visitors to nginx:<br />
+*.prtest.example.com -&gt; jenkins.example.com</p>
+
+<h1 id="implementation">Implementation</h1>
+
+<p>In this section, we will go over all the steps in detail, as a tutorial.</p>
+
+<p>In the following code sections,<br />
+Replace “example.com” with your domain.<br />
+Replace “website” with your repository name.<br />
+Replace “example-previews” with your S3 bucket name.</p>
+
+<h3 id="general-server-setup">General Server Setup</h3>
+
+<p>Install Jenkins - https://www.jenkins.io/doc/book/installing/</p>
+
+<p>Install SSL certificate for Jenkins (jenkins.example.com):</p>
+<pre><code>apt install certbot
+certbot certonly
+</code></pre>
+
+<p>Install nginx.</p>
+
+<pre><code>apt install nginx
+</code></pre>
+
+<p>Create a website, as follows:</p>
+<pre><code>server {
+    listen 80;
+    listen [::]:80;
+    server_name jenkins.example.com;
+    location '/.well-known/acme-challenge' {
+        default_type "text/plain";
+        root /var/www/letsencrypt;
+    }
+    location / {
+         return 301 https://jenkins.example.com:8443$request_uri;
+    }
+}
+
+server {
+listen 8443 ssl default_server;
+listen [::]:8443 ssl default_server;
+ssl_certificate /etc/letsencrypt/live/jenkins.example.com/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/jenkins.example.com/privkey.pem;
+#include snippets/snakeoil.conf;
+location / {
+include /etc/nginx/proxy_params;
+proxy_pass http://localhost:8080;
+proxy_read_timeout 90s;
+}
+}
+</code></pre>
+
+<p>Set the URL inside of Jenkins-&gt;Manage Jenkins-&gt;Configure System to be https://<em>url</em> , replacing <em>url</em> with the hostname such as jenkins.example.com.</p>
+
+<p>Install the plugin “GitHub pull requests builder”
+Go to <code>Manage Jenkins</code> -&gt; <code>Configure System</code> -&gt; <code>GitHub pull requests builder</code> section.</p>
+
+<p>Click “Create API Token”. Log into github.</p>
+
+<p>Update “Commit Status Build Triggered”, “Commit Status Build Start” to –none–
+Create all three types of “Commit Status Build Result” with –none–</p>
+
+<p>On the server:</p>
+
+<pre><code>apt install git build-essential
+</code></pre>
+
+<p>Install the plugin “CloudBees Docker Custom Build Environment”</p>
+
+<p>add Jenkins to docker group</p>
+
+<pre><code>usermod -a -G docker jenkins
+</code></pre>
+
+<p>Restart jenkins.</p>
+
+<pre><code>systemctl restart jenkins
+</code></pre>
+
+<p>Install the “S3 publisher plugin”</p>
+
+<p>In Manage Jenkins-&gt;Configure System, go to S3 Profiles, create profile. Assuming the IAM user in AWS is called “example-bot”, then create example-bot-profile with the AWS creds. The necessary IAM permissions are covered a bit further down in this document.</p>
+
+<p>Install the “Post Build Task plugin”</p>
+
+<h3 id="nginx-setup">Nginx Setup</h3>
+
+<p>Create a wildcard DNS entry at your DNS hosting provider:
+*.prtest.website.example.com CNAME to jenkins.example.com</p>
+
+<p>Create an nginx site for previews:</p>
+
+<pre><code>server {
+    # Listen on port 80 for all IPs associated with your machine
+    listen 80 default_server;
+
+    # Catch all other server names
+    server_name _;
+
+    if ($host ~* ([0-9]+)\.(.*?)\.(.*)) {
+        set $pullrequest $1;
+        set $repo $2;
+    }
+
+    location / {
+        set $backendserver 'http://example-previews.s3-website-us-east-1.amazonaws.com';
+
+        #CUSTOMIZATIONS
+        if ($repo = "example" ) {
+          rewrite ^(.*)/something$ $1/something.html ;
+        }
+
+        #FINAL REWRITE
+        rewrite ^(.*)$ $backendserver/$repo/$pullrequest$1 break;
+
+        # The rewritten request is passed to S3
+        proxy_pass http://example-previews.s3-website-us-east-1.amazonaws.com;
+        #proxy_pass $backendserver;
+        include /etc/nginx/proxy_params;
+        proxy_redirect /$repo/$pullrequest / ;
+    }
+}
+
+</code></pre>
+
+<h3 id="aws-setup">AWS Setup</h3>
+
+<p>Turn on static web hosting on the bucket.
+Endpoint is http://example-previews.s3-website-us-east-1.amazonaws.com</p>
+
+<p>Add bucket policy</p>
+
+<pre><code>{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::example-previews/*"
+        }
+    ]
+}
+</code></pre>
+
+<p>Create an IAM user and add these permissions</p>
+
+<pre><code>    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketLocation",
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-previews"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::example-previews/*"
+            ]
+        }
+    ]
+}
+</code></pre>
+
+<h3 id="jenkins-freestyle-projects">JENKINS FREESTYLE PROJECTS</h3>
+
+<p>Create a new Freestyle Project</p>
+
+<p>Github Project (checked)
+Project URL: https://github.com/yourorg/website/</p>
+
+<p>Source Code Management
+Git (checked)
+Repositories: https://github.com/yourorg/website
+Credentials: github-example-bot (you should add a credential here, that successfully connects to github)
+Advanced:
+Refspec: +refs/pull/<em>:refs/remotes/origin/pr/</em>
+Branch Specifier: ${ghprbActualCommit}</p>
+
+<p>Build Triggers
+GitHub Pull Request Builder (checked)
+GitHub API Credentials: mybot</p>
+
+<p>#Consider whether to enable the following setting.
+#It is optional. You may also approve each PR.
+Advanced:
+Build every pull request automatically without asking.</p>
+
+<p>Trigger Setup:
+Build Status Message:
+<code>An automated preview of this PR is available at [http://$ghprbPullId.website.prtest.example.com](http://$ghprbPullId.website.prtest.example.com)</code>
+Update Commit Message during build:
+Commit Status Build Triggered: –none–
+Commit Status Build Started: –none–
+Commit Status Build Result: create all types of result, with message –none–</p>
+
+<p>Build Environment:
+Build inside a Docker container (checked)
+#Note: choose a Docker image that is appropriate for your project
+Pull docker image from repository: circleci/ruby:2.4-node-browsers-legacy</p>
+
+<p>Build:
+Execute Shell:</p>
+<pre><code>#Note: whichever build steps your site requires.
+</code></pre>
+
+<p>Post-build Actions
+Publish artifacts to S3
+S3 Profile: example-bot-profile</p>
+
+<p>Source: _site/** (set this value as necessary for your code)
+Destination:  example-previews/example/${ghprbPullId}
+Bucket Region: us-east-1
+No upload on build failure (checked)</p>
+
+<p>#The following part is optional. It will post an alert into a Slack channel.
+Add Post Build Tasks</p>
+
+<p>Log Text: GitHub</p>
+
+<p>Script:</p>
+
+<pre><code>#!/bin/bash
+PREVIEWMESSAGE="A preview of the example website is available at http://$ghprbPullId.example.prtest.example.com"
+curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$PREVIEWMESSAGE\"}"  https://hooks.slack.com/services/T21Q22/B0141JT/aPF___
+</code></pre>
+
+<p>Check box “Run script only if all previous steps were successful”</p>
+
+<p>In Slack administration, (not in jenkins), create a Slack app. Create a “webhook” for your channel. That webhook goes into the curl command.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

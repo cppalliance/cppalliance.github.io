@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alan's Q4 Update 2024 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Alan’s Q4 Update 2024 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Alan’s Q4 Update 2024" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Summary MrDocs Boost Libraries Boost Release Tools Boost Website C++ Github Actions MrDocs MrDocs is a tool for generating reference documentation from C++ code and javadoc comments. I have been overseeing and reviewing all contributions to the project. We have been using the GitHub project to guide our work toward the goals defined in the Gap Analysis, the MVP, and the Product Pitch. Krystian has focused on metadata extraction and issues related to Clang. Fernando has been tackling usability, critical bugs, and essential features. My role involves enhancing the CI setup and working on Antora extensions, which will be incorporated into website-v2-docs. Currently, metadata extraction primarily involves features in the Clang javadoc parser. These contributions are made to the llvm-project and then ported to MrDocs. Since our last report, we have implemented many features and bug fixes in MrDocs. Major Features and Critical Updates: Added support for concepts and constraints, ensuring MrDocs remains up to date with modern C++ language features. Enabled support for Arm64 and MacOS, enhancing cross-platform accessibility for developers and users we use Antora with the MrDocs extension on MacOS. Updated the compilation database to set the identified target architecture, improving precision in build and analysis tools. Bundled LibC++ to ensure reproducible standard library results, providing consistent outputs for critical use cases such as the Boost release tools and CI. Bundled LibC stubs to ensure reproducible libc results, enhancing reliability in production environments. Updated LLVM version to maintain compatibility with the latest development tooling. Unified implicit C++23 behavior across all compilation databases, regardless of original compiler, to streamline compatibility with modern C++ features. Usability Enhancements: Added warnings for duplicate javadoc commands to improve debugging and provide better user feedback. Created generators for configuration options from JSON files, automating repetitive development tasks and keeping documentation and code always up to date. Added a documentation target for configuration options to enhance maintainability and provide better information to users. Introduced a YAML schema for configuration files so that users can validate their configuration files against the schema directly from IDEs. Enabled tagfile generation in Doxygen format to improve interoperability with Doxygen workflows and allow symbols to be linked in Antora documentation with the tagfiles extension. Categorized info extraction modes (regular, dependency, see-below, or implementation-defined) for Corpus metadata. Key Documentation and Presentation Improvements: Included HTML demos to showcase MrDocs’ capabilities directly to users. Added demo tables in documentation to make feature demonstrations clearer and more accessible. Automated content creation by introducing generators for Info types from JSON files. The types in code and documentation are now always in sync. Unified and synchronized Asciidoc and HTML templates to ensure consistent documentation formatting across outputs. Enhancements for Developers and Automation: Implemented tests for all MrDocs releases, improving confidence in updates. Automated the generation of LLVM release binaries for www.mrdocs.com, simplifying updates. Improved logic for temporary directories instead of always relying on the cache directory. Added coverage workflows to improve code quality assurance. Advanced Handlebar and Template Features Unified and simplified handlebars generators to streamline template maintenance. Added support for recursive partial blocks in handlebars to allow these patterns in partials. Introduced an option for embedded handlebars. This is similar to the Asciidoc option and is used by the website, which only embeds the HTML output. Ensured universal Asciidoc escaping to handle special characters effectively across templates. Optimized processing by rendering all templates directly to the output streams. Improved rendering efficiency by preprocessing template layouts and partials. Tailored outputs with a custom escape function for different handlebars targets. Enhanced handling of symbols with a regular symbol partial for overloads. Useful Improvements Added support for CMAKE_ROOT to specify the root the CMake installation used to generate the compilation database. Improved navigability with overload folding on a single page. Optimized resource handling by supporting lazy objects and arrays in handlebars values representing the corpus. Reduced redundancy in template management by unifying all handlebars helper partials for Adoc and HTML. Improved portability of generated output by relativizing paths in generator outputs. Enhanced documentation support for exceptions with support for resolved symbols in @throws tags. Improved clarity in documentation by supporting parameter and template parameter directions in/out/inout. Avoid conflicts in the adjusted MrDocs database with implicit language identification (C or C++) when necessary and appropriate implicit stdlib tags for each. Specialized Features Enhanced flexibility in file and symbol filters by adding support for glob patterns. Introduced doxygen-like filters that replicate all file and symbol filters available in Doxygen. Support for inline styled text in javadoc paragraphs. Improved cross-referencing in documentation with javadoc reference resolution to alternative scope URLs when symbols lack pages. Streamlined template design by unifying symbol partials. Modular ASTVisitor and unified traverse function, avoiding bugs and duplicated code. Extraction of attribute lists and corresponding templates. Added support for anonymous unions to handle specialized C++ constructs. Miscellaneous Merged function parameter names to enhance usability and maintain consistency. Added Asciidoctor and HTML output tests to ensure the accuracy of templates. Improved user customization with the introduction of the __MRDOCS__ macro. Besides these new features, ~210 bug fixes and improvements have been made to MrDocs since the last report. Integrations We continue to use Boost.URL as a testbed for MrDocs features. Boost.URL has already been using Antora and MrDocs for documentation for two Boost releases. Boost.Unordered is now in the process of migrating to Antora. Responsibilities Overall, my responsibilities in MrDocs include: Setting up and maintaining CI for the project; MrDocs and LLVM release binaries; Build scripts; Setting up and integrating dependencies; Setting up and deploying the Antora toolchains and documentation to the project website; Working on supporting libraries; Supervising and reviewing the work done by other contributors (Krystian and Fernando); and Fixing bugs. Boost Libraries The Boost library I’ve dedicated the most time to is Boost.URL. The library is in maintenance mode, but there is a constant demand for bug fixes and documentation improvements. Recent commits focus mostly keeping CI up to date and on the Antora+MrDocs workflow. We also implemented fixes that were necessary due to changes in other Boost libraries. Boost.URL introduced ~54 changes related to Antora+MrDocs, CI, and bug fixes since the last report. Boost Release Tools I have integrated the toolchains I developed into the Boost Release Tools, adding support for features desired for the new Boost website, including the Antora+MrDocs workflow. Since the last report, we’ve improved the process for the MrDocs Antora extension to find Boost dependencies. Boost Website Among support projects for the new Boost website, I have been particularly involved with website-v2-docs, which includes the Boost website documentation as an Antora project. Its components cover the “User Guide,” “Contributor Guide,” and “Formal Review” sections. Since the project’s inception, I have been overseeing and reviewing contributions from other team members. Since the last report, my contributions were: We updated the Antora UI bundle to resemble the current Boost website style. Multiple updates to the Antora extensions Multiple updates to the Antora workflow A new Antora section in the contributor guide Extensions were moved to the cppalliance GitHub organization Support for the BoostLook project in the Antora UI build workflow Keeping CI up to date page-toc and remove-nav options with automatic TOC generation Refactoring all gulp tasks and scripts New gulp tasks for linting and formatting Including pagination with parent pages C++ Github Actions C++ Github Actions is a project I have maintained since 2023. It is a collection of composable, independent, and reusable GitHub Actions for any C++ project needing testing on various compilers and environments. MrDocs, Boost.URL, Boost.HTTP, and Boost.Buffers currently use these actions in their CI. These projects provide valuable feedback to improve the actions. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs The actions are designed to be modular and interoperable. Each action has a specific role, such as configuring an environment or building a C++ project. They can be composed to create customized CI/CD workflows. Thus, a number of new features and fixes were added to the C++ Actions project since the last report. Updated compiler standards table in cpp-matrix to ensure compatibility with the latest compilers and improve portability across systems. Added support for commit tags in create-changelog to support proper changelog generation without conventional commits. Simplified options for single- and multi-config generators in cmake-workflow to improve configuration correctness. Added support for Ubuntu Noble 24.04 in setup-clang to keep compatibility with newer Linux distributions. Fixed the cpp-matrix workflow by marking Ubuntu Mantic as End-of-Life (EOL) to avoid potential issues with outdated dependencies. Introduced validation for undefined scopes in create-changelog to improve formatting consistency in generated changelogs. Added functionality to merge commit footers in create-changelog for more detailed and organized changelogs. Enhanced cpp-matrix with support for handlebars expressions and helpers to define custom matrix entry values. Improved boost-clone by initializing essential modules. Removed an empty group in setup-clang to declutter configurations and improve readability. Improved value validation in create-changelog footers to ensure correctness in generated metadata. Simplified the flamegraph by refactoring it into a JavaScript action to improve maintainability and efficiency. Besides these new features, ~18 bug fixes and improvements have been made to the C++ Actions project since the last report. Most work has been done to fix issues revealed by testing the actions in new environments. Since the last report, we have also completed the process of moving all actions to javascript, which allows them to be used in any workflow without extra dependencies." />
+<meta property="og:description" content="Summary MrDocs Boost Libraries Boost Release Tools Boost Website C++ Github Actions MrDocs MrDocs is a tool for generating reference documentation from C++ code and javadoc comments. I have been overseeing and reviewing all contributions to the project. We have been using the GitHub project to guide our work toward the goals defined in the Gap Analysis, the MVP, and the Product Pitch. Krystian has focused on metadata extraction and issues related to Clang. Fernando has been tackling usability, critical bugs, and essential features. My role involves enhancing the CI setup and working on Antora extensions, which will be incorporated into website-v2-docs. Currently, metadata extraction primarily involves features in the Clang javadoc parser. These contributions are made to the llvm-project and then ported to MrDocs. Since our last report, we have implemented many features and bug fixes in MrDocs. Major Features and Critical Updates: Added support for concepts and constraints, ensuring MrDocs remains up to date with modern C++ language features. Enabled support for Arm64 and MacOS, enhancing cross-platform accessibility for developers and users we use Antora with the MrDocs extension on MacOS. Updated the compilation database to set the identified target architecture, improving precision in build and analysis tools. Bundled LibC++ to ensure reproducible standard library results, providing consistent outputs for critical use cases such as the Boost release tools and CI. Bundled LibC stubs to ensure reproducible libc results, enhancing reliability in production environments. Updated LLVM version to maintain compatibility with the latest development tooling. Unified implicit C++23 behavior across all compilation databases, regardless of original compiler, to streamline compatibility with modern C++ features. Usability Enhancements: Added warnings for duplicate javadoc commands to improve debugging and provide better user feedback. Created generators for configuration options from JSON files, automating repetitive development tasks and keeping documentation and code always up to date. Added a documentation target for configuration options to enhance maintainability and provide better information to users. Introduced a YAML schema for configuration files so that users can validate their configuration files against the schema directly from IDEs. Enabled tagfile generation in Doxygen format to improve interoperability with Doxygen workflows and allow symbols to be linked in Antora documentation with the tagfiles extension. Categorized info extraction modes (regular, dependency, see-below, or implementation-defined) for Corpus metadata. Key Documentation and Presentation Improvements: Included HTML demos to showcase MrDocs’ capabilities directly to users. Added demo tables in documentation to make feature demonstrations clearer and more accessible. Automated content creation by introducing generators for Info types from JSON files. The types in code and documentation are now always in sync. Unified and synchronized Asciidoc and HTML templates to ensure consistent documentation formatting across outputs. Enhancements for Developers and Automation: Implemented tests for all MrDocs releases, improving confidence in updates. Automated the generation of LLVM release binaries for www.mrdocs.com, simplifying updates. Improved logic for temporary directories instead of always relying on the cache directory. Added coverage workflows to improve code quality assurance. Advanced Handlebar and Template Features Unified and simplified handlebars generators to streamline template maintenance. Added support for recursive partial blocks in handlebars to allow these patterns in partials. Introduced an option for embedded handlebars. This is similar to the Asciidoc option and is used by the website, which only embeds the HTML output. Ensured universal Asciidoc escaping to handle special characters effectively across templates. Optimized processing by rendering all templates directly to the output streams. Improved rendering efficiency by preprocessing template layouts and partials. Tailored outputs with a custom escape function for different handlebars targets. Enhanced handling of symbols with a regular symbol partial for overloads. Useful Improvements Added support for CMAKE_ROOT to specify the root the CMake installation used to generate the compilation database. Improved navigability with overload folding on a single page. Optimized resource handling by supporting lazy objects and arrays in handlebars values representing the corpus. Reduced redundancy in template management by unifying all handlebars helper partials for Adoc and HTML. Improved portability of generated output by relativizing paths in generator outputs. Enhanced documentation support for exceptions with support for resolved symbols in @throws tags. Improved clarity in documentation by supporting parameter and template parameter directions in/out/inout. Avoid conflicts in the adjusted MrDocs database with implicit language identification (C or C++) when necessary and appropriate implicit stdlib tags for each. Specialized Features Enhanced flexibility in file and symbol filters by adding support for glob patterns. Introduced doxygen-like filters that replicate all file and symbol filters available in Doxygen. Support for inline styled text in javadoc paragraphs. Improved cross-referencing in documentation with javadoc reference resolution to alternative scope URLs when symbols lack pages. Streamlined template design by unifying symbol partials. Modular ASTVisitor and unified traverse function, avoiding bugs and duplicated code. Extraction of attribute lists and corresponding templates. Added support for anonymous unions to handle specialized C++ constructs. Miscellaneous Merged function parameter names to enhance usability and maintain consistency. Added Asciidoctor and HTML output tests to ensure the accuracy of templates. Improved user customization with the introduction of the __MRDOCS__ macro. Besides these new features, ~210 bug fixes and improvements have been made to MrDocs since the last report. Integrations We continue to use Boost.URL as a testbed for MrDocs features. Boost.URL has already been using Antora and MrDocs for documentation for two Boost releases. Boost.Unordered is now in the process of migrating to Antora. Responsibilities Overall, my responsibilities in MrDocs include: Setting up and maintaining CI for the project; MrDocs and LLVM release binaries; Build scripts; Setting up and integrating dependencies; Setting up and deploying the Antora toolchains and documentation to the project website; Working on supporting libraries; Supervising and reviewing the work done by other contributors (Krystian and Fernando); and Fixing bugs. Boost Libraries The Boost library I’ve dedicated the most time to is Boost.URL. The library is in maintenance mode, but there is a constant demand for bug fixes and documentation improvements. Recent commits focus mostly keeping CI up to date and on the Antora+MrDocs workflow. We also implemented fixes that were necessary due to changes in other Boost libraries. Boost.URL introduced ~54 changes related to Antora+MrDocs, CI, and bug fixes since the last report. Boost Release Tools I have integrated the toolchains I developed into the Boost Release Tools, adding support for features desired for the new Boost website, including the Antora+MrDocs workflow. Since the last report, we’ve improved the process for the MrDocs Antora extension to find Boost dependencies. Boost Website Among support projects for the new Boost website, I have been particularly involved with website-v2-docs, which includes the Boost website documentation as an Antora project. Its components cover the “User Guide,” “Contributor Guide,” and “Formal Review” sections. Since the project’s inception, I have been overseeing and reviewing contributions from other team members. Since the last report, my contributions were: We updated the Antora UI bundle to resemble the current Boost website style. Multiple updates to the Antora extensions Multiple updates to the Antora workflow A new Antora section in the contributor guide Extensions were moved to the cppalliance GitHub organization Support for the BoostLook project in the Antora UI build workflow Keeping CI up to date page-toc and remove-nav options with automatic TOC generation Refactoring all gulp tasks and scripts New gulp tasks for linting and formatting Including pagination with parent pages C++ Github Actions C++ Github Actions is a project I have maintained since 2023. It is a collection of composable, independent, and reusable GitHub Actions for any C++ project needing testing on various compilers and environments. MrDocs, Boost.URL, Boost.HTTP, and Boost.Buffers currently use these actions in their CI. These projects provide valuable feedback to improve the actions. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs The actions are designed to be modular and interoperable. Each action has a specific role, such as configuring an environment or building a C++ project. They can be composed to create customized CI/CD workflows. Thus, a number of new features and fixes were added to the C++ Actions project since the last report. Updated compiler standards table in cpp-matrix to ensure compatibility with the latest compilers and improve portability across systems. Added support for commit tags in create-changelog to support proper changelog generation without conventional commits. Simplified options for single- and multi-config generators in cmake-workflow to improve configuration correctness. Added support for Ubuntu Noble 24.04 in setup-clang to keep compatibility with newer Linux distributions. Fixed the cpp-matrix workflow by marking Ubuntu Mantic as End-of-Life (EOL) to avoid potential issues with outdated dependencies. Introduced validation for undefined scopes in create-changelog to improve formatting consistency in generated changelogs. Added functionality to merge commit footers in create-changelog for more detailed and organized changelogs. Enhanced cpp-matrix with support for handlebars expressions and helpers to define custom matrix entry values. Improved boost-clone by initializing essential modules. Removed an empty group in setup-clang to declutter configurations and improve readability. Improved value validation in create-changelog footers to ensure correctness in generated metadata. Simplified the flamegraph by refactoring it into a JavaScript action to improve maintainability and efficiency. Besides these new features, ~18 bug fixes and improvements have been made to the C++ Actions project since the last report. Most work has been done to fix issues revealed by testing the actions in new environments. Since the last report, we have also completed the process of moving all actions to javascript, which allows them to be used in any workflow without extra dependencies." />
+<link rel="canonical" href="http://cppalliance.org/alan/2025/01/10/AlanQ4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/alan/2025/01/10/AlanQ4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Alan’s Q4 Update 2024" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Summary MrDocs Boost Libraries Boost Release Tools Boost Website C++ Github Actions MrDocs MrDocs is a tool for generating reference documentation from C++ code and javadoc comments. I have been overseeing and reviewing all contributions to the project. We have been using the GitHub project to guide our work toward the goals defined in the Gap Analysis, the MVP, and the Product Pitch. Krystian has focused on metadata extraction and issues related to Clang. Fernando has been tackling usability, critical bugs, and essential features. My role involves enhancing the CI setup and working on Antora extensions, which will be incorporated into website-v2-docs. Currently, metadata extraction primarily involves features in the Clang javadoc parser. These contributions are made to the llvm-project and then ported to MrDocs. Since our last report, we have implemented many features and bug fixes in MrDocs. Major Features and Critical Updates: Added support for concepts and constraints, ensuring MrDocs remains up to date with modern C++ language features. Enabled support for Arm64 and MacOS, enhancing cross-platform accessibility for developers and users we use Antora with the MrDocs extension on MacOS. Updated the compilation database to set the identified target architecture, improving precision in build and analysis tools. Bundled LibC++ to ensure reproducible standard library results, providing consistent outputs for critical use cases such as the Boost release tools and CI. Bundled LibC stubs to ensure reproducible libc results, enhancing reliability in production environments. Updated LLVM version to maintain compatibility with the latest development tooling. Unified implicit C++23 behavior across all compilation databases, regardless of original compiler, to streamline compatibility with modern C++ features. Usability Enhancements: Added warnings for duplicate javadoc commands to improve debugging and provide better user feedback. Created generators for configuration options from JSON files, automating repetitive development tasks and keeping documentation and code always up to date. Added a documentation target for configuration options to enhance maintainability and provide better information to users. Introduced a YAML schema for configuration files so that users can validate their configuration files against the schema directly from IDEs. Enabled tagfile generation in Doxygen format to improve interoperability with Doxygen workflows and allow symbols to be linked in Antora documentation with the tagfiles extension. Categorized info extraction modes (regular, dependency, see-below, or implementation-defined) for Corpus metadata. Key Documentation and Presentation Improvements: Included HTML demos to showcase MrDocs’ capabilities directly to users. Added demo tables in documentation to make feature demonstrations clearer and more accessible. Automated content creation by introducing generators for Info types from JSON files. The types in code and documentation are now always in sync. Unified and synchronized Asciidoc and HTML templates to ensure consistent documentation formatting across outputs. Enhancements for Developers and Automation: Implemented tests for all MrDocs releases, improving confidence in updates. Automated the generation of LLVM release binaries for www.mrdocs.com, simplifying updates. Improved logic for temporary directories instead of always relying on the cache directory. Added coverage workflows to improve code quality assurance. Advanced Handlebar and Template Features Unified and simplified handlebars generators to streamline template maintenance. Added support for recursive partial blocks in handlebars to allow these patterns in partials. Introduced an option for embedded handlebars. This is similar to the Asciidoc option and is used by the website, which only embeds the HTML output. Ensured universal Asciidoc escaping to handle special characters effectively across templates. Optimized processing by rendering all templates directly to the output streams. Improved rendering efficiency by preprocessing template layouts and partials. Tailored outputs with a custom escape function for different handlebars targets. Enhanced handling of symbols with a regular symbol partial for overloads. Useful Improvements Added support for CMAKE_ROOT to specify the root the CMake installation used to generate the compilation database. Improved navigability with overload folding on a single page. Optimized resource handling by supporting lazy objects and arrays in handlebars values representing the corpus. Reduced redundancy in template management by unifying all handlebars helper partials for Adoc and HTML. Improved portability of generated output by relativizing paths in generator outputs. Enhanced documentation support for exceptions with support for resolved symbols in @throws tags. Improved clarity in documentation by supporting parameter and template parameter directions in/out/inout. Avoid conflicts in the adjusted MrDocs database with implicit language identification (C or C++) when necessary and appropriate implicit stdlib tags for each. Specialized Features Enhanced flexibility in file and symbol filters by adding support for glob patterns. Introduced doxygen-like filters that replicate all file and symbol filters available in Doxygen. Support for inline styled text in javadoc paragraphs. Improved cross-referencing in documentation with javadoc reference resolution to alternative scope URLs when symbols lack pages. Streamlined template design by unifying symbol partials. Modular ASTVisitor and unified traverse function, avoiding bugs and duplicated code. Extraction of attribute lists and corresponding templates. Added support for anonymous unions to handle specialized C++ constructs. Miscellaneous Merged function parameter names to enhance usability and maintain consistency. Added Asciidoctor and HTML output tests to ensure the accuracy of templates. Improved user customization with the introduction of the __MRDOCS__ macro. Besides these new features, ~210 bug fixes and improvements have been made to MrDocs since the last report. Integrations We continue to use Boost.URL as a testbed for MrDocs features. Boost.URL has already been using Antora and MrDocs for documentation for two Boost releases. Boost.Unordered is now in the process of migrating to Antora. Responsibilities Overall, my responsibilities in MrDocs include: Setting up and maintaining CI for the project; MrDocs and LLVM release binaries; Build scripts; Setting up and integrating dependencies; Setting up and deploying the Antora toolchains and documentation to the project website; Working on supporting libraries; Supervising and reviewing the work done by other contributors (Krystian and Fernando); and Fixing bugs. Boost Libraries The Boost library I’ve dedicated the most time to is Boost.URL. The library is in maintenance mode, but there is a constant demand for bug fixes and documentation improvements. Recent commits focus mostly keeping CI up to date and on the Antora+MrDocs workflow. We also implemented fixes that were necessary due to changes in other Boost libraries. Boost.URL introduced ~54 changes related to Antora+MrDocs, CI, and bug fixes since the last report. Boost Release Tools I have integrated the toolchains I developed into the Boost Release Tools, adding support for features desired for the new Boost website, including the Antora+MrDocs workflow. Since the last report, we’ve improved the process for the MrDocs Antora extension to find Boost dependencies. Boost Website Among support projects for the new Boost website, I have been particularly involved with website-v2-docs, which includes the Boost website documentation as an Antora project. Its components cover the “User Guide,” “Contributor Guide,” and “Formal Review” sections. Since the project’s inception, I have been overseeing and reviewing contributions from other team members. Since the last report, my contributions were: We updated the Antora UI bundle to resemble the current Boost website style. Multiple updates to the Antora extensions Multiple updates to the Antora workflow A new Antora section in the contributor guide Extensions were moved to the cppalliance GitHub organization Support for the BoostLook project in the Antora UI build workflow Keeping CI up to date page-toc and remove-nav options with automatic TOC generation Refactoring all gulp tasks and scripts New gulp tasks for linting and formatting Including pagination with parent pages C++ Github Actions C++ Github Actions is a project I have maintained since 2023. It is a collection of composable, independent, and reusable GitHub Actions for any C++ project needing testing on various compilers and environments. MrDocs, Boost.URL, Boost.HTTP, and Boost.Buffers currently use these actions in their CI. These projects provide valuable feedback to improve the actions. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs The actions are designed to be modular and interoperable. Each action has a specific role, such as configuring an environment or building a C++ project. They can be composed to create customized CI/CD workflows. Thus, a number of new features and fixes were added to the C++ Actions project since the last report. Updated compiler standards table in cpp-matrix to ensure compatibility with the latest compilers and improve portability across systems. Added support for commit tags in create-changelog to support proper changelog generation without conventional commits. Simplified options for single- and multi-config generators in cmake-workflow to improve configuration correctness. Added support for Ubuntu Noble 24.04 in setup-clang to keep compatibility with newer Linux distributions. Fixed the cpp-matrix workflow by marking Ubuntu Mantic as End-of-Life (EOL) to avoid potential issues with outdated dependencies. Introduced validation for undefined scopes in create-changelog to improve formatting consistency in generated changelogs. Added functionality to merge commit footers in create-changelog for more detailed and organized changelogs. Enhanced cpp-matrix with support for handlebars expressions and helpers to define custom matrix entry values. Improved boost-clone by initializing essential modules. Removed an empty group in setup-clang to declutter configurations and improve readability. Improved value validation in create-changelog footers to ensure correctness in generated metadata. Simplified the flamegraph by refactoring it into a JavaScript action to improve maintainability and efficiency. Besides these new features, ~18 bug fixes and improvements have been made to the C++ Actions project since the last report. Most work has been done to fix issues revealed by testing the actions in new environments. Since the last report, we have also completed the process of moving all actions to javascript, which allows them to be used in any workflow without extra dependencies.","@type":"BlogPosting","url":"http://cppalliance.org/alan/2025/01/10/AlanQ4Update.html","headline":"Alan’s Q4 Update 2024","dateModified":"2025-01-10T00:00:00+00:00","datePublished":"2025-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/alan/2025/01/10/AlanQ4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Alan's Q4 Update 2024</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/alan">
+                  Alan Freitas
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="summary">Summary</h1>
+
+<ul>
+  <li><a href="#mrdocs">MrDocs</a></li>
+  <li><a href="#boost-libraries">Boost Libraries</a></li>
+  <li><a href="#boost-release-tools">Boost Release Tools</a></li>
+  <li><a href="#boost-website">Boost Website</a></li>
+  <li><a href="#c-github-actions">C++ Github Actions</a></li>
+</ul>
+
+<h2 id="mrdocs">MrDocs</h2>
+
+<p><a href="https://github.com/cppalliance/mrdocs">MrDocs</a> is a tool for generating reference documentation from C++ code and
+javadoc comments. I have been overseeing and reviewing all contributions to the project.
+We have been using the <a href="https://github.com/orgs/cppalliance/projects/2/views/1">GitHub project</a> to guide our work toward the goals defined in the Gap Analysis, the MVP, and the Product Pitch.</p>
+
+<ul>
+  <li><strong>Krystian</strong> has focused on metadata extraction and issues related to Clang.</li>
+  <li><strong>Fernando</strong> has been tackling usability, critical bugs, and essential features.</li>
+  <li><strong>My role</strong> involves enhancing the CI setup and working on Antora extensions, which will be incorporated into <code>website-v2-docs</code>.</li>
+</ul>
+
+<p>Currently, metadata extraction primarily involves features in the Clang javadoc parser. These contributions are made to the <a href="https://github.com/llvm/llvm-project">llvm-project</a> and then ported to MrDocs.</p>
+
+<p>Since our last report, we have implemented many features and bug fixes in MrDocs.</p>
+
+<p>Major Features and Critical Updates:</p>
+
+<ul>
+  <li>Added support for concepts and constraints, ensuring MrDocs remains up to date with modern C++ language features.</li>
+  <li>Enabled support for Arm64 and MacOS, enhancing cross-platform accessibility for developers and users we use Antora with the MrDocs extension on MacOS.</li>
+  <li>Updated the compilation database to set the identified target architecture, improving precision in build and analysis tools.</li>
+  <li>Bundled LibC++ to ensure reproducible standard library results, providing consistent outputs for critical use cases such as the Boost release tools and CI.</li>
+  <li>Bundled LibC stubs to ensure reproducible libc results, enhancing reliability in production environments.</li>
+  <li>Updated LLVM version to maintain compatibility with the latest development tooling.</li>
+  <li>Unified implicit C++23 behavior across all compilation databases, regardless of original compiler, to streamline compatibility with modern C++ features.</li>
+</ul>
+
+<p>Usability Enhancements:</p>
+
+<ul>
+  <li>Added warnings for duplicate javadoc commands to improve debugging and provide better user feedback.</li>
+  <li>Created generators for configuration options from JSON files, automating repetitive development tasks and keeping documentation and code always up to date.</li>
+  <li>Added a documentation target for configuration options to enhance maintainability and provide better information to users.</li>
+  <li>Introduced a YAML schema for configuration files so that users can validate their configuration files against the schema directly from IDEs.</li>
+  <li>Enabled tagfile generation in Doxygen format to improve interoperability with Doxygen workflows and allow symbols to be linked in Antora documentation with the tagfiles extension.</li>
+  <li>Categorized info extraction modes (regular, dependency, see-below, or implementation-defined) for Corpus metadata.</li>
+</ul>
+
+<p>Key Documentation and Presentation Improvements:</p>
+
+<ul>
+  <li>Included HTML demos to showcase MrDocs’ capabilities directly to users.</li>
+  <li>Added demo tables in documentation to make feature demonstrations clearer and more accessible.</li>
+  <li>Automated content creation by introducing generators for Info types from JSON files. The types in code and documentation are now always in sync.</li>
+  <li>Unified and synchronized Asciidoc and HTML templates to ensure consistent documentation formatting across outputs.</li>
+</ul>
+
+<p>Enhancements for Developers and Automation:</p>
+
+<ul>
+  <li>Implemented tests for all MrDocs releases, improving confidence in updates.</li>
+  <li>Automated the generation of LLVM release binaries for www.mrdocs.com, simplifying updates.</li>
+  <li>Improved logic for temporary directories instead of always relying on the cache directory.</li>
+  <li>Added coverage workflows to improve code quality assurance.</li>
+</ul>
+
+<p>Advanced Handlebar and Template Features</p>
+
+<ul>
+  <li>Unified and simplified handlebars generators to streamline template maintenance.</li>
+  <li>Added support for recursive partial blocks in handlebars to allow these patterns in partials.</li>
+  <li>Introduced an option for embedded handlebars. This is similar to the Asciidoc option and is used by the website, which only embeds the HTML output.</li>
+  <li>Ensured universal Asciidoc escaping to handle special characters effectively across templates.</li>
+  <li>Optimized processing by rendering all templates directly to the output streams.</li>
+  <li>Improved rendering efficiency by preprocessing template layouts and partials.</li>
+  <li>Tailored outputs with a custom escape function for different handlebars targets.</li>
+  <li>Enhanced handling of symbols with a regular symbol partial for overloads.</li>
+</ul>
+
+<p>Useful Improvements</p>
+
+<ul>
+  <li>Added support for <code>CMAKE_ROOT</code> to specify the root the CMake installation used to generate the compilation database.</li>
+  <li>Improved navigability with overload folding on a single page.</li>
+  <li>Optimized resource handling by supporting lazy objects and arrays in handlebars values representing the corpus.</li>
+  <li>Reduced redundancy in template management by unifying all handlebars helper partials for Adoc and HTML.</li>
+  <li>Improved portability of generated output by relativizing paths in generator outputs.</li>
+  <li>Enhanced documentation support for exceptions with support for resolved symbols in @throws tags.</li>
+  <li>Improved clarity in documentation by supporting parameter and template parameter directions in/out/inout.</li>
+  <li>Avoid conflicts in the adjusted MrDocs database with implicit language identification (C or C++) when necessary and appropriate implicit <code>stdlib</code> tags for each.</li>
+</ul>
+
+<p>Specialized Features</p>
+
+<ul>
+  <li>Enhanced flexibility in file and symbol filters by adding support for glob patterns.</li>
+  <li>Introduced doxygen-like filters that replicate all file and symbol filters available in Doxygen.</li>
+  <li>Support for inline styled text in javadoc paragraphs.</li>
+  <li>Improved cross-referencing in documentation with javadoc reference resolution to alternative scope URLs when symbols lack pages.</li>
+  <li>Streamlined template design by unifying symbol partials.</li>
+  <li>Modular ASTVisitor and unified traverse function, avoiding bugs and duplicated code.</li>
+  <li>Extraction of attribute lists and corresponding templates.</li>
+  <li>Added support for anonymous unions to handle specialized C++ constructs.</li>
+</ul>
+
+<p>Miscellaneous</p>
+
+<ul>
+  <li>Merged function parameter names to enhance usability and maintain consistency.</li>
+  <li>Added Asciidoctor and HTML output tests to ensure the accuracy of templates.</li>
+  <li>Improved user customization with the introduction of the <code>__MRDOCS__</code> macro.</li>
+</ul>
+
+<p>Besides these new features, ~210 bug fixes and improvements have been made to MrDocs since the last report.</p>
+
+<h3 id="integrations">Integrations</h3>
+
+<p>We continue to use Boost.URL as a testbed for MrDocs features. Boost.URL has already been using Antora and MrDocs for documentation for two Boost releases. Boost.Unordered is now in the process of migrating to Antora.</p>
+
+<h3 id="responsibilities">Responsibilities</h3>
+
+<p>Overall, my responsibilities in MrDocs include:</p>
+
+<ul>
+  <li>Setting up and maintaining CI for the project;</li>
+  <li>MrDocs and LLVM release binaries;</li>
+  <li>Build scripts;</li>
+  <li>Setting up and integrating dependencies;</li>
+  <li>Setting up and deploying the Antora toolchains and documentation to the project website;</li>
+  <li>Working on supporting libraries;</li>
+  <li>Supervising and reviewing the work done by other contributors (Krystian and Fernando); and</li>
+  <li>Fixing bugs.</li>
+</ul>
+
+<h2 id="boost-libraries">Boost Libraries</h2>
+
+<p>The Boost library I’ve dedicated the most time to is Boost.URL. The library is in maintenance mode, but there is a constant demand for bug fixes and documentation improvements. Recent commits focus mostly keeping CI up to date and on the Antora+MrDocs workflow. We also implemented fixes that were necessary due to changes in other Boost libraries. Boost.URL introduced ~54 changes related to Antora+MrDocs, CI, and bug fixes since the last report.</p>
+
+<h2 id="boost-release-tools">Boost Release Tools</h2>
+
+<p>I have integrated the toolchains I developed into the Boost Release Tools, adding support for features desired for the new Boost website, including the Antora+MrDocs workflow.</p>
+
+<p>Since the last report, we’ve improved the process for the MrDocs Antora extension to find Boost dependencies.</p>
+
+<h2 id="boost-website">Boost Website</h2>
+
+<p>Among support projects for the new Boost website, I have been particularly involved
+with <a href="https://github.com/boostorg/website-v2-docs"><code>website-v2-docs</code></a>, which includes the Boost website documentation as
+an Antora project. Its components cover the “User Guide,” “Contributor Guide,” and “Formal Review” sections.</p>
+
+<p>Since the project’s inception, I have been overseeing and reviewing contributions from other team members. Since the last report, my contributions were:</p>
+
+<ul>
+  <li>We updated the Antora UI bundle to resemble the current Boost website style.</li>
+  <li>Multiple updates to the Antora extensions</li>
+  <li>Multiple updates to the Antora workflow</li>
+  <li>A new Antora section in the contributor guide</li>
+  <li>Extensions were moved to the cppalliance GitHub organization</li>
+  <li>Support for the BoostLook project in the Antora UI build workflow</li>
+  <li>Keeping CI up to date</li>
+  <li><code>page-toc</code> and <code>remove-nav</code> options with automatic TOC generation</li>
+  <li>Refactoring all gulp tasks and scripts</li>
+  <li>New gulp tasks for linting and formatting</li>
+  <li>Including pagination with parent pages</li>
+</ul>
+
+<h2 id="c-github-actions">C++ Github Actions</h2>
+
+<p><a href="https://github.com/alandefreitas/cpp-actions">C++ Github Actions</a> is a project I have maintained since 2023. It is a
+collection of composable, independent, and reusable GitHub Actions for any C++ project needing testing on various compilers and environments.</p>
+
+<p>MrDocs, Boost.URL, Boost.HTTP, and Boost.Buffers currently use these actions in their CI. These projects provide valuable feedback to improve the actions.</p>
+
+<p>The project includes actions to:</p>
+
+<ul>
+  <li>Generate a Github Actions Matrix for C++ projects;</li>
+  <li>Setup C++ compilers;</li>
+  <li>Install and setup packages;</li>
+  <li>Clone Boost modules;</li>
+  <li>Run complete CMake and <code>b2</code> workflows;</li>
+  <li>Generate changelogs from conventional commits;</li>
+  <li>Generate summaries; and</li>
+  <li>Generate time-trace reports and flame graphs</li>
+</ul>
+
+<p>The actions are designed to be modular and interoperable. Each action has a specific role, such as configuring an environment or building a C++ project. They can be composed to create customized CI/CD workflows.</p>
+
+<p>Thus, a number of new features and fixes were added to the C++ Actions project since the last report.</p>
+
+<ul>
+  <li>Updated compiler standards table in <code>cpp-matrix</code> to ensure compatibility with the latest compilers and improve portability across systems.</li>
+  <li>Added support for commit tags in <code>create-changelog</code> to support proper changelog generation without conventional commits.</li>
+  <li>Simplified options for single- and multi-config generators in <code>cmake-workflow</code> to improve configuration correctness.</li>
+  <li>Added support for Ubuntu Noble 24.04 in <code>setup-clang</code> to keep compatibility with newer Linux distributions.</li>
+  <li>Fixed the <code>cpp-matrix</code> workflow by marking Ubuntu Mantic as End-of-Life (EOL) to avoid potential issues with outdated dependencies.</li>
+  <li>Introduced validation for undefined scopes in <code>create-changelog</code> to improve formatting consistency in generated changelogs.</li>
+  <li>Added functionality to merge commit footers in <code>create-changelog</code> for more detailed and organized changelogs.</li>
+  <li>Enhanced <code>cpp-matrix</code> with support for handlebars expressions and helpers to define custom matrix entry values.</li>
+  <li>Improved <code>boost-clone</code> by initializing essential modules.</li>
+  <li>Removed an empty group in <code>setup-clang</code> to declutter configurations and improve readability.</li>
+  <li>Improved value validation in <code>create-changelog</code> footers to ensure correctness in generated metadata.</li>
+  <li>Simplified the <code>flamegraph</code> by refactoring it into a JavaScript action to improve maintainability and efficiency.</li>
+</ul>
+
+<p>Besides these new features, ~18 bug fixes and improvements have been made to the C++ Actions project since the last report. Most work has been done to fix issues revealed by testing the actions in new environments. Since the last report, we have also completed the process of moving all actions to javascript, which allows them to be used in any workflow without extra dependencies.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/07/10/Alan.html">Bringing B2-Style Test Granularity to CMake</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/01/10/AlanQ4Update.html">Alan's Q4 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/13/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/07/13/AlanQ2Update.html">Alan's Q2 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/07/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/05/07/AlanQ1Update.html">Alan's Q1 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/01/12/AlanQ4Update.html">Alan's Q4 Update 2023</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/alan/2023/10/27/AlanQ3Update.html">Alan's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

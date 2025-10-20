@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud and Infrastructure Update Q1 2025 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Cloud and Infrastructure Update Q1 2025 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Cloud and Infrastructure Update Q1 2025" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Here’s an overview of some projects I have been working on the last few months. Server Upgrades The Ubuntu LTS ‘Long Term Support’ release 24.04 was officially available in April 2024, however it’s not advisable to upgrade existing servers until the release has a chance to be field-tested and validated. Among other issues, the Ubuntu 24.04 zip package “fails when filenames contain unicode characters”, which was a serious bug that affected release-tools. By April 2025 though, it seems reasonable to upgrade. The C++ Alliance is hosting around 35 server instances, many small or nano in size, for a variety of purposes. This quarter, upgraded all the operating systems to 24.04. If a workload is critical, there is a risk an in-place upgrade will disrupt that system, and so it’s preferable to rebuild the machine from scratch and migrate. That is especially important for postgres database servers because an upgrade generates a completely new DB service with an empty database, causing multiple DBs to be running. Rebuilding an application server from scratch may involve many components. What if something gets skipped? To be sure everything is accounted for, I composed some new installation scripts with Ansible, that will allow future upgrades of 26.04 or 28.04 to run more easily also. For example, the github repository cppalliance/ansible-paperbot installs the Slack integration Paperbot onto a new server. To see what this does, in the Cpplang Slack workspace, invite @npaperbot to a channel and try “@npaperbot search constexpr”. Another new installer cppalliance/ansible-drone migrated the Alliance’s Drone server to a new instance. This script includes crontab entries to clear frozen jobs, monitoring probes reporting the number of autoscaled instances, and automatically copies the postgres database from backup archives. Upgrading many servers at once has a benefit of serving as an inventory/review. Small problems can be discovered and corrected. For example, a server instance boost-library-stats.cpp.al depends on the Github API to retrieve repo statistics. The API format changed after a few years so the code needed a refresh. Another (recurring) issue, the latest Ubuntu is the first one to require Python virtual environments, which were purely optional in 22.04. boost-ci Upgraded lcov from v1.15 to v2.3 in codecov.sh. While that sounds uneventful, in fact it turned into a project, since the new lcov generated numerous “ERRORS” that hadn’t existed before. Almost certainly if you leverage boost-ci your boost library now has failing coverage reports using lcov 2.3 - except that through careful testing we have enabled “ignore-errors”. The ignored errors are “inconsistent, mismatch, unused”. Examine the CI output of recent codecov and search for the string “warning”. The errors have been replaced by warnings. Of the 20 possible lcov error conditions, how can we be sure which need to be ignored? I wrote an automated report (in the feature/reports branch of boost-ci) that ran lcov on all boost libraries. The results confirmed the common errors. This is customizable with $LCOV_OPTIONS and $LCOV_IGNORE_ERRORS_LEVEL (see codecov.sh) so you may voluntarily switch back to a crashing codecov reports at any time. You might think “wait, you should leave errors enabled, and force developers to fix their mistakes.” However there are multiple reasons not to do this. The main one is that lcov is encountering errors in the standard library itself, and so everyone’s coverage reports would fail, without any way to fix that. Next, many boost developers are part-time and do not have unlimited resources. Should their coverage reports remain broken/unusable for a year or two before they are able to devote the proper time to fix them? And finally, the errors have not been hidden or removed. They have simply been converted to warnings that are still visible in the log output. Jenkins General adjustments to the new configuration and jenkinsfiles. New automated docs for boostorg/bloom library candidate. Iterations of redesigns for the boostorg/unordered docs. Migrate preview hosting to jenkins2. Among the Jenkins jobs are gcovr/lcov coverage reports. Refactored and improved those bash scripts, in the ci-automation repo. Boost website boostorg/website-v2 Experimentation (ongoing) to install a Horizontal Pod Autoscaler HPA in the k8s cluster, which will automatically scale the deployment, and therefore allow a smaller deployment in steady-state when the cluster is not busy. Wrote a git deploy script for Rob. Mailman db dumps. Discussions about tino,non-tino deployments in boostlook. Boost release process boostorg/release-tools Multiple small bug fixes. JFrog was finally shut off which affected boost.org and wowbagger. Upgraded CDN origin servers. Merged PRs to use webhooks on boost.io, as well as git tagging during releases. Drone Dealing with the IBM Cloud account, which perpetually has billing problems on their side. Re-enabled account. Migrate IBM servers from São Paulo to Dallas. Implement git fetch timeouts, which did not exist in the drone-git codebase, and was a necessary bug fix. Sent them a PR. Database query scripts to verify results. GHA New Windows 2025 images. JSON Benchmarks Format/lint script. boostorg/json bench output changed, and so the ingest of the data needed updating. New monitoring alerts, email alerts." />
+<meta property="og:description" content="Here’s an overview of some projects I have been working on the last few months. Server Upgrades The Ubuntu LTS ‘Long Term Support’ release 24.04 was officially available in April 2024, however it’s not advisable to upgrade existing servers until the release has a chance to be field-tested and validated. Among other issues, the Ubuntu 24.04 zip package “fails when filenames contain unicode characters”, which was a serious bug that affected release-tools. By April 2025 though, it seems reasonable to upgrade. The C++ Alliance is hosting around 35 server instances, many small or nano in size, for a variety of purposes. This quarter, upgraded all the operating systems to 24.04. If a workload is critical, there is a risk an in-place upgrade will disrupt that system, and so it’s preferable to rebuild the machine from scratch and migrate. That is especially important for postgres database servers because an upgrade generates a completely new DB service with an empty database, causing multiple DBs to be running. Rebuilding an application server from scratch may involve many components. What if something gets skipped? To be sure everything is accounted for, I composed some new installation scripts with Ansible, that will allow future upgrades of 26.04 or 28.04 to run more easily also. For example, the github repository cppalliance/ansible-paperbot installs the Slack integration Paperbot onto a new server. To see what this does, in the Cpplang Slack workspace, invite @npaperbot to a channel and try “@npaperbot search constexpr”. Another new installer cppalliance/ansible-drone migrated the Alliance’s Drone server to a new instance. This script includes crontab entries to clear frozen jobs, monitoring probes reporting the number of autoscaled instances, and automatically copies the postgres database from backup archives. Upgrading many servers at once has a benefit of serving as an inventory/review. Small problems can be discovered and corrected. For example, a server instance boost-library-stats.cpp.al depends on the Github API to retrieve repo statistics. The API format changed after a few years so the code needed a refresh. Another (recurring) issue, the latest Ubuntu is the first one to require Python virtual environments, which were purely optional in 22.04. boost-ci Upgraded lcov from v1.15 to v2.3 in codecov.sh. While that sounds uneventful, in fact it turned into a project, since the new lcov generated numerous “ERRORS” that hadn’t existed before. Almost certainly if you leverage boost-ci your boost library now has failing coverage reports using lcov 2.3 - except that through careful testing we have enabled “ignore-errors”. The ignored errors are “inconsistent, mismatch, unused”. Examine the CI output of recent codecov and search for the string “warning”. The errors have been replaced by warnings. Of the 20 possible lcov error conditions, how can we be sure which need to be ignored? I wrote an automated report (in the feature/reports branch of boost-ci) that ran lcov on all boost libraries. The results confirmed the common errors. This is customizable with $LCOV_OPTIONS and $LCOV_IGNORE_ERRORS_LEVEL (see codecov.sh) so you may voluntarily switch back to a crashing codecov reports at any time. You might think “wait, you should leave errors enabled, and force developers to fix their mistakes.” However there are multiple reasons not to do this. The main one is that lcov is encountering errors in the standard library itself, and so everyone’s coverage reports would fail, without any way to fix that. Next, many boost developers are part-time and do not have unlimited resources. Should their coverage reports remain broken/unusable for a year or two before they are able to devote the proper time to fix them? And finally, the errors have not been hidden or removed. They have simply been converted to warnings that are still visible in the log output. Jenkins General adjustments to the new configuration and jenkinsfiles. New automated docs for boostorg/bloom library candidate. Iterations of redesigns for the boostorg/unordered docs. Migrate preview hosting to jenkins2. Among the Jenkins jobs are gcovr/lcov coverage reports. Refactored and improved those bash scripts, in the ci-automation repo. Boost website boostorg/website-v2 Experimentation (ongoing) to install a Horizontal Pod Autoscaler HPA in the k8s cluster, which will automatically scale the deployment, and therefore allow a smaller deployment in steady-state when the cluster is not busy. Wrote a git deploy script for Rob. Mailman db dumps. Discussions about tino,non-tino deployments in boostlook. Boost release process boostorg/release-tools Multiple small bug fixes. JFrog was finally shut off which affected boost.org and wowbagger. Upgraded CDN origin servers. Merged PRs to use webhooks on boost.io, as well as git tagging during releases. Drone Dealing with the IBM Cloud account, which perpetually has billing problems on their side. Re-enabled account. Migrate IBM servers from São Paulo to Dallas. Implement git fetch timeouts, which did not exist in the drone-git codebase, and was a necessary bug fix. Sent them a PR. Database query scripts to verify results. GHA New Windows 2025 images. JSON Benchmarks Format/lint script. boostorg/json bench output changed, and so the ingest of the data needed updating. New monitoring alerts, email alerts." />
+<link rel="canonical" href="http://cppalliance.org/sam/2025/04/09/SamsQ1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2025/04/09/SamsQ1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-04-09T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Cloud and Infrastructure Update Q1 2025" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Here’s an overview of some projects I have been working on the last few months. Server Upgrades The Ubuntu LTS ‘Long Term Support’ release 24.04 was officially available in April 2024, however it’s not advisable to upgrade existing servers until the release has a chance to be field-tested and validated. Among other issues, the Ubuntu 24.04 zip package “fails when filenames contain unicode characters”, which was a serious bug that affected release-tools. By April 2025 though, it seems reasonable to upgrade. The C++ Alliance is hosting around 35 server instances, many small or nano in size, for a variety of purposes. This quarter, upgraded all the operating systems to 24.04. If a workload is critical, there is a risk an in-place upgrade will disrupt that system, and so it’s preferable to rebuild the machine from scratch and migrate. That is especially important for postgres database servers because an upgrade generates a completely new DB service with an empty database, causing multiple DBs to be running. Rebuilding an application server from scratch may involve many components. What if something gets skipped? To be sure everything is accounted for, I composed some new installation scripts with Ansible, that will allow future upgrades of 26.04 or 28.04 to run more easily also. For example, the github repository cppalliance/ansible-paperbot installs the Slack integration Paperbot onto a new server. To see what this does, in the Cpplang Slack workspace, invite @npaperbot to a channel and try “@npaperbot search constexpr”. Another new installer cppalliance/ansible-drone migrated the Alliance’s Drone server to a new instance. This script includes crontab entries to clear frozen jobs, monitoring probes reporting the number of autoscaled instances, and automatically copies the postgres database from backup archives. Upgrading many servers at once has a benefit of serving as an inventory/review. Small problems can be discovered and corrected. For example, a server instance boost-library-stats.cpp.al depends on the Github API to retrieve repo statistics. The API format changed after a few years so the code needed a refresh. Another (recurring) issue, the latest Ubuntu is the first one to require Python virtual environments, which were purely optional in 22.04. boost-ci Upgraded lcov from v1.15 to v2.3 in codecov.sh. While that sounds uneventful, in fact it turned into a project, since the new lcov generated numerous “ERRORS” that hadn’t existed before. Almost certainly if you leverage boost-ci your boost library now has failing coverage reports using lcov 2.3 - except that through careful testing we have enabled “ignore-errors”. The ignored errors are “inconsistent, mismatch, unused”. Examine the CI output of recent codecov and search for the string “warning”. The errors have been replaced by warnings. Of the 20 possible lcov error conditions, how can we be sure which need to be ignored? I wrote an automated report (in the feature/reports branch of boost-ci) that ran lcov on all boost libraries. The results confirmed the common errors. This is customizable with $LCOV_OPTIONS and $LCOV_IGNORE_ERRORS_LEVEL (see codecov.sh) so you may voluntarily switch back to a crashing codecov reports at any time. You might think “wait, you should leave errors enabled, and force developers to fix their mistakes.” However there are multiple reasons not to do this. The main one is that lcov is encountering errors in the standard library itself, and so everyone’s coverage reports would fail, without any way to fix that. Next, many boost developers are part-time and do not have unlimited resources. Should their coverage reports remain broken/unusable for a year or two before they are able to devote the proper time to fix them? And finally, the errors have not been hidden or removed. They have simply been converted to warnings that are still visible in the log output. Jenkins General adjustments to the new configuration and jenkinsfiles. New automated docs for boostorg/bloom library candidate. Iterations of redesigns for the boostorg/unordered docs. Migrate preview hosting to jenkins2. Among the Jenkins jobs are gcovr/lcov coverage reports. Refactored and improved those bash scripts, in the ci-automation repo. Boost website boostorg/website-v2 Experimentation (ongoing) to install a Horizontal Pod Autoscaler HPA in the k8s cluster, which will automatically scale the deployment, and therefore allow a smaller deployment in steady-state when the cluster is not busy. Wrote a git deploy script for Rob. Mailman db dumps. Discussions about tino,non-tino deployments in boostlook. Boost release process boostorg/release-tools Multiple small bug fixes. JFrog was finally shut off which affected boost.org and wowbagger. Upgraded CDN origin servers. Merged PRs to use webhooks on boost.io, as well as git tagging during releases. Drone Dealing with the IBM Cloud account, which perpetually has billing problems on their side. Re-enabled account. Migrate IBM servers from São Paulo to Dallas. Implement git fetch timeouts, which did not exist in the drone-git codebase, and was a necessary bug fix. Sent them a PR. Database query scripts to verify results. GHA New Windows 2025 images. JSON Benchmarks Format/lint script. boostorg/json bench output changed, and so the ingest of the data needed updating. New monitoring alerts, email alerts.","@type":"BlogPosting","url":"http://cppalliance.org/sam/2025/04/09/SamsQ1Update.html","headline":"Cloud and Infrastructure Update Q1 2025","dateModified":"2025-04-09T00:00:00+00:00","datePublished":"2025-04-09T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2025/04/09/SamsQ1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Cloud and Infrastructure Update Q1 2025</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 9, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Here’s an overview of some projects I have been working on the last few months.</p>
+
+<h3 id="server-upgrades">Server Upgrades</h3>
+
+<p>The Ubuntu LTS ‘Long Term Support’ release 24.04 was officially available in April 2024, however it’s not advisable to upgrade existing servers until the release has a chance to be field-tested and validated. Among other issues, the Ubuntu 24.04 zip package “fails when filenames contain unicode characters”, which was a serious bug that affected release-tools. By April 2025 though, it seems reasonable to upgrade. The C++ Alliance is hosting around 35 server instances, many small or nano in size, for a variety of purposes. This quarter, upgraded all the operating systems to 24.04. If a workload is critical, there is a risk an in-place upgrade will disrupt that system, and so it’s preferable to rebuild the machine from scratch and migrate. That is especially important for postgres database servers because an upgrade generates a completely new DB service with an empty database, causing multiple DBs to be running.</p>
+
+<p>Rebuilding an application server from scratch may involve many components. What if something gets skipped? To be sure everything is accounted for, I composed some new installation scripts with Ansible, that will allow future upgrades of 26.04 or 28.04 to run more easily also. For example, the github repository <code>cppalliance/ansible-paperbot</code> installs the Slack integration Paperbot onto a new server. To see what this does, in the Cpplang Slack workspace, invite @npaperbot to a channel and try “@npaperbot search constexpr”.</p>
+
+<p>Another new installer <code>cppalliance/ansible-drone</code> migrated the Alliance’s Drone server to a new instance. This script includes crontab entries to clear frozen jobs, monitoring probes reporting the number of autoscaled instances, and automatically copies the postgres database from backup archives.</p>
+
+<p>Upgrading many servers at once has a benefit of serving as an inventory/review. Small problems can be discovered and corrected. For example, a server instance boost-library-stats.cpp.al depends on the Github API to retrieve repo statistics. The API format changed after a few years so the code needed a refresh. Another (recurring) issue, the latest Ubuntu is the first one to require Python virtual environments, which were purely optional in 22.04.</p>
+
+<h3 id="boost-ci">boost-ci</h3>
+
+<p>Upgraded lcov from v1.15 to v2.3 in codecov.sh. While that sounds uneventful, in fact it turned into a project, since the new lcov generated numerous “ERRORS” that hadn’t existed before. Almost certainly if you leverage boost-ci your boost library now has failing coverage reports using lcov 2.3 - except that through careful testing we have enabled “ignore-errors”.  The ignored errors are “inconsistent, mismatch, unused”. Examine the CI output of recent codecov and search for the string “warning”. The errors have been replaced by warnings.</p>
+
+<p>Of the 20 possible lcov error conditions, how can we be sure which need to be ignored? I wrote an automated report (in the feature/reports branch of boost-ci) that ran lcov on all boost libraries. The results confirmed the common errors. This is customizable with $LCOV_OPTIONS and $LCOV_IGNORE_ERRORS_LEVEL (see codecov.sh) so you may voluntarily switch back to a crashing codecov reports at any time.</p>
+
+<p>You might think “wait, you should leave errors enabled, and force developers to fix their mistakes.” However there are multiple reasons not to do this. The main one is that lcov is encountering errors in the standard library itself, and so everyone’s coverage reports would fail, without any way to fix that. Next, many boost developers are part-time and do not have unlimited resources. Should their coverage reports remain broken/unusable for a year or two before they are able to devote the proper time to fix them? And finally, the errors have not been hidden or removed. They have simply been converted to warnings that are still visible in the log output.</p>
+
+<h3 id="jenkins">Jenkins</h3>
+
+<p>General adjustments to the new configuration and jenkinsfiles.<br />
+New automated docs for boostorg/bloom library candidate. <br />
+Iterations of redesigns for the boostorg/unordered docs.<br />
+Migrate preview hosting to jenkins2.<br />
+Among the Jenkins jobs are gcovr/lcov coverage reports. Refactored and improved those bash scripts, in the ci-automation repo.</p>
+
+<h3 id="boost-website-boostorgwebsite-v2">Boost website boostorg/website-v2</h3>
+
+<p>Experimentation (ongoing) to install a Horizontal Pod Autoscaler HPA in the k8s cluster, which will automatically scale the deployment, and therefore allow a smaller deployment in steady-state when the cluster is not busy.</p>
+
+<p>Wrote a git deploy script for Rob. Mailman db dumps. Discussions about tino,non-tino deployments in boostlook.</p>
+
+<h3 id="boost-release-process-boostorgrelease-tools">Boost release process boostorg/release-tools</h3>
+
+<p>Multiple small bug fixes. JFrog was finally shut off which affected boost.org and wowbagger.<br />
+Upgraded CDN origin servers.<br />
+Merged PRs to use webhooks on boost.io, as well as git tagging during releases.</p>
+
+<h3 id="drone">Drone</h3>
+
+<p>Dealing with the IBM Cloud account, which perpetually has billing problems on their side. Re-enabled account.<br />
+Migrate IBM servers from São Paulo to Dallas. <br />
+Implement git fetch timeouts, which did not exist in the drone-git codebase, and was a necessary bug fix. Sent them a PR. Database query scripts to verify results.</p>
+
+<h3 id="gha">GHA</h3>
+
+<p>New Windows 2025 images.</p>
+
+<h3 id="json-benchmarks">JSON Benchmarks</h3>
+
+<p>Format/lint script.<br />
+boostorg/json bench output changed, and so the ingest of the data needed updating.<br />
+New monitoring alerts, email alerts.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

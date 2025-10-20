@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's May 2021 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s May 2021 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s May 2021 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The Month in Review It’s been a month of minor maintenance fixes, and a fair amount of support requests via the C++ Alliance Slack workspace. Property_tree On the maintenance front, there are a number of historic pull requests in the property_tree repo which need working through. Some of these take some unravelling and a degree of care, as I am still new to this venerable library and I have the impression that it is used fairly ubiquitously in many code bases of varying pedigree. Currently I have no way of reaching out to users (not knowing exactly who they are) so the only way to know whether a change is going to break someone’s build is to release it, by which time it is too late. I think the answer here is to start building out more test cases. Property_tree only recently gained CI, and so far I have not gotten around to adding test coverage. No doubt I’ll get to this in due course. Beast There are a lot of eager developers out there keen to use Beast and Asio, which is encouraging. The less encouraging thing is the amount of time I find myself spending giving ad-hoc support to people who have hit the Asio mental brick wall (which I remember when learning this fantastic library all too well). I have written blogs in this series before covering some of the topics I think are important and developers often misunderstand, but there is more to do. With this in mind, an idea has been germinating over the past few months, which finally started to develop into a new library this month. I’ll come back to this later. Asio A few months ago I attended a WG21 meeting where a formal means of providing cancellation to asynchronous operations was proposed. A few people at that meeting, myself included, were concerned that the proposal in its current form would constrain the development style of asynchronous programs, making the fundamental objects a little more complex than they often need to be. I have recognised that Asio needs a formal task cancellation mechanism for some time, this being the basis of the async cancellation_token mentioned in a previous blog. I have been able to get some of Chris Kohlhoff’s valuable time to discuss this to see whether there is a way to get effortless cancellation into Asio without impacting performance or compiled size when cancellation is not required. Chris, as he is wont to do, made the rather brilliant connection that in Asio, a 1-shot cancellation token can be associated with each asynchronous completion handler, with the default token type being a zero-cost abstraction of a null cancellation token - i.e. one that will never invoke the stop callback. The general idea being that if you want an operation to be cancellable, you would invoke it like this: // This is the signal object that you would use to // cancel any operation that depends on one of its slots asio::cancellation_signal sig; // some IO Object timer t(ioc, chronons::seconds(5)); // perform an asynchronous operation bound to the cancellation signal t.async_wait( bind_cancellation_slot(sig.slot(), [](system::error_code ec) { // if the signal is invoked, the timer&#39;s asynchronous operation will notice // and the operation will complete with ec equal to asio::errors::operation_aborted }); // signal the cancellation sig.emit(): The interesting thing about this is that the cancellation slot is associated with the asynchronous operation’s handler. This is not only useful for a library-provided asynchronous operation such as a timer wait. Because of the existence of a function called get_associated_cancellation_slot(handler), the current slot is available in any context where user code has access to the current asynchronous completion handler. One such place is in a user-defined composed operation, and therefore by extension, a c++ coroutine running in the context of an Asio executor. This now becomes possible: asio::awaitable&lt;void&gt; my_coro(some_async_op&amp; op) { // The cancellation state allowed us to detect whether cancellation has been requested // It also allows us to register our own cancellation slot auto cs = asio::this_coro::cancellation_state; // Create a new slot from the cancellation state and register a callback which will // invoke our own custom cancel signal on the some_async_op // note: A auto slot = cs.slot(); slot.emplace([&amp;]{ op.cancel(); }); // continue to wait on the some_async_op co_await op.wait_to_finish(); } This coroutine could be invoked in a couple of ways: // In this case the cancellation state is a no-op cancellation. // the code at note A above will do nothing. This coroutine is not cancellable. co_await asio::co_spawn(exec, my_coro(op), asio::use_awaitable); // In this case, the coroutine has become cancellable because the code at note A will actually // create a functioning slot and register the lambda. // The coroutine is cancellable through the cancellation signal sig. asio::cancellation_signal sig; co_await asio::co_spawn(exec, my_coro(op), asio::bind_cancellation_signal( asio::use_awaitable, sig)); This code is experimental at the moment, but is available on the generic-associators branch of Boost.Asio. The Project du Jour Coming back to the “Asio is hard at the beginning” meme, I was speaking to my son recently. He works with a number of languages, including Python, Go and C++. During a conversation about these he mentioned that Go was a very uninspiring language (to him) but it was very easy to get fairly complex asynchronous programs functioning reliably in a short amount of time. I asked him what the single most effective feature of the language was, to which he replied, “channels”. For anyone who does not already know, a golang channel is simply a multi-producer, multi-consumer ring buffer with an asynchronous interface. It has the following behaviour: Producer coroutines will suspend when providing values to the channel if the ring buffer is full and there is no consumer pending a consume operation. Consumer coroutines will suspend when consuming if the ring buffer is empty and there is no pending producer operation in progress. The ring buffer capacity is specified upon construction, and may be zero. Producers and consumers of a zero-sized channel will only make progress if there is a corresponding pair of producer and consumer pending at the same time. In this way, the channel also acts as a coroutine synchronisation primitive. Finally, the channel may be closed. A closed channel will allow a consumer to consume remaining values in the ring buffer, but it will not allow a producer to provide more values, whether into the ring buffer or directly to a pending consume operation. A consume operation against an empty, closed channel will yield a default-constructed object plus a boolean false indicating that there are no more values to consume. There are some other nice features in Go, such as the select keyword which interact with channels in a pleasing way, but for now I’ll focus on how we might implement the channel in asynchronous C++. The rationale here being: Channels make writing complex asynchronous interactions simple. Make simple things simple is the mantra to which I subscribe. Perhaps C++ enthusiasts would benefit from an implementation of channels. Given the flexibility of C++, we might be able to do a better job than Go, at least in terms of giving the programmer some choice over implementation tradeoffs. Maybe a little library offering this functionality in a simple, reusable way would be a useful addition to Boost. I put some feelers out in the CppLang slack. So far the response to the idea has been only positive. So I decided to make a start. TLDR - you can monitor how far I am getting by looking at the Github repository. Approach I wanted the channels library to be built on top of Asio. The reason for this is that I happen to think that the Asio executor model is very elegant, and allows the programmer to transpose the same fundamental idea onto a number of different concurrency strategies. For example, thread pools, IO loop, threads and futures, and so on. Asio’s completion tokens allow the adaptation of asynchronous initiating functions to any or all of these strategies and I wanted to make sure that the library will provide this functionality. Furthermore, asynchronous programs become complex quickly. Asio is a natural fit for IO, but does not provide the primitives that programmers often find they need to create rich programs. It is my hope that this channels library provides people with a useful tool to make high performance, highly concurrent programs easier to write in C++. Design Decisions I have elected to write library in two sections. The first will contain the basic objects to handle the concurrent communication and asynchronous completions. These objects will not be thread-safe, just like any other object in Asio. The second will be a thread-safe interface written in terms of the first. The truth is that Asio objects do not need to be thread-safe if programmers use the correct discipline vis-a-vis strands and ensuring that work is dispatched to the correct strand. Another truth is that many programmers just want things to be easy. So why not provide an easy-mode interface too? Comparison OK, so let’s take a simple Go program and see how we could express that in terms of Asio and C++ coroutines. Now I’m no expert, so I’m sure there are many ways to improve this program. It’s about the third Go program I’ve ever written. Please by all means let me know. package main import ( &quot;fmt&quot; &quot;sync&quot; ) func produce(wg *sync.WaitGroup, c chan&lt;- string) { defer wg.Done() c &lt;- &quot;The&quot; c &lt;- &quot;cat&quot; c &lt;- &quot;sat&quot; c &lt;- &quot;on&quot; c &lt;- &quot;the&quot; c &lt;- &quot;mat&quot; close(c) } func consume(wg *sync.WaitGroup, name string, c &lt;-chan string) { defer wg.Done() for { s, more := &lt;-c if more { fmt.Println(name, &quot;:&quot;, s) } else { fmt.Println(name, &quot;: Channel closed&quot;, name) break } } } // Main function func main() { var wg sync.WaitGroup wg.Add(4) c := make(chan string) go consume(&amp;wg, &quot;a&quot;, c) go consume(&amp;wg, &quot;b&quot;, c) go consume(&amp;wg, &quot;c&quot;, c) go produce(&amp;wg, c) wg.Wait() } And this is how I would envision it would look in the first cut of the C++ version: auto produce(channels::channel&lt; std::string &gt; &amp;c) -&gt; asio::awaitable&lt; void &gt; { constexpr auto wait = asio::use_awaitable; co_await c.async_send(&quot;The&quot;, wait); co_await c.async_send(&quot;cat&quot;, wait); co_await c.async_send(&quot;sat&quot;, wait); co_await c.async_send(&quot;on&quot;, wait); co_await c.async_send(&quot;the&quot;, wait); co_await c.async_send(&quot;mat&quot;, wait); c.close(); } auto consume(std::string_view name, channels::channel&lt; std::string &gt; &amp;c) -&gt; asio::awaitable&lt; void &gt; { auto ec = channels::error_code(); auto tok = asio::redirect_error(asio::use_awaitable, ec); for (;;) { auto s = co_await c.async_consume(tok); if (ec) { std::cout &lt;&lt; name &lt;&lt; &quot; : &quot; &lt;&lt; ec.message() &lt;&lt; &quot;\n&quot;; break; } else std::cout &lt;&lt; name &lt;&lt; &quot; : &quot; &lt;&lt; s &lt;&lt; &quot;\n&quot;; } } int main() { auto ioc = asio::io_context(); auto c = channels::channel&lt; std::string &gt;(ioc.get_executor()); asio::co_spawn(ioc, consume(&quot;a&quot;, c), asio::detached); asio::co_spawn(ioc, consume(&quot;b&quot;, c), asio::detached); asio::co_spawn(ioc, consume(&quot;c&quot;, c), asio::detached); asio::co_spawn(ioc, produce(c), asio::detached); ioc.run(); } One example of the output of the Go program (the order is actually nondeterministic) is: a : The a : cat b : sat b : mat b : Channel closed b a : on a : Channel closed a c : the c : Channel closed c while the output of the C++ program is a more deterministic: a : The b : cat c : sat a : on b : the c : mat a : Channel is closed b : Channel is closed c : Channel is closed I’m not an expert in Go by any means but I imagine the nondeterminism in the Go program is in part due to the fact that the goroutine implementation is allowed to take shortcuts to consume data synchronously if it’s available. The Asio model requires that each completion handler is invoked as-if by a call to post(handler). In this program, these posts are being made to a single-threaded io_context and so are being executed sequentially, preserving the order of invocation during execution. If this program were multi-threaded, it might be a different story. But this will have to wait until the basic single-threaded implementation is complete. Implementation Details The implementation of the channel is actually fairly straightforward. The asynchronous initiation interfaces are standard asio, e.g.: template &lt; class ValueType, class Executor &gt; template &lt; BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code)) SendHandler &gt; BOOST_ASIO_INITFN_RESULT_TYPE(SendHandler, void(error_code)) channel&lt; ValueType, Executor &gt;::async_send(value_type value, SendHandler &amp;&amp;token) { if (!impl_) [[unlikely]] BOOST_THROW_EXCEPTION(std::logic_error(&quot;channel is null&quot;)); return asio::async_initiate&lt; SendHandler, void(error_code) &gt;( [value = std::move(value), this](auto &amp;&amp;handler) { auto send_op = detail::create_channel_send_op( std::move(value), this-&gt;impl_-&gt;get_executor(), std::forward&lt; decltype(handler) &gt;(handler)); impl_-&gt;notify_send(send_op); }, token); } The macros are supplied by Asio and simply ensure that the most up-to-date compiler facilities are used to ensure that the completion token/handler has the correct signature. BOOST_ASIO_INITFN_RESULT_TYPE deduces the return type of the selected specialisation of async_initiate. It is what ensures that async_send returns an awaitable when the completion token is of type asio::use_awaitable, or a std::future if we were to pass in asio::use_future. The actual work of the send is performed in the implementation class: void notify_send(detail::channel_send_op_concept&lt; ValueType &gt; *send_op) { // behaviour of send depends on the state of the implementation. // There are two states, running and closed. We will be in the closed // state if someone has called `close` on the channel. // Note that even if the channel is closed, consumers may still consume // values stored in the circular buffer. However, new values may not // be send into the channel. switch (state_) { case state_running: [[likely]] if (consumers_.empty()) { // In the case that there is no consumer already waiting, // then behaviour depends on whether there is space in the // circular buffer. If so, we store the value in the send_op // there and allow the send_op to complete. // Otherwise, we store the send_op in the queue of pending // send operations for later processing when there is space in // the circular buffer or a pending consume is available. if (free()) push(send_op-&gt;consume()); else senders_.push(send_op); } else { // A consumer is waiting, so we can unblock the consumer // by passing it the value in the send_op, causing both // send and consume to complete. auto my_receiver = std::move(consumers_.front()); consumers_.pop(); my_receiver-&gt;notify_value(send_op-&gt;consume()); } break; case state_closed: // If the channel is closed, then all send operations result in // an error [[unlikely]] send_op-&gt;notify_error(errors::channel_closed); break; } } An interesting feature of the send operation class is that when it is instructed to complete, it must: Move the value out of itself, Move the completion handler out of itself, Destroy itself, returning memory back to the allocator. Post the completion handler to the correct executor. Return the value. The order is important. Later on we will be adding Asio allocator awareness. In order to maximise efficiency, Asio asynchronous operations must free their memory back to the allocator before completing. This is so that during the execution of the completion handler, the same memory that was just freed into asio’s special purpose allocators will be allocated and used to compose the next completion handler. This memory will be at the head of the allocator’s list of free blocks (and therefore found first) and it will be in cached memory, having just been touched. template &lt; class ValueType, class Executor, class Handler &gt; auto basic_channel_send_op&lt; ValueType, Executor, Handler &gt;::consume() -&gt; ValueType { // move the result value to the local scope auto result = std::move(this-&gt;value_); // move the handler to local scope and transform it to be associated with // the correct executor. auto handler = ::boost::asio::bind_executor( std::move(exec_), [handler = std::move(handler_)]() mutable { handler(error_code()); }); // then destroy this object (equivalent to delete this) destroy(); // post the modified handler to its associated executor asio::post(std::move(handler)); // return the value from the local scope to the caller (but note that NRVO // will guarantee that there is not actually a second move) return result; } That’s all for now. I’ll add extra blog entries as and when I make any significant progress to the library. In the meantime, I’m always happy to receive queries by email or as issues in the github repo. Thanks for reading. Richard Hodges for C++ Alliance hodges.r@gmail.com" />
+<meta property="og:description" content="The Month in Review It’s been a month of minor maintenance fixes, and a fair amount of support requests via the C++ Alliance Slack workspace. Property_tree On the maintenance front, there are a number of historic pull requests in the property_tree repo which need working through. Some of these take some unravelling and a degree of care, as I am still new to this venerable library and I have the impression that it is used fairly ubiquitously in many code bases of varying pedigree. Currently I have no way of reaching out to users (not knowing exactly who they are) so the only way to know whether a change is going to break someone’s build is to release it, by which time it is too late. I think the answer here is to start building out more test cases. Property_tree only recently gained CI, and so far I have not gotten around to adding test coverage. No doubt I’ll get to this in due course. Beast There are a lot of eager developers out there keen to use Beast and Asio, which is encouraging. The less encouraging thing is the amount of time I find myself spending giving ad-hoc support to people who have hit the Asio mental brick wall (which I remember when learning this fantastic library all too well). I have written blogs in this series before covering some of the topics I think are important and developers often misunderstand, but there is more to do. With this in mind, an idea has been germinating over the past few months, which finally started to develop into a new library this month. I’ll come back to this later. Asio A few months ago I attended a WG21 meeting where a formal means of providing cancellation to asynchronous operations was proposed. A few people at that meeting, myself included, were concerned that the proposal in its current form would constrain the development style of asynchronous programs, making the fundamental objects a little more complex than they often need to be. I have recognised that Asio needs a formal task cancellation mechanism for some time, this being the basis of the async cancellation_token mentioned in a previous blog. I have been able to get some of Chris Kohlhoff’s valuable time to discuss this to see whether there is a way to get effortless cancellation into Asio without impacting performance or compiled size when cancellation is not required. Chris, as he is wont to do, made the rather brilliant connection that in Asio, a 1-shot cancellation token can be associated with each asynchronous completion handler, with the default token type being a zero-cost abstraction of a null cancellation token - i.e. one that will never invoke the stop callback. The general idea being that if you want an operation to be cancellable, you would invoke it like this: // This is the signal object that you would use to // cancel any operation that depends on one of its slots asio::cancellation_signal sig; // some IO Object timer t(ioc, chronons::seconds(5)); // perform an asynchronous operation bound to the cancellation signal t.async_wait( bind_cancellation_slot(sig.slot(), [](system::error_code ec) { // if the signal is invoked, the timer&#39;s asynchronous operation will notice // and the operation will complete with ec equal to asio::errors::operation_aborted }); // signal the cancellation sig.emit(): The interesting thing about this is that the cancellation slot is associated with the asynchronous operation’s handler. This is not only useful for a library-provided asynchronous operation such as a timer wait. Because of the existence of a function called get_associated_cancellation_slot(handler), the current slot is available in any context where user code has access to the current asynchronous completion handler. One such place is in a user-defined composed operation, and therefore by extension, a c++ coroutine running in the context of an Asio executor. This now becomes possible: asio::awaitable&lt;void&gt; my_coro(some_async_op&amp; op) { // The cancellation state allowed us to detect whether cancellation has been requested // It also allows us to register our own cancellation slot auto cs = asio::this_coro::cancellation_state; // Create a new slot from the cancellation state and register a callback which will // invoke our own custom cancel signal on the some_async_op // note: A auto slot = cs.slot(); slot.emplace([&amp;]{ op.cancel(); }); // continue to wait on the some_async_op co_await op.wait_to_finish(); } This coroutine could be invoked in a couple of ways: // In this case the cancellation state is a no-op cancellation. // the code at note A above will do nothing. This coroutine is not cancellable. co_await asio::co_spawn(exec, my_coro(op), asio::use_awaitable); // In this case, the coroutine has become cancellable because the code at note A will actually // create a functioning slot and register the lambda. // The coroutine is cancellable through the cancellation signal sig. asio::cancellation_signal sig; co_await asio::co_spawn(exec, my_coro(op), asio::bind_cancellation_signal( asio::use_awaitable, sig)); This code is experimental at the moment, but is available on the generic-associators branch of Boost.Asio. The Project du Jour Coming back to the “Asio is hard at the beginning” meme, I was speaking to my son recently. He works with a number of languages, including Python, Go and C++. During a conversation about these he mentioned that Go was a very uninspiring language (to him) but it was very easy to get fairly complex asynchronous programs functioning reliably in a short amount of time. I asked him what the single most effective feature of the language was, to which he replied, “channels”. For anyone who does not already know, a golang channel is simply a multi-producer, multi-consumer ring buffer with an asynchronous interface. It has the following behaviour: Producer coroutines will suspend when providing values to the channel if the ring buffer is full and there is no consumer pending a consume operation. Consumer coroutines will suspend when consuming if the ring buffer is empty and there is no pending producer operation in progress. The ring buffer capacity is specified upon construction, and may be zero. Producers and consumers of a zero-sized channel will only make progress if there is a corresponding pair of producer and consumer pending at the same time. In this way, the channel also acts as a coroutine synchronisation primitive. Finally, the channel may be closed. A closed channel will allow a consumer to consume remaining values in the ring buffer, but it will not allow a producer to provide more values, whether into the ring buffer or directly to a pending consume operation. A consume operation against an empty, closed channel will yield a default-constructed object plus a boolean false indicating that there are no more values to consume. There are some other nice features in Go, such as the select keyword which interact with channels in a pleasing way, but for now I’ll focus on how we might implement the channel in asynchronous C++. The rationale here being: Channels make writing complex asynchronous interactions simple. Make simple things simple is the mantra to which I subscribe. Perhaps C++ enthusiasts would benefit from an implementation of channels. Given the flexibility of C++, we might be able to do a better job than Go, at least in terms of giving the programmer some choice over implementation tradeoffs. Maybe a little library offering this functionality in a simple, reusable way would be a useful addition to Boost. I put some feelers out in the CppLang slack. So far the response to the idea has been only positive. So I decided to make a start. TLDR - you can monitor how far I am getting by looking at the Github repository. Approach I wanted the channels library to be built on top of Asio. The reason for this is that I happen to think that the Asio executor model is very elegant, and allows the programmer to transpose the same fundamental idea onto a number of different concurrency strategies. For example, thread pools, IO loop, threads and futures, and so on. Asio’s completion tokens allow the adaptation of asynchronous initiating functions to any or all of these strategies and I wanted to make sure that the library will provide this functionality. Furthermore, asynchronous programs become complex quickly. Asio is a natural fit for IO, but does not provide the primitives that programmers often find they need to create rich programs. It is my hope that this channels library provides people with a useful tool to make high performance, highly concurrent programs easier to write in C++. Design Decisions I have elected to write library in two sections. The first will contain the basic objects to handle the concurrent communication and asynchronous completions. These objects will not be thread-safe, just like any other object in Asio. The second will be a thread-safe interface written in terms of the first. The truth is that Asio objects do not need to be thread-safe if programmers use the correct discipline vis-a-vis strands and ensuring that work is dispatched to the correct strand. Another truth is that many programmers just want things to be easy. So why not provide an easy-mode interface too? Comparison OK, so let’s take a simple Go program and see how we could express that in terms of Asio and C++ coroutines. Now I’m no expert, so I’m sure there are many ways to improve this program. It’s about the third Go program I’ve ever written. Please by all means let me know. package main import ( &quot;fmt&quot; &quot;sync&quot; ) func produce(wg *sync.WaitGroup, c chan&lt;- string) { defer wg.Done() c &lt;- &quot;The&quot; c &lt;- &quot;cat&quot; c &lt;- &quot;sat&quot; c &lt;- &quot;on&quot; c &lt;- &quot;the&quot; c &lt;- &quot;mat&quot; close(c) } func consume(wg *sync.WaitGroup, name string, c &lt;-chan string) { defer wg.Done() for { s, more := &lt;-c if more { fmt.Println(name, &quot;:&quot;, s) } else { fmt.Println(name, &quot;: Channel closed&quot;, name) break } } } // Main function func main() { var wg sync.WaitGroup wg.Add(4) c := make(chan string) go consume(&amp;wg, &quot;a&quot;, c) go consume(&amp;wg, &quot;b&quot;, c) go consume(&amp;wg, &quot;c&quot;, c) go produce(&amp;wg, c) wg.Wait() } And this is how I would envision it would look in the first cut of the C++ version: auto produce(channels::channel&lt; std::string &gt; &amp;c) -&gt; asio::awaitable&lt; void &gt; { constexpr auto wait = asio::use_awaitable; co_await c.async_send(&quot;The&quot;, wait); co_await c.async_send(&quot;cat&quot;, wait); co_await c.async_send(&quot;sat&quot;, wait); co_await c.async_send(&quot;on&quot;, wait); co_await c.async_send(&quot;the&quot;, wait); co_await c.async_send(&quot;mat&quot;, wait); c.close(); } auto consume(std::string_view name, channels::channel&lt; std::string &gt; &amp;c) -&gt; asio::awaitable&lt; void &gt; { auto ec = channels::error_code(); auto tok = asio::redirect_error(asio::use_awaitable, ec); for (;;) { auto s = co_await c.async_consume(tok); if (ec) { std::cout &lt;&lt; name &lt;&lt; &quot; : &quot; &lt;&lt; ec.message() &lt;&lt; &quot;\n&quot;; break; } else std::cout &lt;&lt; name &lt;&lt; &quot; : &quot; &lt;&lt; s &lt;&lt; &quot;\n&quot;; } } int main() { auto ioc = asio::io_context(); auto c = channels::channel&lt; std::string &gt;(ioc.get_executor()); asio::co_spawn(ioc, consume(&quot;a&quot;, c), asio::detached); asio::co_spawn(ioc, consume(&quot;b&quot;, c), asio::detached); asio::co_spawn(ioc, consume(&quot;c&quot;, c), asio::detached); asio::co_spawn(ioc, produce(c), asio::detached); ioc.run(); } One example of the output of the Go program (the order is actually nondeterministic) is: a : The a : cat b : sat b : mat b : Channel closed b a : on a : Channel closed a c : the c : Channel closed c while the output of the C++ program is a more deterministic: a : The b : cat c : sat a : on b : the c : mat a : Channel is closed b : Channel is closed c : Channel is closed I’m not an expert in Go by any means but I imagine the nondeterminism in the Go program is in part due to the fact that the goroutine implementation is allowed to take shortcuts to consume data synchronously if it’s available. The Asio model requires that each completion handler is invoked as-if by a call to post(handler). In this program, these posts are being made to a single-threaded io_context and so are being executed sequentially, preserving the order of invocation during execution. If this program were multi-threaded, it might be a different story. But this will have to wait until the basic single-threaded implementation is complete. Implementation Details The implementation of the channel is actually fairly straightforward. The asynchronous initiation interfaces are standard asio, e.g.: template &lt; class ValueType, class Executor &gt; template &lt; BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code)) SendHandler &gt; BOOST_ASIO_INITFN_RESULT_TYPE(SendHandler, void(error_code)) channel&lt; ValueType, Executor &gt;::async_send(value_type value, SendHandler &amp;&amp;token) { if (!impl_) [[unlikely]] BOOST_THROW_EXCEPTION(std::logic_error(&quot;channel is null&quot;)); return asio::async_initiate&lt; SendHandler, void(error_code) &gt;( [value = std::move(value), this](auto &amp;&amp;handler) { auto send_op = detail::create_channel_send_op( std::move(value), this-&gt;impl_-&gt;get_executor(), std::forward&lt; decltype(handler) &gt;(handler)); impl_-&gt;notify_send(send_op); }, token); } The macros are supplied by Asio and simply ensure that the most up-to-date compiler facilities are used to ensure that the completion token/handler has the correct signature. BOOST_ASIO_INITFN_RESULT_TYPE deduces the return type of the selected specialisation of async_initiate. It is what ensures that async_send returns an awaitable when the completion token is of type asio::use_awaitable, or a std::future if we were to pass in asio::use_future. The actual work of the send is performed in the implementation class: void notify_send(detail::channel_send_op_concept&lt; ValueType &gt; *send_op) { // behaviour of send depends on the state of the implementation. // There are two states, running and closed. We will be in the closed // state if someone has called `close` on the channel. // Note that even if the channel is closed, consumers may still consume // values stored in the circular buffer. However, new values may not // be send into the channel. switch (state_) { case state_running: [[likely]] if (consumers_.empty()) { // In the case that there is no consumer already waiting, // then behaviour depends on whether there is space in the // circular buffer. If so, we store the value in the send_op // there and allow the send_op to complete. // Otherwise, we store the send_op in the queue of pending // send operations for later processing when there is space in // the circular buffer or a pending consume is available. if (free()) push(send_op-&gt;consume()); else senders_.push(send_op); } else { // A consumer is waiting, so we can unblock the consumer // by passing it the value in the send_op, causing both // send and consume to complete. auto my_receiver = std::move(consumers_.front()); consumers_.pop(); my_receiver-&gt;notify_value(send_op-&gt;consume()); } break; case state_closed: // If the channel is closed, then all send operations result in // an error [[unlikely]] send_op-&gt;notify_error(errors::channel_closed); break; } } An interesting feature of the send operation class is that when it is instructed to complete, it must: Move the value out of itself, Move the completion handler out of itself, Destroy itself, returning memory back to the allocator. Post the completion handler to the correct executor. Return the value. The order is important. Later on we will be adding Asio allocator awareness. In order to maximise efficiency, Asio asynchronous operations must free their memory back to the allocator before completing. This is so that during the execution of the completion handler, the same memory that was just freed into asio’s special purpose allocators will be allocated and used to compose the next completion handler. This memory will be at the head of the allocator’s list of free blocks (and therefore found first) and it will be in cached memory, having just been touched. template &lt; class ValueType, class Executor, class Handler &gt; auto basic_channel_send_op&lt; ValueType, Executor, Handler &gt;::consume() -&gt; ValueType { // move the result value to the local scope auto result = std::move(this-&gt;value_); // move the handler to local scope and transform it to be associated with // the correct executor. auto handler = ::boost::asio::bind_executor( std::move(exec_), [handler = std::move(handler_)]() mutable { handler(error_code()); }); // then destroy this object (equivalent to delete this) destroy(); // post the modified handler to its associated executor asio::post(std::move(handler)); // return the value from the local scope to the caller (but note that NRVO // will guarantee that there is not actually a second move) return result; } That’s all for now. I’ll add extra blog entries as and when I make any significant progress to the library. In the meantime, I’m always happy to receive queries by email or as issues in the github repo. Thanks for reading. Richard Hodges for C++ Alliance hodges.r@gmail.com" />
+<link rel="canonical" href="http://cppalliance.org/richard/2021/05/30/RichardsMayUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2021/05/30/RichardsMayUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-05-30T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s May 2021 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"The Month in Review It’s been a month of minor maintenance fixes, and a fair amount of support requests via the C++ Alliance Slack workspace. Property_tree On the maintenance front, there are a number of historic pull requests in the property_tree repo which need working through. Some of these take some unravelling and a degree of care, as I am still new to this venerable library and I have the impression that it is used fairly ubiquitously in many code bases of varying pedigree. Currently I have no way of reaching out to users (not knowing exactly who they are) so the only way to know whether a change is going to break someone’s build is to release it, by which time it is too late. I think the answer here is to start building out more test cases. Property_tree only recently gained CI, and so far I have not gotten around to adding test coverage. No doubt I’ll get to this in due course. Beast There are a lot of eager developers out there keen to use Beast and Asio, which is encouraging. The less encouraging thing is the amount of time I find myself spending giving ad-hoc support to people who have hit the Asio mental brick wall (which I remember when learning this fantastic library all too well). I have written blogs in this series before covering some of the topics I think are important and developers often misunderstand, but there is more to do. With this in mind, an idea has been germinating over the past few months, which finally started to develop into a new library this month. I’ll come back to this later. Asio A few months ago I attended a WG21 meeting where a formal means of providing cancellation to asynchronous operations was proposed. A few people at that meeting, myself included, were concerned that the proposal in its current form would constrain the development style of asynchronous programs, making the fundamental objects a little more complex than they often need to be. I have recognised that Asio needs a formal task cancellation mechanism for some time, this being the basis of the async cancellation_token mentioned in a previous blog. I have been able to get some of Chris Kohlhoff’s valuable time to discuss this to see whether there is a way to get effortless cancellation into Asio without impacting performance or compiled size when cancellation is not required. Chris, as he is wont to do, made the rather brilliant connection that in Asio, a 1-shot cancellation token can be associated with each asynchronous completion handler, with the default token type being a zero-cost abstraction of a null cancellation token - i.e. one that will never invoke the stop callback. The general idea being that if you want an operation to be cancellable, you would invoke it like this: // This is the signal object that you would use to // cancel any operation that depends on one of its slots asio::cancellation_signal sig; // some IO Object timer t(ioc, chronons::seconds(5)); // perform an asynchronous operation bound to the cancellation signal t.async_wait( bind_cancellation_slot(sig.slot(), [](system::error_code ec) { // if the signal is invoked, the timer&#39;s asynchronous operation will notice // and the operation will complete with ec equal to asio::errors::operation_aborted }); // signal the cancellation sig.emit(): The interesting thing about this is that the cancellation slot is associated with the asynchronous operation’s handler. This is not only useful for a library-provided asynchronous operation such as a timer wait. Because of the existence of a function called get_associated_cancellation_slot(handler), the current slot is available in any context where user code has access to the current asynchronous completion handler. One such place is in a user-defined composed operation, and therefore by extension, a c++ coroutine running in the context of an Asio executor. This now becomes possible: asio::awaitable&lt;void&gt; my_coro(some_async_op&amp; op) { // The cancellation state allowed us to detect whether cancellation has been requested // It also allows us to register our own cancellation slot auto cs = asio::this_coro::cancellation_state; // Create a new slot from the cancellation state and register a callback which will // invoke our own custom cancel signal on the some_async_op // note: A auto slot = cs.slot(); slot.emplace([&amp;]{ op.cancel(); }); // continue to wait on the some_async_op co_await op.wait_to_finish(); } This coroutine could be invoked in a couple of ways: // In this case the cancellation state is a no-op cancellation. // the code at note A above will do nothing. This coroutine is not cancellable. co_await asio::co_spawn(exec, my_coro(op), asio::use_awaitable); // In this case, the coroutine has become cancellable because the code at note A will actually // create a functioning slot and register the lambda. // The coroutine is cancellable through the cancellation signal sig. asio::cancellation_signal sig; co_await asio::co_spawn(exec, my_coro(op), asio::bind_cancellation_signal( asio::use_awaitable, sig)); This code is experimental at the moment, but is available on the generic-associators branch of Boost.Asio. The Project du Jour Coming back to the “Asio is hard at the beginning” meme, I was speaking to my son recently. He works with a number of languages, including Python, Go and C++. During a conversation about these he mentioned that Go was a very uninspiring language (to him) but it was very easy to get fairly complex asynchronous programs functioning reliably in a short amount of time. I asked him what the single most effective feature of the language was, to which he replied, “channels”. For anyone who does not already know, a golang channel is simply a multi-producer, multi-consumer ring buffer with an asynchronous interface. It has the following behaviour: Producer coroutines will suspend when providing values to the channel if the ring buffer is full and there is no consumer pending a consume operation. Consumer coroutines will suspend when consuming if the ring buffer is empty and there is no pending producer operation in progress. The ring buffer capacity is specified upon construction, and may be zero. Producers and consumers of a zero-sized channel will only make progress if there is a corresponding pair of producer and consumer pending at the same time. In this way, the channel also acts as a coroutine synchronisation primitive. Finally, the channel may be closed. A closed channel will allow a consumer to consume remaining values in the ring buffer, but it will not allow a producer to provide more values, whether into the ring buffer or directly to a pending consume operation. A consume operation against an empty, closed channel will yield a default-constructed object plus a boolean false indicating that there are no more values to consume. There are some other nice features in Go, such as the select keyword which interact with channels in a pleasing way, but for now I’ll focus on how we might implement the channel in asynchronous C++. The rationale here being: Channels make writing complex asynchronous interactions simple. Make simple things simple is the mantra to which I subscribe. Perhaps C++ enthusiasts would benefit from an implementation of channels. Given the flexibility of C++, we might be able to do a better job than Go, at least in terms of giving the programmer some choice over implementation tradeoffs. Maybe a little library offering this functionality in a simple, reusable way would be a useful addition to Boost. I put some feelers out in the CppLang slack. So far the response to the idea has been only positive. So I decided to make a start. TLDR - you can monitor how far I am getting by looking at the Github repository. Approach I wanted the channels library to be built on top of Asio. The reason for this is that I happen to think that the Asio executor model is very elegant, and allows the programmer to transpose the same fundamental idea onto a number of different concurrency strategies. For example, thread pools, IO loop, threads and futures, and so on. Asio’s completion tokens allow the adaptation of asynchronous initiating functions to any or all of these strategies and I wanted to make sure that the library will provide this functionality. Furthermore, asynchronous programs become complex quickly. Asio is a natural fit for IO, but does not provide the primitives that programmers often find they need to create rich programs. It is my hope that this channels library provides people with a useful tool to make high performance, highly concurrent programs easier to write in C++. Design Decisions I have elected to write library in two sections. The first will contain the basic objects to handle the concurrent communication and asynchronous completions. These objects will not be thread-safe, just like any other object in Asio. The second will be a thread-safe interface written in terms of the first. The truth is that Asio objects do not need to be thread-safe if programmers use the correct discipline vis-a-vis strands and ensuring that work is dispatched to the correct strand. Another truth is that many programmers just want things to be easy. So why not provide an easy-mode interface too? Comparison OK, so let’s take a simple Go program and see how we could express that in terms of Asio and C++ coroutines. Now I’m no expert, so I’m sure there are many ways to improve this program. It’s about the third Go program I’ve ever written. Please by all means let me know. package main import ( &quot;fmt&quot; &quot;sync&quot; ) func produce(wg *sync.WaitGroup, c chan&lt;- string) { defer wg.Done() c &lt;- &quot;The&quot; c &lt;- &quot;cat&quot; c &lt;- &quot;sat&quot; c &lt;- &quot;on&quot; c &lt;- &quot;the&quot; c &lt;- &quot;mat&quot; close(c) } func consume(wg *sync.WaitGroup, name string, c &lt;-chan string) { defer wg.Done() for { s, more := &lt;-c if more { fmt.Println(name, &quot;:&quot;, s) } else { fmt.Println(name, &quot;: Channel closed&quot;, name) break } } } // Main function func main() { var wg sync.WaitGroup wg.Add(4) c := make(chan string) go consume(&amp;wg, &quot;a&quot;, c) go consume(&amp;wg, &quot;b&quot;, c) go consume(&amp;wg, &quot;c&quot;, c) go produce(&amp;wg, c) wg.Wait() } And this is how I would envision it would look in the first cut of the C++ version: auto produce(channels::channel&lt; std::string &gt; &amp;c) -&gt; asio::awaitable&lt; void &gt; { constexpr auto wait = asio::use_awaitable; co_await c.async_send(&quot;The&quot;, wait); co_await c.async_send(&quot;cat&quot;, wait); co_await c.async_send(&quot;sat&quot;, wait); co_await c.async_send(&quot;on&quot;, wait); co_await c.async_send(&quot;the&quot;, wait); co_await c.async_send(&quot;mat&quot;, wait); c.close(); } auto consume(std::string_view name, channels::channel&lt; std::string &gt; &amp;c) -&gt; asio::awaitable&lt; void &gt; { auto ec = channels::error_code(); auto tok = asio::redirect_error(asio::use_awaitable, ec); for (;;) { auto s = co_await c.async_consume(tok); if (ec) { std::cout &lt;&lt; name &lt;&lt; &quot; : &quot; &lt;&lt; ec.message() &lt;&lt; &quot;\\n&quot;; break; } else std::cout &lt;&lt; name &lt;&lt; &quot; : &quot; &lt;&lt; s &lt;&lt; &quot;\\n&quot;; } } int main() { auto ioc = asio::io_context(); auto c = channels::channel&lt; std::string &gt;(ioc.get_executor()); asio::co_spawn(ioc, consume(&quot;a&quot;, c), asio::detached); asio::co_spawn(ioc, consume(&quot;b&quot;, c), asio::detached); asio::co_spawn(ioc, consume(&quot;c&quot;, c), asio::detached); asio::co_spawn(ioc, produce(c), asio::detached); ioc.run(); } One example of the output of the Go program (the order is actually nondeterministic) is: a : The a : cat b : sat b : mat b : Channel closed b a : on a : Channel closed a c : the c : Channel closed c while the output of the C++ program is a more deterministic: a : The b : cat c : sat a : on b : the c : mat a : Channel is closed b : Channel is closed c : Channel is closed I’m not an expert in Go by any means but I imagine the nondeterminism in the Go program is in part due to the fact that the goroutine implementation is allowed to take shortcuts to consume data synchronously if it’s available. The Asio model requires that each completion handler is invoked as-if by a call to post(handler). In this program, these posts are being made to a single-threaded io_context and so are being executed sequentially, preserving the order of invocation during execution. If this program were multi-threaded, it might be a different story. But this will have to wait until the basic single-threaded implementation is complete. Implementation Details The implementation of the channel is actually fairly straightforward. The asynchronous initiation interfaces are standard asio, e.g.: template &lt; class ValueType, class Executor &gt; template &lt; BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code)) SendHandler &gt; BOOST_ASIO_INITFN_RESULT_TYPE(SendHandler, void(error_code)) channel&lt; ValueType, Executor &gt;::async_send(value_type value, SendHandler &amp;&amp;token) { if (!impl_) [[unlikely]] BOOST_THROW_EXCEPTION(std::logic_error(&quot;channel is null&quot;)); return asio::async_initiate&lt; SendHandler, void(error_code) &gt;( [value = std::move(value), this](auto &amp;&amp;handler) { auto send_op = detail::create_channel_send_op( std::move(value), this-&gt;impl_-&gt;get_executor(), std::forward&lt; decltype(handler) &gt;(handler)); impl_-&gt;notify_send(send_op); }, token); } The macros are supplied by Asio and simply ensure that the most up-to-date compiler facilities are used to ensure that the completion token/handler has the correct signature. BOOST_ASIO_INITFN_RESULT_TYPE deduces the return type of the selected specialisation of async_initiate. It is what ensures that async_send returns an awaitable when the completion token is of type asio::use_awaitable, or a std::future if we were to pass in asio::use_future. The actual work of the send is performed in the implementation class: void notify_send(detail::channel_send_op_concept&lt; ValueType &gt; *send_op) { // behaviour of send depends on the state of the implementation. // There are two states, running and closed. We will be in the closed // state if someone has called `close` on the channel. // Note that even if the channel is closed, consumers may still consume // values stored in the circular buffer. However, new values may not // be send into the channel. switch (state_) { case state_running: [[likely]] if (consumers_.empty()) { // In the case that there is no consumer already waiting, // then behaviour depends on whether there is space in the // circular buffer. If so, we store the value in the send_op // there and allow the send_op to complete. // Otherwise, we store the send_op in the queue of pending // send operations for later processing when there is space in // the circular buffer or a pending consume is available. if (free()) push(send_op-&gt;consume()); else senders_.push(send_op); } else { // A consumer is waiting, so we can unblock the consumer // by passing it the value in the send_op, causing both // send and consume to complete. auto my_receiver = std::move(consumers_.front()); consumers_.pop(); my_receiver-&gt;notify_value(send_op-&gt;consume()); } break; case state_closed: // If the channel is closed, then all send operations result in // an error [[unlikely]] send_op-&gt;notify_error(errors::channel_closed); break; } } An interesting feature of the send operation class is that when it is instructed to complete, it must: Move the value out of itself, Move the completion handler out of itself, Destroy itself, returning memory back to the allocator. Post the completion handler to the correct executor. Return the value. The order is important. Later on we will be adding Asio allocator awareness. In order to maximise efficiency, Asio asynchronous operations must free their memory back to the allocator before completing. This is so that during the execution of the completion handler, the same memory that was just freed into asio’s special purpose allocators will be allocated and used to compose the next completion handler. This memory will be at the head of the allocator’s list of free blocks (and therefore found first) and it will be in cached memory, having just been touched. template &lt; class ValueType, class Executor, class Handler &gt; auto basic_channel_send_op&lt; ValueType, Executor, Handler &gt;::consume() -&gt; ValueType { // move the result value to the local scope auto result = std::move(this-&gt;value_); // move the handler to local scope and transform it to be associated with // the correct executor. auto handler = ::boost::asio::bind_executor( std::move(exec_), [handler = std::move(handler_)]() mutable { handler(error_code()); }); // then destroy this object (equivalent to delete this) destroy(); // post the modified handler to its associated executor asio::post(std::move(handler)); // return the value from the local scope to the caller (but note that NRVO // will guarantee that there is not actually a second move) return result; } That’s all for now. I’ll add extra blog entries as and when I make any significant progress to the library. In the meantime, I’m always happy to receive queries by email or as issues in the github repo. Thanks for reading. Richard Hodges for C++ Alliance hodges.r@gmail.com","@type":"BlogPosting","url":"http://cppalliance.org/richard/2021/05/30/RichardsMayUpdate.html","headline":"Richard’s May 2021 Update","dateModified":"2021-05-30T00:00:00+00:00","datePublished":"2021-05-30T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2021/05/30/RichardsMayUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's May 2021 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>May 30, 2021</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="the-month-in-review">The Month in Review</h1>
+
+<p>It’s been a month of minor maintenance fixes, and a fair amount of support requests via
+the <a href="https://cppalliance.org/slack/">C++ Alliance Slack workspace</a>.</p>
+
+<h2 id="property_tree">Property_tree</h2>
+
+<p>On the maintenance front, there are a number of historic pull requests in the property_tree repo which need working
+through. Some of these take some unravelling and a degree of care, as I am still new to this venerable library and I
+have the impression that it is used fairly ubiquitously in many code bases of varying pedigree.</p>
+
+<p>Currently I have no way of reaching out to users (not knowing exactly who they are) so the only way to know whether a
+change is going to break someone’s build is to release it, by which time it is too late.</p>
+
+<p>I think the answer here is to start building out more test cases. Property_tree only recently gained CI, and so far I
+have not gotten around to adding test coverage. No doubt I’ll get to this in due course.</p>
+
+<h2 id="beast">Beast</h2>
+
+<p>There are a lot of eager developers out there keen to use Beast and Asio, which is encouraging. The less encouraging
+thing is the amount of time I find myself spending giving ad-hoc support to people who have hit the Asio mental brick
+wall (which I remember when learning this fantastic library all too well).</p>
+
+<p>I have written blogs in this series before covering some of the topics I think are important and developers often
+misunderstand, but there is more to do.</p>
+
+<p>With this in mind, an idea has been germinating over the past few months, which finally started to develop into a new
+library this month. I’ll come back to this later.</p>
+
+<h2 id="asio">Asio</h2>
+
+<p>A few months ago I attended a WG21 meeting where a formal means of providing cancellation to asynchronous operations was
+proposed. A few people at that meeting, myself included, were concerned that the proposal in its current form would
+constrain the development style of asynchronous programs, making the fundamental objects a little more complex than they
+often need to be.</p>
+
+<p>I have recognised that Asio needs a formal task cancellation mechanism for some time, this being the basis of the async
+cancellation_token mentioned in a previous blog.</p>
+
+<p>I have been able to get some of Chris Kohlhoff’s valuable time to discuss this to see whether there is a way to get
+effortless cancellation into Asio without impacting performance or compiled size when cancellation is not required.</p>
+
+<p>Chris, as he is wont to do, made the rather brilliant connection that in Asio, a 1-shot cancellation token can be
+associated with each asynchronous completion handler, with the default token type being a zero-cost abstraction of a
+null cancellation token - i.e. one that will never invoke the stop callback.</p>
+
+<p>The general idea being that if you want an operation to be cancellable, you would invoke it like this:</p>
+
+<pre><code class="language-cpp">// This is the signal object that you would use to 
+// cancel any operation that depends on one of its slots
+asio::cancellation_signal sig; 
+
+// some IO Object
+timer t(ioc, chronons::seconds(5));
+
+// perform an asynchronous operation bound to the cancellation signal
+t.async_wait(
+    bind_cancellation_slot(sig.slot(),
+      [](system::error_code ec)
+      {
+        // if the signal is invoked, the timer's asynchronous operation will notice
+        // and the operation will complete with ec equal to asio::errors::operation_aborted
+      });
+      
+// signal the cancellation
+sig.emit():
+</code></pre>
+
+<p>The interesting thing about this is that the cancellation slot is associated with the asynchronous operation’s handler.
+This is not only useful for a library-provided asynchronous operation such as a timer wait. Because of the existence of
+a function called <code>get_associated_cancellation_slot(handler)</code>, the current slot is available in any context where user
+code has access to the current asynchronous completion handler.</p>
+
+<p>One such place is in a user-defined composed operation, and therefore by extension, a c++ coroutine running in the
+context of an Asio executor.</p>
+
+<p>This now becomes possible:</p>
+
+<pre><code class="language-cpp">
+asio::awaitable&lt;void&gt;
+my_coro(some_async_op&amp; op)
+{
+    // The cancellation state allowed us to detect whether cancellation has been requested
+    // It also allows us to register our own cancellation slot
+    auto cs = asio::this_coro::cancellation_state;
+    
+    // Create a new slot from the cancellation state and register a callback which will 
+    // invoke our own custom cancel signal on the some_async_op
+    // note: A
+    auto slot = cs.slot();
+    slot.emplace([&amp;]{ op.cancel(); });
+
+    // continue to wait on the some_async_op
+    co_await op.wait_to_finish();
+}
+</code></pre>
+
+<p>This coroutine could be invoked in a couple of ways:</p>
+
+<pre><code class="language-cpp">
+// In this case the cancellation state is a no-op cancellation. 
+// the code at note A above will do nothing. This coroutine is not cancellable.
+co_await asio::co_spawn(exec, 
+                        my_coro(op), 
+                        asio::use_awaitable);
+
+// In this case, the coroutine has become cancellable because the code at note A will actually
+// create a functioning slot and register the lambda.
+// The coroutine is cancellable through the cancellation signal sig.
+asio::cancellation_signal sig;
+co_await asio::co_spawn(exec, 
+                        my_coro(op), 
+                        asio::bind_cancellation_signal(
+                            asio::use_awaitable, sig));
+</code></pre>
+
+<p>This code is experimental at the moment, but is available<br />
+<a href="https://github.com/boostorg/asio/tree/generic-associators">on the generic-associators branch of Boost.Asio</a>.</p>
+
+<h1 id="the-project-du-jour">The Project du Jour</h1>
+
+<p>Coming back to the “Asio is hard at the beginning” meme, I was speaking to my son recently. He works with a number of
+languages, including Python, Go and C++.</p>
+
+<p>During a conversation about these he mentioned that Go was a very uninspiring language (to him) but it was very easy to
+get fairly complex asynchronous programs functioning reliably in a short amount of time.</p>
+
+<p>I asked him what the single most effective feature of the language was, to which he replied, “channels”.</p>
+
+<p>For anyone who does not already know, a golang channel is simply a multi-producer, multi-consumer ring buffer with an
+asynchronous interface.</p>
+
+<p>It has the following behaviour:</p>
+
+<ul>
+  <li>Producer coroutines will suspend when providing values to the channel if the ring buffer is full and there is no
+consumer pending a consume operation.</li>
+  <li>Consumer coroutines will suspend when consuming if the ring buffer is empty and there is no pending producer operation
+in progress.</li>
+  <li>The ring buffer capacity is specified upon construction, and may be zero. Producers and consumers of a zero-sized
+channel will only make progress if there is a corresponding pair of producer and consumer pending at the same time. In
+this way, the channel also acts as a coroutine synchronisation primitive.</li>
+  <li>Finally, the channel may be closed. A closed channel will allow a consumer to consume remaining values in the ring
+buffer, but it will not allow a producer to provide more values, whether into the ring buffer or directly to a pending
+consume operation. A consume operation against an empty, closed channel will yield a default-constructed object plus a
+boolean false indicating that there are no more values to consume.</li>
+</ul>
+
+<p>There are some other nice features in Go, such as the select keyword which interact with channels in a pleasing way, but
+for now I’ll focus on how we might implement the channel in asynchronous C++.</p>
+
+<p>The rationale here being:</p>
+
+<ul>
+  <li>Channels make writing complex asynchronous interactions simple.</li>
+  <li>Make simple things simple is the mantra to which I subscribe.</li>
+  <li>Perhaps C++ enthusiasts would benefit from an implementation of channels.</li>
+  <li>Given the flexibility of C++, we might be able to do a better job than Go, at least in terms of giving the programmer
+some choice over implementation tradeoffs.</li>
+  <li>Maybe a little library offering this functionality in a simple, reusable way would be a useful addition to Boost.</li>
+</ul>
+
+<p>I put some feelers out in the CppLang slack. So far the response to the idea has been only positive. So I decided to
+make a start.</p>
+
+<p>TLDR - you can monitor how far I am getting by looking at
+the <a href="https://github.com/madmongo1/boost_channels">Github repository</a>.</p>
+
+<h2 id="approach">Approach</h2>
+
+<p>I wanted the channels library to be built on top of Asio. The reason for this is that I happen to think that the Asio
+executor model is very elegant, and allows the programmer to transpose the same fundamental idea onto a number of
+different concurrency strategies. For example, thread pools, IO loop, threads and futures, and so on.</p>
+
+<p>Asio’s completion tokens allow the adaptation of asynchronous initiating functions to any or all of these strategies and
+I wanted to make sure that the library will provide this functionality.</p>
+
+<p>Furthermore, asynchronous programs become complex quickly. Asio is a natural fit for IO, but does not provide the
+primitives that programmers often find they need to create rich programs.</p>
+
+<p>It is my hope that this channels library provides people with a useful tool to make high performance, highly concurrent
+programs easier to write in C++.</p>
+
+<h2 id="design-decisions">Design Decisions</h2>
+
+<p>I have elected to write library in two sections. The first will contain the basic objects to handle the concurrent
+communication and asynchronous completions. These objects will not be thread-safe, just like any other object in Asio.</p>
+
+<p>The second will be a thread-safe interface written in terms of the first. The truth is that Asio objects do not need to
+be thread-safe if programmers use the correct discipline vis-a-vis strands and ensuring that work is dispatched to the
+correct strand. Another truth is that many programmers just want things to be easy. So why not provide an easy-mode
+interface too?</p>
+
+<h2 id="comparison">Comparison</h2>
+
+<p>OK, so let’s take a simple Go program and see how we could express that in terms of Asio and C++ coroutines. Now I’m no
+expert, so I’m sure there are many ways to improve this program. It’s about the third Go program I’ve ever written.
+Please by all means let me know.</p>
+
+<pre><code class="language-go">package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func produce(wg *sync.WaitGroup, c chan&lt;- string) {
+	defer wg.Done()
+	c &lt;- "The"
+	c &lt;- "cat"
+	c &lt;- "sat"
+	c &lt;- "on"
+	c &lt;- "the"
+	c &lt;- "mat"
+	close(c)
+}
+
+func consume(wg *sync.WaitGroup, name string, c &lt;-chan string) {
+	defer wg.Done()
+	for {
+		s, more := &lt;-c
+		if more {
+			fmt.Println(name, ":", s)
+		} else {
+			fmt.Println(name, ": Channel closed", name)
+			break
+		}
+	}
+}
+
+// Main function
+func main() {
+	var wg sync.WaitGroup
+	wg.Add(4)
+	c := make(chan string)
+	go consume(&amp;wg, "a", c)
+	go consume(&amp;wg, "b", c)
+	go consume(&amp;wg, "c", c)
+	go produce(&amp;wg, c)
+	wg.Wait()
+}
+</code></pre>
+
+<p>And this is how I would envision it would look in the first cut of the C++ version:</p>
+
+<pre><code class="language-cpp">auto
+produce(channels::channel&lt; std::string &gt; &amp;c) 
+    -&gt; asio::awaitable&lt; void &gt;
+{
+    constexpr auto wait = asio::use_awaitable;
+    co_await c.async_send("The", wait);
+    co_await c.async_send("cat", wait);
+    co_await c.async_send("sat", wait);
+    co_await c.async_send("on", wait);
+    co_await c.async_send("the", wait);
+    co_await c.async_send("mat", wait);
+    c.close();
+}
+
+auto
+consume(std::string_view name, channels::channel&lt; std::string &gt; &amp;c)
+    -&gt; asio::awaitable&lt; void &gt;
+{
+    auto ec  = channels::error_code();
+    auto tok = asio::redirect_error(asio::use_awaitable, ec);
+    for (;;)
+    {
+        auto s = co_await c.async_consume(tok);
+        if (ec)
+        {
+            std::cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; ec.message() &lt;&lt; "\n";
+            break;
+        }
+        else
+            std::cout &lt;&lt; name &lt;&lt; " : " &lt;&lt; s &lt;&lt; "\n";
+    }
+}
+
+int
+main()
+{
+    auto ioc = asio::io_context();
+    auto c   = channels::channel&lt; std::string &gt;(ioc.get_executor());
+
+    asio::co_spawn(ioc, consume("a", c), asio::detached);
+    asio::co_spawn(ioc, consume("b", c), asio::detached);
+    asio::co_spawn(ioc, consume("c", c), asio::detached);
+    asio::co_spawn(ioc, produce(c), asio::detached);
+
+    ioc.run();
+}
+</code></pre>
+
+<p>One example of the output of the Go program (the order is actually nondeterministic) is:</p>
+
+<pre><code class="language-text">a : The
+a : cat
+b : sat
+b : mat
+b : Channel closed b
+a : on
+a : Channel closed a
+c : the
+c : Channel closed c
+</code></pre>
+
+<p>while the output of the C++ program is a more deterministic:</p>
+
+<pre><code class="language-text">a : The
+b : cat
+c : sat
+a : on
+b : the
+c : mat
+a : Channel is closed
+b : Channel is closed
+c : Channel is closed
+</code></pre>
+
+<p>I’m not an expert in Go by any means but I imagine the nondeterminism in the Go program is in part due to the fact that
+the goroutine implementation is allowed to take shortcuts to consume data synchronously if it’s available. The Asio
+model requires that each completion handler is invoked as-if by a call to <code>post(handler)</code>. In this program, these posts
+are being made to a single-threaded io_context and so are being executed sequentially, preserving the order of
+invocation during execution.</p>
+
+<p>If this program were multi-threaded, it might be a different story. But this will have to wait until the basic
+single-threaded implementation is complete.</p>
+
+<h2 id="implementation-details">Implementation Details</h2>
+
+<p>The implementation of the channel is actually fairly straightforward. The asynchronous initiation interfaces are
+standard asio, e.g.:</p>
+
+<pre><code class="language-cpp">template &lt; class ValueType, class Executor &gt;
+template &lt; BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code)) SendHandler &gt;
+BOOST_ASIO_INITFN_RESULT_TYPE(SendHandler, void(error_code))
+channel&lt; ValueType, Executor &gt;::async_send(value_type    value,
+                                           SendHandler &amp;&amp;token)
+{
+    if (!impl_) [[unlikely]]
+        BOOST_THROW_EXCEPTION(std::logic_error("channel is null"));
+
+    return asio::async_initiate&lt; SendHandler, void(error_code) &gt;(
+        [value = std::move(value), this](auto &amp;&amp;handler) {
+            auto send_op = detail::create_channel_send_op(
+                std::move(value),
+                this-&gt;impl_-&gt;get_executor(),
+                std::forward&lt; decltype(handler) &gt;(handler));
+            impl_-&gt;notify_send(send_op);
+        },
+        token);
+}
+</code></pre>
+
+<p>The macros are supplied by Asio and simply ensure that the most up-to-date compiler facilities are used to ensure that
+the completion token/handler has the correct signature. <code>BOOST_ASIO_INITFN_RESULT_TYPE</code> deduces the return type of the
+selected specialisation of <code>async_initiate</code>. It is what ensures that <code>async_send</code> returns an awaitable when the
+completion token is of type <code>asio::use_awaitable</code>, or a <code>std::future</code> if we were to pass in <code>asio::use_future</code>.</p>
+
+<p>The actual work of the send is performed in the implementation class:</p>
+
+<pre><code class="language-cpp">    void
+    notify_send(detail::channel_send_op_concept&lt; ValueType &gt; *send_op)
+    {
+        // behaviour of send depends on the state of the implementation.
+        // There are two states, running and closed. We will be in the closed
+        // state if someone has called `close` on the channel.
+        // Note that even if the channel is closed, consumers may still consume
+        // values stored in the circular buffer. However, new values may not
+        // be send into the channel.
+        switch (state_)
+        {
+        case state_running:
+            [[likely]] if (consumers_.empty())
+            {
+                // In the case that there is no consumer already waiting,
+                // then behaviour depends on whether there is space in the
+                // circular buffer. If so, we store the value in the send_op
+                // there and allow the send_op to complete.
+                // Otherwise, we store the send_op in the queue of pending
+                // send operations for later processing when there is space in
+                // the circular buffer or a pending consume is available.
+                if (free())
+                    push(send_op-&gt;consume());
+                else
+                    senders_.push(send_op);
+            }
+            else
+            {
+                // A consumer is waiting, so we can unblock the consumer
+                // by passing it the value in the send_op, causing both
+                // send and consume to complete.
+                auto my_receiver = std::move(consumers_.front());
+                consumers_.pop();
+                my_receiver-&gt;notify_value(send_op-&gt;consume());
+            }
+            break;
+        case state_closed:
+            // If the channel is closed, then all send operations result in
+            // an error
+            [[unlikely]] send_op-&gt;notify_error(errors::channel_closed);
+            break;
+        }
+    }
+</code></pre>
+
+<p>An interesting feature of the send operation class is that when it is instructed to complete, it must:</p>
+
+<ul>
+  <li>Move the value out of itself,</li>
+  <li>Move the completion handler out of itself,</li>
+  <li>Destroy itself, returning memory back to the allocator.</li>
+  <li>Post the completion handler to the correct executor.</li>
+  <li>Return the value.</li>
+</ul>
+
+<p>The order is important. Later on we will be adding Asio allocator awareness. In order to maximise efficiency, Asio
+asynchronous operations must free their memory back to the allocator before completing. This is so that during the
+execution of the completion handler, the same memory that was just freed into asio’s special purpose allocators will be
+allocated and used to compose the next completion handler. This memory will be at the head of the allocator’s list of
+free blocks (and therefore found first) and it will be in cached memory, having just been touched.</p>
+
+<pre><code class="language-cpp">template &lt; class ValueType, class Executor, class Handler &gt;
+auto
+basic_channel_send_op&lt; ValueType, Executor, Handler &gt;::consume() -&gt; ValueType
+{
+    // move the result value to the local scope
+    auto result  = std::move(this-&gt;value_);
+    
+    // move the handler to local scope and transform it to be associated with
+    // the correct executor.
+    auto handler = ::boost::asio::bind_executor(
+        std::move(exec_),
+        [handler = std::move(handler_)]() mutable { handler(error_code()); });
+    
+    // then destroy this object (equivalent to delete this)
+    destroy();
+    
+    // post the modified handler to its associated executor
+    asio::post(std::move(handler));
+    
+    // return the value from the local scope to the caller (but note that NRVO
+    // will guarantee that there is not actually a second move)
+    return result;
+}
+</code></pre>
+
+<p>That’s all for now. I’ll add extra blog entries as and when I make any significant progress to the library.</p>
+
+<p>In the meantime, I’m always happy to receive queries by email or as issues in the github repo.</p>
+
+<p>Thanks for reading.</p>
+
+<p>Richard Hodges<br />
+for C++ Alliance<br />
+<a href="mailto:hodges.r@gmail.com">hodges.r@gmail.com</a></p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

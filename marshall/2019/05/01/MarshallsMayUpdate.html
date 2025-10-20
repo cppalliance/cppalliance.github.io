@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marshall's April Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Marshall’s April Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Marshall’s April Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="There are four main areas where I spend my time. Libc++, where I am the “code owner” WG21, where I am the chair of the Library Working Group (LWG) Boost Speaking at conferences Libc++ The next big milestone for libc++ is the LLVM 9.0 release this summer. We’re working towards that, implementing new features and fixing bugs. As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day. LWG papers implemented this month. P0811 Add std::midpoint and std::lerp for C++20 LWG issues resolved this month 2960 nonesuch is insufficiently useless 2977 unordered_meow::merge() has incorrect Throws: clause 2164 What are the semantics of vector.emplace(vector.begin(), vector.back())? LLVM features implemented this month (certainly incomplete) Fixed the implementations of list::remove_if and list::unique to deal with values or predicates that are elements in the list. Same for forward_list. We did this for remove already, but now we do it for the other operations as well. Added a bunch of new tests for things that we were missing ** list::sort and forward_list::sort are required to be stable. ** You can’t use match_results until you’ve done a regex search. Our tests did this in several places; now we have assertions to prevent that. ` LLVM bugs resolved this month (probably incomplete) Bug 41323 Race condition in steady_clock::now for _LIBCPP_WIN32API Bug 41130 operator/ of std::chrono::duration and custom type. Bug 41577 test/std/utilities/optional/optional.object/optional.object.ctor/move.fail.cpp has wrong assumption. I spent a fair amount of time on Bug 39696 “Workaround “error: ‘(9.223372036854775807e+18 / 1.0e+9)’ is not a constant expression”; which turned out to be a GCC bug on PowerPC machines. Also, there was a series of general cleanups in the libc++ tests to improve portability and readability. I added a bunch of updates for debug-mode, and there were several places where we assumed that string::compare returned -1/0/1 instead of what was specified, which is \&lt;0/0/\&gt;0. Also, I added tests for std::any_cast and array types. The current status of libc++ can be found here: C++20 status C++17 status C++14 status (Complete) Libc++ open bugs WG21 There were no WG21 meetings in April. However, LWG held three teleconferences this month, reviewing papers in advance of the July meeting. We’ll have more teleconferences in May. I am working on more “cleanup” papers similar to P1458 - Mandating the Standard Library: Clause 16 - Language support library, and my P0805 - Comparing Containers needs an update. The goal of the July meeting is to have a “Committee Draft” (CD) of the proposed C++20 standard that can be sent out for review. Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (flat_map, text formatting, etc). Boost We released Boost 1.70 on the 12th of April. Once again, I was the release manager, which involved a bunch of “process management”; things like assembling the release candidates, packaging up release notes, deciding which problems that came up would be fixed (and which ones would not), and updating the web site (and so on, and so on). Conferences This was a big travel month. I gave two presentations: At the LLVM European Developer’s conference in Brussels, I gave a 30 minute overview of the changes that were coming to the standard library for C++20. At ACCU in Bristol, England, I gave a talk titled “Navigating the development and evolution of a library” In May, I will be speaking at: CppNow, May 5-10 in Aspen, CO I have submitted a talk for CppCon in September, but I will not hear back about this for a month or two." />
+<meta property="og:description" content="There are four main areas where I spend my time. Libc++, where I am the “code owner” WG21, where I am the chair of the Library Working Group (LWG) Boost Speaking at conferences Libc++ The next big milestone for libc++ is the LLVM 9.0 release this summer. We’re working towards that, implementing new features and fixing bugs. As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day. LWG papers implemented this month. P0811 Add std::midpoint and std::lerp for C++20 LWG issues resolved this month 2960 nonesuch is insufficiently useless 2977 unordered_meow::merge() has incorrect Throws: clause 2164 What are the semantics of vector.emplace(vector.begin(), vector.back())? LLVM features implemented this month (certainly incomplete) Fixed the implementations of list::remove_if and list::unique to deal with values or predicates that are elements in the list. Same for forward_list. We did this for remove already, but now we do it for the other operations as well. Added a bunch of new tests for things that we were missing ** list::sort and forward_list::sort are required to be stable. ** You can’t use match_results until you’ve done a regex search. Our tests did this in several places; now we have assertions to prevent that. ` LLVM bugs resolved this month (probably incomplete) Bug 41323 Race condition in steady_clock::now for _LIBCPP_WIN32API Bug 41130 operator/ of std::chrono::duration and custom type. Bug 41577 test/std/utilities/optional/optional.object/optional.object.ctor/move.fail.cpp has wrong assumption. I spent a fair amount of time on Bug 39696 “Workaround “error: ‘(9.223372036854775807e+18 / 1.0e+9)’ is not a constant expression”; which turned out to be a GCC bug on PowerPC machines. Also, there was a series of general cleanups in the libc++ tests to improve portability and readability. I added a bunch of updates for debug-mode, and there were several places where we assumed that string::compare returned -1/0/1 instead of what was specified, which is \&lt;0/0/\&gt;0. Also, I added tests for std::any_cast and array types. The current status of libc++ can be found here: C++20 status C++17 status C++14 status (Complete) Libc++ open bugs WG21 There were no WG21 meetings in April. However, LWG held three teleconferences this month, reviewing papers in advance of the July meeting. We’ll have more teleconferences in May. I am working on more “cleanup” papers similar to P1458 - Mandating the Standard Library: Clause 16 - Language support library, and my P0805 - Comparing Containers needs an update. The goal of the July meeting is to have a “Committee Draft” (CD) of the proposed C++20 standard that can be sent out for review. Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (flat_map, text formatting, etc). Boost We released Boost 1.70 on the 12th of April. Once again, I was the release manager, which involved a bunch of “process management”; things like assembling the release candidates, packaging up release notes, deciding which problems that came up would be fixed (and which ones would not), and updating the web site (and so on, and so on). Conferences This was a big travel month. I gave two presentations: At the LLVM European Developer’s conference in Brussels, I gave a 30 minute overview of the changes that were coming to the standard library for C++20. At ACCU in Bristol, England, I gave a talk titled “Navigating the development and evolution of a library” In May, I will be speaking at: CppNow, May 5-10 in Aspen, CO I have submitted a talk for CppCon in September, but I will not hear back about this for a month or two." />
+<link rel="canonical" href="http://cppalliance.org/marshall/2019/05/01/MarshallsMayUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/marshall/2019/05/01/MarshallsMayUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2019-05-01T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Marshall’s April Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"There are four main areas where I spend my time. Libc++, where I am the “code owner” WG21, where I am the chair of the Library Working Group (LWG) Boost Speaking at conferences Libc++ The next big milestone for libc++ is the LLVM 9.0 release this summer. We’re working towards that, implementing new features and fixing bugs. As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day. LWG papers implemented this month. P0811 Add std::midpoint and std::lerp for C++20 LWG issues resolved this month 2960 nonesuch is insufficiently useless 2977 unordered_meow::merge() has incorrect Throws: clause 2164 What are the semantics of vector.emplace(vector.begin(), vector.back())? LLVM features implemented this month (certainly incomplete) Fixed the implementations of list::remove_if and list::unique to deal with values or predicates that are elements in the list. Same for forward_list. We did this for remove already, but now we do it for the other operations as well. Added a bunch of new tests for things that we were missing ** list::sort and forward_list::sort are required to be stable. ** You can’t use match_results until you’ve done a regex search. Our tests did this in several places; now we have assertions to prevent that. ` LLVM bugs resolved this month (probably incomplete) Bug 41323 Race condition in steady_clock::now for _LIBCPP_WIN32API Bug 41130 operator/ of std::chrono::duration and custom type. Bug 41577 test/std/utilities/optional/optional.object/optional.object.ctor/move.fail.cpp has wrong assumption. I spent a fair amount of time on Bug 39696 “Workaround “error: ‘(9.223372036854775807e+18 / 1.0e+9)’ is not a constant expression”; which turned out to be a GCC bug on PowerPC machines. Also, there was a series of general cleanups in the libc++ tests to improve portability and readability. I added a bunch of updates for debug-mode, and there were several places where we assumed that string::compare returned -1/0/1 instead of what was specified, which is \\&lt;0/0/\\&gt;0. Also, I added tests for std::any_cast and array types. The current status of libc++ can be found here: C++20 status C++17 status C++14 status (Complete) Libc++ open bugs WG21 There were no WG21 meetings in April. However, LWG held three teleconferences this month, reviewing papers in advance of the July meeting. We’ll have more teleconferences in May. I am working on more “cleanup” papers similar to P1458 - Mandating the Standard Library: Clause 16 - Language support library, and my P0805 - Comparing Containers needs an update. The goal of the July meeting is to have a “Committee Draft” (CD) of the proposed C++20 standard that can be sent out for review. Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (flat_map, text formatting, etc). Boost We released Boost 1.70 on the 12th of April. Once again, I was the release manager, which involved a bunch of “process management”; things like assembling the release candidates, packaging up release notes, deciding which problems that came up would be fixed (and which ones would not), and updating the web site (and so on, and so on). Conferences This was a big travel month. I gave two presentations: At the LLVM European Developer’s conference in Brussels, I gave a 30 minute overview of the changes that were coming to the standard library for C++20. At ACCU in Bristol, England, I gave a talk titled “Navigating the development and evolution of a library” In May, I will be speaking at: CppNow, May 5-10 in Aspen, CO I have submitted a talk for CppCon in September, but I will not hear back about this for a month or two.","@type":"BlogPosting","url":"http://cppalliance.org/marshall/2019/05/01/MarshallsMayUpdate.html","headline":"Marshall’s April Update","dateModified":"2019-05-01T00:00:00+00:00","datePublished":"2019-05-01T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/marshall/2019/05/01/MarshallsMayUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Marshall's April Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/marshall">
+                  Marshall Clow
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>May 1, 2019</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>There are four main areas where I spend my time.</p>
+
+<ul>
+  <li>Libc++, where I am the “code owner”</li>
+  <li>WG21, where I am the chair of the Library Working Group (LWG)</li>
+  <li>Boost</li>
+  <li>Speaking at conferences</li>
+</ul>
+
+<h1 id="libc">Libc++</h1>
+
+<p>The next big milestone for libc++ is the LLVM 9.0 release this summer. We’re working towards that, implementing new features and fixing bugs.</p>
+
+<p>As the “code owner” for libc++, I also have to review the contributions of other people to libc++, and evaluate and fix bugs that are reported. That’s a never-ending task; there are new contributions ever day.</p>
+
+<h3 id="lwg-papers-implemented-this-month">LWG papers implemented this month.</h3>
+
+<ul>
+  <li><a href="https://wg21.link/P0811">P0811</a> Add <code>std::midpoint</code> and <code>std::lerp</code> for C++20</li>
+</ul>
+
+<h3 id="lwg-issues-resolved-this-month">LWG issues resolved this month</h3>
+
+<ul>
+  <li><a href="https://wg21.link/lwg2960">2960</a> nonesuch is insufficiently useless</li>
+  <li><a href="https://wg21.link/lwg2977">2977</a> unordered_meow::merge() has incorrect Throws: clause</li>
+  <li><a href="https://wg21.link/lwg2164">2164</a> What are the semantics of <code>vector.emplace(vector.begin(), vector.back())</code>?</li>
+</ul>
+
+<h3 id="llvm-features-implemented-this-month-certainly-incomplete">LLVM features implemented this month (certainly incomplete)</h3>
+
+<ul>
+  <li>
+    <p>Fixed the implementations of <code>list::remove_if</code> and <code>list::unique</code> to deal with values or predicates that are elements in the list. Same for <code>forward_list</code>. We did this for <code>remove</code> already, but now we do it for the other operations as well.</p>
+  </li>
+  <li>
+    <p>Added a bunch of new tests for things that we were missing
+** <code>list::sort</code> and <code>forward_list::sort</code> are required to be stable.
+** You can’t use <code>match_results</code> until you’ve done a regex search. Our tests did this in several places; now we have assertions to prevent that.
+`</p>
+  </li>
+</ul>
+
+<h3 id="llvm-bugs-resolved-this-month-probably-incomplete">LLVM bugs resolved this month (probably incomplete)</h3>
+
+<ul>
+  <li><a href="https://llvm.org/PR41323">Bug 41323</a> Race condition in <code>steady_clock::now</code> for <code>_LIBCPP_WIN32API</code></li>
+  <li><a href="https://llvm.org/PR41130">Bug 41130</a> <code>operator/</code> of <code>std::chrono::duration</code> and custom type.</li>
+  <li><a href="https://llvm.org/PR41577">Bug 41577</a> test/std/utilities/optional/optional.object/optional.object.ctor/move.fail.cpp has wrong assumption.</li>
+  <li>I spent a fair amount of time on <a href="https://llvm.org/PR39696">Bug 39696</a> “Workaround “error: ‘(9.223372036854775807e+18 / 1.0e+9)’ is not a constant expression”; which turned out to be a GCC bug on PowerPC machines.</li>
+</ul>
+
+<p>Also, there was a series of general cleanups in the libc++ tests to improve portability and readability. I added a bunch of updates for debug-mode, and there were several places where we assumed that <code>string::compare</code> returned <code>-1/0/1</code> instead of what was specified, which is <code>\&lt;0/0/\&gt;0</code>. Also, I added tests for <code>std::any_cast</code> and array types.</p>
+
+<p>The current status of libc++ can be found here:</p>
+<ul>
+  <li><a href="https://libcxx.llvm.org/cxx2a_status.html">C++20 status</a></li>
+  <li><a href="https://libcxx.llvm.org/cxx1z_status.html">C++17 status</a></li>
+  <li><a href="https://libcxx.llvm.org/cxx1y_status.html">C++14 status</a> (Complete)</li>
+  <li><a href="https://bugs.llvm.org/buglist.cgi?bug_status=__open__&amp;product=libc%2B%2B">Libc++ open bugs</a></li>
+</ul>
+
+<h1 id="wg21">WG21</h1>
+
+<p>There were no WG21 meetings in April. However, LWG held three teleconferences this month, reviewing papers in advance of the July meeting.  We’ll have more teleconferences in May.</p>
+
+<p>I am working on more “cleanup” papers similar to <a href="https://wg21.link/P1458">P1458 - Mandating the Standard Library: Clause 16 - Language support library</a>, and my <a href="https://wg21.link/P0805">P0805 - Comparing Containers</a> needs an update.</p>
+
+<p>The goal of the July meeting is to have a “Committee Draft” (CD) of the proposed C++20 standard that can be sent out for review.</p>
+
+<p>Also on my TODO list is to attempt to implement some of the proposals that are coming up for a vote in July (<code>flat_map</code>, text formatting, etc).</p>
+
+<h1 id="boost">Boost</h1>
+
+<p>We released <a href="https://www.boost.org/users/history/version_1_70_0.html">Boost 1.70</a> on the 12th of April.</p>
+
+<p>Once again, I was the release manager, which involved a bunch of “process management”; things like assembling the release candidates, packaging up release notes, deciding which problems that came up would be fixed (and which ones would not), and updating the web site (and so on, and so on).</p>
+
+<h1 id="conferences">Conferences</h1>
+
+<p>This was a big travel month.  I gave two presentations:</p>
+
+<ul>
+  <li>
+    <p>At the <a href="https://llvm.org/devmtg/2019-04/">LLVM European Developer’s conference</a> in Brussels, I gave a 30 minute overview of the changes that were coming to the standard library for C++20.</p>
+  </li>
+  <li>
+    <p>At <a href="https://conference.accu.org/">ACCU</a> in Bristol, England, I gave a talk titled <a href="https://conference.accu.org/2019/sessions.html#XNavigatingthedevelopmentandevolutionofalibrary">“Navigating the development and evolution of a library”</a></p>
+  </li>
+</ul>
+
+<p>In May, I will be speaking at:</p>
+<ul>
+  <li><a href="http://www.cppnow.org">CppNow</a>, May 5-10 in Aspen, CO</li>
+</ul>
+
+<p>I have submitted a talk for <a href="https://www.cppcon.com">CppCon</a> in September, but I will not hear back about this for a month or two.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/27/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/09/27/MarshallsOctoberUpdate.html">Marshall's Combined August and September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/05/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/08/05/MarshallsAugustUpdate.html">Marshall's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/02/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/07/02/MarshallsJulyUpdate.html">Marshall's June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/01/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/06/01/MarshallsJuneUpdate.html">Marshall's May Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/01/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/05/01/MarshallsMayUpdate.html">Marshall's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/02/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/04/02/MarshallsAprilUpdate.html">Marshall's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/04/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/03/04/MarshallsMarchUpdate.html">Marshall's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/14/2019</span>
+          <a class='text-l news-title link' href="/marshall/2019/01/14/MarshallsJanuaryUpdate.html">Marshall's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

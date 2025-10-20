@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asio 201 - deferred | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Asio 201 - deferred | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Asio 201 - deferred" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Asio deferred Aysnc operations Asio introduced the concept of an async_operation, which describes a primary expression that can be invoked with a completion token. In C++20 this is also a language concept. asio::io_context ctx; asio::async_operation auto post_op = [&amp;](auto &amp;&amp; token){return asio::post(ctx, std::move(token));}; auto f = post_op(asio::use_future); ctx.run(); f.get(); // void Async operations can be used in parallel_group and directly co_awaited in C++20. asio::deferred as a completion token Using asio::deferred as a completion token, will give you a lazy async_operation as the result value. asio::io_context ctx; asio::async_operation auto post_op = asio::post(ctx, asio::deferred); auto f = std::move(post_op)(asio::use_future); ctx.run(); f.get(); // void deferred expressions Additionally, a deferred can be invoked with a function object that returns another deferred expression. E.g.: asio::io_context ctx; asio::async_operation auto post_op = asio::post(ctx, asio::deferred); asio::async_operation auto double_post_op = asio::post(asio::deferred([&amp;]{return post_op;})); auto f = std::move(double_post_op)(asio::use_future); ctx.run(); f.get(); // void This now will call two posts subsequently. Not every deferred expression however is an async_operation, deferred provides multiple utilities. deferred.values asio.values is a deferred expression that just returns values, so that you can modify the completion signature. asio::io_context ctx; asio::async_operation auto post_int_op = asio::post(ctx, asio::deferred( [] { return asio::deferred.values(42); } )); auto f = std::move(post_int_op)(asio::use_future); ctx.run(); assert(f.get() == 42); // int This already can be useful to modify completion signatures, similar to asio::append and asio::prepend. deferred.when Next deferred provides a conditional, that takes two deferred expressions. auto def = asio::deferred.when(condition).then(def1).otherwise(def2); This can be used for simple continuations with error handling. Let’s say we want to read some memory from socket1 and write to socket2. extern asio::ip::tcp::socket socket1, socket2; char buf[4096]; auto forward_op = socket1.async_read_some( buf, asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } )); Multiple deferreds Since all the calls with deferred yield async_operations, we can combine more than two, just by invoking the resulting expression. Let’s say we want to add a delay at the end of the operation above, we can simple add another deferred. extern asio::ip::tcp::socket socket1, socket2; extern asio::steady_timer delay; char buf[4096]; auto forward_op = socket1.async_read_some( asio::buffer(buf), asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } )) ( asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) .then(asio::deferred.values(ec, n)) .otherwise( delay.async_wait(asio::append(asio::deferred, n)) ); } ) ); This now gives us a simple composed operation with three steps. It also gets increasingly unreadable, which is why asio provides operator| Instead of invoking the deferred expression multiple times, you can also just write this: extern asio::ip::tcp::socket socket1, socket2; extern asio::steady_timer delay; char buf[4096]; auto forward_op = socket1.async_read_some(asio::buffer(buf), asio::deferred) | asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } ) | asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) .then(asio::deferred.values(ec, n)) .otherwise( delay.async_wait(asio::append(asio::deferred, n)) ); }); Readable code It should be quite clear that the complexity can get out of hand rather quickly, which is why you should consider separating the continuation functions from the deferred chain. This can be achieved with by using append to pass pointers to the io objects, like so: auto do_read(asio::ip::tcp::socket * socket1, asio::ip::tcp::socket * socket2, char * buf, std::size_t n) { return socket1-&gt;async_read_some( asio::buffer(buf, n), asio::append(asio::deferred, socket1, buf)); }; auto do_write(system::error_code ec, std::size_t n, asio::ip::tcp::socket * socket2, char * buf) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(*socket2, asio::buffer(buf, n), asio::deferred)); }; template&lt;std::size_t Size&gt; auto forward_op( asio::ip::tcp::socket &amp; socket1, asio::ip::tcp::socket &amp; socket2, char (&amp;buf)[Size]) { return asio::deferred.values( &amp;socket1, &amp;socket2, &amp;buf[0], Size) | asio::deferred(&amp;do_read) | asio::deferred(&amp;do_write); } More examples can be found in the asio repo." />
+<meta property="og:description" content="Asio deferred Aysnc operations Asio introduced the concept of an async_operation, which describes a primary expression that can be invoked with a completion token. In C++20 this is also a language concept. asio::io_context ctx; asio::async_operation auto post_op = [&amp;](auto &amp;&amp; token){return asio::post(ctx, std::move(token));}; auto f = post_op(asio::use_future); ctx.run(); f.get(); // void Async operations can be used in parallel_group and directly co_awaited in C++20. asio::deferred as a completion token Using asio::deferred as a completion token, will give you a lazy async_operation as the result value. asio::io_context ctx; asio::async_operation auto post_op = asio::post(ctx, asio::deferred); auto f = std::move(post_op)(asio::use_future); ctx.run(); f.get(); // void deferred expressions Additionally, a deferred can be invoked with a function object that returns another deferred expression. E.g.: asio::io_context ctx; asio::async_operation auto post_op = asio::post(ctx, asio::deferred); asio::async_operation auto double_post_op = asio::post(asio::deferred([&amp;]{return post_op;})); auto f = std::move(double_post_op)(asio::use_future); ctx.run(); f.get(); // void This now will call two posts subsequently. Not every deferred expression however is an async_operation, deferred provides multiple utilities. deferred.values asio.values is a deferred expression that just returns values, so that you can modify the completion signature. asio::io_context ctx; asio::async_operation auto post_int_op = asio::post(ctx, asio::deferred( [] { return asio::deferred.values(42); } )); auto f = std::move(post_int_op)(asio::use_future); ctx.run(); assert(f.get() == 42); // int This already can be useful to modify completion signatures, similar to asio::append and asio::prepend. deferred.when Next deferred provides a conditional, that takes two deferred expressions. auto def = asio::deferred.when(condition).then(def1).otherwise(def2); This can be used for simple continuations with error handling. Let’s say we want to read some memory from socket1 and write to socket2. extern asio::ip::tcp::socket socket1, socket2; char buf[4096]; auto forward_op = socket1.async_read_some( buf, asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } )); Multiple deferreds Since all the calls with deferred yield async_operations, we can combine more than two, just by invoking the resulting expression. Let’s say we want to add a delay at the end of the operation above, we can simple add another deferred. extern asio::ip::tcp::socket socket1, socket2; extern asio::steady_timer delay; char buf[4096]; auto forward_op = socket1.async_read_some( asio::buffer(buf), asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } )) ( asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) .then(asio::deferred.values(ec, n)) .otherwise( delay.async_wait(asio::append(asio::deferred, n)) ); } ) ); This now gives us a simple composed operation with three steps. It also gets increasingly unreadable, which is why asio provides operator| Instead of invoking the deferred expression multiple times, you can also just write this: extern asio::ip::tcp::socket socket1, socket2; extern asio::steady_timer delay; char buf[4096]; auto forward_op = socket1.async_read_some(asio::buffer(buf), asio::deferred) | asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } ) | asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) .then(asio::deferred.values(ec, n)) .otherwise( delay.async_wait(asio::append(asio::deferred, n)) ); }); Readable code It should be quite clear that the complexity can get out of hand rather quickly, which is why you should consider separating the continuation functions from the deferred chain. This can be achieved with by using append to pass pointers to the io objects, like so: auto do_read(asio::ip::tcp::socket * socket1, asio::ip::tcp::socket * socket2, char * buf, std::size_t n) { return socket1-&gt;async_read_some( asio::buffer(buf, n), asio::append(asio::deferred, socket1, buf)); }; auto do_write(system::error_code ec, std::size_t n, asio::ip::tcp::socket * socket2, char * buf) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(*socket2, asio::buffer(buf, n), asio::deferred)); }; template&lt;std::size_t Size&gt; auto forward_op( asio::ip::tcp::socket &amp; socket1, asio::ip::tcp::socket &amp; socket2, char (&amp;buf)[Size]) { return asio::deferred.values( &amp;socket1, &amp;socket2, &amp;buf[0], Size) | asio::deferred(&amp;do_read) | asio::deferred(&amp;do_write); } More examples can be found in the asio repo." />
+<link rel="canonical" href="http://cppalliance.org/asio/2022/12/11/Asio201Deferred.html" />
+<meta property="og:url" content="http://cppalliance.org/asio/2022/12/11/Asio201Deferred.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-12-11T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Asio 201 - deferred" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Asio deferred Aysnc operations Asio introduced the concept of an async_operation, which describes a primary expression that can be invoked with a completion token. In C++20 this is also a language concept. asio::io_context ctx; asio::async_operation auto post_op = [&amp;](auto &amp;&amp; token){return asio::post(ctx, std::move(token));}; auto f = post_op(asio::use_future); ctx.run(); f.get(); // void Async operations can be used in parallel_group and directly co_awaited in C++20. asio::deferred as a completion token Using asio::deferred as a completion token, will give you a lazy async_operation as the result value. asio::io_context ctx; asio::async_operation auto post_op = asio::post(ctx, asio::deferred); auto f = std::move(post_op)(asio::use_future); ctx.run(); f.get(); // void deferred expressions Additionally, a deferred can be invoked with a function object that returns another deferred expression. E.g.: asio::io_context ctx; asio::async_operation auto post_op = asio::post(ctx, asio::deferred); asio::async_operation auto double_post_op = asio::post(asio::deferred([&amp;]{return post_op;})); auto f = std::move(double_post_op)(asio::use_future); ctx.run(); f.get(); // void This now will call two posts subsequently. Not every deferred expression however is an async_operation, deferred provides multiple utilities. deferred.values asio.values is a deferred expression that just returns values, so that you can modify the completion signature. asio::io_context ctx; asio::async_operation auto post_int_op = asio::post(ctx, asio::deferred( [] { return asio::deferred.values(42); } )); auto f = std::move(post_int_op)(asio::use_future); ctx.run(); assert(f.get() == 42); // int This already can be useful to modify completion signatures, similar to asio::append and asio::prepend. deferred.when Next deferred provides a conditional, that takes two deferred expressions. auto def = asio::deferred.when(condition).then(def1).otherwise(def2); This can be used for simple continuations with error handling. Let’s say we want to read some memory from socket1 and write to socket2. extern asio::ip::tcp::socket socket1, socket2; char buf[4096]; auto forward_op = socket1.async_read_some( buf, asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } )); Multiple deferreds Since all the calls with deferred yield async_operations, we can combine more than two, just by invoking the resulting expression. Let’s say we want to add a delay at the end of the operation above, we can simple add another deferred. extern asio::ip::tcp::socket socket1, socket2; extern asio::steady_timer delay; char buf[4096]; auto forward_op = socket1.async_read_some( asio::buffer(buf), asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } )) ( asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) .then(asio::deferred.values(ec, n)) .otherwise( delay.async_wait(asio::append(asio::deferred, n)) ); } ) ); This now gives us a simple composed operation with three steps. It also gets increasingly unreadable, which is why asio provides operator| Instead of invoking the deferred expression multiple times, you can also just write this: extern asio::ip::tcp::socket socket1, socket2; extern asio::steady_timer delay; char buf[4096]; auto forward_op = socket1.async_read_some(asio::buffer(buf), asio::deferred) | asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(socket2, asio::buffer(buf, n), asio::deferred)); } ) | asio::deferred( [&amp;](system::error_code ec, std::size_t n) { return asio::deferred .when(!!ec) .then(asio::deferred.values(ec, n)) .otherwise( delay.async_wait(asio::append(asio::deferred, n)) ); }); Readable code It should be quite clear that the complexity can get out of hand rather quickly, which is why you should consider separating the continuation functions from the deferred chain. This can be achieved with by using append to pass pointers to the io objects, like so: auto do_read(asio::ip::tcp::socket * socket1, asio::ip::tcp::socket * socket2, char * buf, std::size_t n) { return socket1-&gt;async_read_some( asio::buffer(buf, n), asio::append(asio::deferred, socket1, buf)); }; auto do_write(system::error_code ec, std::size_t n, asio::ip::tcp::socket * socket2, char * buf) { return asio::deferred .when(!!ec) // complete with the error and `n` .then(asio::deferred.values(ec, n)) .otherwise( asio::async_write(*socket2, asio::buffer(buf, n), asio::deferred)); }; template&lt;std::size_t Size&gt; auto forward_op( asio::ip::tcp::socket &amp; socket1, asio::ip::tcp::socket &amp; socket2, char (&amp;buf)[Size]) { return asio::deferred.values( &amp;socket1, &amp;socket2, &amp;buf[0], Size) | asio::deferred(&amp;do_read) | asio::deferred(&amp;do_write); } More examples can be found in the asio repo.","@type":"BlogPosting","url":"http://cppalliance.org/asio/2022/12/11/Asio201Deferred.html","headline":"Asio 201 - deferred","dateModified":"2022-12-11T00:00:00+00:00","datePublished":"2022-12-11T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/asio/2022/12/11/Asio201Deferred.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Asio 201 - deferred</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/klemens">
+                  Klemens Morgenstern
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Dec 11, 2022</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="asio-deferred">Asio deferred</h1>
+
+<h2 id="aysnc-operations">Aysnc operations</h2>
+
+<p>Asio introduced the concept of an async_operation, which describes a primary expression
+that can be invoked with a completion token. In C++20 this is also a language concept.</p>
+
+<pre><code class="language-cpp">asio::io_context ctx;
+asio::async_operation auto post_op = [&amp;](auto &amp;&amp; token){return asio::post(ctx, std::move(token));};
+
+auto f = post_op(asio::use_future);
+ctx.run();
+f.get(); // void
+</code></pre>
+
+<p>Async operations can be used in <code>parallel_group</code> and directly <code>co_await</code>ed in C++20.</p>
+
+<h2 id="asiodeferred-as-a-completion-token"><code>asio::deferred</code> as a completion token</h2>
+
+<p>Using <code>asio::deferred</code> as a completion token, will give you a lazy
+<code>async_operation</code> as the result value.</p>
+
+<pre><code class="language-cpp">asio::io_context ctx;
+asio::async_operation auto post_op = asio::post(ctx, asio::deferred);
+
+auto f = std::move(post_op)(asio::use_future);
+ctx.run();
+f.get(); // void
+</code></pre>
+
+<h2 id="deferred-expressions">deferred expressions</h2>
+
+<p>Additionally, a deferred can be invoked with a function object that returns another deferred expression. E.g.:</p>
+
+<pre><code class="language-cpp">asio::io_context ctx;
+asio::async_operation auto post_op = asio::post(ctx, asio::deferred);
+asio::async_operation auto double_post_op = 
+    asio::post(asio::deferred([&amp;]{return post_op;}));
+
+auto f = std::move(double_post_op)(asio::use_future);
+ctx.run();
+f.get(); // void
+</code></pre>
+
+<p>This now will call two posts subsequently.</p>
+
+<p>Not every deferred expression however is an async_operation, deferred provides multiple utilities.</p>
+
+<h2 id="deferredvalues"><code>deferred.values</code></h2>
+
+<p><code>asio.values</code> is a deferred expression that just returns values, so that you can modify the completion signature.</p>
+
+<pre><code class="language-cpp">asio::io_context ctx;
+asio::async_operation auto post_int_op = 
+    asio::post(ctx, 
+        asio::deferred(
+            []
+            {
+                return asio::deferred.values(42);
+            }
+        ));
+
+auto f = std::move(post_int_op)(asio::use_future);
+ctx.run();
+assert(f.get() == 42); // int
+</code></pre>
+
+<p>This already can be useful to modify completion signatures, similar to <code>asio::append</code> and <code>asio::prepend</code>.</p>
+
+<h2 id="deferredwhen"><code>deferred.when</code></h2>
+
+<p>Next deferred provides a conditional, that takes two deferred expressions.</p>
+
+<pre><code class="language-cpp">auto def = asio::deferred.when(condition).then(def1).otherwise(def2);
+</code></pre>
+
+<p>This can be used for simple continuations with error handling. 
+Let’s say we want to read some memory from <code>socket1</code> and write to <code>socket2</code>.</p>
+
+<pre><code class="language-cpp">extern asio::ip::tcp::socket socket1, socket2;
+char buf[4096];
+
+auto forward_op = 
+    socket1.async_read_some(
+        buf, 
+        asio::deferred(
+            [&amp;](system::error_code ec, std::size_t n)
+            {
+                return asio::deferred
+                    .when(!!ec) // complete with the error and `n`
+                    .then(asio::deferred.values(ec, n))
+                    .otherwise(
+                        asio::async_write(socket2,
+                            asio::buffer(buf, n),
+                        asio::deferred));
+            }
+        ));
+</code></pre>
+
+<h2 id="multiple-deferreds">Multiple <code>deferred</code>s</h2>
+
+<p>Since all the calls with <code>deferred</code> yield async_operations, we can combine more than two, just by invoking the resulting expression. Let’s say we want to add a delay at the end of the operation above, we can simple add another deferred.</p>
+
+<pre><code class="language-cpp">extern asio::ip::tcp::socket socket1, socket2;
+extern asio::steady_timer delay;
+char buf[4096];
+
+auto forward_op = 
+    socket1.async_read_some(
+        asio::buffer(buf), 
+        asio::deferred(
+            [&amp;](system::error_code ec, std::size_t n)
+            {
+                return asio::deferred
+                    .when(!!ec) // complete with the error and `n`
+                    .then(asio::deferred.values(ec, n))
+                    .otherwise(
+                        asio::async_write(socket2,
+                            asio::buffer(buf, n),
+                        asio::deferred));
+            }
+        ))
+        (
+        asio::deferred(
+            [&amp;](system::error_code ec, std::size_t n)
+            {
+                return asio::deferred
+                    .when(!!ec)
+                    .then(asio::deferred.values(ec, n))
+                    .otherwise(
+                        delay.async_wait(asio::append(asio::deferred, n))
+                    );
+            }
+            )
+        );
+</code></pre>
+
+<p>This now gives us a simple composed operation with three steps.
+It also gets increasingly unreadable, which is why asio provides</p>
+
+<h2 id="operator"><code>operator|</code></h2>
+
+<p>Instead of invoking the deferred expression multiple times, you can also just write this:</p>
+
+<pre><code class="language-cpp">extern asio::ip::tcp::socket socket1, socket2;
+extern asio::steady_timer delay;
+char buf[4096];
+
+auto forward_op = 
+    socket1.async_read_some(asio::buffer(buf), asio::deferred) 
+        | asio::deferred(
+            [&amp;](system::error_code ec, std::size_t n)
+            {
+                return asio::deferred
+                    .when(!!ec) // complete with the error and `n`
+                    .then(asio::deferred.values(ec, n))
+                    .otherwise(
+                        asio::async_write(socket2,
+                            asio::buffer(buf, n),
+                        asio::deferred));
+            }
+        )
+        | asio::deferred(
+            [&amp;](system::error_code ec, std::size_t n)
+            {
+                return asio::deferred
+                    .when(!!ec)
+                    .then(asio::deferred.values(ec, n))
+                    .otherwise(
+                        delay.async_wait(asio::append(asio::deferred, n))
+                    );
+        });
+</code></pre>
+
+<h2 id="readable-code">Readable code</h2>
+
+<p>It should be quite clear that the complexity can get out of hand rather quickly, which is why you should consider separating the continuation functions from the deferred chain.</p>
+
+<p>This can be achieved with by using <code>append</code> to pass pointers to the
+io objects, like so:</p>
+
+<pre><code class="language-cpp">auto do_read(asio::ip::tcp::socket * socket1,
+             asio::ip::tcp::socket * socket2, 
+             char * buf, std::size_t n)
+            {
+                return socket1-&gt;async_read_some(
+                    asio::buffer(buf, n), 
+                    asio::append(asio::deferred, socket1, buf));
+            };
+
+auto do_write(system::error_code ec, std::size_t n,             
+              asio::ip::tcp::socket * socket2, char * buf)
+            {
+                return asio::deferred
+                    .when(!!ec) // complete with the error and `n`
+                    .then(asio::deferred.values(ec, n))
+                    .otherwise(
+                        asio::async_write(*socket2,
+                            asio::buffer(buf, n),
+                        asio::deferred));
+            };
+
+template&lt;std::size_t Size&gt;
+auto forward_op(
+    asio::ip::tcp::socket &amp; socket1,  
+    asio::ip::tcp::socket &amp; socket2,
+    char (&amp;buf)[Size])
+{
+    return asio::deferred.values(
+        &amp;socket1, &amp;socket2, &amp;buf[0], Size)
+        | asio::deferred(&amp;do_read)
+        | asio::deferred(&amp;do_write);
+}
+</code></pre>
+
+<p>More examples can be found in the <a href="https://github.com/chriskohlhoff/asio/tree/master/asio/src/examples/cpp14/deferred">asio repo</a>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/27/2023</span>
+          <a class='text-l news-title link' href="/asio/2023/07/27/Coroutines.html">Coroutine 101 - A simple serializer</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/02/2023</span>
+          <a class='text-l news-title link' href="/asio/2023/01/02/Asio201Timeouts.html">Asio 201 - timeouts, cancellation & custom tokens</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/11/2022</span>
+          <a class='text-l news-title link' href="/asio/2022/12/11/Asio201Deferred.html">Asio 201 - deferred</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

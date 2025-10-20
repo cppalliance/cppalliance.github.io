@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's September Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s September Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s September Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Reviewing the review The review period for Boost.JSON has come and gone, and we got some great feedback on the design of the library. Glancing over the results, it appears that the general mood was to accept the library. This doesn’t mean that there weren’t any problem areas – most notably the documentation, which often did contain the information people wanted, but it was difficult to find. Other points of contention were the use of a push parser as opposed to a pull parser, the use of double, uint64_t, and int64_t without allowing for users to change them, and the value conversion interface. Overall some very good points were made, and I’d like to thank everyone for participating in the review. Customizing the build I put a bit of work into improving our CI matrix, as it had several redundant configurations and did not test newer compiler versions (e.g. GCC 10, clang 11), nor did we have any 32-bit jobs. The most difficult thing about working on the build matrix is balancing how exhaustive it is with the turnaround time – sure, we could add 60 configurations that test x86, x86-64, and ARM on every major compiler version released since 2011, but the turnaround would be abysmal. To alleviate this, I only added 32-bit jobs for the sanitizers that use a recent version of GCC. It’s a less common configuration in the days of 64-bit universality, and if 64 bit works then it’s highly likely that 32 bit will “just work” as well. Here’s a table of the new Travis configurations that will be added: Compiler Library C++ Standard Variant OS Architecture Job — — — Boost Linux (Xenial) x86-64 Documentation gcc 8.4.0 libstdc++ 11 Boost Linux (Xenial) x86-64 Coverage clang 6.0.1 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 Valgrind clang 11.0.0 libstdc++ 17 Boost Linux (Xenial) x86-64 Address Sanitizer clang 11.0.0 libstdc++ 17 Boost Linux (Xenial) x86-64 UB Sanitizer msvc 14.1 MS STL 11, 14, 17 Boost Windows x86-64 — msvc 14.1 MS STL 17, 2a Standalone Windows x86-64 — msvc 14.2 MS STL 17, 2a Boost Windows x86-64 — msvc 14.2 MS STL 17, 2a Standalone Windows x86-64 — icc 2021.1 libstdc++ 11, 14, 17 Boost Linux (Bionic) x86-64 — gcc 4.8.5 libstdc++ 11 Boost Linux (Trusty) x86-64 — gcc 4.9.4 libstdc++ 11 Boost Linux (Trusty) x86-64 — gcc 5.5.0 libstdc++ 11 Boost Linux (Xenial) x86-64 — gcc 6.5.0 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — gcc 7.5.0 libstdc++ 14, 17 Boost Linux (Xenial) x86-64 — gcc 8.4.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — gcc 9.3.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — gcc 9.3.0 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — gcc 10.2.0 libstdc++ 17, 2a Boost Linux (Focal) x86-64 — gcc 10.2.0 libstdc++ 17, 2a Standalone Linux (Focal) x86-64 — gcc (trunk) libstdc++ 17, 2a Boost Linux (Focal) x86-64 — gcc (trunk) libstdc++ 17, 2a Standalone Linux (Focal) x86-64 — clang 3.8.0 libstdc++ 11 Boost Linux (Trusty) x86-64 — clang 4.0.0 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — clang 5.0.2 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — clang 6.0.1 libstdc++ 14, 17 Boost Linux (Xenial) x86-64 — clang 7.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 9.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 9.0.1 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang 10.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 10.0.1 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang 11.0.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 11.0.0 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang (trunk) libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang (trunk) libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — I think it strikes a good balance between exhaustiveness and turnaround time, and we now test the most recent compiler versions to make sure they won’t cause problems on the cutting edge. Binary size It doesn’t matter how good a library is if it’s too big to use within your environment. As with all things in computer science, there is a trade-off between size and speed; seldom can you have both. We have been exploring options to reduce the size of the binary, and this mostly involved removing a lot of the pre-written tables we have (such as the ever-controversial jump table), since it allows the compiler to take into account the specific options it was past and optimize for those constraints (i.e. size and speed) rather than hard-coding in a set configuration as we did with the jump tables. Peter Dimov also helped out by transitioning our compile-time system of generating unique parse functions for each permutation of extensions to a runtime system, which drastically decreases the binary size without affecting performance too much. I must admit I’m not the biggest fan of these changes, but it’s important to support the use of Boost.JSON in embedded environments. As Peter has said time and time again: don’t overfit for a particular use-case or configuration. Another place with room for improvement is with string to float-point conversions. Right now we calculate a mantissa and base-10 exponent, then lookup the value in a massive table that contains pre-calculated powers of 10 from 1e-308 to 1e+308. As you can surmise, this takes up a substantial amount of space (8 bytes * 618 elements = 4.95 kb). Here is a boiled down version of how we currently perform the conversion: double calculate_float( std::uint64_t mantissa, std::uint32_t exponent, bool sign) { constexpr static double table[618] = { 1e-308, 1e-307, ..., 1e307, 1e308 }; double power; if(exponent &lt; -308 || exponent &gt; 308) power = std::pow(10.0, exponent); else power = table[exponent + 308] double result = mantissa * power; return sign ? -result : result; } To further reduce the size of the binary, Peter suggested that we instead calculate power as 10^floor(exponent / 8) * 10^(exponent mod 8). Yes, the division operations there might look expensive, but any decent optimizing compiler will transform exponent / 8 to exponent &gt;&gt; 3, and exponent mod 8 to exponent &amp; 7. This does introduce another multiplication instruction, but at the same time, it makes our table 8 times smaller. In theory, the slight drop in performance is worth the significant reduction in binary size." />
+<meta property="og:description" content="Reviewing the review The review period for Boost.JSON has come and gone, and we got some great feedback on the design of the library. Glancing over the results, it appears that the general mood was to accept the library. This doesn’t mean that there weren’t any problem areas – most notably the documentation, which often did contain the information people wanted, but it was difficult to find. Other points of contention were the use of a push parser as opposed to a pull parser, the use of double, uint64_t, and int64_t without allowing for users to change them, and the value conversion interface. Overall some very good points were made, and I’d like to thank everyone for participating in the review. Customizing the build I put a bit of work into improving our CI matrix, as it had several redundant configurations and did not test newer compiler versions (e.g. GCC 10, clang 11), nor did we have any 32-bit jobs. The most difficult thing about working on the build matrix is balancing how exhaustive it is with the turnaround time – sure, we could add 60 configurations that test x86, x86-64, and ARM on every major compiler version released since 2011, but the turnaround would be abysmal. To alleviate this, I only added 32-bit jobs for the sanitizers that use a recent version of GCC. It’s a less common configuration in the days of 64-bit universality, and if 64 bit works then it’s highly likely that 32 bit will “just work” as well. Here’s a table of the new Travis configurations that will be added: Compiler Library C++ Standard Variant OS Architecture Job — — — Boost Linux (Xenial) x86-64 Documentation gcc 8.4.0 libstdc++ 11 Boost Linux (Xenial) x86-64 Coverage clang 6.0.1 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 Valgrind clang 11.0.0 libstdc++ 17 Boost Linux (Xenial) x86-64 Address Sanitizer clang 11.0.0 libstdc++ 17 Boost Linux (Xenial) x86-64 UB Sanitizer msvc 14.1 MS STL 11, 14, 17 Boost Windows x86-64 — msvc 14.1 MS STL 17, 2a Standalone Windows x86-64 — msvc 14.2 MS STL 17, 2a Boost Windows x86-64 — msvc 14.2 MS STL 17, 2a Standalone Windows x86-64 — icc 2021.1 libstdc++ 11, 14, 17 Boost Linux (Bionic) x86-64 — gcc 4.8.5 libstdc++ 11 Boost Linux (Trusty) x86-64 — gcc 4.9.4 libstdc++ 11 Boost Linux (Trusty) x86-64 — gcc 5.5.0 libstdc++ 11 Boost Linux (Xenial) x86-64 — gcc 6.5.0 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — gcc 7.5.0 libstdc++ 14, 17 Boost Linux (Xenial) x86-64 — gcc 8.4.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — gcc 9.3.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — gcc 9.3.0 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — gcc 10.2.0 libstdc++ 17, 2a Boost Linux (Focal) x86-64 — gcc 10.2.0 libstdc++ 17, 2a Standalone Linux (Focal) x86-64 — gcc (trunk) libstdc++ 17, 2a Boost Linux (Focal) x86-64 — gcc (trunk) libstdc++ 17, 2a Standalone Linux (Focal) x86-64 — clang 3.8.0 libstdc++ 11 Boost Linux (Trusty) x86-64 — clang 4.0.0 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — clang 5.0.2 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — clang 6.0.1 libstdc++ 14, 17 Boost Linux (Xenial) x86-64 — clang 7.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 9.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 9.0.1 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang 10.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 10.0.1 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang 11.0.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 11.0.0 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang (trunk) libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang (trunk) libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — I think it strikes a good balance between exhaustiveness and turnaround time, and we now test the most recent compiler versions to make sure they won’t cause problems on the cutting edge. Binary size It doesn’t matter how good a library is if it’s too big to use within your environment. As with all things in computer science, there is a trade-off between size and speed; seldom can you have both. We have been exploring options to reduce the size of the binary, and this mostly involved removing a lot of the pre-written tables we have (such as the ever-controversial jump table), since it allows the compiler to take into account the specific options it was past and optimize for those constraints (i.e. size and speed) rather than hard-coding in a set configuration as we did with the jump tables. Peter Dimov also helped out by transitioning our compile-time system of generating unique parse functions for each permutation of extensions to a runtime system, which drastically decreases the binary size without affecting performance too much. I must admit I’m not the biggest fan of these changes, but it’s important to support the use of Boost.JSON in embedded environments. As Peter has said time and time again: don’t overfit for a particular use-case or configuration. Another place with room for improvement is with string to float-point conversions. Right now we calculate a mantissa and base-10 exponent, then lookup the value in a massive table that contains pre-calculated powers of 10 from 1e-308 to 1e+308. As you can surmise, this takes up a substantial amount of space (8 bytes * 618 elements = 4.95 kb). Here is a boiled down version of how we currently perform the conversion: double calculate_float( std::uint64_t mantissa, std::uint32_t exponent, bool sign) { constexpr static double table[618] = { 1e-308, 1e-307, ..., 1e307, 1e308 }; double power; if(exponent &lt; -308 || exponent &gt; 308) power = std::pow(10.0, exponent); else power = table[exponent + 308] double result = mantissa * power; return sign ? -result : result; } To further reduce the size of the binary, Peter suggested that we instead calculate power as 10^floor(exponent / 8) * 10^(exponent mod 8). Yes, the division operations there might look expensive, but any decent optimizing compiler will transform exponent / 8 to exponent &gt;&gt; 3, and exponent mod 8 to exponent &amp; 7. This does introduce another multiplication instruction, but at the same time, it makes our table 8 times smaller. In theory, the slight drop in performance is worth the significant reduction in binary size." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2020/09/29/KrystiansSeptemberUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2020/09/29/KrystiansSeptemberUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-09-29T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s September Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Reviewing the review The review period for Boost.JSON has come and gone, and we got some great feedback on the design of the library. Glancing over the results, it appears that the general mood was to accept the library. This doesn’t mean that there weren’t any problem areas – most notably the documentation, which often did contain the information people wanted, but it was difficult to find. Other points of contention were the use of a push parser as opposed to a pull parser, the use of double, uint64_t, and int64_t without allowing for users to change them, and the value conversion interface. Overall some very good points were made, and I’d like to thank everyone for participating in the review. Customizing the build I put a bit of work into improving our CI matrix, as it had several redundant configurations and did not test newer compiler versions (e.g. GCC 10, clang 11), nor did we have any 32-bit jobs. The most difficult thing about working on the build matrix is balancing how exhaustive it is with the turnaround time – sure, we could add 60 configurations that test x86, x86-64, and ARM on every major compiler version released since 2011, but the turnaround would be abysmal. To alleviate this, I only added 32-bit jobs for the sanitizers that use a recent version of GCC. It’s a less common configuration in the days of 64-bit universality, and if 64 bit works then it’s highly likely that 32 bit will “just work” as well. Here’s a table of the new Travis configurations that will be added: Compiler Library C++ Standard Variant OS Architecture Job — — — Boost Linux (Xenial) x86-64 Documentation gcc 8.4.0 libstdc++ 11 Boost Linux (Xenial) x86-64 Coverage clang 6.0.1 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 Valgrind clang 11.0.0 libstdc++ 17 Boost Linux (Xenial) x86-64 Address Sanitizer clang 11.0.0 libstdc++ 17 Boost Linux (Xenial) x86-64 UB Sanitizer msvc 14.1 MS STL 11, 14, 17 Boost Windows x86-64 — msvc 14.1 MS STL 17, 2a Standalone Windows x86-64 — msvc 14.2 MS STL 17, 2a Boost Windows x86-64 — msvc 14.2 MS STL 17, 2a Standalone Windows x86-64 — icc 2021.1 libstdc++ 11, 14, 17 Boost Linux (Bionic) x86-64 — gcc 4.8.5 libstdc++ 11 Boost Linux (Trusty) x86-64 — gcc 4.9.4 libstdc++ 11 Boost Linux (Trusty) x86-64 — gcc 5.5.0 libstdc++ 11 Boost Linux (Xenial) x86-64 — gcc 6.5.0 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — gcc 7.5.0 libstdc++ 14, 17 Boost Linux (Xenial) x86-64 — gcc 8.4.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — gcc 9.3.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — gcc 9.3.0 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — gcc 10.2.0 libstdc++ 17, 2a Boost Linux (Focal) x86-64 — gcc 10.2.0 libstdc++ 17, 2a Standalone Linux (Focal) x86-64 — gcc (trunk) libstdc++ 17, 2a Boost Linux (Focal) x86-64 — gcc (trunk) libstdc++ 17, 2a Standalone Linux (Focal) x86-64 — clang 3.8.0 libstdc++ 11 Boost Linux (Trusty) x86-64 — clang 4.0.0 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — clang 5.0.2 libstdc++ 11, 14 Boost Linux (Xenial) x86-64 — clang 6.0.1 libstdc++ 14, 17 Boost Linux (Xenial) x86-64 — clang 7.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 9.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 9.0.1 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang 10.0.1 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 10.0.1 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang 11.0.0 libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang 11.0.0 libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — clang (trunk) libstdc++ 17, 2a Boost Linux (Xenial) x86-64 — clang (trunk) libstdc++ 17, 2a Standalone Linux (Xenial) x86-64 — I think it strikes a good balance between exhaustiveness and turnaround time, and we now test the most recent compiler versions to make sure they won’t cause problems on the cutting edge. Binary size It doesn’t matter how good a library is if it’s too big to use within your environment. As with all things in computer science, there is a trade-off between size and speed; seldom can you have both. We have been exploring options to reduce the size of the binary, and this mostly involved removing a lot of the pre-written tables we have (such as the ever-controversial jump table), since it allows the compiler to take into account the specific options it was past and optimize for those constraints (i.e. size and speed) rather than hard-coding in a set configuration as we did with the jump tables. Peter Dimov also helped out by transitioning our compile-time system of generating unique parse functions for each permutation of extensions to a runtime system, which drastically decreases the binary size without affecting performance too much. I must admit I’m not the biggest fan of these changes, but it’s important to support the use of Boost.JSON in embedded environments. As Peter has said time and time again: don’t overfit for a particular use-case or configuration. Another place with room for improvement is with string to float-point conversions. Right now we calculate a mantissa and base-10 exponent, then lookup the value in a massive table that contains pre-calculated powers of 10 from 1e-308 to 1e+308. As you can surmise, this takes up a substantial amount of space (8 bytes * 618 elements = 4.95 kb). Here is a boiled down version of how we currently perform the conversion: double calculate_float( std::uint64_t mantissa, std::uint32_t exponent, bool sign) { constexpr static double table[618] = { 1e-308, 1e-307, ..., 1e307, 1e308 }; double power; if(exponent &lt; -308 || exponent &gt; 308) power = std::pow(10.0, exponent); else power = table[exponent + 308] double result = mantissa * power; return sign ? -result : result; } To further reduce the size of the binary, Peter suggested that we instead calculate power as 10^floor(exponent / 8) * 10^(exponent mod 8). Yes, the division operations there might look expensive, but any decent optimizing compiler will transform exponent / 8 to exponent &gt;&gt; 3, and exponent mod 8 to exponent &amp; 7. This does introduce another multiplication instruction, but at the same time, it makes our table 8 times smaller. In theory, the slight drop in performance is worth the significant reduction in binary size.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2020/09/29/KrystiansSeptemberUpdate.html","headline":"Krystian’s September Update","dateModified":"2020-09-29T00:00:00+00:00","datePublished":"2020-09-29T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2020/09/29/KrystiansSeptemberUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's September Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Sep 29, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="reviewing-the-review">Reviewing the review</h1>
+
+<p>The review period for Boost.JSON has come and gone, and we got some great feedback on the design of the library. Glancing over the results, it appears that the general mood was to accept the library. This doesn’t mean that there weren’t any problem areas – most notably the documentation, which often did contain the information people wanted, but it was difficult to find.</p>
+
+<p>Other points of contention were the use of a push parser as opposed to a pull parser, the use of <code>double</code>, <code>uint64_t</code>, and <code>int64_t</code> without allowing for users to change them, and the value conversion interface. Overall some very good points were made, and I’d like to thank everyone for participating in the review.</p>
+
+<h1 id="customizing-the-build">Customizing the build</h1>
+
+<p>I put a bit of work into improving our CI matrix, as it had several redundant configurations and did not test newer compiler versions (e.g. GCC 10, clang 11), nor did we have any 32-bit jobs. The most difficult thing about working on the build matrix is balancing how exhaustive it is with the turnaround time – sure, we could add 60 configurations that test x86, x86-64, and ARM on every major compiler version released since 2011, but the turnaround would be abysmal.</p>
+
+<p>To alleviate this, I only added 32-bit jobs for the sanitizers that use a recent version of GCC. It’s a less common configuration in the days of 64-bit universality, and if 64 bit works then it’s highly likely that 32 bit will “just work” as well.</p>
+
+<p>Here’s a table of the new Travis configurations that will be added:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center">Compiler</th>
+      <th style="text-align: center">Library</th>
+      <th style="text-align: center">C++ Standard</th>
+      <th style="text-align: center">Variant</th>
+      <th style="text-align: center">OS</th>
+      <th style="text-align: center">Architecture</th>
+      <th style="text-align: center">Job</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">—</td>
+      <td style="text-align: center">—</td>
+      <td style="text-align: center">—</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">Documentation</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 8.4.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">Coverage</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 6.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11, 14</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">Valgrind</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 11.0.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">Address Sanitizer</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 11.0.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">UB Sanitizer</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">msvc 14.1</td>
+      <td style="text-align: center">MS STL</td>
+      <td style="text-align: center">11, 14, 17</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">msvc 14.1</td>
+      <td style="text-align: center">MS STL</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">msvc 14.2</td>
+      <td style="text-align: center">MS STL</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">msvc 14.2</td>
+      <td style="text-align: center">MS STL</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">icc 2021.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11, 14, 17</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Bionic)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 4.8.5</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Trusty)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 4.9.4</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Trusty)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 5.5.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 6.5.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11, 14</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 7.5.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">14, 17</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 8.4.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 9.3.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 9.3.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 10.2.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Focal)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc 10.2.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Focal)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc (trunk)</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Focal)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">gcc (trunk)</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Focal)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 3.8.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Trusty)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 4.0.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11, 14</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 5.0.2</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">11, 14</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 6.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">14, 17</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 7.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 9.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 9.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 10.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 10.0.1</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 11.0.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang 11.0.0</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang (trunk)</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Boost</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">clang (trunk)</td>
+      <td style="text-align: center">libstdc++</td>
+      <td style="text-align: center">17, 2a</td>
+      <td style="text-align: center">Standalone</td>
+      <td style="text-align: center">Linux (Xenial)</td>
+      <td style="text-align: center">x86-64</td>
+      <td style="text-align: center">—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>I think it strikes a good balance between exhaustiveness and turnaround time, and we now test the most recent compiler versions to make sure they won’t cause problems on the cutting edge.</p>
+
+<h1 id="binary-size">Binary size</h1>
+
+<p>It doesn’t matter how good a library is if it’s too big to use within your environment. As with all things in computer science, there is a trade-off between size and speed; seldom can you have both. We have been exploring options to reduce the size of the binary, and this mostly involved removing a lot of the pre-written tables we have (such as the ever-controversial jump table), since it allows the compiler to take into account the specific options it was past and optimize for those constraints (i.e. size and speed) rather than hard-coding in a set configuration as we did with the jump tables.</p>
+
+<p>Peter Dimov also helped out by transitioning our compile-time system of generating unique parse functions for each permutation of extensions to a runtime system, which drastically decreases the binary size without affecting performance too much.</p>
+
+<p>I must admit I’m not the biggest fan of these changes, but it’s important to support the use of Boost.JSON in embedded environments. As Peter has said time and time again: don’t overfit for a particular use-case or configuration.</p>
+
+<p>Another place with room for improvement is with string to float-point conversions. Right now we calculate a mantissa and base-10 exponent, then lookup the value in a massive table that contains pre-calculated powers of 10 from 1e-308 to 1e+308. As you can surmise, this takes up a substantial amount of space (8 bytes * 618 elements = 4.95 kb).</p>
+
+<p>Here is a boiled down version of how we currently perform the conversion:</p>
+
+<pre><code class="language-cpp">double calculate_float(
+    std::uint64_t mantissa, 
+    std::uint32_t exponent, 
+    bool sign)
+{
+    constexpr static double table[618] = 
+    { 
+        1e-308, 1e-307, 
+        ..., 
+        1e307, 1e308 
+    };
+    double power;
+    if(exponent &lt; -308 || exponent &gt; 308)
+        power = std::pow(10.0, exponent);
+    else
+        power = table[exponent + 308]
+    double result = mantissa * power;
+    return sign ? -result : result;
+}
+</code></pre>
+
+<p>To further reduce the size of the binary, Peter suggested that we instead calculate <code>power</code> as <code>10^floor(exponent / 8) * 10^(exponent mod 8)</code>. Yes, the division operations there might look expensive, but any decent optimizing compiler will transform <code>exponent / 8</code> to <code>exponent &gt;&gt; 3</code>, and <code>exponent mod 8</code> to <code>exponent &amp; 7</code>. This does introduce another multiplication instruction, but at the same time, it makes our table 8 times smaller. In theory, the slight drop in performance is worth the significant reduction in binary size.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

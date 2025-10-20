@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sam's Q4 2023 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Sam’s Q4 2023 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Sam’s Q4 2023 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Here’s an overview of some projects I have been working on the last few months. Doc Previews A Jenkins server is building “pull request doc previews” for multiple boost repositories. If any Boost author is interested in “doc previews” let me know. Specific previews: adding an Antora version to boostorg/url. Upgraded the server packages, apps, and operating system to Ubuntu 22.04. Mr. Docs has a dedicated server for docs testing. Debugged CI deployment issues there. JSON benchmarks https://benchmark.cppalliance.org/ Continued from the previous month, updated JSON benchmarks scripts to use a consistent output file location and revised jamfile. Boostorg website cppalliance/temp-site Added prometheus and nagios monitoring alerts. Checking on status of db backup scripts. Upgraded CircleCI so release-tools will deploy to AWS S3, and temp-site will publish develop/master snapshots. Slack chat with Greg about library documentation. Test/debug slow load times of library docs on the site and reported findings. Discussions with Spencer about how URL maps ought to work. Sent Glen/Marshall info about deploying new boost releases on preview.boost.org. Ran a sync from prod to stage, including database and S3 files, so that stage looks like production. Added Frank and Lacie in GCP. On the topic of quickbook for release notes: probably migrate to asciidocs. Created docs at https://github.com/cppalliance/temp-site-documentation. Deploy more domain names for testing. boost.io. Sent Calendar API info to Lacie. Wowbagger: cron scripts to backup files. Load testing Investigated https://github.com/locustio/locust/ and Bees with Machine Guns. Installed both tools. Sent a PR (merged) to locustio improving their terraform script. After a couple days, for the sake of time, concluded we can solve ‘load testing’ problems by installing a CDN in front of the website, thus removing most traffic. Switch to that goal. CDN Fastly Set up a CDN front-end to the temp-site at Fastly. Extensive testing, many iterations of VCL. Added SSL certificates. Opened a case to discuss the existing conflict/overlap when acme-challenge is used on both the backend cluster, and the CDN. They are planning to implement a new RFC in the next year to improve the situation. The same hostname should be applied on all servers so that social auth works. Updated kubernetes from “Ingress” to “Gateway API”, to improve SSL requests. Deployed “Gateway” in each environment. boostorg/release-tools Assisted Alan, who is adding Antora support to boost releases. Generated docker images with additional nodejs packages. Debug/test the main release scripts, which were modified. Added packages to the images for Klemens. Added CI, code formatter ‘black’, similar to website. Updated boostorg/boost to use the new images. Mailman project Setting up test instances of mailman2 and mailman3, to test and document mailman users, members, passwords, especially after an upgrade/migration. Wrote an improved documentation section for mailman-suite (merged) at https://gitlab.com/mailman/mailman-suite-doc. Various updates to cppalliance/ansible-mailman3 codebase. Meetings with Boost Foundation about the mailing lists. Install ElasticSearch on all instances. Added kube variables in temp-site, pointing to mm instances. Mailman cli test. Self-hosted runners Analyzing the large codebase at philips-labs/terraform-aws-github-runner (tagr). Sent them yet another bugfix. Also, there is an outstanding issue (they still have not implemented) whereby the default runner labels can be entirely replaced/customized, and if that is done, tagr could be rolled out to more repositories with less risk of unforseen conflicts caused by label matching in the future. Ongoing. Installed LLVM on windows-2022 image. Drone Upgraded the Drone executable itself. New dark mode support! That’s the last commit from Drone which is being transmogrified into “https://github.com/harness/gitness”. When gitness is eventually ready it may become a drop-in replacement, but that is not yet certain. As requested by Alexander, install the latest “macOS 14 Sonoma” machines. Worked with boostorg/math to retire the oldest “macOS 10.13 High Sierra” that are now offline, and use 14. New drone 23.10 image for Peter. Sent a PR to boostorg/url to centralize the drone ‘generate’ function at cppalliance/ci-automation." />
+<meta property="og:description" content="Here’s an overview of some projects I have been working on the last few months. Doc Previews A Jenkins server is building “pull request doc previews” for multiple boost repositories. If any Boost author is interested in “doc previews” let me know. Specific previews: adding an Antora version to boostorg/url. Upgraded the server packages, apps, and operating system to Ubuntu 22.04. Mr. Docs has a dedicated server for docs testing. Debugged CI deployment issues there. JSON benchmarks https://benchmark.cppalliance.org/ Continued from the previous month, updated JSON benchmarks scripts to use a consistent output file location and revised jamfile. Boostorg website cppalliance/temp-site Added prometheus and nagios monitoring alerts. Checking on status of db backup scripts. Upgraded CircleCI so release-tools will deploy to AWS S3, and temp-site will publish develop/master snapshots. Slack chat with Greg about library documentation. Test/debug slow load times of library docs on the site and reported findings. Discussions with Spencer about how URL maps ought to work. Sent Glen/Marshall info about deploying new boost releases on preview.boost.org. Ran a sync from prod to stage, including database and S3 files, so that stage looks like production. Added Frank and Lacie in GCP. On the topic of quickbook for release notes: probably migrate to asciidocs. Created docs at https://github.com/cppalliance/temp-site-documentation. Deploy more domain names for testing. boost.io. Sent Calendar API info to Lacie. Wowbagger: cron scripts to backup files. Load testing Investigated https://github.com/locustio/locust/ and Bees with Machine Guns. Installed both tools. Sent a PR (merged) to locustio improving their terraform script. After a couple days, for the sake of time, concluded we can solve ‘load testing’ problems by installing a CDN in front of the website, thus removing most traffic. Switch to that goal. CDN Fastly Set up a CDN front-end to the temp-site at Fastly. Extensive testing, many iterations of VCL. Added SSL certificates. Opened a case to discuss the existing conflict/overlap when acme-challenge is used on both the backend cluster, and the CDN. They are planning to implement a new RFC in the next year to improve the situation. The same hostname should be applied on all servers so that social auth works. Updated kubernetes from “Ingress” to “Gateway API”, to improve SSL requests. Deployed “Gateway” in each environment. boostorg/release-tools Assisted Alan, who is adding Antora support to boost releases. Generated docker images with additional nodejs packages. Debug/test the main release scripts, which were modified. Added packages to the images for Klemens. Added CI, code formatter ‘black’, similar to website. Updated boostorg/boost to use the new images. Mailman project Setting up test instances of mailman2 and mailman3, to test and document mailman users, members, passwords, especially after an upgrade/migration. Wrote an improved documentation section for mailman-suite (merged) at https://gitlab.com/mailman/mailman-suite-doc. Various updates to cppalliance/ansible-mailman3 codebase. Meetings with Boost Foundation about the mailing lists. Install ElasticSearch on all instances. Added kube variables in temp-site, pointing to mm instances. Mailman cli test. Self-hosted runners Analyzing the large codebase at philips-labs/terraform-aws-github-runner (tagr). Sent them yet another bugfix. Also, there is an outstanding issue (they still have not implemented) whereby the default runner labels can be entirely replaced/customized, and if that is done, tagr could be rolled out to more repositories with less risk of unforseen conflicts caused by label matching in the future. Ongoing. Installed LLVM on windows-2022 image. Drone Upgraded the Drone executable itself. New dark mode support! That’s the last commit from Drone which is being transmogrified into “https://github.com/harness/gitness”. When gitness is eventually ready it may become a drop-in replacement, but that is not yet certain. As requested by Alexander, install the latest “macOS 14 Sonoma” machines. Worked with boostorg/math to retire the oldest “macOS 10.13 High Sierra” that are now offline, and use 14. New drone 23.10 image for Peter. Sent a PR to boostorg/url to centralize the drone ‘generate’ function at cppalliance/ci-automation." />
+<link rel="canonical" href="http://cppalliance.org/sam/2024/01/10/SamsQ4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2024/01/10/SamsQ4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-01-10T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Sam’s Q4 2023 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Here’s an overview of some projects I have been working on the last few months. Doc Previews A Jenkins server is building “pull request doc previews” for multiple boost repositories. If any Boost author is interested in “doc previews” let me know. Specific previews: adding an Antora version to boostorg/url. Upgraded the server packages, apps, and operating system to Ubuntu 22.04. Mr. Docs has a dedicated server for docs testing. Debugged CI deployment issues there. JSON benchmarks https://benchmark.cppalliance.org/ Continued from the previous month, updated JSON benchmarks scripts to use a consistent output file location and revised jamfile. Boostorg website cppalliance/temp-site Added prometheus and nagios monitoring alerts. Checking on status of db backup scripts. Upgraded CircleCI so release-tools will deploy to AWS S3, and temp-site will publish develop/master snapshots. Slack chat with Greg about library documentation. Test/debug slow load times of library docs on the site and reported findings. Discussions with Spencer about how URL maps ought to work. Sent Glen/Marshall info about deploying new boost releases on preview.boost.org. Ran a sync from prod to stage, including database and S3 files, so that stage looks like production. Added Frank and Lacie in GCP. On the topic of quickbook for release notes: probably migrate to asciidocs. Created docs at https://github.com/cppalliance/temp-site-documentation. Deploy more domain names for testing. boost.io. Sent Calendar API info to Lacie. Wowbagger: cron scripts to backup files. Load testing Investigated https://github.com/locustio/locust/ and Bees with Machine Guns. Installed both tools. Sent a PR (merged) to locustio improving their terraform script. After a couple days, for the sake of time, concluded we can solve ‘load testing’ problems by installing a CDN in front of the website, thus removing most traffic. Switch to that goal. CDN Fastly Set up a CDN front-end to the temp-site at Fastly. Extensive testing, many iterations of VCL. Added SSL certificates. Opened a case to discuss the existing conflict/overlap when acme-challenge is used on both the backend cluster, and the CDN. They are planning to implement a new RFC in the next year to improve the situation. The same hostname should be applied on all servers so that social auth works. Updated kubernetes from “Ingress” to “Gateway API”, to improve SSL requests. Deployed “Gateway” in each environment. boostorg/release-tools Assisted Alan, who is adding Antora support to boost releases. Generated docker images with additional nodejs packages. Debug/test the main release scripts, which were modified. Added packages to the images for Klemens. Added CI, code formatter ‘black’, similar to website. Updated boostorg/boost to use the new images. Mailman project Setting up test instances of mailman2 and mailman3, to test and document mailman users, members, passwords, especially after an upgrade/migration. Wrote an improved documentation section for mailman-suite (merged) at https://gitlab.com/mailman/mailman-suite-doc. Various updates to cppalliance/ansible-mailman3 codebase. Meetings with Boost Foundation about the mailing lists. Install ElasticSearch on all instances. Added kube variables in temp-site, pointing to mm instances. Mailman cli test. Self-hosted runners Analyzing the large codebase at philips-labs/terraform-aws-github-runner (tagr). Sent them yet another bugfix. Also, there is an outstanding issue (they still have not implemented) whereby the default runner labels can be entirely replaced/customized, and if that is done, tagr could be rolled out to more repositories with less risk of unforseen conflicts caused by label matching in the future. Ongoing. Installed LLVM on windows-2022 image. Drone Upgraded the Drone executable itself. New dark mode support! That’s the last commit from Drone which is being transmogrified into “https://github.com/harness/gitness”. When gitness is eventually ready it may become a drop-in replacement, but that is not yet certain. As requested by Alexander, install the latest “macOS 14 Sonoma” machines. Worked with boostorg/math to retire the oldest “macOS 10.13 High Sierra” that are now offline, and use 14. New drone 23.10 image for Peter. Sent a PR to boostorg/url to centralize the drone ‘generate’ function at cppalliance/ci-automation.","@type":"BlogPosting","url":"http://cppalliance.org/sam/2024/01/10/SamsQ4Update.html","headline":"Sam’s Q4 2023 Update","dateModified":"2024-01-10T00:00:00+00:00","datePublished":"2024-01-10T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2024/01/10/SamsQ4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Sam's Q4 2023 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 10, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Here’s an overview of some projects I have been working on the last few months.</p>
+
+<h3 id="doc-previews">Doc Previews</h3>
+
+<p>A Jenkins server is building “pull request doc previews” for multiple boost repositories. If any Boost author is interested in “doc previews” let me know.</p>
+
+<p>Specific previews: adding an Antora version to boostorg/url.</p>
+
+<p>Upgraded the server packages, apps, and operating system to Ubuntu 22.04.</p>
+
+<p>Mr. Docs has a dedicated server for docs testing. Debugged CI deployment issues there.</p>
+
+<h3 id="json-benchmarks">JSON benchmarks</h3>
+
+<p>https://benchmark.cppalliance.org/</p>
+
+<p>Continued from the previous month, updated JSON benchmarks scripts to use a consistent output file location and revised jamfile.</p>
+
+<h3 id="boostorg-website-cppalliancetemp-site">Boostorg website cppalliance/temp-site</h3>
+
+<p>Added prometheus and nagios monitoring alerts. Checking on status of db backup scripts. Upgraded CircleCI so release-tools will deploy to AWS S3, and temp-site will publish develop/master snapshots. Slack chat with Greg about library documentation. Test/debug slow load times of library docs on the site and reported findings. Discussions with Spencer about how URL maps ought to work. Sent Glen/Marshall info about deploying new boost releases on preview.boost.org. Ran a sync from prod to stage, including database and S3 files, so that stage looks like production. Added Frank and Lacie in GCP.  On the topic of quickbook for release notes: probably migrate to asciidocs. Created docs at https://github.com/cppalliance/temp-site-documentation. Deploy more domain names for testing. boost.io. Sent Calendar API info to Lacie. Wowbagger: cron scripts to backup files.</p>
+
+<h3 id="load-testing">Load testing</h3>
+
+<p>Investigated https://github.com/locustio/locust/ and Bees with Machine Guns. Installed both tools. Sent a PR (merged) to locustio improving their terraform script. After a couple days, for the sake of time, concluded we can solve ‘load testing’ problems by installing a CDN in front of the website, thus removing most traffic. Switch to that goal.</p>
+
+<h3 id="cdn-fastly">CDN Fastly</h3>
+
+<p>Set up a CDN front-end to the temp-site at Fastly. Extensive testing, many iterations of VCL. Added SSL certificates. Opened a case to discuss the existing conflict/overlap when acme-challenge is used on both the backend cluster, and the CDN. They are planning to implement a new RFC in the next year to improve the situation. The same hostname should be applied on all servers so that social auth works. Updated kubernetes from “Ingress” to “Gateway API”, to improve SSL requests. Deployed “Gateway” in each environment.</p>
+
+<h3 id="boostorgrelease-tools">boostorg/release-tools</h3>
+
+<p>Assisted Alan, who is adding Antora support to boost releases. Generated docker images with additional nodejs packages. Debug/test the main release scripts, which were modified.
+Added packages to the images for Klemens. Added CI, code formatter ‘black’, similar to website. Updated boostorg/boost to use the new images.</p>
+
+<h3 id="mailman-project">Mailman project</h3>
+
+<p>Setting up test instances of mailman2 and mailman3, to test and document mailman users, members, passwords, especially after an upgrade/migration. Wrote an improved documentation section for mailman-suite (merged) at https://gitlab.com/mailman/mailman-suite-doc. Various updates to cppalliance/ansible-mailman3 codebase. Meetings with Boost Foundation about the mailing lists. Install ElasticSearch on all instances. Added kube variables in temp-site, pointing to mm instances. Mailman cli test.</p>
+
+<h3 id="self-hosted-runners">Self-hosted runners</h3>
+
+<p>Analyzing the large codebase at philips-labs/terraform-aws-github-runner (tagr). Sent them yet another bugfix. Also, there is an outstanding issue (they still have not implemented) whereby the default runner labels can be entirely replaced/customized, and if that is done, tagr could be rolled out to more repositories with less risk of unforseen conflicts caused by label matching in the future. Ongoing. Installed LLVM on windows-2022 image.</p>
+
+<h3 id="drone">Drone</h3>
+
+<p>Upgraded the Drone executable itself. New dark mode support! That’s the last commit from Drone which is being transmogrified into “https://github.com/harness/gitness”. When gitness is eventually ready it may become a drop-in replacement, but that is not yet certain.</p>
+
+<p>As requested by Alexander, install the latest “macOS 14 Sonoma” machines. Worked with boostorg/math to retire the oldest “macOS 10.13 High Sierra” that are now offline, and use 14. New drone 23.10 image for Peter. Sent a PR to boostorg/url to centralize the drone ‘generate’ function at cppalliance/ci-automation.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

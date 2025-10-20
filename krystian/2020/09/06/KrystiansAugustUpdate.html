@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's August Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s August Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s August Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost.JSON Boost.JSON is officially scheduled for review! It starts on September 14th, so there isn’t much time left to finish up polishing the library – but it looks like we will make the deadline. Optimize, optimize, optimize Boost.JSON’s performance has significantly increased in the past month. The change to the parsing functions where we pass and return const char* instead of result (detailed in my last post) was merged, bringing large gains across the board. After this, my work on optimizing basic_parser was complete (for now…), save for a few more minor changes: The handler is stored as the first data member as opposed to passing a reference to each parse function. This means that the this pointer for basic_parser is the this pointer for the handler, which eliminates some register spills. The parser’s depth (i.e. nesting level of objects/arrays) is now tracked as max_depth - actual_depth, meaning that we don’t have to read max_depth from memory each time a structure is parsed. parse_string was split into two functions: parse_unescaped and parse_escaped. The former is much cheaper to call as it doesn’t have to store the string within a local buffer, and since unescaped strings are vastly more common in JSON documents, this increases performance considerably. The DOM parser Our old implementation of parser was pretty wasteful. It stored state information (such as whether we were parsing an object or array), keys, and values, all on one stack. This proved to be quite a pain when it came to unwinding it and also required us to align the stack when pushing arrays and objects. Several months ago, Vinnie and I tried to figure out how to make the homogeneous but came to a dead end. I decided to revisit the idea, and after some experimentation, it became apparent that there was a lot of redundancy in the implementation. For example, basic_parser already keeps track of the current object/array/string/key size, so there is no reason to so within parser. The state information we were tracking was also not needed – basic_parser already checks the syntactic correctness of the input. That left one more thing: strings and keys. My rudimentary implementation required two stacks: one for keys and strings, and the other for values. Other information, such as the sizes of objects and arrays, were obtained from basic_parser. My implementation, though primitive, gave some promising results on the benchmarks: up to 10% for certain documents. After some brainstorming with Vinnie, he had the idea of storing object keys as values; the last piece of the puzzle we needed to make this thing work. His fleshed-out implementation was even faster. In just a week’s time, Boost.JSON’s performance increased by some 15%. I’m still working on the finishing touches, but the results are looking promising. More UTF-8 validation malarkey Out of all the things I’ve worked on, nothing has proved as frustrating as UTF-8 validation. The validation itself is trivial; but making it work with an incremental parser is remarkably difficult. Shortly after merging the feature, an issue was opened; while validation worked just fine when a document was parsed without suspending, I neglected to write tests for incremental parsing, and that’s precisely where the bug was. Turns out, if parsing suspended while validating a UTF-8 byte sequence, the handler just would not be called. This was… quite a problem to say the least, and required me to reimplement UTF-8 validation from scratch – but with a twist. We don’t want to pass partial UTF-8 sequences because it just transfers the burden of assembling incomplete sequences to the handler. This means that we need to store the sequences, append to them until we get a complete codepoint, and only then can we validate and send it off to the handler. Doing this in an efficient manner proved to be quite challenging, so I ended up with a “fix” that was 50% code and 50% // KRYSTIAN TODO: this can be optimized. The tests provided in the issue finally passed, so the patch was merged. I thought my woes with validation were over, but I was wrong. Just over a week later, a new issue rolled in: Handler not invoked correctly in multi-byte UTF8 sequences, part 2 Luckily, fixing this didn’t require another rewrite. This taught me a fine lesson in exhaustive testing." />
+<meta property="og:description" content="Boost.JSON Boost.JSON is officially scheduled for review! It starts on September 14th, so there isn’t much time left to finish up polishing the library – but it looks like we will make the deadline. Optimize, optimize, optimize Boost.JSON’s performance has significantly increased in the past month. The change to the parsing functions where we pass and return const char* instead of result (detailed in my last post) was merged, bringing large gains across the board. After this, my work on optimizing basic_parser was complete (for now…), save for a few more minor changes: The handler is stored as the first data member as opposed to passing a reference to each parse function. This means that the this pointer for basic_parser is the this pointer for the handler, which eliminates some register spills. The parser’s depth (i.e. nesting level of objects/arrays) is now tracked as max_depth - actual_depth, meaning that we don’t have to read max_depth from memory each time a structure is parsed. parse_string was split into two functions: parse_unescaped and parse_escaped. The former is much cheaper to call as it doesn’t have to store the string within a local buffer, and since unescaped strings are vastly more common in JSON documents, this increases performance considerably. The DOM parser Our old implementation of parser was pretty wasteful. It stored state information (such as whether we were parsing an object or array), keys, and values, all on one stack. This proved to be quite a pain when it came to unwinding it and also required us to align the stack when pushing arrays and objects. Several months ago, Vinnie and I tried to figure out how to make the homogeneous but came to a dead end. I decided to revisit the idea, and after some experimentation, it became apparent that there was a lot of redundancy in the implementation. For example, basic_parser already keeps track of the current object/array/string/key size, so there is no reason to so within parser. The state information we were tracking was also not needed – basic_parser already checks the syntactic correctness of the input. That left one more thing: strings and keys. My rudimentary implementation required two stacks: one for keys and strings, and the other for values. Other information, such as the sizes of objects and arrays, were obtained from basic_parser. My implementation, though primitive, gave some promising results on the benchmarks: up to 10% for certain documents. After some brainstorming with Vinnie, he had the idea of storing object keys as values; the last piece of the puzzle we needed to make this thing work. His fleshed-out implementation was even faster. In just a week’s time, Boost.JSON’s performance increased by some 15%. I’m still working on the finishing touches, but the results are looking promising. More UTF-8 validation malarkey Out of all the things I’ve worked on, nothing has proved as frustrating as UTF-8 validation. The validation itself is trivial; but making it work with an incremental parser is remarkably difficult. Shortly after merging the feature, an issue was opened; while validation worked just fine when a document was parsed without suspending, I neglected to write tests for incremental parsing, and that’s precisely where the bug was. Turns out, if parsing suspended while validating a UTF-8 byte sequence, the handler just would not be called. This was… quite a problem to say the least, and required me to reimplement UTF-8 validation from scratch – but with a twist. We don’t want to pass partial UTF-8 sequences because it just transfers the burden of assembling incomplete sequences to the handler. This means that we need to store the sequences, append to them until we get a complete codepoint, and only then can we validate and send it off to the handler. Doing this in an efficient manner proved to be quite challenging, so I ended up with a “fix” that was 50% code and 50% // KRYSTIAN TODO: this can be optimized. The tests provided in the issue finally passed, so the patch was merged. I thought my woes with validation were over, but I was wrong. Just over a week later, a new issue rolled in: Handler not invoked correctly in multi-byte UTF8 sequences, part 2 Luckily, fixing this didn’t require another rewrite. This taught me a fine lesson in exhaustive testing." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2020/09/06/KrystiansAugustUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2020/09/06/KrystiansAugustUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-09-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s August Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost.JSON Boost.JSON is officially scheduled for review! It starts on September 14th, so there isn’t much time left to finish up polishing the library – but it looks like we will make the deadline. Optimize, optimize, optimize Boost.JSON’s performance has significantly increased in the past month. The change to the parsing functions where we pass and return const char* instead of result (detailed in my last post) was merged, bringing large gains across the board. After this, my work on optimizing basic_parser was complete (for now…), save for a few more minor changes: The handler is stored as the first data member as opposed to passing a reference to each parse function. This means that the this pointer for basic_parser is the this pointer for the handler, which eliminates some register spills. The parser’s depth (i.e. nesting level of objects/arrays) is now tracked as max_depth - actual_depth, meaning that we don’t have to read max_depth from memory each time a structure is parsed. parse_string was split into two functions: parse_unescaped and parse_escaped. The former is much cheaper to call as it doesn’t have to store the string within a local buffer, and since unescaped strings are vastly more common in JSON documents, this increases performance considerably. The DOM parser Our old implementation of parser was pretty wasteful. It stored state information (such as whether we were parsing an object or array), keys, and values, all on one stack. This proved to be quite a pain when it came to unwinding it and also required us to align the stack when pushing arrays and objects. Several months ago, Vinnie and I tried to figure out how to make the homogeneous but came to a dead end. I decided to revisit the idea, and after some experimentation, it became apparent that there was a lot of redundancy in the implementation. For example, basic_parser already keeps track of the current object/array/string/key size, so there is no reason to so within parser. The state information we were tracking was also not needed – basic_parser already checks the syntactic correctness of the input. That left one more thing: strings and keys. My rudimentary implementation required two stacks: one for keys and strings, and the other for values. Other information, such as the sizes of objects and arrays, were obtained from basic_parser. My implementation, though primitive, gave some promising results on the benchmarks: up to 10% for certain documents. After some brainstorming with Vinnie, he had the idea of storing object keys as values; the last piece of the puzzle we needed to make this thing work. His fleshed-out implementation was even faster. In just a week’s time, Boost.JSON’s performance increased by some 15%. I’m still working on the finishing touches, but the results are looking promising. More UTF-8 validation malarkey Out of all the things I’ve worked on, nothing has proved as frustrating as UTF-8 validation. The validation itself is trivial; but making it work with an incremental parser is remarkably difficult. Shortly after merging the feature, an issue was opened; while validation worked just fine when a document was parsed without suspending, I neglected to write tests for incremental parsing, and that’s precisely where the bug was. Turns out, if parsing suspended while validating a UTF-8 byte sequence, the handler just would not be called. This was… quite a problem to say the least, and required me to reimplement UTF-8 validation from scratch – but with a twist. We don’t want to pass partial UTF-8 sequences because it just transfers the burden of assembling incomplete sequences to the handler. This means that we need to store the sequences, append to them until we get a complete codepoint, and only then can we validate and send it off to the handler. Doing this in an efficient manner proved to be quite challenging, so I ended up with a “fix” that was 50% code and 50% // KRYSTIAN TODO: this can be optimized. The tests provided in the issue finally passed, so the patch was merged. I thought my woes with validation were over, but I was wrong. Just over a week later, a new issue rolled in: Handler not invoked correctly in multi-byte UTF8 sequences, part 2 Luckily, fixing this didn’t require another rewrite. This taught me a fine lesson in exhaustive testing.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2020/09/06/KrystiansAugustUpdate.html","headline":"Krystian’s August Update","dateModified":"2020-09-06T00:00:00+00:00","datePublished":"2020-09-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2020/09/06/KrystiansAugustUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's August Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Sep 6, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="boostjson">Boost.JSON</h1>
+
+<p>Boost.JSON is officially scheduled for review! It starts on September 14th, so there isn’t much time left to finish up polishing the library – but it looks like we will make the deadline.</p>
+
+<h2 id="optimize-optimize-optimize">Optimize, optimize, optimize</h2>
+
+<p>Boost.JSON’s performance has significantly increased in the past month. The change to the parsing functions where we pass and return <code>const char*</code> instead of <code>result</code> (detailed in my last post) was merged, bringing large gains across the board. After this, my work on optimizing <code>basic_parser</code> was complete (for now…), save for a few more minor changes:</p>
+
+<ul>
+  <li>
+    <p>The handler is stored as the first data member as opposed to passing a reference to each parse function. This means that the <code>this</code> pointer for <code>basic_parser</code> is the <code>this</code> pointer for the handler, which eliminates some register spills.</p>
+  </li>
+  <li>
+    <p>The parser’s depth (i.e. nesting level of objects/arrays) is now tracked as <code>max_depth - actual_depth</code>, meaning that we don’t have to read <code>max_depth</code> from memory each time a structure is parsed.</p>
+  </li>
+  <li>
+    <p><code>parse_string</code> was split into two functions: <code>parse_unescaped</code> and <code>parse_escaped</code>. The former is much cheaper to call as it doesn’t have to store the string within a local buffer, and since unescaped strings are vastly more common in JSON documents, this increases performance considerably.</p>
+  </li>
+</ul>
+
+<h3 id="the-dom-parser">The DOM parser</h3>
+
+<p>Our old implementation of <code>parser</code> was pretty wasteful. It stored state information (such as whether we were parsing an object or array), keys, and values, all on one stack. This proved to be quite a pain when it came to unwinding it and also required us to align the stack when pushing arrays and objects.</p>
+
+<p>Several months ago, Vinnie and I tried to figure out how to make the homogeneous but came to a dead end. I decided to revisit the idea, and after some experimentation, it became apparent that there was a <em>lot</em> of redundancy in the implementation. For example, <code>basic_parser</code> already keeps track of the current object/array/string/key size, so there is no reason to so within <code>parser</code>. The state information we were tracking was also not needed – <code>basic_parser</code> already checks the syntactic correctness of the input. That left one more thing: strings and keys.</p>
+
+<p>My rudimentary implementation required two stacks: one for keys and strings, and the other for values. Other information, such as the sizes of objects and arrays, were obtained from <code>basic_parser</code>. My implementation, though primitive, gave some promising results on the benchmarks: up to 10% for certain documents. After some brainstorming with Vinnie, he had the idea of storing object keys as values; the last piece of the puzzle we needed to make this thing work.</p>
+
+<p>His fleshed-out implementation was even faster. In just a week’s time, Boost.JSON’s performance increased by some 15%. I’m still working on the finishing touches, but the results are looking promising.</p>
+
+<h2 id="more-utf-8-validation-malarkey">More UTF-8 validation malarkey</h2>
+
+<p>Out of all the things I’ve worked on, nothing has proved as frustrating as UTF-8 validation. The validation itself is trivial; but making it work with an incremental parser is remarkably difficult. Shortly after merging the feature, <a href="https://github.com/CPPAlliance/json/issues/162">an issue was opened</a>; while validation worked just fine when a document was parsed without suspending, I neglected to write tests for incremental parsing, and that’s precisely where the bug was. Turns out, if parsing suspended while validating a UTF-8 byte sequence, the handler just would not be called.</p>
+
+<p>This was… quite a problem to say the least, and required me to reimplement UTF-8 validation from scratch – but with a twist. We don’t want to pass partial UTF-8 sequences because it just transfers the burden of assembling incomplete sequences to the handler. This means that we need to store the sequences, append to them until we get a complete codepoint, and only then can we validate and send it off to the handler. Doing this in an efficient manner proved to be quite challenging, so I ended up with a “fix” that was 50% code and 50% <code>// KRYSTIAN TODO: this can be optimized</code>. The tests provided in the issue finally passed, so the patch was merged.</p>
+
+<p>I thought my woes with validation were over, but I was wrong. Just over a week later, a new issue rolled in:</p>
+
+<p><a href="https://github.com/CPPAlliance/json/issues/162">Handler not invoked correctly in multi-byte UTF8 sequences, part 2</a></p>
+
+<p>Luckily, fixing this didn’t require another rewrite. This taught me a fine lesson in exhaustive testing.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

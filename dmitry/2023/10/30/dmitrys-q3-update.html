@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dmitry's Q3 2023 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Dmitry’s Q3 2023 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Dmitry’s Q3 2023 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In the third quarter my work was mostly focused on improvements to JSON’s conversion features. In Boost.JSON conversion between user types and library containers is done with value_to and value_from functions. Conversions of composite types are attempted recursively. The library provides conversions for several common groups of types, including sequences, associative containers, tuples, numbers, and strings. Users also have the option to implement conversion for other types. The function value_to can fail at runtime, when the structure of JSON value differs from the one expected by conversion implementation. The function can report those errors in two separate ways: exceptions and error codes. This is not only expressed in the front-end—available overloads for value_to—but is also supported on the back-end. In other words, users can report errors from their conversions using either exceptions or error codes. And the library turns error codes into exceptions if on the front-end exceptions were requested, and even attempts the opposite conversion where possible. There was a problem though, when on the front-end exceptions were requested, and conversion of the deepest types are using exceptions too, but higher up errors are reported via error codes, there is a likelihood that the exception will be swallowed, and then a non-discriminate “some error has occurred” exception will be thrown instead. In order to fix this, I implemented a mechanism that communicates user’s choice of error reporting to the back-end. Another change to the value_to/from functions was the addition of is_optional_like and is_variant_like traits. They determine if a type can be classified as optional or variant correspondingly. Previously the library explicitly handled std::optional and std::variant, and support for boost::variant2::variant was provided in its own library. With these new traits all types that are sufficiently close to the standard optional and variant are handled. In the case of optional it has an additional benefit: conversion for described classes does not treat missing members as an error, if their types are optionals. But the biggest amount of time was spent on the new feature: direct parsing. Even during the Boost review of Boost.JSON some people have complained that they would prefer to avoid going through JSON containers entirely and parse directly into their types. This is now possible with the function parse_into. Benchmarks also show that it can potentially double the performance. The design and most of implementation was provided by Peter Dimov a while ago. So, I mostly only had to refactor it to reduce code duplication, and change behaviour of some functions, so that the result is to that of value_to/from. I also added an implementation for optionals, and provided a different implementation for variants. That last one deserves some explanation. Back when we were discussing different ways to convert to and from variants, we chose a seamless approach, where the variant itself doesn’t add anything to representation, but its current alternative is represented directly. This is what most JSON files use in practice, but it does complicate conversion back from JSON into variant. value_to attempts conversions for each alternative and picks the first one which succeeds. This approach is not immediately possible for direct parsing, though, as the choice of alternative has to be made before the full source of the value is available. Peter’s solution was to only support variants for which it was easy to discriminate between alternatives. This does eliminate whole classes of JSON documents, though, in which variants of very similar alternatives (usually objects) are used. So, I’ve dealt with variants differently: the implementation instead records parser events and replays them for the next alternative if the current one fails. That approach has a consequence: for variants we need to dynamically allocate and keep a sequence of events. This can potentially eliminate all performance benefits, if the variant is the topmost container. To mitigate this I also implemented a way to limit the amount of parser events variant conversion can replay. For some variants a fairly small limit would be enough and completely eliminate the need for additional allocations. Ultimately, I decided not to merge that customisation, and wait for user feedback. Finally, there was one notable change to Boost.JSON unrelated to conversion. Different C++ implementations disagreed whether value jv{ value() } copy-constructs jv or uses construction from initializer_list. This resulted in code that behaves differently for different implementations. Unfortunately we couldn’t fix it on our end, this is just a discrepancy between how implementations treat this syntax. But eventually I came to realisation that it can be handled explicitly to be a copy by the initializer_list constructor. The constructor now treats initializer_lists of size 1 as an attempt to copy. If you do want an array of size 1, you can use value jv{ array{x} }." />
+<meta property="og:description" content="In the third quarter my work was mostly focused on improvements to JSON’s conversion features. In Boost.JSON conversion between user types and library containers is done with value_to and value_from functions. Conversions of composite types are attempted recursively. The library provides conversions for several common groups of types, including sequences, associative containers, tuples, numbers, and strings. Users also have the option to implement conversion for other types. The function value_to can fail at runtime, when the structure of JSON value differs from the one expected by conversion implementation. The function can report those errors in two separate ways: exceptions and error codes. This is not only expressed in the front-end—available overloads for value_to—but is also supported on the back-end. In other words, users can report errors from their conversions using either exceptions or error codes. And the library turns error codes into exceptions if on the front-end exceptions were requested, and even attempts the opposite conversion where possible. There was a problem though, when on the front-end exceptions were requested, and conversion of the deepest types are using exceptions too, but higher up errors are reported via error codes, there is a likelihood that the exception will be swallowed, and then a non-discriminate “some error has occurred” exception will be thrown instead. In order to fix this, I implemented a mechanism that communicates user’s choice of error reporting to the back-end. Another change to the value_to/from functions was the addition of is_optional_like and is_variant_like traits. They determine if a type can be classified as optional or variant correspondingly. Previously the library explicitly handled std::optional and std::variant, and support for boost::variant2::variant was provided in its own library. With these new traits all types that are sufficiently close to the standard optional and variant are handled. In the case of optional it has an additional benefit: conversion for described classes does not treat missing members as an error, if their types are optionals. But the biggest amount of time was spent on the new feature: direct parsing. Even during the Boost review of Boost.JSON some people have complained that they would prefer to avoid going through JSON containers entirely and parse directly into their types. This is now possible with the function parse_into. Benchmarks also show that it can potentially double the performance. The design and most of implementation was provided by Peter Dimov a while ago. So, I mostly only had to refactor it to reduce code duplication, and change behaviour of some functions, so that the result is to that of value_to/from. I also added an implementation for optionals, and provided a different implementation for variants. That last one deserves some explanation. Back when we were discussing different ways to convert to and from variants, we chose a seamless approach, where the variant itself doesn’t add anything to representation, but its current alternative is represented directly. This is what most JSON files use in practice, but it does complicate conversion back from JSON into variant. value_to attempts conversions for each alternative and picks the first one which succeeds. This approach is not immediately possible for direct parsing, though, as the choice of alternative has to be made before the full source of the value is available. Peter’s solution was to only support variants for which it was easy to discriminate between alternatives. This does eliminate whole classes of JSON documents, though, in which variants of very similar alternatives (usually objects) are used. So, I’ve dealt with variants differently: the implementation instead records parser events and replays them for the next alternative if the current one fails. That approach has a consequence: for variants we need to dynamically allocate and keep a sequence of events. This can potentially eliminate all performance benefits, if the variant is the topmost container. To mitigate this I also implemented a way to limit the amount of parser events variant conversion can replay. For some variants a fairly small limit would be enough and completely eliminate the need for additional allocations. Ultimately, I decided not to merge that customisation, and wait for user feedback. Finally, there was one notable change to Boost.JSON unrelated to conversion. Different C++ implementations disagreed whether value jv{ value() } copy-constructs jv or uses construction from initializer_list. This resulted in code that behaves differently for different implementations. Unfortunately we couldn’t fix it on our end, this is just a discrepancy between how implementations treat this syntax. But eventually I came to realisation that it can be handled explicitly to be a copy by the initializer_list constructor. The constructor now treats initializer_lists of size 1 as an attempt to copy. If you do want an array of size 1, you can use value jv{ array{x} }." />
+<link rel="canonical" href="http://cppalliance.org/dmitry/2023/10/30/dmitrys-q3-update.html" />
+<meta property="og:url" content="http://cppalliance.org/dmitry/2023/10/30/dmitrys-q3-update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-10-30T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Dmitry’s Q3 2023 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In the third quarter my work was mostly focused on improvements to JSON’s conversion features. In Boost.JSON conversion between user types and library containers is done with value_to and value_from functions. Conversions of composite types are attempted recursively. The library provides conversions for several common groups of types, including sequences, associative containers, tuples, numbers, and strings. Users also have the option to implement conversion for other types. The function value_to can fail at runtime, when the structure of JSON value differs from the one expected by conversion implementation. The function can report those errors in two separate ways: exceptions and error codes. This is not only expressed in the front-end—available overloads for value_to—but is also supported on the back-end. In other words, users can report errors from their conversions using either exceptions or error codes. And the library turns error codes into exceptions if on the front-end exceptions were requested, and even attempts the opposite conversion where possible. There was a problem though, when on the front-end exceptions were requested, and conversion of the deepest types are using exceptions too, but higher up errors are reported via error codes, there is a likelihood that the exception will be swallowed, and then a non-discriminate “some error has occurred” exception will be thrown instead. In order to fix this, I implemented a mechanism that communicates user’s choice of error reporting to the back-end. Another change to the value_to/from functions was the addition of is_optional_like and is_variant_like traits. They determine if a type can be classified as optional or variant correspondingly. Previously the library explicitly handled std::optional and std::variant, and support for boost::variant2::variant was provided in its own library. With these new traits all types that are sufficiently close to the standard optional and variant are handled. In the case of optional it has an additional benefit: conversion for described classes does not treat missing members as an error, if their types are optionals. But the biggest amount of time was spent on the new feature: direct parsing. Even during the Boost review of Boost.JSON some people have complained that they would prefer to avoid going through JSON containers entirely and parse directly into their types. This is now possible with the function parse_into. Benchmarks also show that it can potentially double the performance. The design and most of implementation was provided by Peter Dimov a while ago. So, I mostly only had to refactor it to reduce code duplication, and change behaviour of some functions, so that the result is to that of value_to/from. I also added an implementation for optionals, and provided a different implementation for variants. That last one deserves some explanation. Back when we were discussing different ways to convert to and from variants, we chose a seamless approach, where the variant itself doesn’t add anything to representation, but its current alternative is represented directly. This is what most JSON files use in practice, but it does complicate conversion back from JSON into variant. value_to attempts conversions for each alternative and picks the first one which succeeds. This approach is not immediately possible for direct parsing, though, as the choice of alternative has to be made before the full source of the value is available. Peter’s solution was to only support variants for which it was easy to discriminate between alternatives. This does eliminate whole classes of JSON documents, though, in which variants of very similar alternatives (usually objects) are used. So, I’ve dealt with variants differently: the implementation instead records parser events and replays them for the next alternative if the current one fails. That approach has a consequence: for variants we need to dynamically allocate and keep a sequence of events. This can potentially eliminate all performance benefits, if the variant is the topmost container. To mitigate this I also implemented a way to limit the amount of parser events variant conversion can replay. For some variants a fairly small limit would be enough and completely eliminate the need for additional allocations. Ultimately, I decided not to merge that customisation, and wait for user feedback. Finally, there was one notable change to Boost.JSON unrelated to conversion. Different C++ implementations disagreed whether value jv{ value() } copy-constructs jv or uses construction from initializer_list. This resulted in code that behaves differently for different implementations. Unfortunately we couldn’t fix it on our end, this is just a discrepancy between how implementations treat this syntax. But eventually I came to realisation that it can be handled explicitly to be a copy by the initializer_list constructor. The constructor now treats initializer_lists of size 1 as an attempt to copy. If you do want an array of size 1, you can use value jv{ array{x} }.","@type":"BlogPosting","url":"http://cppalliance.org/dmitry/2023/10/30/dmitrys-q3-update.html","headline":"Dmitry’s Q3 2023 Update","dateModified":"2023-10-30T00:00:00+00:00","datePublished":"2023-10-30T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/dmitry/2023/10/30/dmitrys-q3-update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Dmitry's Q3 2023 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/dmitry">
+                  Dmitry Arkhipov
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 30, 2023</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In the third quarter my work was mostly focused on improvements to JSON’s
+conversion features. In Boost.JSON conversion between user types and library
+containers is done with <code>value_to</code> and <code>value_from</code> functions. Conversions of
+composite types are attempted recursively. The library provides conversions for
+several common groups of types, including sequences, associative containers,
+tuples, numbers, and strings. Users also have the option to implement
+conversion for other types. The function <code>value_to</code> can fail at runtime, when
+the structure of JSON value differs from the one expected by conversion
+implementation. The function can report those errors in two separate ways:
+exceptions and error codes. This is not only expressed in the
+front-end—available overloads for <code>value_to</code>—but is also supported on the
+back-end. In other words, users can report errors from their conversions using
+either exceptions or error codes. And the library turns error codes into
+exceptions if on the front-end exceptions were requested, and even attempts the
+opposite conversion where possible.</p>
+
+<p>There was a problem though, when on the front-end exceptions were requested,
+and conversion of the deepest types are using exceptions too, but higher up
+errors are reported via error codes, there is a likelihood that the exception
+will be swallowed, and then a non-discriminate “some error has occurred”
+exception will be thrown instead. In order to fix this, I implemented a
+mechanism that communicates user’s choice of error reporting to the back-end.</p>
+
+<p>Another change to the <code>value_to/from</code> functions was the addition of
+<code>is_optional_like</code> and <code>is_variant_like</code> traits. They determine if a type can
+be classified as optional or variant correspondingly. Previously the library
+explicitly handled <code>std::optional</code> and <code>std::variant</code>, and
+support for <code>boost::variant2::variant</code> was provided in its own library. With
+these new traits all types that are sufficiently close to the standard optional
+and variant are handled. In the case of optional it has an additional benefit:
+conversion for described classes does not treat missing members as an error, if
+their types are optionals.</p>
+
+<p>But the biggest amount of time was spent on the new feature: direct parsing.
+Even during the Boost review of Boost.JSON some people have complained that
+they would prefer to avoid going through JSON containers entirely and parse
+directly into their types. This is now possible with the function <code>parse_into</code>.
+Benchmarks also show that it can potentially double the performance. The design
+and most of implementation was provided by Peter Dimov a while ago. So,
+I mostly only had to refactor it to reduce code duplication, and change
+behaviour of some functions, so that the result is to that of <code>value_to/from</code>.
+I also added an implementation for optionals, and provided a different
+implementation for variants.</p>
+
+<p>That last one deserves some explanation. Back when we were discussing different
+ways to convert to and from variants, we chose a seamless approach, where the
+variant itself doesn’t add anything to representation, but its current
+alternative is represented directly. This is what most JSON files use in
+practice, but it does complicate conversion back from JSON into variant.
+<code>value_to</code> attempts conversions for each alternative and picks the first one
+which succeeds. This approach is not immediately possible for direct parsing,
+though, as the choice of alternative has to be made before the full source of
+the value is available. Peter’s solution was to only support variants for
+which it was easy to discriminate between alternatives. This does eliminate
+whole classes of JSON documents, though, in which variants of very similar
+alternatives (usually objects) are used. So, I’ve dealt with variants
+differently: the implementation instead records parser events and replays them
+for the next alternative if the current one fails.</p>
+
+<p>That approach has a consequence: for variants we need to dynamically allocate
+and keep a sequence of events. This can potentially eliminate all performance
+benefits, if the variant is the topmost container. To mitigate this I also
+implemented a way to limit the amount of parser events variant conversion can
+replay. For some variants a fairly small limit would be enough and completely
+eliminate the need for additional allocations. Ultimately, I decided not to
+merge that customisation, and wait for user feedback.</p>
+
+<p>Finally, there was one notable change to Boost.JSON unrelated to conversion.
+Different C++ implementations disagreed whether <code>value jv{ value() }</code>
+copy-constructs <code>jv</code> or uses construction from <code>initializer_list</code>. This
+resulted in code that behaves differently for different implementations.
+Unfortunately we couldn’t fix it on our end, this is just a discrepancy between
+how implementations treat this syntax. But eventually I came to realisation
+that it can be handled explicitly to be a copy by the <code>initializer_list</code>
+constructor. The constructor now treats <code>initializer_list</code>s of size 1 as an
+attempt to copy. If you do want an array of size 1, you can use <code>value jv{
+array{x} }</code>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/16/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/10/16/dmitrys-q3-update.html">Conan Packages for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/04/22/dmitrys-q1-update.html">Some Thoughts on Documentation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/10/25/dmitrys-q3-update.html">How to Get More Utility from the Debugger in CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/07/12/dmitrys-q2-update.html">Dmitry's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/29/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/04/29/dmitrys-q1-update.html">Dmitry's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/01/12/dmitrys-q4-update.html">Dmitry's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/30/2023</span>
+          <a class='text-l news-title link' href="/dmitry/2023/10/30/dmitrys-q3-update.html">Dmitry's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/15/2021</span>
+          <a class='text-l news-title link' href="/dmitry/2021/02/15/dmitrys-january-update.html">Dmitry's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

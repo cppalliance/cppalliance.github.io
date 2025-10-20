@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's January Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s January Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s January Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A year in the C++ Alliance January marks one year since I joined the C++ Alliance and started maintaining the Boost.Beast library. It’s a pleasure to work with interesting and fun people who are passionate about writing C++, and in particular good C++. During the past year I have spent some time attending ISO WG21 meetings online as an alternate representative of the C++ Alliance. Prior to joining the organisation, during my life as a developer I always felt that the standards committee did the developer community a disservice. Without knowing much about the inner workings, it seemed to me that the committee lived in an Ivory Tower. So my intention was to see if there was a way to bring something useful to the table as a keen a prolific writer of C++ in the financial sector. In particular I had a personal interest in the standardisation of asynchronous networking, forked from the wonderful Asio library. I ended the year feeling no less jaded with the entire standards process, concluding that there is not much I can do to help. I feel it’s important to say that the committee is attended by very bright, passionate people who clearly enjoy the C++ language as much as I do. What I think does not work, at least from the point of view of delivering useful progress, is the process of committee itself. During my commercial life there has been one fundamental truth, which is that things go well when there is focus of attention and the taking of personal responsibility. It seems to me that committees in general undermine these important fundamentals. The upshot of this is that in my mind, C++ developers are not going to get the tools they need, in the timescales they need, if they wait for the slow grind of WG21’s wheels of stone. It is to me noteworthy that many of the libraries I actually use (fmt, spdlog, boost, jwt, openssl, and so on) have been in some way standardised or are in the process of being standardised, but always in a lesser form than the original, created by a small, passionate team of individuals who enjoyed autonomy and freedom of design. Even now, if a feature is available in the standard and as a 3rd party library, I will almost always choose the third party version. It will generally have more features and a design undamaged by a process that externalises costs. Which brings me back to my old C++ mantra, proven true for me over the past 15 years or so, Boost is the Standard. Having said this, I must in fairness mention the wonderful fmtlib and spdlog libraries, and the gargantuan Qt, without which a back-end developer like me would never be able to get anything to display on a screen in a cross- platform manner. In the end I find myself in the same place I was a year ago: My view is that the only thing C++ needs is a credible dependency management tool. Given that, the developer community will produce and distribute all needed libraries, and the most popular will naturally become the standard ones. The Year Ahead Therefore, it is my intention this year to do what I can to bring more utility to the Boost ecosystem, where one person can make a useful impact on the lives of developers, and taking personal responsibility for libraries is the norm. The Big Three It is my view that there are a number of areas where common use cases have not been well served in Boost. These are of course JSON, Databases and HTTP clients. JSON At the end of 2020, Vinnie and the team finally brought a very credible JSON library to Boost, which I have used to write some cryptocurrency exchange connectors. On the whole, it’s proven to be a very pleasant and intuitive API. In particular the methods to simultaneously query the presence of a value and return a pointer on success with if_contains, if_string etc. have seen a lot of use and result in code that is readable and neat. Currently, Boost.JSON favours performance over accuracy with respect to parsing floating point numbers (sometimes a number is 1 ULP different to that which you’d expect from std::strtod). I had a little look to see if there was a way to address this easily. It transpired not. Parsing decimal representations of floating point numbers into a binary representation that will round-trip correctly is a hard problem, and beyond my level of mathematical skill. There is currently work underway to address this in the JSON repo. There is also work in progress to provide JSON-pointer lookups. This will be a welcome addition as it will mean I can throw away my jury-rigged “path” code and use something robust. MySQL A very common database in use in the web world is of course MySQL. I have always found the official connectors somewhat uninteresting, particularly as there is no asynchronous connector compatible with Asio. That was until a certain Rubén Pérez decided to write an asio-compatible mysql connector from scratch, using none of the code in the Oracle connector. Rubén has started the arduous journey of getting his library ready for Boost review. I have been asked to be the review manager for this work, something I am happy to do as, whether or not the admission is ultimately accepted, I think the general principle of producing simple, self-contained libraries that meet a common requirement is to be encouraged. If this library is successful, I would hope that others will rise to the challenge and provide native connectors for other common database systems. HTTP Client I mentioned in an earlier blog that an HTTP Client with a similar interface to Python’s Requests library woudl be worked on. As it happens, other priorities took over last year. This year I will be focussing efforts on getting this library in shape for a proof of concept. I mean Big Four Redis is ubiquitous in server environments. A quick search for Redis C++ clients turned up this little gem. I’d like to find time to give this a try at some point." />
+<meta property="og:description" content="A year in the C++ Alliance January marks one year since I joined the C++ Alliance and started maintaining the Boost.Beast library. It’s a pleasure to work with interesting and fun people who are passionate about writing C++, and in particular good C++. During the past year I have spent some time attending ISO WG21 meetings online as an alternate representative of the C++ Alliance. Prior to joining the organisation, during my life as a developer I always felt that the standards committee did the developer community a disservice. Without knowing much about the inner workings, it seemed to me that the committee lived in an Ivory Tower. So my intention was to see if there was a way to bring something useful to the table as a keen a prolific writer of C++ in the financial sector. In particular I had a personal interest in the standardisation of asynchronous networking, forked from the wonderful Asio library. I ended the year feeling no less jaded with the entire standards process, concluding that there is not much I can do to help. I feel it’s important to say that the committee is attended by very bright, passionate people who clearly enjoy the C++ language as much as I do. What I think does not work, at least from the point of view of delivering useful progress, is the process of committee itself. During my commercial life there has been one fundamental truth, which is that things go well when there is focus of attention and the taking of personal responsibility. It seems to me that committees in general undermine these important fundamentals. The upshot of this is that in my mind, C++ developers are not going to get the tools they need, in the timescales they need, if they wait for the slow grind of WG21’s wheels of stone. It is to me noteworthy that many of the libraries I actually use (fmt, spdlog, boost, jwt, openssl, and so on) have been in some way standardised or are in the process of being standardised, but always in a lesser form than the original, created by a small, passionate team of individuals who enjoyed autonomy and freedom of design. Even now, if a feature is available in the standard and as a 3rd party library, I will almost always choose the third party version. It will generally have more features and a design undamaged by a process that externalises costs. Which brings me back to my old C++ mantra, proven true for me over the past 15 years or so, Boost is the Standard. Having said this, I must in fairness mention the wonderful fmtlib and spdlog libraries, and the gargantuan Qt, without which a back-end developer like me would never be able to get anything to display on a screen in a cross- platform manner. In the end I find myself in the same place I was a year ago: My view is that the only thing C++ needs is a credible dependency management tool. Given that, the developer community will produce and distribute all needed libraries, and the most popular will naturally become the standard ones. The Year Ahead Therefore, it is my intention this year to do what I can to bring more utility to the Boost ecosystem, where one person can make a useful impact on the lives of developers, and taking personal responsibility for libraries is the norm. The Big Three It is my view that there are a number of areas where common use cases have not been well served in Boost. These are of course JSON, Databases and HTTP clients. JSON At the end of 2020, Vinnie and the team finally brought a very credible JSON library to Boost, which I have used to write some cryptocurrency exchange connectors. On the whole, it’s proven to be a very pleasant and intuitive API. In particular the methods to simultaneously query the presence of a value and return a pointer on success with if_contains, if_string etc. have seen a lot of use and result in code that is readable and neat. Currently, Boost.JSON favours performance over accuracy with respect to parsing floating point numbers (sometimes a number is 1 ULP different to that which you’d expect from std::strtod). I had a little look to see if there was a way to address this easily. It transpired not. Parsing decimal representations of floating point numbers into a binary representation that will round-trip correctly is a hard problem, and beyond my level of mathematical skill. There is currently work underway to address this in the JSON repo. There is also work in progress to provide JSON-pointer lookups. This will be a welcome addition as it will mean I can throw away my jury-rigged “path” code and use something robust. MySQL A very common database in use in the web world is of course MySQL. I have always found the official connectors somewhat uninteresting, particularly as there is no asynchronous connector compatible with Asio. That was until a certain Rubén Pérez decided to write an asio-compatible mysql connector from scratch, using none of the code in the Oracle connector. Rubén has started the arduous journey of getting his library ready for Boost review. I have been asked to be the review manager for this work, something I am happy to do as, whether or not the admission is ultimately accepted, I think the general principle of producing simple, self-contained libraries that meet a common requirement is to be encouraged. If this library is successful, I would hope that others will rise to the challenge and provide native connectors for other common database systems. HTTP Client I mentioned in an earlier blog that an HTTP Client with a similar interface to Python’s Requests library woudl be worked on. As it happens, other priorities took over last year. This year I will be focussing efforts on getting this library in shape for a proof of concept. I mean Big Four Redis is ubiquitous in server environments. A quick search for Redis C++ clients turned up this little gem. I’d like to find time to give this a try at some point." />
+<link rel="canonical" href="http://cppalliance.org/richard/2021/01/31/RichardsJanuaryUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2021/01/31/RichardsJanuaryUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-01-31T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s January Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"A year in the C++ Alliance January marks one year since I joined the C++ Alliance and started maintaining the Boost.Beast library. It’s a pleasure to work with interesting and fun people who are passionate about writing C++, and in particular good C++. During the past year I have spent some time attending ISO WG21 meetings online as an alternate representative of the C++ Alliance. Prior to joining the organisation, during my life as a developer I always felt that the standards committee did the developer community a disservice. Without knowing much about the inner workings, it seemed to me that the committee lived in an Ivory Tower. So my intention was to see if there was a way to bring something useful to the table as a keen a prolific writer of C++ in the financial sector. In particular I had a personal interest in the standardisation of asynchronous networking, forked from the wonderful Asio library. I ended the year feeling no less jaded with the entire standards process, concluding that there is not much I can do to help. I feel it’s important to say that the committee is attended by very bright, passionate people who clearly enjoy the C++ language as much as I do. What I think does not work, at least from the point of view of delivering useful progress, is the process of committee itself. During my commercial life there has been one fundamental truth, which is that things go well when there is focus of attention and the taking of personal responsibility. It seems to me that committees in general undermine these important fundamentals. The upshot of this is that in my mind, C++ developers are not going to get the tools they need, in the timescales they need, if they wait for the slow grind of WG21’s wheels of stone. It is to me noteworthy that many of the libraries I actually use (fmt, spdlog, boost, jwt, openssl, and so on) have been in some way standardised or are in the process of being standardised, but always in a lesser form than the original, created by a small, passionate team of individuals who enjoyed autonomy and freedom of design. Even now, if a feature is available in the standard and as a 3rd party library, I will almost always choose the third party version. It will generally have more features and a design undamaged by a process that externalises costs. Which brings me back to my old C++ mantra, proven true for me over the past 15 years or so, Boost is the Standard. Having said this, I must in fairness mention the wonderful fmtlib and spdlog libraries, and the gargantuan Qt, without which a back-end developer like me would never be able to get anything to display on a screen in a cross- platform manner. In the end I find myself in the same place I was a year ago: My view is that the only thing C++ needs is a credible dependency management tool. Given that, the developer community will produce and distribute all needed libraries, and the most popular will naturally become the standard ones. The Year Ahead Therefore, it is my intention this year to do what I can to bring more utility to the Boost ecosystem, where one person can make a useful impact on the lives of developers, and taking personal responsibility for libraries is the norm. The Big Three It is my view that there are a number of areas where common use cases have not been well served in Boost. These are of course JSON, Databases and HTTP clients. JSON At the end of 2020, Vinnie and the team finally brought a very credible JSON library to Boost, which I have used to write some cryptocurrency exchange connectors. On the whole, it’s proven to be a very pleasant and intuitive API. In particular the methods to simultaneously query the presence of a value and return a pointer on success with if_contains, if_string etc. have seen a lot of use and result in code that is readable and neat. Currently, Boost.JSON favours performance over accuracy with respect to parsing floating point numbers (sometimes a number is 1 ULP different to that which you’d expect from std::strtod). I had a little look to see if there was a way to address this easily. It transpired not. Parsing decimal representations of floating point numbers into a binary representation that will round-trip correctly is a hard problem, and beyond my level of mathematical skill. There is currently work underway to address this in the JSON repo. There is also work in progress to provide JSON-pointer lookups. This will be a welcome addition as it will mean I can throw away my jury-rigged “path” code and use something robust. MySQL A very common database in use in the web world is of course MySQL. I have always found the official connectors somewhat uninteresting, particularly as there is no asynchronous connector compatible with Asio. That was until a certain Rubén Pérez decided to write an asio-compatible mysql connector from scratch, using none of the code in the Oracle connector. Rubén has started the arduous journey of getting his library ready for Boost review. I have been asked to be the review manager for this work, something I am happy to do as, whether or not the admission is ultimately accepted, I think the general principle of producing simple, self-contained libraries that meet a common requirement is to be encouraged. If this library is successful, I would hope that others will rise to the challenge and provide native connectors for other common database systems. HTTP Client I mentioned in an earlier blog that an HTTP Client with a similar interface to Python’s Requests library woudl be worked on. As it happens, other priorities took over last year. This year I will be focussing efforts on getting this library in shape for a proof of concept. I mean Big Four Redis is ubiquitous in server environments. A quick search for Redis C++ clients turned up this little gem. I’d like to find time to give this a try at some point.","@type":"BlogPosting","url":"http://cppalliance.org/richard/2021/01/31/RichardsJanuaryUpdate.html","headline":"Richard’s January Update","dateModified":"2021-01-31T00:00:00+00:00","datePublished":"2021-01-31T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2021/01/31/RichardsJanuaryUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's January Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 31, 2021</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="a-year-in-the-c-alliance">A year in the C++ Alliance</h1>
+
+<p>January marks one year since I joined the C++ Alliance and started maintaining the Boost.Beast library.</p>
+
+<p>It’s a pleasure to work with interesting and fun people who are passionate about writing C++, and in particular good 
+C++.</p>
+
+<p>During the past year I have spent some time attending ISO WG21 meetings online as an alternate representative of the 
+C++ Alliance. Prior to joining the organisation, during my life as a developer I always felt that the standards 
+committee did the developer community a disservice. Without knowing much about the inner workings, it seemed to me that 
+the committee lived in an Ivory Tower. So my intention was to see if there was a way to bring something useful to the table 
+as a keen a prolific writer of C++ in the financial sector. In particular I had a personal interest in the 
+standardisation of asynchronous networking, forked from the wonderful Asio library.</p>
+
+<p>I ended the year feeling no less jaded with the entire standards process, concluding that there is not much I can do to 
+help.</p>
+
+<p>I feel it’s important to say that the committee is attended by very bright, passionate people who clearly enjoy the C++
+language as much as I do.</p>
+
+<p>What I think does not work, at least from the point of view of delivering useful progress, is the process of committee 
+itself. During my commercial life there has been one fundamental truth, which is that things go well when there is focus
+of attention and the taking of personal responsibility. It seems to me that committees in general undermine these
+important fundamentals. The upshot of this is that in my mind, C++ developers are not going to get the tools they need, 
+in the timescales they need, if they wait for the slow grind of WG21’s wheels of stone.</p>
+
+<p>It is to me noteworthy that many of the libraries I actually use (fmt, spdlog, boost, jwt, openssl, and so on) have been 
+in some way standardised or are in the process of being standardised, but always in a lesser form than the original, 
+created by a small, passionate team of individuals who enjoyed autonomy and freedom of design.</p>
+
+<p>Even now, if a feature is available in the standard and as a 3rd party library, I will almost always choose the third 
+party version. It will generally have more features and a design undamaged by a process that externalises costs.</p>
+
+<p>Which brings me back to my old C++ mantra, proven true for me over the past 15 years or so, <em>Boost is the 
+Standard</em>. Having said this, I must in fairness mention the wonderful fmtlib and spdlog libraries, and the gargantuan
+Qt, without which a back-end developer like me would never be able to get anything to display on a screen in a cross-
+platform manner.</p>
+
+<p>In the end I find myself in the same place I was a year ago: My view is that the only thing C++ needs is a credible 
+dependency management tool. Given that, the developer community will produce and distribute all needed libraries, and 
+the most popular will naturally become the standard ones.</p>
+
+<h1 id="the-year-ahead">The Year Ahead</h1>
+
+<p>Therefore, it is my intention this year to do what I can to bring more utility to the Boost ecosystem, where one 
+person can make a useful impact on the lives of developers, and taking personal responsibility for libraries is the 
+norm.</p>
+
+<h2 id="the-big-three">The Big Three</h2>
+
+<p>It is my view that there are a number of areas where common use cases have not been well served in Boost. These are of 
+course JSON, Databases and HTTP clients.</p>
+
+<h3 id="json">JSON</h3>
+
+<p>At the end of 2020, Vinnie and the team finally brought a very credible JSON library to Boost, which I have used to
+write some cryptocurrency exchange connectors. On the whole, it’s proven to be a very pleasant and 
+intuitive API. In particular the methods to simultaneously query the presence of a value and return a pointer on success
+with <code>if_contains</code>, <code>if_string</code> etc. have seen a lot of use and result in code that is readable and neat.</p>
+
+<p>Currently, Boost.JSON favours performance over accuracy with respect to parsing floating point numbers (sometimes a 
+number is 1 ULP different to that which you’d expect from <code>std::strtod</code>). I had a little look to see if there was 
+a way to address this easily. It transpired not. Parsing decimal representations of floating point numbers into a binary
+representation that will round-trip correctly is a hard problem, and beyond my level of mathematical skill. 
+There is currently work underway to address this in the JSON repo.</p>
+
+<p>There is also work in progress to provide JSON-pointer lookups. This will be a welcome addition as it will mean I can
+throw away my jury-rigged “path” code and use something robust.</p>
+
+<h3 id="mysql">MySQL</h3>
+
+<p>A very common database in use in the web world is of course MySQL. I have always found the official connectors somewhat
+uninteresting, particularly as there is no asynchronous connector compatible with Asio.</p>
+
+<p>That was until a certain Rubén Pérez decided to write an asio-compatible mysql connector from scratch, using 
+none of the code in the Oracle connector. Rubén has started the arduous journey of getting his 
+<a href="https://anarthal.github.io/boost-mysql/index.html">library</a> ready for Boost review.</p>
+
+<p>I have been asked to be the review manager for this work, something I am happy to do as, whether or not the admission is
+ultimately accepted, I think the general principle of producing simple, self-contained libraries that meet a 
+common requirement is to be encouraged.</p>
+
+<p>If this library is successful, I would hope that others will rise to the challenge and provide native connectors for
+other common database systems.</p>
+
+<h3 id="http-client">HTTP Client</h3>
+
+<p>I mentioned in an earlier blog that an HTTP Client with a similar interface to Python’s Requests library woudl be worked 
+on. As it happens, other priorities took over last year. This year I will be focussing efforts on getting this library 
+in shape for a proof of concept.</p>
+
+<h3 id="i-mean-big-four">I mean Big Four</h3>
+
+<p>Redis is ubiquitous in server environments. A quick search for Redis C++ clients turned up this 
+<a href="https://github.com/basiliscos/cpp-bredis">little gem</a>. I’d like to find time to give this a try at some point.</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

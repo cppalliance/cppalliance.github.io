@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Boost library proposal and a talk on how to make C++ ranges faster | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>New Boost library proposal and a talk on how to make C++ ranges faster | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="New Boost library proposal and a talk on how to make C++ ranges faster" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q1 2025, I’ve been working in the following areas: Candidate Boost Bloom Library During the entire quarter I’ve been working on a Boost proposal around Bloom filters: Repo: https://github.com/joaquintides/bloom Docs: https://master.bloom.cpp.al/ Class template boost::bloom::filter can be configured to implement a classical Bloom filter as well as variations discussed in the literature such as block filters, multiblock filters, and more. #include &lt;boost/bloom/filter.hpp&gt; #include &lt;cassert&gt; #include &lt;string&gt; int main() { // Bloom filter of strings with 5 bits set per insertion using filter = boost::bloom::filter&lt;std::string, 5&gt;; // create filter with a capacity of 1&#39;000&#39;000 **bits** filter f(1&#39;000&#39;000); // insert elements (they can&#39;t be erased, Bloom filters are insert-only) f.insert(&quot;hello&quot;); f.insert(&quot;Boost&quot;); //... // elements inserted are always correctly checked as such assert(f.may_contain(&quot;hello&quot;) == true); // elements not inserted may incorrectly be identified as such with a // false positive rate (FPR) which is a function of the array capacity, // the number of bits set per element and generally how the boost::bloom::filter // was specified if(f.may_contain(&quot;bye&quot;)) { // likely false //... } } The library is ready for official review, which I plan to ask for in April. Chris Mazakas is helping with a very useful vcpkg registry so that future reviewers can download and install candidate Boost.Bloom and dependencies with minimal hassle via vcpkg. Presentation at using std::cpp 2025 I prepared and presented the talk “Push is Faster” at the using std::cpp 2025 conference in Madrid, March 19-21: https://github.com/joaquintides/usingstdcpp2025 (The video of the talk will be publicly available in a few weeks.) We discussed push and pull paradigms for sequential data processing, why C++ ranges are not as fast as they could be, and an alternative design based on so-called transrangers. If feedback is positive, I may eventually grow the transrangers proof-of-concept library into a full-fledged proposal for Boost. Boost.Unordered Reviewed PR#299 from Chris Mazakas, a complete migration of Boost.Unordered documentation to Antora. The new docs are multi-page and generally much nicer looking. Great work, Chris! Retouched some aspects of the new Antora docs (PR#303) and filed some pending issues (#304). Boost promotion Posted a tweet publicizing Rubén Pérez’s work on module support for Boost. Provided support to Rob Beeston for the creation of a Boost.Unordered poster to be displayed at the upcoming WG21 meeting in Sofia, Bulgaria. Support to the community I’ve pre-reviewed Jean-Louis Leroy’s Boost.OpenMethod proposal. Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC). Asset transfer from the Boost Foundation to the C++ Alliance is still being negotiated, I hope all pending issues can be cleared up soon." />
+<meta property="og:description" content="During Q1 2025, I’ve been working in the following areas: Candidate Boost Bloom Library During the entire quarter I’ve been working on a Boost proposal around Bloom filters: Repo: https://github.com/joaquintides/bloom Docs: https://master.bloom.cpp.al/ Class template boost::bloom::filter can be configured to implement a classical Bloom filter as well as variations discussed in the literature such as block filters, multiblock filters, and more. #include &lt;boost/bloom/filter.hpp&gt; #include &lt;cassert&gt; #include &lt;string&gt; int main() { // Bloom filter of strings with 5 bits set per insertion using filter = boost::bloom::filter&lt;std::string, 5&gt;; // create filter with a capacity of 1&#39;000&#39;000 **bits** filter f(1&#39;000&#39;000); // insert elements (they can&#39;t be erased, Bloom filters are insert-only) f.insert(&quot;hello&quot;); f.insert(&quot;Boost&quot;); //... // elements inserted are always correctly checked as such assert(f.may_contain(&quot;hello&quot;) == true); // elements not inserted may incorrectly be identified as such with a // false positive rate (FPR) which is a function of the array capacity, // the number of bits set per element and generally how the boost::bloom::filter // was specified if(f.may_contain(&quot;bye&quot;)) { // likely false //... } } The library is ready for official review, which I plan to ask for in April. Chris Mazakas is helping with a very useful vcpkg registry so that future reviewers can download and install candidate Boost.Bloom and dependencies with minimal hassle via vcpkg. Presentation at using std::cpp 2025 I prepared and presented the talk “Push is Faster” at the using std::cpp 2025 conference in Madrid, March 19-21: https://github.com/joaquintides/usingstdcpp2025 (The video of the talk will be publicly available in a few weeks.) We discussed push and pull paradigms for sequential data processing, why C++ ranges are not as fast as they could be, and an alternative design based on so-called transrangers. If feedback is positive, I may eventually grow the transrangers proof-of-concept library into a full-fledged proposal for Boost. Boost.Unordered Reviewed PR#299 from Chris Mazakas, a complete migration of Boost.Unordered documentation to Antora. The new docs are multi-page and generally much nicer looking. Great work, Chris! Retouched some aspects of the new Antora docs (PR#303) and filed some pending issues (#304). Boost promotion Posted a tweet publicizing Rubén Pérez’s work on module support for Boost. Provided support to Rob Beeston for the creation of a Boost.Unordered poster to be displayed at the upcoming WG21 meeting in Sofia, Bulgaria. Support to the community I’ve pre-reviewed Jean-Louis Leroy’s Boost.OpenMethod proposal. Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC). Asset transfer from the Boost Foundation to the C++ Alliance is still being negotiated, I hope all pending issues can be cleared up soon." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2025/04/08/Joaquins2025Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2025/04/08/Joaquins2025Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-04-08T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="New Boost library proposal and a talk on how to make C++ ranges faster" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q1 2025, I’ve been working in the following areas: Candidate Boost Bloom Library During the entire quarter I’ve been working on a Boost proposal around Bloom filters: Repo: https://github.com/joaquintides/bloom Docs: https://master.bloom.cpp.al/ Class template boost::bloom::filter can be configured to implement a classical Bloom filter as well as variations discussed in the literature such as block filters, multiblock filters, and more. #include &lt;boost/bloom/filter.hpp&gt; #include &lt;cassert&gt; #include &lt;string&gt; int main() { // Bloom filter of strings with 5 bits set per insertion using filter = boost::bloom::filter&lt;std::string, 5&gt;; // create filter with a capacity of 1&#39;000&#39;000 **bits** filter f(1&#39;000&#39;000); // insert elements (they can&#39;t be erased, Bloom filters are insert-only) f.insert(&quot;hello&quot;); f.insert(&quot;Boost&quot;); //... // elements inserted are always correctly checked as such assert(f.may_contain(&quot;hello&quot;) == true); // elements not inserted may incorrectly be identified as such with a // false positive rate (FPR) which is a function of the array capacity, // the number of bits set per element and generally how the boost::bloom::filter // was specified if(f.may_contain(&quot;bye&quot;)) { // likely false //... } } The library is ready for official review, which I plan to ask for in April. Chris Mazakas is helping with a very useful vcpkg registry so that future reviewers can download and install candidate Boost.Bloom and dependencies with minimal hassle via vcpkg. Presentation at using std::cpp 2025 I prepared and presented the talk “Push is Faster” at the using std::cpp 2025 conference in Madrid, March 19-21: https://github.com/joaquintides/usingstdcpp2025 (The video of the talk will be publicly available in a few weeks.) We discussed push and pull paradigms for sequential data processing, why C++ ranges are not as fast as they could be, and an alternative design based on so-called transrangers. If feedback is positive, I may eventually grow the transrangers proof-of-concept library into a full-fledged proposal for Boost. Boost.Unordered Reviewed PR#299 from Chris Mazakas, a complete migration of Boost.Unordered documentation to Antora. The new docs are multi-page and generally much nicer looking. Great work, Chris! Retouched some aspects of the new Antora docs (PR#303) and filed some pending issues (#304). Boost promotion Posted a tweet publicizing Rubén Pérez’s work on module support for Boost. Provided support to Rob Beeston for the creation of a Boost.Unordered poster to be displayed at the upcoming WG21 meeting in Sofia, Bulgaria. Support to the community I’ve pre-reviewed Jean-Louis Leroy’s Boost.OpenMethod proposal. Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC). Asset transfer from the Boost Foundation to the C++ Alliance is still being negotiated, I hope all pending issues can be cleared up soon.","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2025/04/08/Joaquins2025Q1Update.html","headline":"New Boost library proposal and a talk on how to make C++ ranges faster","dateModified":"2025-04-08T00:00:00+00:00","datePublished":"2025-04-08T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2025/04/08/Joaquins2025Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>New Boost library proposal and a talk on how to make C++ ranges faster</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 8, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q1 2025, I’ve been working in the following areas:</p>
+
+<h3 id="candidate-boost-bloom-library">Candidate Boost Bloom Library</h3>
+
+<p>During the entire quarter I’ve been working on a Boost proposal around Bloom filters:</p>
+
+<ul>
+  <li>Repo: <a href="https://github.com/joaquintides/bloom">https://github.com/joaquintides/bloom</a></li>
+  <li>Docs: <a href="https://master.bloom.cpp.al/">https://master.bloom.cpp.al/</a></li>
+</ul>
+
+<p>Class template <code>boost::bloom::filter</code> can be configured to implement a classical Bloom filter
+as well as variations discussed in the literature such as block filters, multiblock filters, and more.</p>
+
+<pre><code class="language-cpp">#include &lt;boost/bloom/filter.hpp&gt;
+#include &lt;cassert&gt;
+#include &lt;string&gt;
+
+int main()
+{
+  // Bloom filter of strings with 5 bits set per insertion
+  using filter = boost::bloom::filter&lt;std::string, 5&gt;;
+
+  // create filter with a capacity of 1'000'000 **bits**
+  filter f(1'000'000);
+
+  // insert elements (they can't be erased, Bloom filters are insert-only)
+  f.insert("hello");
+  f.insert("Boost");
+  //...
+
+  // elements inserted are always correctly checked as such
+  assert(f.may_contain("hello") == true);
+
+  // elements not inserted may incorrectly be identified as such with a
+  // false positive rate (FPR) which is a function of the array capacity,
+  // the number of bits set per element and generally how the boost::bloom::filter
+  // was specified
+  if(f.may_contain("bye")) { // likely false
+    //...
+  }
+}
+</code></pre>
+<p>The library is ready for official review, which I plan to ask for in April. Chris Mazakas
+is helping with a very useful vcpkg registry so that future reviewers can
+download and install candidate Boost.Bloom and dependencies with minimal hassle via vcpkg.</p>
+
+<h3 id="presentation-at-using-stdcpp-2025">Presentation at using std::cpp 2025</h3>
+
+<p>I prepared and presented the talk “Push is Faster” at the using std::cpp 2025 conference
+in Madrid, March 19-21:</p>
+
+<p><a href="https://github.com/joaquintides/usingstdcpp2025">https://github.com/joaquintides/usingstdcpp2025</a></p>
+
+<p>(The video of the talk will be publicly available in a few weeks.) We discussed
+push and pull paradigms for sequential data processing, why C++ ranges are
+not as fast as they could be, and an alternative design based on so-called
+<a href="https://github.com/joaquintides/transrangers">transrangers</a>. If feedback is positive,
+I may eventually grow the transrangers proof-of-concept library into a full-fledged
+proposal for Boost.</p>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Reviewed <a href="https://github.com/boostorg/unordered/pull/299">PR#299</a> from Chris Mazakas,
+a complete migration of Boost.Unordered documentation to Antora. The new docs are multi-page
+and generally much nicer looking. Great work, Chris!</li>
+  <li>Retouched some aspects of the new Antora docs (<a href="https://github.com/boostorg/unordered/pull/303">PR#303</a>)
+and filed some pending issues (<a href="https://github.com/boostorg/unordered/issues/304">#304</a>).</li>
+</ul>
+
+<h3 id="boost-promotion">Boost promotion</h3>
+
+<ul>
+  <li>Posted a <a href="https://x.com/Boost_Libraries/status/1884899485186400442">tweet</a> publicizing
+Rubén Pérez’s work on module support for Boost.</li>
+  <li>Provided support to Rob Beeston for the creation of a Boost.Unordered poster to be
+displayed at the upcoming WG21 meeting in Sofia, Bulgaria.</li>
+</ul>
+
+<h3 id="support-to-the-community">Support to the community</h3>
+
+<ul>
+  <li>I’ve pre-reviewed Jean-Louis Leroy’s
+<a href="https://github.com/jll63/Boost.OpenMethod">Boost.OpenMethod</a> proposal.</li>
+  <li>Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC). Asset
+transfer from the Boost Foundation to the C++ Alliance is still being negotiated,
+I hope all pending issues can be cleared up soon.</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

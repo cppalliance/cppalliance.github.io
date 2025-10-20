@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Levelling up Boost.Redis | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Levelling up Boost.Redis | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Levelling up Boost.Redis" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="I’ve really come to appreciate Boost.Redis design. With only three asynchronous primitives it exposes all the power of Redis, with features like automatic pipelining that make it pretty unique. Boost.Redis 1.90 will ship with some new exciting features that I’ll cover in this post. Cancelling requests with asio::cancel_after Boost.Redis implements a number of reliability measures, including reconnection. Suppose that you attempt to execute a request using async_exec, but the Redis server can’t be contacted (for example, because of a temporary network error). Boost.Redis will try to re-establish the connection to the failed server, and async_exec will suspend until the server is healthy again. This is a great feature if the outage is transitory. But what would happen if the Redis server is permanently down - for example, because of deployment issue that must be manually solved? The user will see that async_exec never completes. If new requests continue to be issued, the program will end up consuming an unbound amount of resources. Starting with Boost 1.90, you can use asio::cancel_after to set a timeout to your requests, preventing this from happening: // Compose your request redis::request req; req.push(&quot;SET&quot;, &quot;my_key&quot;, 42); // If the request doesn&#39;t complete within 30s, consider it as failed co_await conn.async_exec(req, redis::ignore, asio::cancel_after(30s)); For this to work, async_exec must properly support per-operation cancellation. This is tricky because Boost.Redis allows executing several requests concurrently, which are merged into a single pipeline before being sent. For the above to useful, cancelling one request shouldn’t affect other requests. In Asio parlance, async_exec should support partial cancellation, at least. Cancelling a request that hasn’t been sent yet is trivial - you just remove it from the queue and call it a day. Cancelling requests that are in progress is more involved. We’ve solved this by using “tombstones”. If a response encounters a tombstone, it will get ignored. This way, cancelling async_exec has always an immediate effect, but the connection is kept in a well-defined state. Custom setup requests Redis talks the RESP3 protocol. But it’s not the only database system that speaks it. We’ve recently learnt that other systems, like Tarantool DB, are also capable of speaking RESP3. This means that Boost.Redis can be used to interact with these systems. At least in theory. In Boost 1.89, the library uses the HELLO command to upgrade to RESP3 (Redis’ default is using the less powerful RESP2). The command is issued as part of the reconnection loop, without user intervention. It happens that systems like Tarantool DB don’t support HELLO because they don’t speak RESP2 at all, so there is nothing to upgrade. This is part of a larger problem: users might want to run arbitrary commands when the connection is established, to perform setup tasks. This might include AUTH to provide credentials or SELECT to choose a database index. Until now, all you could do is configure the parameters used by the HELLO command. Starting with Boost 1.90, you can run arbitrary commands at connection startup: // At startup, don&#39;t send any HELLO, but set up authentication and select a database redis::request setup_request; setup_request.push(&quot;AUTH&quot;, &quot;my_user&quot;, &quot;my_password&quot;); setup_request.push(&quot;SELECT&quot;, 2); redis::config cfg { .use_setup = true, // use the custom setup request, rather than the default HELLO command .setup = std::move(setup_request), // will be run every time a connection is established }; conn.async_run(cfg, asio::detached); This opens the door simplifying code using PubSub. At the moment, such code needs to issue a SUBSCRIBE command every time a reconnection happens, which implies some tricks around async_receive. With this feature, you can just add a SUBSCRIBE command to your setup request and forget. This will be further explored in the next months, since async_receive is currently aware of reconnections, so it might need some extra changes to see real benefits. Valkey support Valkey is a fork from Redis v7.3. At the time of writing, both databases are mostly interoperable in terms of protocol features, but they are being developed separately (as happened with MySQL and MariaDB). In Boost.Redis we’ve committed to supporting both long-term (at the moment, by deploying CI builds to test both). Race-free cancellation It is very easy to introduce race conditions in cancellation with Asio. Consider the following code, which is typical in libraries that predate per-operation cancellation: struct connection { asio::ip::tcp::socket sock; std::string buffer; struct echo_op { connection* obj; asio::coroutine coro{}; template &lt;class Self&gt; void operator()(Self&amp; self, error_code ec = {}, std::size_t = {}) { BOOST_ASIO_CORO_REENTER(coro) { while (true) { // Read from the socket BOOST_ASIO_CORO_YIELD asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), &quot;\n&quot;, std::move(self)); // Check for errors if (ec) self.complete(ec); // Write back BOOST_ASIO_CORO_YIELD asio::async_write(obj-&gt;sock, asio::buffer(obj-&gt;buffer), std::move(self)); // Done self.complete(ec); } } } }; template &lt;class CompletionToken&gt; auto async_echo(CompletionToken&amp;&amp; token) { return asio::async_compose&lt;CompletionToken, void(error_code)&gt;(echo_op{this}, token, sock); } void cancel() { sock.cancel(); } }; There is a race condition here. cancel() may actually not cancel a running async_echo. After a read or write completes, the respective handler may not be called immediately, but queued for execution. If cancel() is called within that time frame, the cancellation will be ignored. The proper way to handle this is using per-operation cancellation, rather than a cancel() method. async_compose knows about this problem and keeps state about received cancellations, so you can write: // Read from the socket BOOST_ASIO_CORO_YIELD asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), &quot;\n&quot;, std::move(self)); // Check for errors if (ec) self.complete(ec); // Check for cancellations if (!!(self.get_cancellation_state().cancelled() &amp; asio::cancellation_type_t::terminal)) self.complete(asio::error::operation_aborted); In 1.90, the library uses this approach everywhere, so cancellation is reliable. Keeping the cancel() method is a challenge, as it involves re-wiring cancellation slots, so I won’t show it here - but we’ve managed to do it. Next steps I’ve got plans to keep working on Boost.Redis for a time. You can expect more features in 1.91, like Sentinel support and more reliable health checks." />
+<meta property="og:description" content="I’ve really come to appreciate Boost.Redis design. With only three asynchronous primitives it exposes all the power of Redis, with features like automatic pipelining that make it pretty unique. Boost.Redis 1.90 will ship with some new exciting features that I’ll cover in this post. Cancelling requests with asio::cancel_after Boost.Redis implements a number of reliability measures, including reconnection. Suppose that you attempt to execute a request using async_exec, but the Redis server can’t be contacted (for example, because of a temporary network error). Boost.Redis will try to re-establish the connection to the failed server, and async_exec will suspend until the server is healthy again. This is a great feature if the outage is transitory. But what would happen if the Redis server is permanently down - for example, because of deployment issue that must be manually solved? The user will see that async_exec never completes. If new requests continue to be issued, the program will end up consuming an unbound amount of resources. Starting with Boost 1.90, you can use asio::cancel_after to set a timeout to your requests, preventing this from happening: // Compose your request redis::request req; req.push(&quot;SET&quot;, &quot;my_key&quot;, 42); // If the request doesn&#39;t complete within 30s, consider it as failed co_await conn.async_exec(req, redis::ignore, asio::cancel_after(30s)); For this to work, async_exec must properly support per-operation cancellation. This is tricky because Boost.Redis allows executing several requests concurrently, which are merged into a single pipeline before being sent. For the above to useful, cancelling one request shouldn’t affect other requests. In Asio parlance, async_exec should support partial cancellation, at least. Cancelling a request that hasn’t been sent yet is trivial - you just remove it from the queue and call it a day. Cancelling requests that are in progress is more involved. We’ve solved this by using “tombstones”. If a response encounters a tombstone, it will get ignored. This way, cancelling async_exec has always an immediate effect, but the connection is kept in a well-defined state. Custom setup requests Redis talks the RESP3 protocol. But it’s not the only database system that speaks it. We’ve recently learnt that other systems, like Tarantool DB, are also capable of speaking RESP3. This means that Boost.Redis can be used to interact with these systems. At least in theory. In Boost 1.89, the library uses the HELLO command to upgrade to RESP3 (Redis’ default is using the less powerful RESP2). The command is issued as part of the reconnection loop, without user intervention. It happens that systems like Tarantool DB don’t support HELLO because they don’t speak RESP2 at all, so there is nothing to upgrade. This is part of a larger problem: users might want to run arbitrary commands when the connection is established, to perform setup tasks. This might include AUTH to provide credentials or SELECT to choose a database index. Until now, all you could do is configure the parameters used by the HELLO command. Starting with Boost 1.90, you can run arbitrary commands at connection startup: // At startup, don&#39;t send any HELLO, but set up authentication and select a database redis::request setup_request; setup_request.push(&quot;AUTH&quot;, &quot;my_user&quot;, &quot;my_password&quot;); setup_request.push(&quot;SELECT&quot;, 2); redis::config cfg { .use_setup = true, // use the custom setup request, rather than the default HELLO command .setup = std::move(setup_request), // will be run every time a connection is established }; conn.async_run(cfg, asio::detached); This opens the door simplifying code using PubSub. At the moment, such code needs to issue a SUBSCRIBE command every time a reconnection happens, which implies some tricks around async_receive. With this feature, you can just add a SUBSCRIBE command to your setup request and forget. This will be further explored in the next months, since async_receive is currently aware of reconnections, so it might need some extra changes to see real benefits. Valkey support Valkey is a fork from Redis v7.3. At the time of writing, both databases are mostly interoperable in terms of protocol features, but they are being developed separately (as happened with MySQL and MariaDB). In Boost.Redis we’ve committed to supporting both long-term (at the moment, by deploying CI builds to test both). Race-free cancellation It is very easy to introduce race conditions in cancellation with Asio. Consider the following code, which is typical in libraries that predate per-operation cancellation: struct connection { asio::ip::tcp::socket sock; std::string buffer; struct echo_op { connection* obj; asio::coroutine coro{}; template &lt;class Self&gt; void operator()(Self&amp; self, error_code ec = {}, std::size_t = {}) { BOOST_ASIO_CORO_REENTER(coro) { while (true) { // Read from the socket BOOST_ASIO_CORO_YIELD asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), &quot;\n&quot;, std::move(self)); // Check for errors if (ec) self.complete(ec); // Write back BOOST_ASIO_CORO_YIELD asio::async_write(obj-&gt;sock, asio::buffer(obj-&gt;buffer), std::move(self)); // Done self.complete(ec); } } } }; template &lt;class CompletionToken&gt; auto async_echo(CompletionToken&amp;&amp; token) { return asio::async_compose&lt;CompletionToken, void(error_code)&gt;(echo_op{this}, token, sock); } void cancel() { sock.cancel(); } }; There is a race condition here. cancel() may actually not cancel a running async_echo. After a read or write completes, the respective handler may not be called immediately, but queued for execution. If cancel() is called within that time frame, the cancellation will be ignored. The proper way to handle this is using per-operation cancellation, rather than a cancel() method. async_compose knows about this problem and keeps state about received cancellations, so you can write: // Read from the socket BOOST_ASIO_CORO_YIELD asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), &quot;\n&quot;, std::move(self)); // Check for errors if (ec) self.complete(ec); // Check for cancellations if (!!(self.get_cancellation_state().cancelled() &amp; asio::cancellation_type_t::terminal)) self.complete(asio::error::operation_aborted); In 1.90, the library uses this approach everywhere, so cancellation is reliable. Keeping the cancel() method is a challenge, as it involves re-wiring cancellation slots, so I won’t show it here - but we’ve managed to do it. Next steps I’ve got plans to keep working on Boost.Redis for a time. You can expect more features in 1.91, like Sentinel support and more reliable health checks." />
+<link rel="canonical" href="http://cppalliance.org/ruben/2025/10/07/Ruben2025Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/ruben/2025/10/07/Ruben2025Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-07T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Levelling up Boost.Redis" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"I’ve really come to appreciate Boost.Redis design. With only three asynchronous primitives it exposes all the power of Redis, with features like automatic pipelining that make it pretty unique. Boost.Redis 1.90 will ship with some new exciting features that I’ll cover in this post. Cancelling requests with asio::cancel_after Boost.Redis implements a number of reliability measures, including reconnection. Suppose that you attempt to execute a request using async_exec, but the Redis server can’t be contacted (for example, because of a temporary network error). Boost.Redis will try to re-establish the connection to the failed server, and async_exec will suspend until the server is healthy again. This is a great feature if the outage is transitory. But what would happen if the Redis server is permanently down - for example, because of deployment issue that must be manually solved? The user will see that async_exec never completes. If new requests continue to be issued, the program will end up consuming an unbound amount of resources. Starting with Boost 1.90, you can use asio::cancel_after to set a timeout to your requests, preventing this from happening: // Compose your request redis::request req; req.push(&quot;SET&quot;, &quot;my_key&quot;, 42); // If the request doesn&#39;t complete within 30s, consider it as failed co_await conn.async_exec(req, redis::ignore, asio::cancel_after(30s)); For this to work, async_exec must properly support per-operation cancellation. This is tricky because Boost.Redis allows executing several requests concurrently, which are merged into a single pipeline before being sent. For the above to useful, cancelling one request shouldn’t affect other requests. In Asio parlance, async_exec should support partial cancellation, at least. Cancelling a request that hasn’t been sent yet is trivial - you just remove it from the queue and call it a day. Cancelling requests that are in progress is more involved. We’ve solved this by using “tombstones”. If a response encounters a tombstone, it will get ignored. This way, cancelling async_exec has always an immediate effect, but the connection is kept in a well-defined state. Custom setup requests Redis talks the RESP3 protocol. But it’s not the only database system that speaks it. We’ve recently learnt that other systems, like Tarantool DB, are also capable of speaking RESP3. This means that Boost.Redis can be used to interact with these systems. At least in theory. In Boost 1.89, the library uses the HELLO command to upgrade to RESP3 (Redis’ default is using the less powerful RESP2). The command is issued as part of the reconnection loop, without user intervention. It happens that systems like Tarantool DB don’t support HELLO because they don’t speak RESP2 at all, so there is nothing to upgrade. This is part of a larger problem: users might want to run arbitrary commands when the connection is established, to perform setup tasks. This might include AUTH to provide credentials or SELECT to choose a database index. Until now, all you could do is configure the parameters used by the HELLO command. Starting with Boost 1.90, you can run arbitrary commands at connection startup: // At startup, don&#39;t send any HELLO, but set up authentication and select a database redis::request setup_request; setup_request.push(&quot;AUTH&quot;, &quot;my_user&quot;, &quot;my_password&quot;); setup_request.push(&quot;SELECT&quot;, 2); redis::config cfg { .use_setup = true, // use the custom setup request, rather than the default HELLO command .setup = std::move(setup_request), // will be run every time a connection is established }; conn.async_run(cfg, asio::detached); This opens the door simplifying code using PubSub. At the moment, such code needs to issue a SUBSCRIBE command every time a reconnection happens, which implies some tricks around async_receive. With this feature, you can just add a SUBSCRIBE command to your setup request and forget. This will be further explored in the next months, since async_receive is currently aware of reconnections, so it might need some extra changes to see real benefits. Valkey support Valkey is a fork from Redis v7.3. At the time of writing, both databases are mostly interoperable in terms of protocol features, but they are being developed separately (as happened with MySQL and MariaDB). In Boost.Redis we’ve committed to supporting both long-term (at the moment, by deploying CI builds to test both). Race-free cancellation It is very easy to introduce race conditions in cancellation with Asio. Consider the following code, which is typical in libraries that predate per-operation cancellation: struct connection { asio::ip::tcp::socket sock; std::string buffer; struct echo_op { connection* obj; asio::coroutine coro{}; template &lt;class Self&gt; void operator()(Self&amp; self, error_code ec = {}, std::size_t = {}) { BOOST_ASIO_CORO_REENTER(coro) { while (true) { // Read from the socket BOOST_ASIO_CORO_YIELD asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), &quot;\\n&quot;, std::move(self)); // Check for errors if (ec) self.complete(ec); // Write back BOOST_ASIO_CORO_YIELD asio::async_write(obj-&gt;sock, asio::buffer(obj-&gt;buffer), std::move(self)); // Done self.complete(ec); } } } }; template &lt;class CompletionToken&gt; auto async_echo(CompletionToken&amp;&amp; token) { return asio::async_compose&lt;CompletionToken, void(error_code)&gt;(echo_op{this}, token, sock); } void cancel() { sock.cancel(); } }; There is a race condition here. cancel() may actually not cancel a running async_echo. After a read or write completes, the respective handler may not be called immediately, but queued for execution. If cancel() is called within that time frame, the cancellation will be ignored. The proper way to handle this is using per-operation cancellation, rather than a cancel() method. async_compose knows about this problem and keeps state about received cancellations, so you can write: // Read from the socket BOOST_ASIO_CORO_YIELD asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), &quot;\\n&quot;, std::move(self)); // Check for errors if (ec) self.complete(ec); // Check for cancellations if (!!(self.get_cancellation_state().cancelled() &amp; asio::cancellation_type_t::terminal)) self.complete(asio::error::operation_aborted); In 1.90, the library uses this approach everywhere, so cancellation is reliable. Keeping the cancel() method is a challenge, as it involves re-wiring cancellation slots, so I won’t show it here - but we’ve managed to do it. Next steps I’ve got plans to keep working on Boost.Redis for a time. You can expect more features in 1.91, like Sentinel support and more reliable health checks.","@type":"BlogPosting","url":"http://cppalliance.org/ruben/2025/10/07/Ruben2025Q3Update.html","headline":"Levelling up Boost.Redis","dateModified":"2025-10-07T00:00:00+00:00","datePublished":"2025-10-07T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/ruben/2025/10/07/Ruben2025Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Levelling up Boost.Redis</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 7, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>I’ve really come to appreciate Boost.Redis design. With only
+three asynchronous primitives it exposes all the power of Redis,
+with features like automatic pipelining that make it pretty unique.
+Boost.Redis 1.90 will ship with some new exciting features that I’ll
+cover in this post.</p>
+
+<h2 id="cancelling-requests-with-asiocancel_after">Cancelling requests with asio::cancel_after</h2>
+
+<p>Boost.Redis implements a number of reliability measures, including reconnection.
+Suppose that you attempt to execute a request using <code>async_exec</code>,
+but the Redis server can’t be contacted (for example, because of a temporary network error).
+Boost.Redis will try to re-establish the connection to the failed server,
+and <code>async_exec</code> will suspend until the server is healthy again.</p>
+
+<p>This is a great feature if the outage is transitory. But what would happen if
+the Redis server is permanently down - for example, because of deployment issue that
+must be manually solved? The user will see that <code>async_exec</code> never completes.
+If new requests continue to be issued, the program will end up consuming an
+unbound amount of resources.</p>
+
+<p>Starting with Boost 1.90, you can use <code>asio::cancel_after</code> to set
+a timeout to your requests, preventing this from happening:</p>
+
+<pre><code class="language-cpp">// Compose your request
+redis::request req;
+req.push("SET", "my_key", 42);
+
+// If the request doesn't complete within 30s, consider it as failed
+co_await conn.async_exec(req, redis::ignore, asio::cancel_after(30s));
+</code></pre>
+
+<p>For this to work, <code>async_exec</code> must properly support
+<a href="https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/core/cancellation.html">per-operation cancellation</a>.
+This is tricky because Boost.Redis allows executing several requests concurrently,
+which are merged into a single pipeline before being sent.
+For the above to useful, cancelling one request shouldn’t affect other requests.
+In Asio parlance, <code>async_exec</code> should support partial cancellation, at least.</p>
+
+<p>Cancelling a request that hasn’t been sent yet is trivial - you just remove it from
+the queue and call it a day. Cancelling requests that are in progress is more involved.
+We’ve solved this by using “tombstones”. If a response encounters a tombstone,
+it will get ignored. This way, cancelling <code>async_exec</code> has always an immediate
+effect, but the connection is kept in a well-defined state.</p>
+
+<h2 id="custom-setup-requests">Custom setup requests</h2>
+
+<p>Redis talks the RESP3 protocol. But it’s not the only database system that speaks it.
+We’ve recently learnt that other systems, like <a href="https://www.tarantool.io/en/tarantooldb/">Tarantool DB</a>,
+are also capable of speaking RESP3. This means that Boost.Redis can be used to
+interact with these systems.</p>
+
+<p>At least in theory. In Boost 1.89, the library uses the <a href="https://redis.io/docs/latest/commands/hello/"><code>HELLO</code></a>
+command to upgrade to RESP3 (Redis’ default is using the less powerful RESP2).
+The command is issued as part of the reconnection loop, without user intervention.
+It happens that systems like Tarantool DB don’t support <code>HELLO</code> because they
+don’t speak RESP2 at all, so there is nothing to upgrade.</p>
+
+<p>This is part of a larger problem: users might want to run arbitrary commands
+when the connection is established, to perform setup tasks.
+This might include <a href="https://redis.io/docs/latest/commands/auth/"><code>AUTH</code></a> to provide
+credentials or <a href="https://redis.io/docs/latest/commands/select/"><code>SELECT</code></a> to choose
+a database index.</p>
+
+<p>Until now, all you could do is configure the parameters used by the <code>HELLO</code> command.
+Starting with Boost 1.90, you can run arbitrary commands at connection startup:</p>
+
+<pre><code class="language-cpp">// At startup, don't send any HELLO, but set up authentication and select a database
+redis::request setup_request;
+setup_request.push("AUTH", "my_user", "my_password");
+setup_request.push("SELECT", 2);
+
+redis::config cfg {
+    .use_setup = true, // use the custom setup request, rather than the default HELLO command
+    .setup = std::move(setup_request), // will be run every time a connection is established
+};
+
+conn.async_run(cfg, asio::detached);
+</code></pre>
+
+<p>This opens the door simplifying code using PubSub. At the moment, such code needs
+to issue a <code>SUBSCRIBE</code> command every time a reconnection happens, which implies
+some tricks around <code>async_receive</code>. With this feature, you can just add a <code>SUBSCRIBE</code>
+command to your setup request and forget.</p>
+
+<p>This will be further explored in the next months, since <code>async_receive</code> is currently
+aware of reconnections, so it might need some extra changes to see real benefits.</p>
+
+<h2 id="valkey-support">Valkey support</h2>
+
+<p><a href="https://valkey.io/">Valkey</a> is a fork from Redis v7.3. At the time of writing,
+both databases are mostly interoperable in terms of protocol features, but
+they are being developed separately (as happened with MySQL and MariaDB).</p>
+
+<p>In Boost.Redis we’ve committed to supporting both long-term
+(at the moment, by deploying CI builds to test both).</p>
+
+<h2 id="race-free-cancellation">Race-free cancellation</h2>
+
+<p>It is very easy to introduce race conditions in cancellation with Asio.
+Consider the following code, which is typical in libraries that
+predate per-operation cancellation:</p>
+
+<pre><code class="language-cpp">struct connection
+{
+    asio::ip::tcp::socket sock;
+    std::string buffer;
+
+    struct echo_op
+    {
+        connection* obj;
+        asio::coroutine coro{};
+
+        template &lt;class Self&gt;
+        void operator()(Self&amp; self, error_code ec = {}, std::size_t = {})
+        {
+            BOOST_ASIO_CORO_REENTER(coro)
+            {
+                while (true)
+                {
+                    // Read from the socket
+                    BOOST_ASIO_CORO_YIELD
+                    asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), "\n", std::move(self));
+
+                    // Check for errors
+                    if (ec)
+                        self.complete(ec);
+
+                    // Write back
+                    BOOST_ASIO_CORO_YIELD
+                    asio::async_write(obj-&gt;sock, asio::buffer(obj-&gt;buffer), std::move(self));
+
+                    // Done
+                    self.complete(ec);
+                }
+            }
+        }
+    };
+
+    template &lt;class CompletionToken&gt;
+    auto async_echo(CompletionToken&amp;&amp; token)
+    {
+        return asio::async_compose&lt;CompletionToken, void(error_code)&gt;(echo_op{this}, token, sock);
+    }
+
+    void cancel() { sock.cancel(); }
+};
+</code></pre>
+
+<p>There is a race condition here. <code>cancel()</code> may actually not cancel a running <code>async_echo</code>.
+After a read or write completes, the respective handler may not be called immediately,
+but queued for execution. If <code>cancel()</code> is called within that time frame, the cancellation
+will be ignored.</p>
+
+<p>The proper way to handle this is using per-operation cancellation, rather than a <code>cancel()</code> method.
+<code>async_compose</code> knows about this problem and keeps state about received cancellations, so you can write:</p>
+
+<pre><code class="language-cpp">// Read from the socket
+BOOST_ASIO_CORO_YIELD
+asio::async_read_until(obj-&gt;sock, asio::dynamic_buffer(obj-&gt;buffer), "\n", std::move(self));
+
+// Check for errors
+if (ec)
+    self.complete(ec);
+
+// Check for cancellations
+if (!!(self.get_cancellation_state().cancelled() &amp; asio::cancellation_type_t::terminal))
+    self.complete(asio::error::operation_aborted);
+</code></pre>
+
+<p>In 1.90, the library uses this approach everywhere, so cancellation is reliable.
+Keeping the <code>cancel()</code> method is a challenge, as it involves re-wiring cancellation
+slots, so I won’t show it here - but we’ve managed to do it.</p>
+
+<h2 id="next-steps">Next steps</h2>
+
+<p>I’ve got plans to keep working on Boost.Redis for a time. You can expect
+more features in 1.91, like <a href="https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/">Sentinel</a>
+support and <a href="https://github.com/boostorg/redis/issues/104">more reliable health checks</a>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/07/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/10/07/Ruben2025Q3Update.html">Levelling up Boost.Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/07/10/Ruben2025Q2Update.html">Ready, Set, Redis!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/04/10/Ruben2025Q1Update.html">Moving Boost forward: Asio, coroutines, and maybe even modules</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/06/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/01/06/Ruben2024Q4Update.html">Boost.MySQL 1.87 and the new Boost citizens</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/ruben/2024/10/20/Ruben2024Q3Update.html">Boost.MySQL 1.87 features: with_params and with_diagnostics</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/ruben/2023/10/27/Rubens2023Q3Update.html">Ruben's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

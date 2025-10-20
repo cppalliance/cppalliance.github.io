@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's July Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s July Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s July Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="What I’ve been doing I’ve been spending a lot of time working on optimizing the parser; perhaps a bit too much. Nevertheless, it’s very enjoyable and in doing so I’ve learned more than I could hope to ever learn in school. In addition to the optimization, comment and trailing comma support finally got merged, and I implemented UTF-8 validation (enabled by default, but it can be disabled). UTF-8 validation Prior to implementing this extension (or rather, feature which can be disabled), the parser considers any character appearing within a string to be valid, so long as it wasn’t a control character or formed an illegal escape. While this is fast, it technically does not conform to the JSON standard. As per Section 2 of the JSON Data Interchange Syntax Standard: A conforming JSON text is a sequence of Unicode code points that strictly conforms to the JSON grammar defined by this specification. As with most standardese, this particular requirement for conformance is not outright stated, but rather implied. Anyways, that’s enough standardese talk for this post. After working on this parser so much, I’ve pretty much got the suspend/resume idiom we use nailed down, so integrating it with the string parsing function was trivial… the actual validation, not so much. I hadn’t the slightest clue about any of the terminology used in the Unicode standard, so it took a good couple of hours to point myself in the right direction. Anyways, a lot of Googling and a messy python script for generating valid and invalid byte sequences later, I had something functional. Then came my favorite part: optimization. The first byte within a UTF-8 byte sequence determines how many bytes will follow, as well as the valid ranges for these following bytes. Since this byte has such a large valid range, I settled on using a lookup table to check whether the first byte is valid. Luckily, the following bytes have ranges that can be trivially checked using a mask. For example, if the first byte is 0xE1, then the byte sequence will be composed of three bytes, the latter two having a valid range of 0x80 to 0xBF. Thus, our fast-path routine to verify this sequence can be written as: uint32_t v; // this is reversed on big-endian std::memcpy(&amp;v, bytes, 4); // 4 bytes load switch (lookup_table[v &amp; 0x7F]) // mask out the most significant bit { ... case 3: if ((v &amp; 0x00C0C000) == 0x00808000) return result::ok; return result::fail; ... } This works well for all but one byte sequence combination. For whatever reason, UTF-8 byte sequences that start with 0xF0 can have a second byte between 0x90 and 0xBF which requires the check to be done as: (v &amp; 0xC0C0FF00) + 0x7F7F7000 &lt;= 0x00002F00 It’s a weird little outlier that I spent way too much time trying to figure out. Since our parser supports incremental parsing, we only take the fast path if the input stream has four or more bytes remaining. If this condition isn’t met, we have to check each byte individually. It’s slower, but shouldn’t happen often. Other optimizations I’ve been trying out a number of different optimizations to squeeze all the performance we can get out of the parser. Most recently, I rewrote the parser functions to take a const char* parameter indicating the start of the value, and return a pointer to the end of the value (if parsing succeeds) or nullptr upon failure or partial parsing. Since I’m not great at explaining things, here’s the before: result parse_array(const_stream&amp;); and here’s the after: const char* parse_array(const char*); This allows us to keep the pointer to the current position in the stream entirely within the registers when parsing a document. Since the value is local to the function, the compiler no longer needs to write it to the const_stream object at the top of the call stack (created within basic_parser::write_some), nor read it each time a nested value is parsed. This yields an 8% boost in performance across the board. More time was spent optimizing the SSE2 functions used for parsing unescaped strings and whitespace as well. Within count_whitespace, we were able to get rid of a _mm_cmpeq_epi8 (PCMPEQB) instruction by performing a bitwise or with 4 after testing for spaces, and then comparing the result with &#39;\r&#39;, as the ASCII value of tab (&#39;\t&#39;) only differs from that of the carriage return by the third least significant bit. This was something that clang was doing for us, but it’s nice to implement it for all other compilers. For count_unescaped (used to parse unescaped strings), we were able to again reduce the length of the hot path, this time a bit more significantly. Instead of checking for control characters by means of relational comparison, we can instead check for quotes and backslash first, and once that’s done, the _mm_min_epu8 (PMINUB) instruction can be used to set all control characters (0 - 31) to 31, and then test for equality. This brought our performance on the strings.json benchmark past the 8 GB/s mark from around 7.7 GB/s. Combined with the optimization of how the stream pointer is passed around, we now hit just a hair under 8.5 GB/s on this benchmark. The important but boring stuff After merging the parser extensions, there was a bunch of housekeeping to do such as improving coverage and writing documentation. Though these are far from being my favorite tasks, they are integral to writing a good library, so it must be done. My initial approach to writing tests for the parser extensions was to run each test on every parser configuration we have, but this soon proved to be a nonoptimal approach when the time taken to run the test suite quadrupled. I ended up doing the right thing by making the tests more surgical in nature, and in doing so we even got 100% coverage on the parser." />
+<meta property="og:description" content="What I’ve been doing I’ve been spending a lot of time working on optimizing the parser; perhaps a bit too much. Nevertheless, it’s very enjoyable and in doing so I’ve learned more than I could hope to ever learn in school. In addition to the optimization, comment and trailing comma support finally got merged, and I implemented UTF-8 validation (enabled by default, but it can be disabled). UTF-8 validation Prior to implementing this extension (or rather, feature which can be disabled), the parser considers any character appearing within a string to be valid, so long as it wasn’t a control character or formed an illegal escape. While this is fast, it technically does not conform to the JSON standard. As per Section 2 of the JSON Data Interchange Syntax Standard: A conforming JSON text is a sequence of Unicode code points that strictly conforms to the JSON grammar defined by this specification. As with most standardese, this particular requirement for conformance is not outright stated, but rather implied. Anyways, that’s enough standardese talk for this post. After working on this parser so much, I’ve pretty much got the suspend/resume idiom we use nailed down, so integrating it with the string parsing function was trivial… the actual validation, not so much. I hadn’t the slightest clue about any of the terminology used in the Unicode standard, so it took a good couple of hours to point myself in the right direction. Anyways, a lot of Googling and a messy python script for generating valid and invalid byte sequences later, I had something functional. Then came my favorite part: optimization. The first byte within a UTF-8 byte sequence determines how many bytes will follow, as well as the valid ranges for these following bytes. Since this byte has such a large valid range, I settled on using a lookup table to check whether the first byte is valid. Luckily, the following bytes have ranges that can be trivially checked using a mask. For example, if the first byte is 0xE1, then the byte sequence will be composed of three bytes, the latter two having a valid range of 0x80 to 0xBF. Thus, our fast-path routine to verify this sequence can be written as: uint32_t v; // this is reversed on big-endian std::memcpy(&amp;v, bytes, 4); // 4 bytes load switch (lookup_table[v &amp; 0x7F]) // mask out the most significant bit { ... case 3: if ((v &amp; 0x00C0C000) == 0x00808000) return result::ok; return result::fail; ... } This works well for all but one byte sequence combination. For whatever reason, UTF-8 byte sequences that start with 0xF0 can have a second byte between 0x90 and 0xBF which requires the check to be done as: (v &amp; 0xC0C0FF00) + 0x7F7F7000 &lt;= 0x00002F00 It’s a weird little outlier that I spent way too much time trying to figure out. Since our parser supports incremental parsing, we only take the fast path if the input stream has four or more bytes remaining. If this condition isn’t met, we have to check each byte individually. It’s slower, but shouldn’t happen often. Other optimizations I’ve been trying out a number of different optimizations to squeeze all the performance we can get out of the parser. Most recently, I rewrote the parser functions to take a const char* parameter indicating the start of the value, and return a pointer to the end of the value (if parsing succeeds) or nullptr upon failure or partial parsing. Since I’m not great at explaining things, here’s the before: result parse_array(const_stream&amp;); and here’s the after: const char* parse_array(const char*); This allows us to keep the pointer to the current position in the stream entirely within the registers when parsing a document. Since the value is local to the function, the compiler no longer needs to write it to the const_stream object at the top of the call stack (created within basic_parser::write_some), nor read it each time a nested value is parsed. This yields an 8% boost in performance across the board. More time was spent optimizing the SSE2 functions used for parsing unescaped strings and whitespace as well. Within count_whitespace, we were able to get rid of a _mm_cmpeq_epi8 (PCMPEQB) instruction by performing a bitwise or with 4 after testing for spaces, and then comparing the result with &#39;\r&#39;, as the ASCII value of tab (&#39;\t&#39;) only differs from that of the carriage return by the third least significant bit. This was something that clang was doing for us, but it’s nice to implement it for all other compilers. For count_unescaped (used to parse unescaped strings), we were able to again reduce the length of the hot path, this time a bit more significantly. Instead of checking for control characters by means of relational comparison, we can instead check for quotes and backslash first, and once that’s done, the _mm_min_epu8 (PMINUB) instruction can be used to set all control characters (0 - 31) to 31, and then test for equality. This brought our performance on the strings.json benchmark past the 8 GB/s mark from around 7.7 GB/s. Combined with the optimization of how the stream pointer is passed around, we now hit just a hair under 8.5 GB/s on this benchmark. The important but boring stuff After merging the parser extensions, there was a bunch of housekeeping to do such as improving coverage and writing documentation. Though these are far from being my favorite tasks, they are integral to writing a good library, so it must be done. My initial approach to writing tests for the parser extensions was to run each test on every parser configuration we have, but this soon proved to be a nonoptimal approach when the time taken to run the test suite quadrupled. I ended up doing the right thing by making the tests more surgical in nature, and in doing so we even got 100% coverage on the parser." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2020/08/01/KrystiansJulyUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2020/08/01/KrystiansJulyUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-08-01T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s July Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"What I’ve been doing I’ve been spending a lot of time working on optimizing the parser; perhaps a bit too much. Nevertheless, it’s very enjoyable and in doing so I’ve learned more than I could hope to ever learn in school. In addition to the optimization, comment and trailing comma support finally got merged, and I implemented UTF-8 validation (enabled by default, but it can be disabled). UTF-8 validation Prior to implementing this extension (or rather, feature which can be disabled), the parser considers any character appearing within a string to be valid, so long as it wasn’t a control character or formed an illegal escape. While this is fast, it technically does not conform to the JSON standard. As per Section 2 of the JSON Data Interchange Syntax Standard: A conforming JSON text is a sequence of Unicode code points that strictly conforms to the JSON grammar defined by this specification. As with most standardese, this particular requirement for conformance is not outright stated, but rather implied. Anyways, that’s enough standardese talk for this post. After working on this parser so much, I’ve pretty much got the suspend/resume idiom we use nailed down, so integrating it with the string parsing function was trivial… the actual validation, not so much. I hadn’t the slightest clue about any of the terminology used in the Unicode standard, so it took a good couple of hours to point myself in the right direction. Anyways, a lot of Googling and a messy python script for generating valid and invalid byte sequences later, I had something functional. Then came my favorite part: optimization. The first byte within a UTF-8 byte sequence determines how many bytes will follow, as well as the valid ranges for these following bytes. Since this byte has such a large valid range, I settled on using a lookup table to check whether the first byte is valid. Luckily, the following bytes have ranges that can be trivially checked using a mask. For example, if the first byte is 0xE1, then the byte sequence will be composed of three bytes, the latter two having a valid range of 0x80 to 0xBF. Thus, our fast-path routine to verify this sequence can be written as: uint32_t v; // this is reversed on big-endian std::memcpy(&amp;v, bytes, 4); // 4 bytes load switch (lookup_table[v &amp; 0x7F]) // mask out the most significant bit { ... case 3: if ((v &amp; 0x00C0C000) == 0x00808000) return result::ok; return result::fail; ... } This works well for all but one byte sequence combination. For whatever reason, UTF-8 byte sequences that start with 0xF0 can have a second byte between 0x90 and 0xBF which requires the check to be done as: (v &amp; 0xC0C0FF00) + 0x7F7F7000 &lt;= 0x00002F00 It’s a weird little outlier that I spent way too much time trying to figure out. Since our parser supports incremental parsing, we only take the fast path if the input stream has four or more bytes remaining. If this condition isn’t met, we have to check each byte individually. It’s slower, but shouldn’t happen often. Other optimizations I’ve been trying out a number of different optimizations to squeeze all the performance we can get out of the parser. Most recently, I rewrote the parser functions to take a const char* parameter indicating the start of the value, and return a pointer to the end of the value (if parsing succeeds) or nullptr upon failure or partial parsing. Since I’m not great at explaining things, here’s the before: result parse_array(const_stream&amp;); and here’s the after: const char* parse_array(const char*); This allows us to keep the pointer to the current position in the stream entirely within the registers when parsing a document. Since the value is local to the function, the compiler no longer needs to write it to the const_stream object at the top of the call stack (created within basic_parser::write_some), nor read it each time a nested value is parsed. This yields an 8% boost in performance across the board. More time was spent optimizing the SSE2 functions used for parsing unescaped strings and whitespace as well. Within count_whitespace, we were able to get rid of a _mm_cmpeq_epi8 (PCMPEQB) instruction by performing a bitwise or with 4 after testing for spaces, and then comparing the result with &#39;\\r&#39;, as the ASCII value of tab (&#39;\\t&#39;) only differs from that of the carriage return by the third least significant bit. This was something that clang was doing for us, but it’s nice to implement it for all other compilers. For count_unescaped (used to parse unescaped strings), we were able to again reduce the length of the hot path, this time a bit more significantly. Instead of checking for control characters by means of relational comparison, we can instead check for quotes and backslash first, and once that’s done, the _mm_min_epu8 (PMINUB) instruction can be used to set all control characters (0 - 31) to 31, and then test for equality. This brought our performance on the strings.json benchmark past the 8 GB/s mark from around 7.7 GB/s. Combined with the optimization of how the stream pointer is passed around, we now hit just a hair under 8.5 GB/s on this benchmark. The important but boring stuff After merging the parser extensions, there was a bunch of housekeeping to do such as improving coverage and writing documentation. Though these are far from being my favorite tasks, they are integral to writing a good library, so it must be done. My initial approach to writing tests for the parser extensions was to run each test on every parser configuration we have, but this soon proved to be a nonoptimal approach when the time taken to run the test suite quadrupled. I ended up doing the right thing by making the tests more surgical in nature, and in doing so we even got 100% coverage on the parser.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2020/08/01/KrystiansJulyUpdate.html","headline":"Krystian’s July Update","dateModified":"2020-08-01T00:00:00+00:00","datePublished":"2020-08-01T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2020/08/01/KrystiansJulyUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's July Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Aug 1, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="what-ive-been-doing">What I’ve been doing</h1>
+
+<p>I’ve been spending a <em>lot</em> of time working on optimizing the parser; perhaps a bit too much. Nevertheless, it’s very enjoyable and in doing so I’ve learned more than I could hope to ever learn in school. In addition to the optimization, comment and trailing comma support finally got merged, and I implemented UTF-8 validation (enabled by default, but it can be disabled).</p>
+
+<h2 id="utf-8-validation">UTF-8 validation</h2>
+
+<p>Prior to implementing this extension (or rather, feature which can be disabled), the parser considers any character appearing within a string to be valid, so long as it wasn’t a control character or formed an illegal escape. While this is <em>fast</em>, it technically does not conform to the JSON standard.</p>
+
+<p>As per Section 2 of the <a href="http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf">JSON Data Interchange Syntax Standard</a>:</p>
+
+<blockquote>
+  <p>A conforming JSON text is a sequence of Unicode code points that strictly conforms to the JSON grammar defined by this specification.</p>
+</blockquote>
+
+<p>As with most standardese, this particular requirement for conformance is not outright stated, but rather implied. Anyways, that’s enough standardese talk for this post.</p>
+
+<p>After working on this parser so much, I’ve pretty much got the suspend/resume idiom we use nailed down, so integrating it with the string parsing function was trivial… the actual validation, not so much. I hadn’t the slightest clue about any of the terminology used in the Unicode standard, so it took a good couple of hours to point myself in the right direction. Anyways, a lot of Googling and a messy python script for generating valid and invalid byte sequences later, I had something functional.</p>
+
+<p>Then came my favorite part: optimization.</p>
+
+<p>The first byte within a UTF-8 byte sequence determines how many bytes will follow, as well as the valid ranges for these following bytes. Since this byte has such a large valid range, I settled on using a lookup table to check whether the first byte is valid.</p>
+
+<p>Luckily, the following bytes have ranges that can be trivially checked using a mask. For example, if the first byte is <code>0xE1</code>, then the byte sequence will be composed of three bytes, the latter two having a valid range of <code>0x80</code> to <code>0xBF</code>. Thus, our fast-path routine to verify this sequence can be written as:</p>
+
+<pre><code class="language-cpp">uint32_t v;
+// this is reversed on big-endian
+std::memcpy(&amp;v, bytes, 4); // 4 bytes load
+
+switch (lookup_table[v &amp; 0x7F]) // mask out the most significant bit
+{
+...
+case 3:
+	if ((v &amp; 0x00C0C000) == 0x00808000)
+		return result::ok;
+	return result::fail;
+...
+}
+</code></pre>
+
+<p>This works well for all but one byte sequence combination. For whatever reason, UTF-8 byte sequences that start with <code>0xF0</code> can have a second byte between <code>0x90</code> and <code>0xBF</code> which requires the check to be done as:</p>
+
+<pre><code class="language-cpp">(v &amp; 0xC0C0FF00) + 0x7F7F7000 &lt;= 0x00002F00
+</code></pre>
+
+<p>It’s a weird little outlier that I spent way too much time trying to figure out.</p>
+
+<p>Since our parser supports incremental parsing, we only take the fast path if the input stream has four or more bytes remaining. If this condition isn’t met, we have to check each byte individually. It’s slower, but shouldn’t happen often.</p>
+
+<h2 id="other-optimizations">Other optimizations</h2>
+
+<p>I’ve been trying out a number of different optimizations to squeeze all the performance we can get out of the parser. Most recently, I rewrote the parser functions to take a <code>const char*</code> parameter indicating the start of the value, and return a pointer to the end of the value (if parsing succeeds) or <code>nullptr</code> upon failure or partial parsing.</p>
+
+<p>Since I’m not great at explaining things, here’s the before:</p>
+
+<pre><code class="language-cpp">result parse_array(const_stream&amp;);
+</code></pre>
+
+<p>and here’s the after:</p>
+
+<pre><code class="language-cpp">const char* parse_array(const char*);
+</code></pre>
+
+<p>This allows us to keep the pointer to the current position in the stream entirely within the registers when parsing a document. Since the value is local to the function, the compiler no longer needs to write it to the <code>const_stream</code> object at the top of the call stack (created within <code>basic_parser::write_some</code>), nor read it each time a nested value is parsed. This yields an <em>8%</em> boost in performance across the board.</p>
+
+<p>More time was spent optimizing the SSE2 functions used for parsing unescaped strings and whitespace as well. Within <code>count_whitespace</code>, we were able to get rid of a <code>_mm_cmpeq_epi8</code> (<code>PCMPEQB</code>) instruction by performing a bitwise or with 4 after testing for spaces, and then comparing the result with <code>'\r'</code>, as the ASCII value of tab (<code>'\t'</code>) only differs from that of the carriage return by the third least significant bit. This was something that clang was doing for us, but it’s nice to implement it for all other compilers.</p>
+
+<p>For <code>count_unescaped</code> (used to parse unescaped strings), we were able to again reduce the length of the hot path, this time a bit more significantly. Instead of checking for control characters by means of relational comparison, we can instead check for quotes and backslash first, and once that’s done, the <code>_mm_min_epu8</code> (<code>PMINUB</code>) instruction can be used to set all control characters (0 - 31) to 31, and then test for equality. This brought our performance on the <code>strings.json</code> benchmark past the 8 GB/s mark from around 7.7 GB/s. Combined with the optimization of how the stream pointer is passed around, we now hit just a hair under 8.5 GB/s on this benchmark.</p>
+
+<h2 id="the-important-but-boring-stuff">The important but boring stuff</h2>
+
+<p>After merging the parser extensions, there was a bunch of housekeeping to do such as improving coverage and writing documentation. Though these are far from being my favorite tasks, they are integral to writing a good library, so it must be done. My initial approach to writing tests for the parser extensions was to run each test on every parser configuration we have, but this soon proved to be a nonoptimal approach when the time taken to run the test suite quadrupled. I ended up doing the right thing by making the tests more surgical in nature, and in doing so we even got 100% coverage on the parser.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

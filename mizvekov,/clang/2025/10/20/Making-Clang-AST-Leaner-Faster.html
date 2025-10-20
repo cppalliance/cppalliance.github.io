@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Making the Clang AST Leaner and Faster | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Making the Clang AST Leaner and Faster | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Making the Clang AST Leaner and Faster" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Modern C++ codebases — from browsers to GPU frameworks — rely heavily on templates, and that often means massive abstract syntax trees. Even small inefficiencies in Clang’s AST representation can add up to noticeable compile-time overhead. This post walks through a set of structural improvements I recently made to Clang’s AST that make type representation smaller, simpler, and faster to create — leading to measurable build-time gains in real-world projects. A couple of months ago, I landed a large patch in Clang that brought substantial compile-time improvements for heavily templated C++ code. For example, in stdexec — the reference implementation of the std::execution feature slated for C++26 — the slowest test (test_on2.cpp) saw a 7% reduction in build time. Also the Chromium build showed a 5% improvement (source). At a high level, the patch makes the Clang AST leaner: it reduces the memory footprint of type representations and lowers the cost of creating and uniquing them. These improvements will ship with Clang 22, expected in the next few months. How elaboration and qualified names used to work Consider this simple snippet: namespace NS { struct A {}; } using T = struct NS::A; The type of T (struct NS::A) carries two pieces of information: It’s elaborated — the struct keyword appears. It’s qualified — NS:: acts as a nested-name-specifier. Here’s how the AST dump looked before this patch: ElaboratedType &#39;struct NS::A&#39; sugar `-RecordType &#39;test::NS::A&#39; `-CXXRecord &#39;A&#39; The RecordType represents a direct reference to the previously declared struct A — a kind of canonical view of the type, stripped of syntactic details like struct or namespace qualifiers. Those syntactic details were stored separately in an ElaboratedType node that wrapped the RecordType. Interestingly, an ElaboratedType node existed even when no elaboration or qualification appeared in the source (example). This was needed to distinguish between an explicitly unqualified type and one that lost its qualifiers through template substitution. However, this design was expensive: every ElaboratedType node consumed 48 bytes, and creating one required extra work to uniquify it — an important step for Clang’s fast type comparisons. A more compact representation The new approach removes ElaboratedType entirely. Instead, elaboration and qualifiers are now stored directly inside RecordType. The new AST dump for the same example looks like this: RecordType &#39;struct NS::A&#39; struct |-NestedNameSpecifier Namespace &#39;NS&#39; `-CXXRecord &#39;A&#39; The struct elaboration now fits into previously unused bits within RecordType, while the qualifier is tail-allocated when present — making the node variably sized. This change both shrinks the memory footprint and eliminates one level of indirection when traversing the AST. Representing NestedNameSpecifier NestedNameSpecifier is Clang’s internal representation for name qualifiers. Before this patch, it was represented by a pointer (NestedNameSpecifier*) to a uniqued structure that could describe: The global namespace (::) A named namespace (including aliases) A type An identifier naming an unknown entity A __super reference (Microsoft extension) For all but cases (1) and (5), each NestedNameSpecifier also held a prefix — the qualifier to its left. For example: Namespace::Class::NestedClassTemplate&lt;T&gt;::XX This would be stored as a linked list: [id: XX] -&gt; [type: NestedClassTemplate&lt;T&gt;] -&gt; [type: Class] -&gt; [namespace: Namespace] Internally, that meant seven allocations totaling around 160 bytes: NestedNameSpecifier (identifier) – 16 bytes NestedNameSpecifier (type) – 16 bytes TemplateSpecializationType – 48 bytes QualifiedTemplateName – 16 bytes NestedNameSpecifier (type) – 16 bytes RecordType – 32 bytes NestedNameSpecifier (namespace) – 16 bytes The real problem wasn’t just size — it was the uniquing cost. Every prospective node has to be looked up in a hash table for a pre-existing instance. To make matters worse, ElaboratedType nodes sometimes leaked into these chains, which wasn’t supposed to happen and led to several long-standing bugs. A new, smarter NestedNameSpecifier After this patch, NestedNameSpecifier becomes a compact, tagged pointer — just one machine word wide. The pointer uses 8-byte alignment, leaving three spare bits. Two bits are used for kind discrimination, and one remains available for arbitrary use. When non-null, the tag bits encode: A type A declaration (either a __super class or a namespace) A namespace prefixed by the global scope (::Namespace) A special object combining a namespace with its prefix When null, the tag bits instead encode: An empty nested name (the terminator) The global name An invalid/tombstone entry (for hash tables) Other changes include: The “unknown identifier” case is now represented by a DependentNameType. Type prefixes are handled directly in the type hierarchy. Revisiting the earlier example, after the patch its AST dump becomes: DependentNameType &#39;Namespace::Class::NestedClassTemplate&lt;T&gt;::XX&#39; dependent `-NestedNameSpecifier TemplateSpecializationType &#39;Namespace::Class::NestedClassTemplate&lt;T&gt;&#39; dependent `-name: &#39;Namespace::Class::NestedClassTemplate&#39; qualified |-NestedNameSpecifier RecordType &#39;Namespace::Class&#39; | |-NestedNameSpecifier Namespace &#39;Namespace&#39; | `-CXXRecord &#39;Class&#39; `-ClassTemplate NestedClassTemplate This representation now requires only four allocations (156 bytes total): DependentNameType – 48 bytes TemplateSpecializationType – 48 bytes QualifiedTemplateName – 16 bytes RecordType – 40 bytes That’s almost half the number of nodes. While DependentNameType is larger than the previous 16-byte “identifier” node, the additional space isn’t wasted — it holds cached answers to common queries such as “does this type reference a template parameter?” or “what is its canonical form?”. These caches make those operations significantly cheaper, further improving performance. Wrapping up There’s more in the patch than what I’ve covered here, including: RecordType now points directly to the declaration found at creation, enriching the AST without measurable overhead. RecordType nodes are now created lazily. The redesigned NestedNameSpecifier simplified several template instantiation transforms. Each of these could warrant its own write-up, but even this high-level overview shows how careful structural changes in the AST can lead to tangible compile-time wins. I hope you found this deep dive into Clang’s internals interesting — and that it gives a glimpse of the kind of small, structural optimizations that add up to real performance improvements in large C++ builds." />
+<meta property="og:description" content="Modern C++ codebases — from browsers to GPU frameworks — rely heavily on templates, and that often means massive abstract syntax trees. Even small inefficiencies in Clang’s AST representation can add up to noticeable compile-time overhead. This post walks through a set of structural improvements I recently made to Clang’s AST that make type representation smaller, simpler, and faster to create — leading to measurable build-time gains in real-world projects. A couple of months ago, I landed a large patch in Clang that brought substantial compile-time improvements for heavily templated C++ code. For example, in stdexec — the reference implementation of the std::execution feature slated for C++26 — the slowest test (test_on2.cpp) saw a 7% reduction in build time. Also the Chromium build showed a 5% improvement (source). At a high level, the patch makes the Clang AST leaner: it reduces the memory footprint of type representations and lowers the cost of creating and uniquing them. These improvements will ship with Clang 22, expected in the next few months. How elaboration and qualified names used to work Consider this simple snippet: namespace NS { struct A {}; } using T = struct NS::A; The type of T (struct NS::A) carries two pieces of information: It’s elaborated — the struct keyword appears. It’s qualified — NS:: acts as a nested-name-specifier. Here’s how the AST dump looked before this patch: ElaboratedType &#39;struct NS::A&#39; sugar `-RecordType &#39;test::NS::A&#39; `-CXXRecord &#39;A&#39; The RecordType represents a direct reference to the previously declared struct A — a kind of canonical view of the type, stripped of syntactic details like struct or namespace qualifiers. Those syntactic details were stored separately in an ElaboratedType node that wrapped the RecordType. Interestingly, an ElaboratedType node existed even when no elaboration or qualification appeared in the source (example). This was needed to distinguish between an explicitly unqualified type and one that lost its qualifiers through template substitution. However, this design was expensive: every ElaboratedType node consumed 48 bytes, and creating one required extra work to uniquify it — an important step for Clang’s fast type comparisons. A more compact representation The new approach removes ElaboratedType entirely. Instead, elaboration and qualifiers are now stored directly inside RecordType. The new AST dump for the same example looks like this: RecordType &#39;struct NS::A&#39; struct |-NestedNameSpecifier Namespace &#39;NS&#39; `-CXXRecord &#39;A&#39; The struct elaboration now fits into previously unused bits within RecordType, while the qualifier is tail-allocated when present — making the node variably sized. This change both shrinks the memory footprint and eliminates one level of indirection when traversing the AST. Representing NestedNameSpecifier NestedNameSpecifier is Clang’s internal representation for name qualifiers. Before this patch, it was represented by a pointer (NestedNameSpecifier*) to a uniqued structure that could describe: The global namespace (::) A named namespace (including aliases) A type An identifier naming an unknown entity A __super reference (Microsoft extension) For all but cases (1) and (5), each NestedNameSpecifier also held a prefix — the qualifier to its left. For example: Namespace::Class::NestedClassTemplate&lt;T&gt;::XX This would be stored as a linked list: [id: XX] -&gt; [type: NestedClassTemplate&lt;T&gt;] -&gt; [type: Class] -&gt; [namespace: Namespace] Internally, that meant seven allocations totaling around 160 bytes: NestedNameSpecifier (identifier) – 16 bytes NestedNameSpecifier (type) – 16 bytes TemplateSpecializationType – 48 bytes QualifiedTemplateName – 16 bytes NestedNameSpecifier (type) – 16 bytes RecordType – 32 bytes NestedNameSpecifier (namespace) – 16 bytes The real problem wasn’t just size — it was the uniquing cost. Every prospective node has to be looked up in a hash table for a pre-existing instance. To make matters worse, ElaboratedType nodes sometimes leaked into these chains, which wasn’t supposed to happen and led to several long-standing bugs. A new, smarter NestedNameSpecifier After this patch, NestedNameSpecifier becomes a compact, tagged pointer — just one machine word wide. The pointer uses 8-byte alignment, leaving three spare bits. Two bits are used for kind discrimination, and one remains available for arbitrary use. When non-null, the tag bits encode: A type A declaration (either a __super class or a namespace) A namespace prefixed by the global scope (::Namespace) A special object combining a namespace with its prefix When null, the tag bits instead encode: An empty nested name (the terminator) The global name An invalid/tombstone entry (for hash tables) Other changes include: The “unknown identifier” case is now represented by a DependentNameType. Type prefixes are handled directly in the type hierarchy. Revisiting the earlier example, after the patch its AST dump becomes: DependentNameType &#39;Namespace::Class::NestedClassTemplate&lt;T&gt;::XX&#39; dependent `-NestedNameSpecifier TemplateSpecializationType &#39;Namespace::Class::NestedClassTemplate&lt;T&gt;&#39; dependent `-name: &#39;Namespace::Class::NestedClassTemplate&#39; qualified |-NestedNameSpecifier RecordType &#39;Namespace::Class&#39; | |-NestedNameSpecifier Namespace &#39;Namespace&#39; | `-CXXRecord &#39;Class&#39; `-ClassTemplate NestedClassTemplate This representation now requires only four allocations (156 bytes total): DependentNameType – 48 bytes TemplateSpecializationType – 48 bytes QualifiedTemplateName – 16 bytes RecordType – 40 bytes That’s almost half the number of nodes. While DependentNameType is larger than the previous 16-byte “identifier” node, the additional space isn’t wasted — it holds cached answers to common queries such as “does this type reference a template parameter?” or “what is its canonical form?”. These caches make those operations significantly cheaper, further improving performance. Wrapping up There’s more in the patch than what I’ve covered here, including: RecordType now points directly to the declaration found at creation, enriching the AST without measurable overhead. RecordType nodes are now created lazily. The redesigned NestedNameSpecifier simplified several template instantiation transforms. Each of these could warrant its own write-up, but even this high-level overview shows how careful structural changes in the AST can lead to tangible compile-time wins. I hope you found this deep dive into Clang’s internals interesting — and that it gives a glimpse of the kind of small, structural optimizations that add up to real performance improvements in large C++ builds." />
+<link rel="canonical" href="http://cppalliance.org/mizvekov,/clang/2025/10/20/Making-Clang-AST-Leaner-Faster.html" />
+<meta property="og:url" content="http://cppalliance.org/mizvekov,/clang/2025/10/20/Making-Clang-AST-Leaner-Faster.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-20T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Making the Clang AST Leaner and Faster" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Modern C++ codebases — from browsers to GPU frameworks — rely heavily on templates, and that often means massive abstract syntax trees. Even small inefficiencies in Clang’s AST representation can add up to noticeable compile-time overhead. This post walks through a set of structural improvements I recently made to Clang’s AST that make type representation smaller, simpler, and faster to create — leading to measurable build-time gains in real-world projects. A couple of months ago, I landed a large patch in Clang that brought substantial compile-time improvements for heavily templated C++ code. For example, in stdexec — the reference implementation of the std::execution feature slated for C++26 — the slowest test (test_on2.cpp) saw a 7% reduction in build time. Also the Chromium build showed a 5% improvement (source). At a high level, the patch makes the Clang AST leaner: it reduces the memory footprint of type representations and lowers the cost of creating and uniquing them. These improvements will ship with Clang 22, expected in the next few months. How elaboration and qualified names used to work Consider this simple snippet: namespace NS { struct A {}; } using T = struct NS::A; The type of T (struct NS::A) carries two pieces of information: It’s elaborated — the struct keyword appears. It’s qualified — NS:: acts as a nested-name-specifier. Here’s how the AST dump looked before this patch: ElaboratedType &#39;struct NS::A&#39; sugar `-RecordType &#39;test::NS::A&#39; `-CXXRecord &#39;A&#39; The RecordType represents a direct reference to the previously declared struct A — a kind of canonical view of the type, stripped of syntactic details like struct or namespace qualifiers. Those syntactic details were stored separately in an ElaboratedType node that wrapped the RecordType. Interestingly, an ElaboratedType node existed even when no elaboration or qualification appeared in the source (example). This was needed to distinguish between an explicitly unqualified type and one that lost its qualifiers through template substitution. However, this design was expensive: every ElaboratedType node consumed 48 bytes, and creating one required extra work to uniquify it — an important step for Clang’s fast type comparisons. A more compact representation The new approach removes ElaboratedType entirely. Instead, elaboration and qualifiers are now stored directly inside RecordType. The new AST dump for the same example looks like this: RecordType &#39;struct NS::A&#39; struct |-NestedNameSpecifier Namespace &#39;NS&#39; `-CXXRecord &#39;A&#39; The struct elaboration now fits into previously unused bits within RecordType, while the qualifier is tail-allocated when present — making the node variably sized. This change both shrinks the memory footprint and eliminates one level of indirection when traversing the AST. Representing NestedNameSpecifier NestedNameSpecifier is Clang’s internal representation for name qualifiers. Before this patch, it was represented by a pointer (NestedNameSpecifier*) to a uniqued structure that could describe: The global namespace (::) A named namespace (including aliases) A type An identifier naming an unknown entity A __super reference (Microsoft extension) For all but cases (1) and (5), each NestedNameSpecifier also held a prefix — the qualifier to its left. For example: Namespace::Class::NestedClassTemplate&lt;T&gt;::XX This would be stored as a linked list: [id: XX] -&gt; [type: NestedClassTemplate&lt;T&gt;] -&gt; [type: Class] -&gt; [namespace: Namespace] Internally, that meant seven allocations totaling around 160 bytes: NestedNameSpecifier (identifier) – 16 bytes NestedNameSpecifier (type) – 16 bytes TemplateSpecializationType – 48 bytes QualifiedTemplateName – 16 bytes NestedNameSpecifier (type) – 16 bytes RecordType – 32 bytes NestedNameSpecifier (namespace) – 16 bytes The real problem wasn’t just size — it was the uniquing cost. Every prospective node has to be looked up in a hash table for a pre-existing instance. To make matters worse, ElaboratedType nodes sometimes leaked into these chains, which wasn’t supposed to happen and led to several long-standing bugs. A new, smarter NestedNameSpecifier After this patch, NestedNameSpecifier becomes a compact, tagged pointer — just one machine word wide. The pointer uses 8-byte alignment, leaving three spare bits. Two bits are used for kind discrimination, and one remains available for arbitrary use. When non-null, the tag bits encode: A type A declaration (either a __super class or a namespace) A namespace prefixed by the global scope (::Namespace) A special object combining a namespace with its prefix When null, the tag bits instead encode: An empty nested name (the terminator) The global name An invalid/tombstone entry (for hash tables) Other changes include: The “unknown identifier” case is now represented by a DependentNameType. Type prefixes are handled directly in the type hierarchy. Revisiting the earlier example, after the patch its AST dump becomes: DependentNameType &#39;Namespace::Class::NestedClassTemplate&lt;T&gt;::XX&#39; dependent `-NestedNameSpecifier TemplateSpecializationType &#39;Namespace::Class::NestedClassTemplate&lt;T&gt;&#39; dependent `-name: &#39;Namespace::Class::NestedClassTemplate&#39; qualified |-NestedNameSpecifier RecordType &#39;Namespace::Class&#39; | |-NestedNameSpecifier Namespace &#39;Namespace&#39; | `-CXXRecord &#39;Class&#39; `-ClassTemplate NestedClassTemplate This representation now requires only four allocations (156 bytes total): DependentNameType – 48 bytes TemplateSpecializationType – 48 bytes QualifiedTemplateName – 16 bytes RecordType – 40 bytes That’s almost half the number of nodes. While DependentNameType is larger than the previous 16-byte “identifier” node, the additional space isn’t wasted — it holds cached answers to common queries such as “does this type reference a template parameter?” or “what is its canonical form?”. These caches make those operations significantly cheaper, further improving performance. Wrapping up There’s more in the patch than what I’ve covered here, including: RecordType now points directly to the declaration found at creation, enriching the AST without measurable overhead. RecordType nodes are now created lazily. The redesigned NestedNameSpecifier simplified several template instantiation transforms. Each of these could warrant its own write-up, but even this high-level overview shows how careful structural changes in the AST can lead to tangible compile-time wins. I hope you found this deep dive into Clang’s internals interesting — and that it gives a glimpse of the kind of small, structural optimizations that add up to real performance improvements in large C++ builds.","@type":"BlogPosting","url":"http://cppalliance.org/mizvekov,/clang/2025/10/20/Making-Clang-AST-Leaner-Faster.html","headline":"Making the Clang AST Leaner and Faster","dateModified":"2025-10-20T00:00:00+00:00","datePublished":"2025-10-20T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/mizvekov,/clang/2025/10/20/Making-Clang-AST-Leaner-Faster.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Making the Clang AST Leaner and Faster</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+              Matheus Izvekov on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 20, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Modern C++ codebases — from browsers to GPU frameworks — rely heavily on templates, and that often means <em>massive</em> abstract syntax trees. Even small inefficiencies in Clang’s AST representation can add up to noticeable compile-time overhead.</p>
+
+<p>This post walks through a set of structural improvements I recently made to Clang’s AST that make type representation smaller, simpler, and faster to create — leading to measurable build-time gains in real-world projects.</p>
+
+<hr />
+
+<p>A couple of months ago, I landed <a href="https://github.com/llvm/llvm-project/pull/147835">a large patch</a> in Clang that brought substantial compile-time improvements for heavily templated C++ code.</p>
+
+<p>For example, in <a href="https://github.com/NVIDIA/stdexec">stdexec</a> — the reference implementation of the <code>std::execution</code> <a href="http://wg21.link/p2300">feature slated for C++26</a> — the slowest test (<a href="https://github.com/NVIDIA/stdexec/blob/main/test/stdexec/algos/adaptors/test_on2.cpp"><code>test_on2.cpp</code></a>) saw a <strong>7% reduction in build time</strong>.</p>
+
+<p>Also the <a href="https://www.chromium.org/Home/">Chromium</a> build showed a <strong>5% improvement</strong> (<a href="https://github.com/llvm/llvm-project/pull/147835#issuecomment-3278893447">source</a>).</p>
+
+<p>At a high level, the patch makes the Clang AST <em>leaner</em>: it reduces the memory footprint of type representations and lowers the cost of creating and uniquing them.</p>
+
+<p>These improvements will ship with <strong>Clang 22</strong>, expected in the next few months.</p>
+
+<hr />
+
+<h2 id="how-elaboration-and-qualified-names-used-to-work">How elaboration and qualified names used to work</h2>
+
+<p>Consider this simple snippet:</p>
+
+<pre><code class="language-cpp">namespace NS {
+  struct A {};
+}
+using T = struct NS::A;
+</code></pre>
+
+<p>The type of <code>T</code> (<code>struct NS::A</code>) carries two pieces of information:</p>
+
+<ol>
+  <li>It’s <em>elaborated</em> — the <code>struct</code> keyword appears.</li>
+  <li>It’s <em>qualified</em> — <code>NS::</code> acts as a <a href="https://eel.is/c++draft/expr.prim.id.qual#:nested-name-specifier"><em>nested-name-specifier</em></a>.</li>
+</ol>
+
+<p>Here’s how the <a href="https://compiler-explorer.com/z/WEWc4817x">AST dump</a> looked before this patch:</p>
+
+<pre><code>ElaboratedType 'struct NS::A' sugar
+`-RecordType 'test::NS::A'
+  `-CXXRecord 'A'
+</code></pre>
+
+<p>The <code>RecordType</code> represents a direct reference to the previously declared <code>struct A</code> — a kind of <em>canonical</em> view of the type, stripped of syntactic details like <code>struct</code> or namespace qualifiers.</p>
+
+<p>Those syntactic details were stored separately in an <code>ElaboratedType</code> node that wrapped the <code>RecordType</code>.</p>
+
+<p>Interestingly, an <code>ElaboratedType</code> node existed even when no elaboration or qualification appeared in the source (<a href="https://compiler-explorer.com/z/ncW5bzWrc">example</a>). This was needed to distinguish between an explicitly unqualified type and one that lost its qualifiers through template substitution.</p>
+
+<p>However, this design was expensive: every <code>ElaboratedType</code> node consumed <strong>48 bytes</strong>, and creating one required extra work to uniquify it — an important step for Clang’s fast type comparisons.</p>
+
+<hr />
+
+<h2 id="a-more-compact-representation">A more compact representation</h2>
+
+<p>The new approach removes <code>ElaboratedType</code> entirely. Instead, elaboration and qualifiers are now stored <strong>directly inside <code>RecordType</code></strong>.</p>
+
+<p>The <a href="https://compiler-explorer.com/z/asz5q5YGj">new AST dump</a> for the same example looks like this:</p>
+
+<pre><code class="language-cpp">RecordType 'struct NS::A' struct
+|-NestedNameSpecifier Namespace 'NS'
+`-CXXRecord 'A'
+</code></pre>
+
+<p>The <code>struct</code> elaboration now fits into previously unused bits within <code>RecordType</code>, while the qualifier is <em>tail-allocated</em> when present — making the node variably sized.</p>
+
+<p>This change both shrinks the memory footprint and eliminates one level of indirection when traversing the AST.</p>
+
+<hr />
+
+<h2 id="representing-nestednamespecifier">Representing <code>NestedNameSpecifier</code></h2>
+
+<p><code>NestedNameSpecifier</code> is Clang’s internal representation for name qualifiers.</p>
+
+<p>Before this patch, it was represented by a pointer (<code>NestedNameSpecifier*</code>) to a uniqued structure that could describe:</p>
+
+<ol>
+  <li>The global namespace (<code>::</code>)</li>
+  <li>A named namespace (including aliases)</li>
+  <li>A type</li>
+  <li>An identifier naming an unknown entity</li>
+  <li>A <code>__super</code> reference (Microsoft extension)</li>
+</ol>
+
+<p>For all but cases (1) and (5), each <code>NestedNameSpecifier</code> also held a <em>prefix</em> — the qualifier to its left.</p>
+
+<p>For example:</p>
+
+<pre><code class="language-cpp">Namespace::Class::NestedClassTemplate&lt;T&gt;::XX
+</code></pre>
+
+<p>This would be stored as a linked list:</p>
+
+<pre><code>[id: XX] -&gt; [type: NestedClassTemplate&lt;T&gt;] -&gt; [type: Class] -&gt; [namespace: Namespace]
+</code></pre>
+
+<p>Internally, that meant <strong>seven allocations</strong> totaling around <strong>160 bytes</strong>:</p>
+
+<ol>
+  <li><code>NestedNameSpecifier</code> (identifier) – 16 bytes</li>
+  <li><code>NestedNameSpecifier</code> (type) – 16 bytes</li>
+  <li><code>TemplateSpecializationType</code> – 48 bytes</li>
+  <li><code>QualifiedTemplateName</code> – 16 bytes</li>
+  <li><code>NestedNameSpecifier</code> (type) – 16 bytes</li>
+  <li><code>RecordType</code> – 32 bytes</li>
+  <li><code>NestedNameSpecifier</code> (namespace) – 16 bytes</li>
+</ol>
+
+<p>The real problem wasn’t just size — it was the <em>uniquing cost</em>. Every prospective node has to be looked up in a hash table for a pre-existing instance.</p>
+
+<p>To make matters worse, <code>ElaboratedType</code> nodes sometimes leaked into these chains, which wasn’t supposed to happen and led to <a href="https://github.com/llvm/llvm-project/issues/43179">several</a> <a href="https://github.com/llvm/llvm-project/issues/68670">long-standing</a> <a href="https://github.com/llvm/llvm-project/issues/92757">bugs</a>.</p>
+
+<hr />
+
+<h2 id="a-new-smarter-nestednamespecifier">A new, smarter <code>NestedNameSpecifier</code></h2>
+
+<p>After this patch, <code>NestedNameSpecifier</code> becomes a <strong>compact, tagged pointer</strong> — just one machine word wide.</p>
+
+<p>The pointer uses 8-byte alignment, leaving three spare bits. Two bits are used for kind discrimination, and one remains available for arbitrary use.</p>
+
+<p>When non-null, the tag bits encode:</p>
+
+<ol>
+  <li>A type</li>
+  <li>A declaration (either a <code>__super</code> class or a namespace)</li>
+  <li>A namespace prefixed by the global scope (<code>::Namespace</code>)</li>
+  <li>A special object combining a namespace with its prefix</li>
+</ol>
+
+<p>When null, the tag bits instead encode:</p>
+
+<ol>
+  <li>An empty nested name (the terminator)</li>
+  <li>The global name</li>
+  <li>An invalid/tombstone entry (for hash tables)</li>
+</ol>
+
+<p>Other changes include:</p>
+
+<ul>
+  <li>The “unknown identifier” case is now represented by a <code>DependentNameType</code>.</li>
+  <li>Type prefixes are handled directly in the type hierarchy.</li>
+</ul>
+
+<p>Revisiting the earlier example, after the patch its AST dump becomes:</p>
+
+<pre><code>DependentNameType 'Namespace::Class::NestedClassTemplate&lt;T&gt;::XX' dependent
+`-NestedNameSpecifier TemplateSpecializationType 'Namespace::Class::NestedClassTemplate&lt;T&gt;' dependent
+  `-name: 'Namespace::Class::NestedClassTemplate' qualified
+    |-NestedNameSpecifier RecordType 'Namespace::Class'
+    | |-NestedNameSpecifier Namespace 'Namespace'
+    | `-CXXRecord 'Class'
+    `-ClassTemplate NestedClassTemplate
+</code></pre>
+
+<p>This representation now requires only <strong>four allocations (156 bytes total):</strong></p>
+
+<ol>
+  <li><code>DependentNameType</code> – 48 bytes</li>
+  <li><code>TemplateSpecializationType</code> – 48 bytes</li>
+  <li><code>QualifiedTemplateName</code> – 16 bytes</li>
+  <li><code>RecordType</code> – 40 bytes</li>
+</ol>
+
+<p>That’s almost half the number of nodes.</p>
+
+<p>While <code>DependentNameType</code> is larger than the previous 16-byte “identifier” node, the additional space isn’t wasted — it holds cached answers to common queries such as “does this type reference a template parameter?” or “what is its canonical form?”.</p>
+
+<p>These caches make those operations significantly cheaper, further improving performance.</p>
+
+<hr />
+
+<h2 id="wrapping-up">Wrapping up</h2>
+
+<p>There’s more in the patch than what I’ve covered here, including:</p>
+
+<ul>
+  <li><code>RecordType</code> now points directly to the declaration found at creation, enriching the AST without measurable overhead.</li>
+  <li><code>RecordType</code> nodes are now created lazily.</li>
+  <li>The redesigned <code>NestedNameSpecifier</code> simplified several template instantiation transforms.</li>
+</ul>
+
+<p>Each of these could warrant its own write-up, but even this high-level overview shows how careful structural changes in the AST can lead to tangible compile-time wins.</p>
+
+<p>I hope you found this deep dive into Clang’s internals interesting — and that it gives a glimpse of the kind of small, structural optimizations that add up to real performance improvements in large C++ builds.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2025</span>
+          <a class='text-l news-title link' href="/mizvekov,/clang/2025/10/20/Making-Clang-AST-Leaner-Faster.html">Making the Clang AST Leaner and Faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

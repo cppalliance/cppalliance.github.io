@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost.RunTimeServices: The Glue for Optional Runtime Features | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Boost.RunTimeServices: The Glue for Optional Runtime Features | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Boost.RunTimeServices: The Glue for Optional Runtime Features" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="How Boost.RunTimeServices Emerged from Boost.HTTP.Proto Development During the development of the Boost.HTTP.Proto library, we recognized the need for a flexible mechanism to install and access optional services at runtime without requiring prior knowledge of their specific implementations. For example, building a library with optional support for zlib and Brotli compression, even if those libraries weren’t installed on the user’s machine. This challenge led to the creation of Boost.RunTimeServices, a solution that offers several key benefits to both library developers and users, which I will briefly outline below. Libraries With No Configuration Macros One approach to managing optional dependencies in libraries is to use configuration macros at build time, such as BOOST_HTTP_PROTO_HAS_ZLIB or BOOST_COOKIES_HAS_PSL. However, this approach has major drawbacks: Combinatorial explosion of binary variants. Users can’t easily determine which features are enabled in a binary. Configuration macros leak into downstream libraries, compounding complexity. Changing features requires full rebuilds of all dependent code. Difficult to distribute a single binary via package managers. With Boost.RunTimeServices, configuration macros become unnecessary. Features can be queried and installed at runtime. For example, installing an optional zlib inflate service: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); Then, a library can conditionally use the service: if(cfg.decompression) { auto&amp; svc = ctx.get_service&lt;rts::zlib::inflate_service&gt;(); svc.inflate(stream, rts::zlib::flush::finish); } Smaller Binaries by Stripping Unused Features Since service interfaces are decoupled from implementations, unused services and their dependencies can be eliminated by the linker. For example the following is part of the implementation of rts::zlib::inflate_service: class inflate_service_impl : public inflate_service { public: using key_type = inflate_service; int init2(stream&amp; st, int windowBits) const override { stream_cast sc(st); return inflateInit2(sc.get(), windowBits); } int inflate(stream&amp; st, int flush) const override { stream_cast sc(st); return ::inflate(sc.get(), flush); } // ... } The implementation class is only instantiated within: inflate_service&amp; install_inflate_service(context&amp; ctx) { return ctx.make_service&lt;inflate_service_impl&gt;(); } Libraries interact only with the abstract interface: struct BOOST_SYMBOL_VISIBLE inflate_service : public service { virtual int init2(stream&amp; st, int windowBits) const = 0; virtual int inflate(stream&amp; st, int flush) const = 0; // ... }; If the user never calls install_inflate_service, the implementation and its dependencies are omitted from the binary. In this particular example, having separate services for inflation and deflation gives us more granularity on the matter. For instance, a client application that uses Boost.HTTP.Proto will more likely only need to install rts::zlib::inflate_service, because it typically only needs to parse compressed HTTP response messages and compression of HTTP requests almost never happens in client applications. The reverse is true for server applications and they might only need to install rts::zlib::deflate_service, since client requests usually arrive uncompressed and the server needs to compress responses (if requested). Libraries Built Independent of the Availability of Optional Services Because a library that uses an optional service needs only the interface of that service, there is no need for a build-time dependency. Therefore, we can always build a single version of a library that takes advantage of all optional services if they are available at runtime. For example, in the case of Boost.HTTP.Proto, one can use the library without any compression services, as users simply don’t install those services and there’s no need to link any extra libraries. Another user can use the exact same binary of Boost.HTTP.Proto with zlib and Brotli decompression algorithms: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); // links against boost_rts_zlib rts::brotli::install_decoder_service(rts_ctx); // links against boost_rts_brotli Optional Services in Downstream Libraries Assume we want to create a library named Boost.Request that uses Boost.HTTP.Proto and Boost.HTTP.IO, and provides an easy-to-use interface for client-side usage. Such a library doesn’t need to care about optional services and can delegate that responsibility to the end user, allowing them to decide which services to install. For example, Boost.Request can internally query the availability of these services and make requests accordingly: if(rts_ctx.has_service&lt;brotli::decoder_service&gt;()) encodings.append(&quot;br&quot;); if(rts_ctx.has_service&lt;zlib::inflate_service&gt;()) { encodings.append(&quot;deflate&quot;); encodings.append(&quot;gzip&quot;); } if(!accept_encoding.empty()) request.set(field::accept_encoding, encodings.str()); Why This Needs to Be a Separate Library This is a core library that many other libraries may want to use. For example, a user who installs zlib services expects them to be usable in both Boost.HTTP.Proto and Boost.WS.Proto: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); rts::zlib::install_deflate_service(rts_ctx); // Usage site http_proto::parser parser(rts_ctx); ws_proto::stream stream(rts_ctx); User libraries need to link against boost_rts in order to access rts::context. Note that boost_rts is a lightweight target with no dependency on optional services like zlib or Brotli. Existing Challenges Minimum Library For Mandatory Symbols A library that uses an optional service might still need to link against a minimal version that provides necessary symbols such as error_category instances, because we usually need to instantiate them inside the source and can’t leave them in headers. For example, assume a library that needs to call an API to provide the error message: char const* error_cat_type:: message( int ev, char*, std::size_t) const noexcept { return c_api_get_error_message(ev); } This clearly can’t be left in the headers because it would require the existence of the c_api_get_error_message symbol at link time, which defeats the purpose of optional services. To allow optional linkage, a fallback could be provided: char const* error_cat_type:: message( int ev, char*, std::size_t) const noexcept { return &quot;service not available&quot;; } But the remaining question is: where should this implementation go if we want optional linkage against services? Currently, we place this code inside the core Boost.RunTimeServices library, which could become a scalability problem in the future as the number of services grows. An Even Finer Grain Control Over Used and Unused Symbols Even though separate services (e.g., inflate_service, deflate_service) help the linker remove unused code; the granularity is still limited. For example, if a library uses only inflate_service::init, the linker still includes inflate_service::init2 and other unused methods. This is because interfaces are polymorphic and the linker can’t remove individual virtual methods: class inflate_service_impl : public inflate_service { public: using key_type = inflate_service; int init(stream&amp; st) const override { stream_cast sc(st); return inflateInit(sc.get()); } int init2(stream&amp; st, int windowBits) const override { stream_cast sc(st); return inflateInit2(sc.get(), windowBits); } // ... } Space Overhead and Indirection Cost of Virtual Services This is probably not an issue for most users, as these costs are negligible in real-world applications. However, a solution that provides the same functionality as virtual service interfaces but without these overheads would be highly desirable." />
+<meta property="og:description" content="How Boost.RunTimeServices Emerged from Boost.HTTP.Proto Development During the development of the Boost.HTTP.Proto library, we recognized the need for a flexible mechanism to install and access optional services at runtime without requiring prior knowledge of their specific implementations. For example, building a library with optional support for zlib and Brotli compression, even if those libraries weren’t installed on the user’s machine. This challenge led to the creation of Boost.RunTimeServices, a solution that offers several key benefits to both library developers and users, which I will briefly outline below. Libraries With No Configuration Macros One approach to managing optional dependencies in libraries is to use configuration macros at build time, such as BOOST_HTTP_PROTO_HAS_ZLIB or BOOST_COOKIES_HAS_PSL. However, this approach has major drawbacks: Combinatorial explosion of binary variants. Users can’t easily determine which features are enabled in a binary. Configuration macros leak into downstream libraries, compounding complexity. Changing features requires full rebuilds of all dependent code. Difficult to distribute a single binary via package managers. With Boost.RunTimeServices, configuration macros become unnecessary. Features can be queried and installed at runtime. For example, installing an optional zlib inflate service: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); Then, a library can conditionally use the service: if(cfg.decompression) { auto&amp; svc = ctx.get_service&lt;rts::zlib::inflate_service&gt;(); svc.inflate(stream, rts::zlib::flush::finish); } Smaller Binaries by Stripping Unused Features Since service interfaces are decoupled from implementations, unused services and their dependencies can be eliminated by the linker. For example the following is part of the implementation of rts::zlib::inflate_service: class inflate_service_impl : public inflate_service { public: using key_type = inflate_service; int init2(stream&amp; st, int windowBits) const override { stream_cast sc(st); return inflateInit2(sc.get(), windowBits); } int inflate(stream&amp; st, int flush) const override { stream_cast sc(st); return ::inflate(sc.get(), flush); } // ... } The implementation class is only instantiated within: inflate_service&amp; install_inflate_service(context&amp; ctx) { return ctx.make_service&lt;inflate_service_impl&gt;(); } Libraries interact only with the abstract interface: struct BOOST_SYMBOL_VISIBLE inflate_service : public service { virtual int init2(stream&amp; st, int windowBits) const = 0; virtual int inflate(stream&amp; st, int flush) const = 0; // ... }; If the user never calls install_inflate_service, the implementation and its dependencies are omitted from the binary. In this particular example, having separate services for inflation and deflation gives us more granularity on the matter. For instance, a client application that uses Boost.HTTP.Proto will more likely only need to install rts::zlib::inflate_service, because it typically only needs to parse compressed HTTP response messages and compression of HTTP requests almost never happens in client applications. The reverse is true for server applications and they might only need to install rts::zlib::deflate_service, since client requests usually arrive uncompressed and the server needs to compress responses (if requested). Libraries Built Independent of the Availability of Optional Services Because a library that uses an optional service needs only the interface of that service, there is no need for a build-time dependency. Therefore, we can always build a single version of a library that takes advantage of all optional services if they are available at runtime. For example, in the case of Boost.HTTP.Proto, one can use the library without any compression services, as users simply don’t install those services and there’s no need to link any extra libraries. Another user can use the exact same binary of Boost.HTTP.Proto with zlib and Brotli decompression algorithms: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); // links against boost_rts_zlib rts::brotli::install_decoder_service(rts_ctx); // links against boost_rts_brotli Optional Services in Downstream Libraries Assume we want to create a library named Boost.Request that uses Boost.HTTP.Proto and Boost.HTTP.IO, and provides an easy-to-use interface for client-side usage. Such a library doesn’t need to care about optional services and can delegate that responsibility to the end user, allowing them to decide which services to install. For example, Boost.Request can internally query the availability of these services and make requests accordingly: if(rts_ctx.has_service&lt;brotli::decoder_service&gt;()) encodings.append(&quot;br&quot;); if(rts_ctx.has_service&lt;zlib::inflate_service&gt;()) { encodings.append(&quot;deflate&quot;); encodings.append(&quot;gzip&quot;); } if(!accept_encoding.empty()) request.set(field::accept_encoding, encodings.str()); Why This Needs to Be a Separate Library This is a core library that many other libraries may want to use. For example, a user who installs zlib services expects them to be usable in both Boost.HTTP.Proto and Boost.WS.Proto: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); rts::zlib::install_deflate_service(rts_ctx); // Usage site http_proto::parser parser(rts_ctx); ws_proto::stream stream(rts_ctx); User libraries need to link against boost_rts in order to access rts::context. Note that boost_rts is a lightweight target with no dependency on optional services like zlib or Brotli. Existing Challenges Minimum Library For Mandatory Symbols A library that uses an optional service might still need to link against a minimal version that provides necessary symbols such as error_category instances, because we usually need to instantiate them inside the source and can’t leave them in headers. For example, assume a library that needs to call an API to provide the error message: char const* error_cat_type:: message( int ev, char*, std::size_t) const noexcept { return c_api_get_error_message(ev); } This clearly can’t be left in the headers because it would require the existence of the c_api_get_error_message symbol at link time, which defeats the purpose of optional services. To allow optional linkage, a fallback could be provided: char const* error_cat_type:: message( int ev, char*, std::size_t) const noexcept { return &quot;service not available&quot;; } But the remaining question is: where should this implementation go if we want optional linkage against services? Currently, we place this code inside the core Boost.RunTimeServices library, which could become a scalability problem in the future as the number of services grows. An Even Finer Grain Control Over Used and Unused Symbols Even though separate services (e.g., inflate_service, deflate_service) help the linker remove unused code; the granularity is still limited. For example, if a library uses only inflate_service::init, the linker still includes inflate_service::init2 and other unused methods. This is because interfaces are polymorphic and the linker can’t remove individual virtual methods: class inflate_service_impl : public inflate_service { public: using key_type = inflate_service; int init(stream&amp; st) const override { stream_cast sc(st); return inflateInit(sc.get()); } int init2(stream&amp; st, int windowBits) const override { stream_cast sc(st); return inflateInit2(sc.get(), windowBits); } // ... } Space Overhead and Indirection Cost of Virtual Services This is probably not an issue for most users, as these costs are negligible in real-world applications. However, a solution that provides the same functionality as virtual service interfaces but without these overheads would be highly desirable." />
+<link rel="canonical" href="http://cppalliance.org/mohammad/2025/07/16/MohammadsQ2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/mohammad/2025/07/16/MohammadsQ2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-07-16T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Boost.RunTimeServices: The Glue for Optional Runtime Features" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"How Boost.RunTimeServices Emerged from Boost.HTTP.Proto Development During the development of the Boost.HTTP.Proto library, we recognized the need for a flexible mechanism to install and access optional services at runtime without requiring prior knowledge of their specific implementations. For example, building a library with optional support for zlib and Brotli compression, even if those libraries weren’t installed on the user’s machine. This challenge led to the creation of Boost.RunTimeServices, a solution that offers several key benefits to both library developers and users, which I will briefly outline below. Libraries With No Configuration Macros One approach to managing optional dependencies in libraries is to use configuration macros at build time, such as BOOST_HTTP_PROTO_HAS_ZLIB or BOOST_COOKIES_HAS_PSL. However, this approach has major drawbacks: Combinatorial explosion of binary variants. Users can’t easily determine which features are enabled in a binary. Configuration macros leak into downstream libraries, compounding complexity. Changing features requires full rebuilds of all dependent code. Difficult to distribute a single binary via package managers. With Boost.RunTimeServices, configuration macros become unnecessary. Features can be queried and installed at runtime. For example, installing an optional zlib inflate service: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); Then, a library can conditionally use the service: if(cfg.decompression) { auto&amp; svc = ctx.get_service&lt;rts::zlib::inflate_service&gt;(); svc.inflate(stream, rts::zlib::flush::finish); } Smaller Binaries by Stripping Unused Features Since service interfaces are decoupled from implementations, unused services and their dependencies can be eliminated by the linker. For example the following is part of the implementation of rts::zlib::inflate_service: class inflate_service_impl : public inflate_service { public: using key_type = inflate_service; int init2(stream&amp; st, int windowBits) const override { stream_cast sc(st); return inflateInit2(sc.get(), windowBits); } int inflate(stream&amp; st, int flush) const override { stream_cast sc(st); return ::inflate(sc.get(), flush); } // ... } The implementation class is only instantiated within: inflate_service&amp; install_inflate_service(context&amp; ctx) { return ctx.make_service&lt;inflate_service_impl&gt;(); } Libraries interact only with the abstract interface: struct BOOST_SYMBOL_VISIBLE inflate_service : public service { virtual int init2(stream&amp; st, int windowBits) const = 0; virtual int inflate(stream&amp; st, int flush) const = 0; // ... }; If the user never calls install_inflate_service, the implementation and its dependencies are omitted from the binary. In this particular example, having separate services for inflation and deflation gives us more granularity on the matter. For instance, a client application that uses Boost.HTTP.Proto will more likely only need to install rts::zlib::inflate_service, because it typically only needs to parse compressed HTTP response messages and compression of HTTP requests almost never happens in client applications. The reverse is true for server applications and they might only need to install rts::zlib::deflate_service, since client requests usually arrive uncompressed and the server needs to compress responses (if requested). Libraries Built Independent of the Availability of Optional Services Because a library that uses an optional service needs only the interface of that service, there is no need for a build-time dependency. Therefore, we can always build a single version of a library that takes advantage of all optional services if they are available at runtime. For example, in the case of Boost.HTTP.Proto, one can use the library without any compression services, as users simply don’t install those services and there’s no need to link any extra libraries. Another user can use the exact same binary of Boost.HTTP.Proto with zlib and Brotli decompression algorithms: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); // links against boost_rts_zlib rts::brotli::install_decoder_service(rts_ctx); // links against boost_rts_brotli Optional Services in Downstream Libraries Assume we want to create a library named Boost.Request that uses Boost.HTTP.Proto and Boost.HTTP.IO, and provides an easy-to-use interface for client-side usage. Such a library doesn’t need to care about optional services and can delegate that responsibility to the end user, allowing them to decide which services to install. For example, Boost.Request can internally query the availability of these services and make requests accordingly: if(rts_ctx.has_service&lt;brotli::decoder_service&gt;()) encodings.append(&quot;br&quot;); if(rts_ctx.has_service&lt;zlib::inflate_service&gt;()) { encodings.append(&quot;deflate&quot;); encodings.append(&quot;gzip&quot;); } if(!accept_encoding.empty()) request.set(field::accept_encoding, encodings.str()); Why This Needs to Be a Separate Library This is a core library that many other libraries may want to use. For example, a user who installs zlib services expects them to be usable in both Boost.HTTP.Proto and Boost.WS.Proto: rts::context rts_ctx; rts::zlib::install_inflate_service(rts_ctx); rts::zlib::install_deflate_service(rts_ctx); // Usage site http_proto::parser parser(rts_ctx); ws_proto::stream stream(rts_ctx); User libraries need to link against boost_rts in order to access rts::context. Note that boost_rts is a lightweight target with no dependency on optional services like zlib or Brotli. Existing Challenges Minimum Library For Mandatory Symbols A library that uses an optional service might still need to link against a minimal version that provides necessary symbols such as error_category instances, because we usually need to instantiate them inside the source and can’t leave them in headers. For example, assume a library that needs to call an API to provide the error message: char const* error_cat_type:: message( int ev, char*, std::size_t) const noexcept { return c_api_get_error_message(ev); } This clearly can’t be left in the headers because it would require the existence of the c_api_get_error_message symbol at link time, which defeats the purpose of optional services. To allow optional linkage, a fallback could be provided: char const* error_cat_type:: message( int ev, char*, std::size_t) const noexcept { return &quot;service not available&quot;; } But the remaining question is: where should this implementation go if we want optional linkage against services? Currently, we place this code inside the core Boost.RunTimeServices library, which could become a scalability problem in the future as the number of services grows. An Even Finer Grain Control Over Used and Unused Symbols Even though separate services (e.g., inflate_service, deflate_service) help the linker remove unused code; the granularity is still limited. For example, if a library uses only inflate_service::init, the linker still includes inflate_service::init2 and other unused methods. This is because interfaces are polymorphic and the linker can’t remove individual virtual methods: class inflate_service_impl : public inflate_service { public: using key_type = inflate_service; int init(stream&amp; st) const override { stream_cast sc(st); return inflateInit(sc.get()); } int init2(stream&amp; st, int windowBits) const override { stream_cast sc(st); return inflateInit2(sc.get(), windowBits); } // ... } Space Overhead and Indirection Cost of Virtual Services This is probably not an issue for most users, as these costs are negligible in real-world applications. However, a solution that provides the same functionality as virtual service interfaces but without these overheads would be highly desirable.","@type":"BlogPosting","url":"http://cppalliance.org/mohammad/2025/07/16/MohammadsQ2Update.html","headline":"Boost.RunTimeServices: The Glue for Optional Runtime Features","dateModified":"2025-07-16T00:00:00+00:00","datePublished":"2025-07-16T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/mohammad/2025/07/16/MohammadsQ2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Boost.RunTimeServices: The Glue for Optional Runtime Features</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/mohammad">
+                  Mohammad Nejati
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 16, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="how-boostruntimeservices-emerged-from-boosthttpproto-development">How Boost.RunTimeServices Emerged from Boost.HTTP.Proto Development</h2>
+
+<p>During the development of the
+<a href="https://github.com/cppalliance/http_proto"><strong>Boost.HTTP.Proto</strong></a> library, we
+recognized the need for a flexible mechanism to install and access optional
+services at runtime without requiring prior knowledge of their specific
+implementations. For example, building a library with optional support
+for zlib and Brotli compression, even if those libraries weren’t installed on
+the user’s machine. This challenge led to the creation of
+<a href="https://github.com/cppalliance/rts"><strong>Boost.RunTimeServices</strong></a>, a solution that
+offers several key benefits to both library developers and users, which I will
+briefly outline below.</p>
+
+<h4 id="libraries-with-no-configuration-macros">Libraries With No Configuration Macros</h4>
+
+<p>One approach to managing optional dependencies in libraries is to use
+configuration macros at build time, such as <code>BOOST_HTTP_PROTO_HAS_ZLIB</code> or
+<code>BOOST_COOKIES_HAS_PSL</code>. However, this approach has major drawbacks:</p>
+
+<ol>
+  <li>Combinatorial explosion of binary variants.</li>
+  <li>Users can’t easily determine which features are enabled in a binary.</li>
+  <li>Configuration macros leak into downstream libraries, compounding complexity.</li>
+  <li>Changing features requires full rebuilds of all dependent code.</li>
+  <li>Difficult to distribute a single binary via package managers.</li>
+</ol>
+
+<p>With <strong>Boost.RunTimeServices</strong>, configuration macros become unnecessary.
+Features can be queried and installed at runtime. For example, installing an
+optional zlib inflate service:</p>
+
+<pre><code class="language-CPP">rts::context rts_ctx;
+rts::zlib::install_inflate_service(rts_ctx);
+</code></pre>
+
+<p>Then, a library can conditionally use the service:</p>
+
+<pre><code class="language-CPP">if(cfg.decompression)
+{
+  auto&amp; svc = ctx.get_service&lt;rts::zlib::inflate_service&gt;();
+  svc.inflate(stream, rts::zlib::flush::finish);
+}
+</code></pre>
+
+<h4 id="smaller-binaries-by-stripping-unused-features">Smaller Binaries by Stripping Unused Features</h4>
+
+<p>Since service interfaces are decoupled from implementations, unused services and
+their dependencies can be eliminated by the linker. For example the following is
+part of the implementation of <code>rts::zlib::inflate_service</code>:</p>
+
+<pre><code class="language-CPP">class inflate_service_impl
+    : public inflate_service
+{
+public:
+    using key_type = inflate_service;
+
+    int
+    init2(stream&amp; st, int windowBits) const override
+    {
+        stream_cast sc(st);
+        return inflateInit2(sc.get(), windowBits);
+    }
+
+    int
+    inflate(stream&amp; st, int flush) const override
+    {
+        stream_cast sc(st);
+        return ::inflate(sc.get(), flush);
+    }
+
+    // ...
+}
+</code></pre>
+
+<p>The implementation class is only instantiated within:</p>
+
+<pre><code class="language-CPP">inflate_service&amp;
+install_inflate_service(context&amp; ctx)
+{
+    return ctx.make_service&lt;inflate_service_impl&gt;();
+}
+</code></pre>
+
+<p>Libraries interact only with the abstract interface:</p>
+
+<pre><code class="language-CPP">struct BOOST_SYMBOL_VISIBLE
+inflate_service
+    : public service
+{
+    virtual int init2(stream&amp; st, int windowBits) const = 0;
+    virtual int inflate(stream&amp; st, int flush) const = 0;
+    // ...
+};
+</code></pre>
+
+<p>If the user never calls <code>install_inflate_service</code>, the implementation and its
+dependencies are omitted from the binary.</p>
+
+<p>In this particular example, having separate services for inflation and deflation
+gives us more granularity on the matter. For instance, a client
+application that uses <strong>Boost.HTTP.Proto</strong> will more likely only need to install
+<code>rts::zlib::inflate_service</code>, because it typically only needs to parse
+compressed HTTP response messages and compression of HTTP requests almost never
+happens in client applications. The reverse is true for server applications and
+they might only need to install <code>rts::zlib::deflate_service</code>, since client
+requests usually arrive uncompressed and the server needs to compress responses
+(if requested).</p>
+
+<h4 id="libraries-built-independent-of-the-availability-of-optional-services">Libraries Built Independent of the Availability of Optional Services</h4>
+
+<p>Because a library that uses an optional service needs only the interface of that
+service, there is no need for a build-time dependency. Therefore, we can always
+build a single version of a library that takes advantage of all optional
+services if they are available at runtime.</p>
+
+<p>For example, in the case of <strong>Boost.HTTP.Proto</strong>, one can use the library
+without any compression services, as users simply don’t install those services
+and there’s no need to link any extra libraries.</p>
+
+<p>Another user can use the exact same binary of <strong>Boost.HTTP.Proto</strong> with zlib and
+Brotli decompression algorithms:</p>
+
+<pre><code class="language-CPP">rts::context rts_ctx;
+rts::zlib::install_inflate_service(rts_ctx); // links against boost_rts_zlib
+rts::brotli::install_decoder_service(rts_ctx); // links against boost_rts_brotli
+</code></pre>
+
+<h4 id="optional-services-in-downstream-libraries">Optional Services in Downstream Libraries</h4>
+
+<p>Assume we want to create a library named <strong>Boost.Request</strong> that uses
+<strong>Boost.HTTP.Proto</strong> and <strong>Boost.HTTP.IO</strong>, and provides an easy-to-use
+interface for client-side usage. Such a library doesn’t need to care about
+optional services and can delegate that responsibility to the end user, allowing
+them to decide which services to install. For example, <strong>Boost.Request</strong> can
+internally query the availability of these services and make requests
+accordingly:</p>
+
+<pre><code class="language-CPP">if(rts_ctx.has_service&lt;brotli::decoder_service&gt;())
+    encodings.append("br");
+
+if(rts_ctx.has_service&lt;zlib::inflate_service&gt;())
+{
+    encodings.append("deflate");
+    encodings.append("gzip");
+}
+
+if(!accept_encoding.empty())
+    request.set(field::accept_encoding, encodings.str());
+</code></pre>
+
+<h2 id="why-this-needs-to-be-a-separate-library">Why This Needs to Be a Separate Library</h2>
+
+<p>This is a core library that many other libraries may want to use. For example, a
+user who installs zlib services expects them to be usable in both
+<strong>Boost.HTTP.Proto</strong> and <strong>Boost.WS.Proto</strong>:</p>
+
+<pre><code class="language-cpp">rts::context rts_ctx;
+rts::zlib::install_inflate_service(rts_ctx);
+rts::zlib::install_deflate_service(rts_ctx);
+
+// Usage site
+http_proto::parser parser(rts_ctx);
+ws_proto::stream stream(rts_ctx);
+</code></pre>
+
+<p>User libraries need to link against <code>boost_rts</code> in order to access
+<code>rts::context</code>. Note that <code>boost_rts</code> is a lightweight target with no dependency
+on optional services like zlib or Brotli.</p>
+
+<h2 id="existing-challenges">Existing Challenges</h2>
+
+<h4 id="minimum-library-for-mandatory-symbols">Minimum Library For Mandatory Symbols</h4>
+
+<p>A library that uses an optional service might still need to link against a
+minimal version that provides necessary symbols such as <code>error_category</code>
+instances, because we usually need to instantiate them inside the source and
+can’t leave them in headers.</p>
+
+<p>For example, assume a library that needs to call an API to provide the error
+message:</p>
+
+<pre><code class="language-CPP">char const*
+error_cat_type::
+message(
+    int ev,
+    char*,
+    std::size_t) const noexcept
+{
+    return c_api_get_error_message(ev);
+}
+</code></pre>
+
+<p>This clearly can’t be left in the headers because it would require the existence
+of the <code>c_api_get_error_message</code> symbol at link time, which defeats the purpose
+of optional services.</p>
+
+<p>To allow optional linkage, a fallback could be provided:</p>
+
+<pre><code class="language-CPP">char const*
+error_cat_type::
+message(
+    int ev,
+    char*,
+    std::size_t) const noexcept
+{
+    return "service not available";
+}
+</code></pre>
+
+<p>But the remaining question is: where should this implementation go if we want
+optional linkage against services? Currently, we place this code inside the core
+<strong>Boost.RunTimeServices</strong> library, which could become a scalability problem in
+the future as the number of services grows.</p>
+
+<h4 id="an-even-finer-grain-control-over-used-and-unused-symbols">An Even Finer Grain Control Over Used and Unused Symbols</h4>
+
+<p>Even though separate services (e.g., <code>inflate_service</code>, <code>deflate_service</code>) help
+the linker remove unused code; the granularity is still limited. For example, if
+a library uses only <code>inflate_service::init</code>, the linker still includes
+<code>inflate_service::init2</code> and other unused methods. This is because interfaces are
+polymorphic and the linker can’t remove individual virtual methods:</p>
+
+<pre><code class="language-CPP">class inflate_service_impl
+    : public inflate_service
+{
+public:
+    using key_type = inflate_service;
+
+    int
+    init(stream&amp; st) const override
+    {
+        stream_cast sc(st);
+        return inflateInit(sc.get());
+    }
+
+    int
+    init2(stream&amp; st, int windowBits) const override
+    {
+        stream_cast sc(st);
+        return inflateInit2(sc.get(), windowBits);
+    }
+
+    // ...
+}
+</code></pre>
+
+<h4 id="space-overhead-and-indirection-cost-of-virtual-services">Space Overhead and Indirection Cost of Virtual Services</h4>
+
+<p>This is probably not an issue for most users, as these costs are negligible in
+real-world applications. However, a solution that provides the same
+functionality as virtual service interfaces but without these overheads would be
+highly desirable.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/16/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/07/16/MohammadsQ2Update.html">Boost.RunTimeServices: The Glue for Optional Runtime Features</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/mohammad/2025/01/10/MohammadsQ4Update.html">Boost.Http.Io and Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/10/25/MohammadsQ3Update.html">Boost.Http.Proto Project Highlights</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/07/10/MohammadsQ2Update.html">Mohammad's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/04/22/MohammadsQ1Update.html">Mohammad's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/mohammad/2024/01/10/MohammadsQ4Update.html">Mohammad's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/mohammad/2023/10/27/MohammadsQ3Update.html">Mohammad's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

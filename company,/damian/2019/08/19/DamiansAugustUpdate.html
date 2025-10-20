@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Damian's July Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Damian’s July Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Damian’s July Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost.Beast I’ve started working on improvements to the zlib part of Beast. There are some gaps in the test harness of these components, so I’ve decided to increase coverage. As a first step, I started porting test cases from the original zlib library’s tests, to verify that existing code matches the expected behavior of the original library. Fortunately, I’ve not found any significant discrepancies, there’s only one issue where Beast rejects malformed input for the wrong reason (I’m still looking into it whether it’s actually an issue at the time of writing this). I’ve also looked into providing more meaningful feedback from test failures in Beast, especially when they’re run in CI. While the current test framework does print a line number on failure, the line number is often in a function template that’s called by multiple test cases, which makes it quite hard to determine which test failed just from the log, often requiring the use of a debugger. Doing that locally may not be a problem, but it’s significantly harder in CI, so I’ve decided to try to use Boost Stacktrace to provide a callstack on each failure in Beast tests. Additionally, I’ve also worked on running the test suite without OpenSSL installed, to hopefully fix some of the failures in the official Boost test matrix. The question of Networking TS and TLS There’s recently been quite a bit of discussion of networking being useless without “secure by default” sockets. Since this is a recurring topic and I expect it to return in the future, so I’ve decided to write up an analysis of this issue. First of all, I believe that an attempt to deliver a “secure by default” socket within the current networking proposal right now will result in something like std::async - not really practically useful. What kind of TLS facilities I’d consider useful for the average user of the standard library? A reasonable guideline, I think, are ones I could trust to be used in a distributed system that handles money (in any form). Note, that TLS is not only a protocol that provides confidentiality (i.e. encryption), but also allows verification of the identity either the server by the client, or both. Remember, doesn’t matter if 3rd parties can’t see what you’re sending, if you’re sending your data to the wrong peer in the first place! While it may seem simple at first look, just verifying the identity of a peer is an extremely complex process, as my experience with Certify has shown. Doing it portably and efficiently with the same interface and effects is extremely difficult. Browsers resort to all kinds of workarounds and custom solutions to be able to securely implement just this one aspect of TLS. I attempted to implement a library (intended for inclusion into Boost) that would perform this one aspect, however, I found it to be impossible to provide a practical solution with the current state of the networking ecosystem in Boost. In fact, one method of certificate verification (via the OCSP protocol) requires a (very) basic HTTP client. Yes, in order to perform a TLS handshake and verify the peer’s certificate status using OCSP, you need an HTTP client. This is just one aspect of the TLS protocol that needs to be addressed. There are others as well - what about the basic cryptographic building blocks, like ciphers, hashing algorithms, PRFs and so on - they are bound to be used in a hypothetical implementation in a standard library, should they be exposed? If yes then with what interface?. Considering that there are no standard networking facilities and not even a proposal for standard TLS, this is a discussion that would essentially postpone standard networking indefinitely. Finally, there’s also an opposite position that no networking should be in the standard at all. I disagree with this position - networking has become a very important part of many C++ projects (in my career, all C++ projects I dealt with, touched some sort of network in one way or another). At the very least we need standard named requirements for library compatibility, since that is severely lacking in the ecosystem at this point." />
+<meta property="og:description" content="Boost.Beast I’ve started working on improvements to the zlib part of Beast. There are some gaps in the test harness of these components, so I’ve decided to increase coverage. As a first step, I started porting test cases from the original zlib library’s tests, to verify that existing code matches the expected behavior of the original library. Fortunately, I’ve not found any significant discrepancies, there’s only one issue where Beast rejects malformed input for the wrong reason (I’m still looking into it whether it’s actually an issue at the time of writing this). I’ve also looked into providing more meaningful feedback from test failures in Beast, especially when they’re run in CI. While the current test framework does print a line number on failure, the line number is often in a function template that’s called by multiple test cases, which makes it quite hard to determine which test failed just from the log, often requiring the use of a debugger. Doing that locally may not be a problem, but it’s significantly harder in CI, so I’ve decided to try to use Boost Stacktrace to provide a callstack on each failure in Beast tests. Additionally, I’ve also worked on running the test suite without OpenSSL installed, to hopefully fix some of the failures in the official Boost test matrix. The question of Networking TS and TLS There’s recently been quite a bit of discussion of networking being useless without “secure by default” sockets. Since this is a recurring topic and I expect it to return in the future, so I’ve decided to write up an analysis of this issue. First of all, I believe that an attempt to deliver a “secure by default” socket within the current networking proposal right now will result in something like std::async - not really practically useful. What kind of TLS facilities I’d consider useful for the average user of the standard library? A reasonable guideline, I think, are ones I could trust to be used in a distributed system that handles money (in any form). Note, that TLS is not only a protocol that provides confidentiality (i.e. encryption), but also allows verification of the identity either the server by the client, or both. Remember, doesn’t matter if 3rd parties can’t see what you’re sending, if you’re sending your data to the wrong peer in the first place! While it may seem simple at first look, just verifying the identity of a peer is an extremely complex process, as my experience with Certify has shown. Doing it portably and efficiently with the same interface and effects is extremely difficult. Browsers resort to all kinds of workarounds and custom solutions to be able to securely implement just this one aspect of TLS. I attempted to implement a library (intended for inclusion into Boost) that would perform this one aspect, however, I found it to be impossible to provide a practical solution with the current state of the networking ecosystem in Boost. In fact, one method of certificate verification (via the OCSP protocol) requires a (very) basic HTTP client. Yes, in order to perform a TLS handshake and verify the peer’s certificate status using OCSP, you need an HTTP client. This is just one aspect of the TLS protocol that needs to be addressed. There are others as well - what about the basic cryptographic building blocks, like ciphers, hashing algorithms, PRFs and so on - they are bound to be used in a hypothetical implementation in a standard library, should they be exposed? If yes then with what interface?. Considering that there are no standard networking facilities and not even a proposal for standard TLS, this is a discussion that would essentially postpone standard networking indefinitely. Finally, there’s also an opposite position that no networking should be in the standard at all. I disagree with this position - networking has become a very important part of many C++ projects (in my career, all C++ projects I dealt with, touched some sort of network in one way or another). At the very least we need standard named requirements for library compatibility, since that is severely lacking in the ecosystem at this point." />
+<link rel="canonical" href="http://cppalliance.org/company,/damian/2019/08/19/DamiansAugustUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/company,/damian/2019/08/19/DamiansAugustUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2019-08-19T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Damian’s July Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost.Beast I’ve started working on improvements to the zlib part of Beast. There are some gaps in the test harness of these components, so I’ve decided to increase coverage. As a first step, I started porting test cases from the original zlib library’s tests, to verify that existing code matches the expected behavior of the original library. Fortunately, I’ve not found any significant discrepancies, there’s only one issue where Beast rejects malformed input for the wrong reason (I’m still looking into it whether it’s actually an issue at the time of writing this). I’ve also looked into providing more meaningful feedback from test failures in Beast, especially when they’re run in CI. While the current test framework does print a line number on failure, the line number is often in a function template that’s called by multiple test cases, which makes it quite hard to determine which test failed just from the log, often requiring the use of a debugger. Doing that locally may not be a problem, but it’s significantly harder in CI, so I’ve decided to try to use Boost Stacktrace to provide a callstack on each failure in Beast tests. Additionally, I’ve also worked on running the test suite without OpenSSL installed, to hopefully fix some of the failures in the official Boost test matrix. The question of Networking TS and TLS There’s recently been quite a bit of discussion of networking being useless without “secure by default” sockets. Since this is a recurring topic and I expect it to return in the future, so I’ve decided to write up an analysis of this issue. First of all, I believe that an attempt to deliver a “secure by default” socket within the current networking proposal right now will result in something like std::async - not really practically useful. What kind of TLS facilities I’d consider useful for the average user of the standard library? A reasonable guideline, I think, are ones I could trust to be used in a distributed system that handles money (in any form). Note, that TLS is not only a protocol that provides confidentiality (i.e. encryption), but also allows verification of the identity either the server by the client, or both. Remember, doesn’t matter if 3rd parties can’t see what you’re sending, if you’re sending your data to the wrong peer in the first place! While it may seem simple at first look, just verifying the identity of a peer is an extremely complex process, as my experience with Certify has shown. Doing it portably and efficiently with the same interface and effects is extremely difficult. Browsers resort to all kinds of workarounds and custom solutions to be able to securely implement just this one aspect of TLS. I attempted to implement a library (intended for inclusion into Boost) that would perform this one aspect, however, I found it to be impossible to provide a practical solution with the current state of the networking ecosystem in Boost. In fact, one method of certificate verification (via the OCSP protocol) requires a (very) basic HTTP client. Yes, in order to perform a TLS handshake and verify the peer’s certificate status using OCSP, you need an HTTP client. This is just one aspect of the TLS protocol that needs to be addressed. There are others as well - what about the basic cryptographic building blocks, like ciphers, hashing algorithms, PRFs and so on - they are bound to be used in a hypothetical implementation in a standard library, should they be exposed? If yes then with what interface?. Considering that there are no standard networking facilities and not even a proposal for standard TLS, this is a discussion that would essentially postpone standard networking indefinitely. Finally, there’s also an opposite position that no networking should be in the standard at all. I disagree with this position - networking has become a very important part of many C++ projects (in my career, all C++ projects I dealt with, touched some sort of network in one way or another). At the very least we need standard named requirements for library compatibility, since that is severely lacking in the ecosystem at this point.","@type":"BlogPosting","url":"http://cppalliance.org/company,/damian/2019/08/19/DamiansAugustUpdate.html","headline":"Damian’s July Update","dateModified":"2019-08-19T00:00:00+00:00","datePublished":"2019-08-19T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/company,/damian/2019/08/19/DamiansAugustUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Damian's July Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/damian">
+                  Damian Jarek
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Aug 19, 2019</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="boostbeast">Boost.Beast</h1>
+
+<p>I’ve started working on improvements to the zlib part of Beast. There are some gaps
+in the test harness of these components, so I’ve decided to increase coverage.
+As a first step, I started porting test cases from the original zlib library’s tests,
+to verify that existing code matches the expected behavior of the original library.
+Fortunately, I’ve not found any significant discrepancies, there’s only one issue
+where Beast rejects malformed input for the wrong reason (I’m still looking into it
+whether it’s actually an issue at the time of writing this).</p>
+
+<p>I’ve also looked into providing more meaningful feedback from test failures in Beast,
+especially when they’re run in CI. While the current test framework does print
+a line number on failure, the line number is often in a function template that’s called
+by multiple test cases, which makes it quite hard to determine which test failed
+just from the log, often requiring the use of a debugger. Doing that locally
+may not be a problem, but it’s significantly harder in CI, so I’ve decided to
+try to use Boost Stacktrace to provide a callstack on each failure in Beast tests.
+Additionally, I’ve also worked on running the test suite without OpenSSL installed,
+to hopefully fix some of the failures in the official Boost test matrix.</p>
+
+<h1 id="the-question-of-networking-ts-and-tls">The question of Networking TS and TLS</h1>
+
+<p>There’s recently been quite a bit of discussion of networking being useless
+without “secure by default” sockets. Since this is a recurring topic and I expect it to return in the future,
+so I’ve decided to write up an analysis of this issue.</p>
+
+<p>First of all, I believe that an attempt to deliver a “secure by default” socket
+within the current networking proposal right now will result in something like
+<code>std::async</code> - not really practically useful.</p>
+
+<p>What kind of TLS facilities I’d consider useful for the average user of the standard library?
+A reasonable guideline, I think, are ones I could trust to be used in a distributed
+system that handles money (in any form).
+Note, that TLS is not only a protocol that provides confidentiality (i.e. encryption),
+but also allows verification of the identity either the server by the client, or both.
+Remember, doesn’t matter if 3rd parties can’t see what you’re sending,
+if you’re sending your data to the wrong peer in the first place!</p>
+
+<p>While it may seem simple at first look, just verifying the identity of a peer
+is an extremely complex process, as my experience with Certify has shown.
+Doing it portably and efficiently with the same interface and effects is extremely difficult.
+Browsers resort to all kinds of workarounds and custom solutions to be able
+to securely implement just this one aspect of TLS. I attempted to implement
+a library (intended for inclusion into Boost) that would perform this one aspect,
+however, I found it to be impossible to provide a practical solution with
+the current state of the networking ecosystem in Boost. In fact, one method
+of certificate verification (via the OCSP protocol) requires a (very) basic
+HTTP client. Yes, in order to perform a TLS handshake and verify the peer’s
+certificate status using OCSP, you need an HTTP client.</p>
+
+<p>This is just one aspect of the TLS protocol that needs to be addressed.
+There are others as well - what about the basic cryptographic building blocks,
+like ciphers, hashing algorithms, PRFs and so on - they are bound to be used
+in a hypothetical implementation in a standard library, should they be exposed? If yes then with what interface?.
+Considering that there are no standard networking facilities and not even a proposal for standard TLS,
+this is a discussion that would essentially postpone standard networking indefinitely.</p>
+
+<p>Finally, there’s also an opposite position that no networking should be
+in the standard at all. I disagree with this position - networking has become a very important
+part of many C++ projects (in my career, all C++ projects I dealt with, touched
+some sort of network in one way or another).
+At the very least we need standard named requirements for library compatibility, since that is
+severely lacking in the ecosystem at this point.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/19/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/08/19/DamiansAugustUpdate.html">Damian's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/14/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/07/14/DamiansJulyUpdate.html">Damian's June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/10/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/06/10/DamiansJuneUpdate.html">Damian's May Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/05/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/05/05/DamiansMayUpdate.html">Damian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/04/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/04/04/DamiansAprilUpdate.html">Damian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/16/2019</span>
+          <a class='text-l news-title link' href="/company,/damian/2019/03/16/Certify-X509-validation.html">Certify X509 Validation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/24/2018</span>
+          <a class='text-l news-title link' href="/company,/damian/2018/10/24/Initial-work-on-Certify-complete.html">Initial Work On Certify Complete</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/03/2018</span>
+          <a class='text-l news-title link' href="/company,/damian/2018/09/03/Damian-Jarek-joins-as-staff-engineer.html">Damian Jarek Joins As Staff Engineer</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

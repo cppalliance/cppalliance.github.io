@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Some Thoughts on Documentation | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Some Thoughts on Documentation | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Some Thoughts on Documentation" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Most of my work during the first quarter of this year involved experimenting with things which haven’t yet reached the state where it would be interesting to discuss them. But there was a project that at this point is reaching its finish, and thus let’s focus on it. That project is AsciiDoc-based documentation for Boost.JSON. Previously the project used a setup that was not too dissimilar to that of many Boost libraries. Doxygen collected API reference docs from Javadocs comments in the project sources and outputted a set of XML files, then those XML files were converted to a Quickbook file. The file was included by the main Quickbook documentation source, which Quickbook converted into BoostBook (a dialect of DocBook). Finally, BoostBook XSLT stylesheets were used to transform files from the previous step to HTML (or some other format, e.g. PDF). At some point I got frustrated with issues with Docca, the tool we used to convert Doxygen XML to Quickbook and wrote a Python equivalent. I wrote about it back in July 2025. As noted there, the new tool’s design allows for changing of output formats and the resulting structure of the API reference documentation. Specifically, AsciiDoc and producing one page for a set of function overloads was mentioned. Well, this is exactly what soon will be used for Boost.JSON’s docs. (Menwhile, here’s a preview). The first step of the change was of course conversion from Quickbook syntax to AsciiDoc syntax. The next step was making the output multi-page. The default Asciidoctor HTML backend only produces a single page. I could create multiple source files and generate a separate page from each one, but that creates two problems: brittle cross-references between sections and no table of contents for the entire thing. So, instead I took an existing Asciidoctor plugin, asciidoctor-multipage, and using its core idea I wrote my own, as I needed somewhat different behaviour. The core idea of the plugin is that certain sections are removed from their parent sections and spawn separate documents. The third step involved structuring Javadocs comments very differently. Analysing Cpprefernce pages for overloaded functions I came to the idea that rather than documenting every overload separately, I could put all documentation text into the Javadocs comment of the first one, and reference every overload by their number there. There is a catch, though. Overloads have different parameter lists and Doxygen warns if a Javadocs comment documents a parameter that the function doesn’t have or doesn’t document a parameter it does have. I worked around that by using most of the description for the first overload, but collecting parameter list documentation from all overloads. In the end it came out nicely. The coolest thing about it is that I didn’t have to change anything in my Python version of Docca, everything I needed was possible with just a custom Jinja template. The current target for Boost.JSON’s documentation pipeline is Doxygen + Python Docca + Asciidoctor. In the future I’m aiming towards replacing Doxygen with Mr.Docs, another exciting project from the C++ Alliance. I also hope that this change will motivate other projects to switch to AsciiDoc." />
+<meta property="og:description" content="Most of my work during the first quarter of this year involved experimenting with things which haven’t yet reached the state where it would be interesting to discuss them. But there was a project that at this point is reaching its finish, and thus let’s focus on it. That project is AsciiDoc-based documentation for Boost.JSON. Previously the project used a setup that was not too dissimilar to that of many Boost libraries. Doxygen collected API reference docs from Javadocs comments in the project sources and outputted a set of XML files, then those XML files were converted to a Quickbook file. The file was included by the main Quickbook documentation source, which Quickbook converted into BoostBook (a dialect of DocBook). Finally, BoostBook XSLT stylesheets were used to transform files from the previous step to HTML (or some other format, e.g. PDF). At some point I got frustrated with issues with Docca, the tool we used to convert Doxygen XML to Quickbook and wrote a Python equivalent. I wrote about it back in July 2025. As noted there, the new tool’s design allows for changing of output formats and the resulting structure of the API reference documentation. Specifically, AsciiDoc and producing one page for a set of function overloads was mentioned. Well, this is exactly what soon will be used for Boost.JSON’s docs. (Menwhile, here’s a preview). The first step of the change was of course conversion from Quickbook syntax to AsciiDoc syntax. The next step was making the output multi-page. The default Asciidoctor HTML backend only produces a single page. I could create multiple source files and generate a separate page from each one, but that creates two problems: brittle cross-references between sections and no table of contents for the entire thing. So, instead I took an existing Asciidoctor plugin, asciidoctor-multipage, and using its core idea I wrote my own, as I needed somewhat different behaviour. The core idea of the plugin is that certain sections are removed from their parent sections and spawn separate documents. The third step involved structuring Javadocs comments very differently. Analysing Cpprefernce pages for overloaded functions I came to the idea that rather than documenting every overload separately, I could put all documentation text into the Javadocs comment of the first one, and reference every overload by their number there. There is a catch, though. Overloads have different parameter lists and Doxygen warns if a Javadocs comment documents a parameter that the function doesn’t have or doesn’t document a parameter it does have. I worked around that by using most of the description for the first overload, but collecting parameter list documentation from all overloads. In the end it came out nicely. The coolest thing about it is that I didn’t have to change anything in my Python version of Docca, everything I needed was possible with just a custom Jinja template. The current target for Boost.JSON’s documentation pipeline is Doxygen + Python Docca + Asciidoctor. In the future I’m aiming towards replacing Doxygen with Mr.Docs, another exciting project from the C++ Alliance. I also hope that this change will motivate other projects to switch to AsciiDoc." />
+<link rel="canonical" href="http://cppalliance.org/dmitry/2025/04/22/dmitrys-q1-update.html" />
+<meta property="og:url" content="http://cppalliance.org/dmitry/2025/04/22/dmitrys-q1-update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-04-22T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Some Thoughts on Documentation" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Most of my work during the first quarter of this year involved experimenting with things which haven’t yet reached the state where it would be interesting to discuss them. But there was a project that at this point is reaching its finish, and thus let’s focus on it. That project is AsciiDoc-based documentation for Boost.JSON. Previously the project used a setup that was not too dissimilar to that of many Boost libraries. Doxygen collected API reference docs from Javadocs comments in the project sources and outputted a set of XML files, then those XML files were converted to a Quickbook file. The file was included by the main Quickbook documentation source, which Quickbook converted into BoostBook (a dialect of DocBook). Finally, BoostBook XSLT stylesheets were used to transform files from the previous step to HTML (or some other format, e.g. PDF). At some point I got frustrated with issues with Docca, the tool we used to convert Doxygen XML to Quickbook and wrote a Python equivalent. I wrote about it back in July 2025. As noted there, the new tool’s design allows for changing of output formats and the resulting structure of the API reference documentation. Specifically, AsciiDoc and producing one page for a set of function overloads was mentioned. Well, this is exactly what soon will be used for Boost.JSON’s docs. (Menwhile, here’s a preview). The first step of the change was of course conversion from Quickbook syntax to AsciiDoc syntax. The next step was making the output multi-page. The default Asciidoctor HTML backend only produces a single page. I could create multiple source files and generate a separate page from each one, but that creates two problems: brittle cross-references between sections and no table of contents for the entire thing. So, instead I took an existing Asciidoctor plugin, asciidoctor-multipage, and using its core idea I wrote my own, as I needed somewhat different behaviour. The core idea of the plugin is that certain sections are removed from their parent sections and spawn separate documents. The third step involved structuring Javadocs comments very differently. Analysing Cpprefernce pages for overloaded functions I came to the idea that rather than documenting every overload separately, I could put all documentation text into the Javadocs comment of the first one, and reference every overload by their number there. There is a catch, though. Overloads have different parameter lists and Doxygen warns if a Javadocs comment documents a parameter that the function doesn’t have or doesn’t document a parameter it does have. I worked around that by using most of the description for the first overload, but collecting parameter list documentation from all overloads. In the end it came out nicely. The coolest thing about it is that I didn’t have to change anything in my Python version of Docca, everything I needed was possible with just a custom Jinja template. The current target for Boost.JSON’s documentation pipeline is Doxygen + Python Docca + Asciidoctor. In the future I’m aiming towards replacing Doxygen with Mr.Docs, another exciting project from the C++ Alliance. I also hope that this change will motivate other projects to switch to AsciiDoc.","@type":"BlogPosting","url":"http://cppalliance.org/dmitry/2025/04/22/dmitrys-q1-update.html","headline":"Some Thoughts on Documentation","dateModified":"2025-04-22T00:00:00+00:00","datePublished":"2025-04-22T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/dmitry/2025/04/22/dmitrys-q1-update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Some Thoughts on Documentation</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/dmitry">
+                  Dmitry Arkhipov
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 22, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Most of my work during the first quarter of this year involved experimenting
+with things which haven’t yet reached the state where it would be interesting
+to discuss them. But there was a project that at this point is reaching its
+finish, and thus let’s focus on it. That project is AsciiDoc-based
+documentation for Boost.JSON.</p>
+
+<p>Previously the project used a setup that was not too dissimilar to that of many
+Boost libraries. Doxygen collected API reference docs from Javadocs comments in
+the project sources and outputted a set of XML files, then those XML files were
+converted to a Quickbook file. The file was included by the main Quickbook
+documentation source, which Quickbook converted into BoostBook (a dialect of
+DocBook). Finally, BoostBook XSLT stylesheets were used to transform files from
+the previous step to HTML (or some other format, e.g. PDF).</p>
+
+<p>At some point I got frustrated with issues with Docca, the tool we used to
+convert Doxygen XML to Quickbook and wrote a Python equivalent. I wrote about
+it back in <a href="../../../2024/07/12/dmitrys-q2-update.html">July 2025</a>. As noted there, the
+new tool’s design allows for changing of output formats and the resulting
+structure of the API reference documentation. Specifically, AsciiDoc and
+producing one page for a set of function overloads was mentioned. Well, this is
+exactly what soon will be used for Boost.JSON’s docs. (<a href="https://1080.json.prtest2.cppalliance.org/libs/json/doc/html/index.html">Menwhile, here’s
+a preview</a>).</p>
+
+<p>The first step of the change was of course conversion from Quickbook syntax to
+AsciiDoc syntax. The next step was making the output multi-page. The default
+Asciidoctor HTML backend only produces a single page. I could create multiple
+source files and generate a separate page from each one, but that creates two
+problems: brittle cross-references between sections and no table of contents
+for the entire thing. So, instead I took an existing Asciidoctor plugin,
+<a href="https://github.com/owenh000/asciidoctor-multipage/">asciidoctor-multipage</a>,
+and using its core idea I wrote my own, as I needed somewhat different
+behaviour. The core idea of the plugin is that certain sections are removed
+from their parent sections and spawn separate documents.</p>
+
+<p>The third step involved structuring Javadocs comments very differently.
+Analysing Cpprefernce pages for overloaded functions I came to the idea that
+rather than documenting every overload separately, I could put all
+documentation text into the Javadocs comment of the first one, and reference
+every overload by their number there. There is a catch, though. Overloads have
+different parameter lists and Doxygen warns if a Javadocs comment documents
+a parameter that the function doesn’t have or doesn’t document a parameter it
+does have. I worked around that by using most of the description for the first
+overload, but collecting parameter list documentation from all overloads. In
+the end it came out nicely. The coolest thing about it is that I didn’t have to
+change anything in my Python version of Docca, everything I needed was possible
+with just a custom <a href="https://jinja.palletsprojects.com/en/stable/">Jinja</a>
+template.</p>
+
+<p>The current target for Boost.JSON’s documentation pipeline is Doxygen + Python
+Docca + Asciidoctor. In the future I’m aiming towards replacing Doxygen with
+<a href="https://github.com/cppalliance/mrdocs">Mr.Docs</a>, another exciting project from
+the C++ Alliance. I also hope that this change will motivate other projects
+to switch to AsciiDoc.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/16/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/10/16/dmitrys-q3-update.html">Conan Packages for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/04/22/dmitrys-q1-update.html">Some Thoughts on Documentation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/10/25/dmitrys-q3-update.html">How to Get More Utility from the Debugger in CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/07/12/dmitrys-q2-update.html">Dmitry's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/29/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/04/29/dmitrys-q1-update.html">Dmitry's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/01/12/dmitrys-q4-update.html">Dmitry's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/30/2023</span>
+          <a class='text-l news-title link' href="/dmitry/2023/10/30/dmitrys-q3-update.html">Dmitry's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/15/2021</span>
+          <a class='text-l news-title link' href="/dmitry/2021/02/15/dmitrys-january-update.html">Dmitry's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

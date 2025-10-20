@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's April Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s April Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s April Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Overview Boost 1.73.0 has been released! Save for some minor documentation issues, Boost.StaticString enjoyed a bug-free release, so most of this month was spent working on Boost.JSON getting it ready for review. Unfortunately, I could not spend too much time working due to school and final exams, but now that those have passed I’ll be able to put in significantly more time working on projects such as Boost.JSON. Boost.JSON A good portion of my work on Boost.JSON was spent updating the documentation to reflect the replacement of the storage allocator model with boost::container::pmr::memory_resource (or std::pmr::memory_resource in standalone). The old model wasn’t necessarily bad, but using memory_resource permits the use of existing allocators found in Boost.Container/the standard library, eliminating the need for writing proprietary allocators that only work with Boost.JSON. Even though storage will be going away, storage_ptr will remain to support shared ownership of a memory_resource – something that polymorphic_allocator lacks. As with polymorphic_allocator, storage_ptr will still support non-owning reference semantics in contexts where the lifetime of a memory_resource is bound to a scope, giving users more flexibility. I also worked on monotonic_resource, the memory_resource counterpart to pool. This allocator has one goal: to be fast. I ended up adding the following features to facilitate this (mostly from monotonic_buffer_resource): Construction from an initial buffer, The ability to reset the allocator without releasing memory, and The ability to set a limit on the number of bytes that can be dynamically allocated. The implementations of these features are pretty trivial, but they provide significant opportunities to cut down on dynamic allocations. For example, when parsing a large number of JSON documents, a single monotonic_resource can be used and reset in between the parsing of each document without releasing any dynamically allocated storage. While care should be taken to destroy objects that occupy the storage before the allocator is reset, this can substantially reduce the number of allocations required and thus result in non-trivial performance gains. The other major thing I worked on was fixing an overload resolution bug on clang-cl involving json::value. This was originally brought to my attention by Vinnie when the CI build for clang-cl started reporting that overload resolution for value({false, 1, &quot;2&quot;}) was ambiguous. After a few hours of investigating, I found that false was being treated as a null pointer constant – something that was certainly annoying, but it also didn’t fully explain why this error was happening. After this unfortunate discovery, I tried again with value({0, 1, &quot;2&quot;}), this time on clang, and it turns out this was a problem here as well. After many hours of testing, I found that the constructor in storage_ptr taking a parameter of type memory_resource had a small problem: its constraint was missing ::type after the enable_if, allowing storage_ptr to be constructed from any pointer type, including const char*. This somewhat helped to alleviate the problem, but value({false, false, false}) was still failing. After many more hours of groking the standard and trying to reproduce the error, I finally came upon the following json::string constructors: string(string const&amp; other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {}) string(string_view other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {}) See the problem here? Since the first parameter of both constructors can be constructed from null pointer constants, overload resolution for string(0, 0, 0) would be ambiguous. However, this isn’t the full story. Consider the following constructors for value: value(std::initializer_list&lt;value_ref&gt; init) value(string str) For the initialization of value({0, 0, 0}) the implicit conversion sequence to str would be ambiguous, but the one to value_ref can be formed. There is a special rule for overload resolution (separate from two-stage overload resolution during list-initialization) that considers any list-initialization sequence that converts to std::initializer_list to be a better conversion sequence than one that does not, with the exception to this rule being that it only applies when the two conversion sequences are otherwise identical. This rule should apply here, however, I found that clang has a small bug that prevents this rule from going into effect if any of the candidates have an ambiguous conversion sequence for the same parameter. We solve this pretty trivially by removing some of the redundant constructor overloads in json::string and all was well. It was a fun little puzzle to solve (the explanation was a bit of an oversimplification; if you have questions please let me know). If you want to get in touch with me, you can message me on the Cpplang slack, or shoot me an email." />
+<meta property="og:description" content="Overview Boost 1.73.0 has been released! Save for some minor documentation issues, Boost.StaticString enjoyed a bug-free release, so most of this month was spent working on Boost.JSON getting it ready for review. Unfortunately, I could not spend too much time working due to school and final exams, but now that those have passed I’ll be able to put in significantly more time working on projects such as Boost.JSON. Boost.JSON A good portion of my work on Boost.JSON was spent updating the documentation to reflect the replacement of the storage allocator model with boost::container::pmr::memory_resource (or std::pmr::memory_resource in standalone). The old model wasn’t necessarily bad, but using memory_resource permits the use of existing allocators found in Boost.Container/the standard library, eliminating the need for writing proprietary allocators that only work with Boost.JSON. Even though storage will be going away, storage_ptr will remain to support shared ownership of a memory_resource – something that polymorphic_allocator lacks. As with polymorphic_allocator, storage_ptr will still support non-owning reference semantics in contexts where the lifetime of a memory_resource is bound to a scope, giving users more flexibility. I also worked on monotonic_resource, the memory_resource counterpart to pool. This allocator has one goal: to be fast. I ended up adding the following features to facilitate this (mostly from monotonic_buffer_resource): Construction from an initial buffer, The ability to reset the allocator without releasing memory, and The ability to set a limit on the number of bytes that can be dynamically allocated. The implementations of these features are pretty trivial, but they provide significant opportunities to cut down on dynamic allocations. For example, when parsing a large number of JSON documents, a single monotonic_resource can be used and reset in between the parsing of each document without releasing any dynamically allocated storage. While care should be taken to destroy objects that occupy the storage before the allocator is reset, this can substantially reduce the number of allocations required and thus result in non-trivial performance gains. The other major thing I worked on was fixing an overload resolution bug on clang-cl involving json::value. This was originally brought to my attention by Vinnie when the CI build for clang-cl started reporting that overload resolution for value({false, 1, &quot;2&quot;}) was ambiguous. After a few hours of investigating, I found that false was being treated as a null pointer constant – something that was certainly annoying, but it also didn’t fully explain why this error was happening. After this unfortunate discovery, I tried again with value({0, 1, &quot;2&quot;}), this time on clang, and it turns out this was a problem here as well. After many hours of testing, I found that the constructor in storage_ptr taking a parameter of type memory_resource had a small problem: its constraint was missing ::type after the enable_if, allowing storage_ptr to be constructed from any pointer type, including const char*. This somewhat helped to alleviate the problem, but value({false, false, false}) was still failing. After many more hours of groking the standard and trying to reproduce the error, I finally came upon the following json::string constructors: string(string const&amp; other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {}) string(string_view other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {}) See the problem here? Since the first parameter of both constructors can be constructed from null pointer constants, overload resolution for string(0, 0, 0) would be ambiguous. However, this isn’t the full story. Consider the following constructors for value: value(std::initializer_list&lt;value_ref&gt; init) value(string str) For the initialization of value({0, 0, 0}) the implicit conversion sequence to str would be ambiguous, but the one to value_ref can be formed. There is a special rule for overload resolution (separate from two-stage overload resolution during list-initialization) that considers any list-initialization sequence that converts to std::initializer_list to be a better conversion sequence than one that does not, with the exception to this rule being that it only applies when the two conversion sequences are otherwise identical. This rule should apply here, however, I found that clang has a small bug that prevents this rule from going into effect if any of the candidates have an ambiguous conversion sequence for the same parameter. We solve this pretty trivially by removing some of the redundant constructor overloads in json::string and all was well. It was a fun little puzzle to solve (the explanation was a bit of an oversimplification; if you have questions please let me know). If you want to get in touch with me, you can message me on the Cpplang slack, or shoot me an email." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2020/05/08/KrystiansAprilUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2020/05/08/KrystiansAprilUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-05-08T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s April Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Overview Boost 1.73.0 has been released! Save for some minor documentation issues, Boost.StaticString enjoyed a bug-free release, so most of this month was spent working on Boost.JSON getting it ready for review. Unfortunately, I could not spend too much time working due to school and final exams, but now that those have passed I’ll be able to put in significantly more time working on projects such as Boost.JSON. Boost.JSON A good portion of my work on Boost.JSON was spent updating the documentation to reflect the replacement of the storage allocator model with boost::container::pmr::memory_resource (or std::pmr::memory_resource in standalone). The old model wasn’t necessarily bad, but using memory_resource permits the use of existing allocators found in Boost.Container/the standard library, eliminating the need for writing proprietary allocators that only work with Boost.JSON. Even though storage will be going away, storage_ptr will remain to support shared ownership of a memory_resource – something that polymorphic_allocator lacks. As with polymorphic_allocator, storage_ptr will still support non-owning reference semantics in contexts where the lifetime of a memory_resource is bound to a scope, giving users more flexibility. I also worked on monotonic_resource, the memory_resource counterpart to pool. This allocator has one goal: to be fast. I ended up adding the following features to facilitate this (mostly from monotonic_buffer_resource): Construction from an initial buffer, The ability to reset the allocator without releasing memory, and The ability to set a limit on the number of bytes that can be dynamically allocated. The implementations of these features are pretty trivial, but they provide significant opportunities to cut down on dynamic allocations. For example, when parsing a large number of JSON documents, a single monotonic_resource can be used and reset in between the parsing of each document without releasing any dynamically allocated storage. While care should be taken to destroy objects that occupy the storage before the allocator is reset, this can substantially reduce the number of allocations required and thus result in non-trivial performance gains. The other major thing I worked on was fixing an overload resolution bug on clang-cl involving json::value. This was originally brought to my attention by Vinnie when the CI build for clang-cl started reporting that overload resolution for value({false, 1, &quot;2&quot;}) was ambiguous. After a few hours of investigating, I found that false was being treated as a null pointer constant – something that was certainly annoying, but it also didn’t fully explain why this error was happening. After this unfortunate discovery, I tried again with value({0, 1, &quot;2&quot;}), this time on clang, and it turns out this was a problem here as well. After many hours of testing, I found that the constructor in storage_ptr taking a parameter of type memory_resource had a small problem: its constraint was missing ::type after the enable_if, allowing storage_ptr to be constructed from any pointer type, including const char*. This somewhat helped to alleviate the problem, but value({false, false, false}) was still failing. After many more hours of groking the standard and trying to reproduce the error, I finally came upon the following json::string constructors: string(string const&amp; other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {}) string(string_view other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {}) See the problem here? Since the first parameter of both constructors can be constructed from null pointer constants, overload resolution for string(0, 0, 0) would be ambiguous. However, this isn’t the full story. Consider the following constructors for value: value(std::initializer_list&lt;value_ref&gt; init) value(string str) For the initialization of value({0, 0, 0}) the implicit conversion sequence to str would be ambiguous, but the one to value_ref can be formed. There is a special rule for overload resolution (separate from two-stage overload resolution during list-initialization) that considers any list-initialization sequence that converts to std::initializer_list to be a better conversion sequence than one that does not, with the exception to this rule being that it only applies when the two conversion sequences are otherwise identical. This rule should apply here, however, I found that clang has a small bug that prevents this rule from going into effect if any of the candidates have an ambiguous conversion sequence for the same parameter. We solve this pretty trivially by removing some of the redundant constructor overloads in json::string and all was well. It was a fun little puzzle to solve (the explanation was a bit of an oversimplification; if you have questions please let me know). If you want to get in touch with me, you can message me on the Cpplang slack, or shoot me an email.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2020/05/08/KrystiansAprilUpdate.html","headline":"Krystian’s April Update","dateModified":"2020-05-08T00:00:00+00:00","datePublished":"2020-05-08T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2020/05/08/KrystiansAprilUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's April Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>May 8, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="overview">Overview</h1>
+
+<p>Boost 1.73.0 has been released! Save for some minor documentation issues, Boost.StaticString enjoyed a bug-free release, so most of this month was spent working on Boost.JSON getting it ready for review. Unfortunately, I could not spend too much time working due to school and final exams, but now that those have passed I’ll be able to put in significantly more time working on projects such as Boost.JSON.</p>
+
+<h1 id="boostjson">Boost.JSON</h1>
+
+<p>A good portion of my work on Boost.JSON was spent updating the documentation to reflect the replacement of the <code>storage</code> allocator model with <code>boost::container::pmr::memory_resource</code> (or <code>std::pmr::memory_resource</code> in standalone). The old model wasn’t necessarily bad, but using <code>memory_resource</code> permits the use of existing allocators found in Boost.Container/the standard library, eliminating the need for writing proprietary allocators that only work with Boost.JSON.</p>
+
+<p>Even though <code>storage</code> will be going away, <code>storage_ptr</code> will remain to support shared ownership of a <code>memory_resource</code> – something that <code>polymorphic_allocator</code> lacks. As with <code>polymorphic_allocator</code>, <code>storage_ptr</code> will still support non-owning reference semantics in contexts where the lifetime of a <code>memory_resource</code> is bound to a scope, giving users more flexibility.</p>
+
+<p>I also worked on <code>monotonic_resource</code>, the <code>memory_resource</code> counterpart to <code>pool</code>. This allocator has one goal: to be <em>fast</em>. I ended up adding the following features to facilitate this (mostly from <code>monotonic_buffer_resource</code>):</p>
+
+<ul>
+  <li>Construction from an initial buffer,</li>
+  <li>The ability to reset the allocator without releasing memory, and</li>
+  <li>The ability to set a limit on the number of bytes that can be dynamically allocated.</li>
+</ul>
+
+<p>The implementations of these features are pretty trivial, but they provide significant opportunities to cut down on dynamic allocations. For example, when parsing a large number of JSON documents, a single <code>monotonic_resource</code> can be used and reset in between the parsing of each document without releasing any dynamically allocated storage. While care should be taken to destroy objects that occupy the storage before the allocator is reset, this can substantially reduce the number of allocations required and thus result in non-trivial performance gains.</p>
+
+<p>The other major thing I worked on was fixing an overload resolution bug on clang-cl involving <code>json::value</code>. This was originally brought to my attention by Vinnie when the CI build for clang-cl started reporting that overload resolution for <code>value({false, 1, "2"})</code> was ambiguous. After a few hours of investigating, I found that <code>false</code> was being treated as a null pointer constant – something that was certainly annoying, but it also didn’t fully explain why this error was happening.</p>
+
+<p>After this unfortunate discovery, I tried again with <code>value({0, 1, "2"})</code>, this time on clang, and it turns out this was a problem here as well. After <em>many</em> hours of testing, I found that the constructor in <code>storage_ptr</code> taking a parameter of type <code>memory_resource</code> had a small problem: its constraint was missing <code>::type</code> after the <code>enable_if</code>, allowing <code>storage_ptr</code> to be constructed from any pointer type, including <code>const char*</code>. This somewhat helped to alleviate the problem, but <code>value({false, false, false})</code> was still failing. After many more hours of groking the standard and trying to reproduce the error, I finally came upon the following <code>json::string</code> constructors:</p>
+
+<pre><code>string(string const&amp; other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {})
+
+string(string_view other, std::size_t pos, std::size_t count = npos, storage_ptr sp = {})
+</code></pre>
+
+<p>See the problem here? Since the first parameter of both constructors can be constructed from null pointer constants, overload resolution for <code>string(0, 0, 0)</code> would be ambiguous. However, this isn’t the full story. Consider the following constructors for <code>value</code>:</p>
+
+<pre><code>value(std::initializer_list&lt;value_ref&gt; init)
+
+value(string str)
+</code></pre>
+
+<p>For the initialization of <code>value({0, 0, 0})</code> the implicit conversion sequence to <code>str</code> would be ambiguous, but the one to <code>value_ref</code> can be formed. There is a special rule for overload resolution (separate from two-stage overload resolution during list-initialization) that considers any list-initialization sequence that converts to <code>std::initializer_list</code> to be a better conversion sequence than one that does not, with the exception to this rule being that it only applies when the two conversion sequences are otherwise identical.</p>
+
+<p>This rule <em>should</em> apply here, however, I found that clang has a small bug that prevents this rule from going into effect if any of the candidates have an ambiguous conversion sequence for the same parameter. We solve this pretty trivially by removing some of the redundant constructor overloads in <code>json::string</code> and all was well. It was a fun little puzzle to solve (the explanation was a bit of an oversimplification; if you have questions please let me know).</p>
+
+<p>If you want to get in touch with me, you can message me on the <a href="http://slack.cpp.al/">Cpplang slack</a>, or <a href="mailto:sdkrystian@gmail.com">shoot me an email</a>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

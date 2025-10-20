@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Richard's February/March Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Richard’s February/March Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Richard’s February/March Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost.PropertyTree is back in the saddle! Last month I took over the maintenance of the Boost Property Tree library. This library is in ubiquitous use but has been without a full time maintainer for some time. There was a backlog of commits on develop that had not made it to master for the boost releases. This is changing in upcoming 1.76 release. Property Tree PRs and issues will get more attention going forward. In addition, Property Tree has gained CI courtesy of GitHub Actions. The test status can be seen here Beast CI Beast has acquired two new continuous integration pipelines. Drone and Github Actions. Drone is the canonical source of truth for the Linux/Windows badge on the readme page while GitHub Actions provides a more comprehensive matrix of targets, C++ standards and compiler versions which I use during the development cycle. Boost Version 1.76 The 1.76 release of boost is imminent. As far as Beast and Property Tree is concerned, this is a maintenance release. Other Activities Much of the past two months has been devoted to resolving user queries, and examining suggestions for changes to Beast and Property Tree. Changes to Property tree are not taken likely. It is used in a great deal of legacy code in the wild and there are few tests. It would be a shame to break existing code noisily, or worse, silently. For better or worse, the behaviour is probably not going to change very much going forward until there are more tests in place. Accepting changes to beast’s behaviour or interface is something we consider very carefully for a different reason. Beast is already a complex library. Like Asio upon which it is built, it is already extremely configurable, with a myriad (actually potentially an unbounded set) of completion tokens, completion handlers and buffer types. Something I am often asked is whether we would consider a “multi-send” interface. For example: std::vector&lt;std::string&gt; messages; ws.write(buffer, messages); Arguably there are some efficiencies available here, since we could potentially build all the resulting websocket frames in one pass, and send as one IO operation. There are some issues however. One is buffer space. What do we do if the buffer runs out of space while be are half way through building the frames? Fail the operation, return a partial failure? Block? Also, what do we do if the ensuing IO operation(s) partially fail(s)? Asio currently has no protocol to report a partial failure. We would have to create such a protocol, test it and then teach it. In reality people’s requirements are often different. Some people may require confirmation of each frame within a time period, some will want all-or-nothing delivery and some are happy with partial delivery. One approach is to start providing options for such things as timeouts, partial completion, etc. But the feeling here is that this starts to dictate to users of the library how they write code, which we feel is outside the remit of Beast. Perhaps there is a case for a function that separates out the building of a websocket frame from the sending of it. I’ll give it some thought." />
+<meta property="og:description" content="Boost.PropertyTree is back in the saddle! Last month I took over the maintenance of the Boost Property Tree library. This library is in ubiquitous use but has been without a full time maintainer for some time. There was a backlog of commits on develop that had not made it to master for the boost releases. This is changing in upcoming 1.76 release. Property Tree PRs and issues will get more attention going forward. In addition, Property Tree has gained CI courtesy of GitHub Actions. The test status can be seen here Beast CI Beast has acquired two new continuous integration pipelines. Drone and Github Actions. Drone is the canonical source of truth for the Linux/Windows badge on the readme page while GitHub Actions provides a more comprehensive matrix of targets, C++ standards and compiler versions which I use during the development cycle. Boost Version 1.76 The 1.76 release of boost is imminent. As far as Beast and Property Tree is concerned, this is a maintenance release. Other Activities Much of the past two months has been devoted to resolving user queries, and examining suggestions for changes to Beast and Property Tree. Changes to Property tree are not taken likely. It is used in a great deal of legacy code in the wild and there are few tests. It would be a shame to break existing code noisily, or worse, silently. For better or worse, the behaviour is probably not going to change very much going forward until there are more tests in place. Accepting changes to beast’s behaviour or interface is something we consider very carefully for a different reason. Beast is already a complex library. Like Asio upon which it is built, it is already extremely configurable, with a myriad (actually potentially an unbounded set) of completion tokens, completion handlers and buffer types. Something I am often asked is whether we would consider a “multi-send” interface. For example: std::vector&lt;std::string&gt; messages; ws.write(buffer, messages); Arguably there are some efficiencies available here, since we could potentially build all the resulting websocket frames in one pass, and send as one IO operation. There are some issues however. One is buffer space. What do we do if the buffer runs out of space while be are half way through building the frames? Fail the operation, return a partial failure? Block? Also, what do we do if the ensuing IO operation(s) partially fail(s)? Asio currently has no protocol to report a partial failure. We would have to create such a protocol, test it and then teach it. In reality people’s requirements are often different. Some people may require confirmation of each frame within a time period, some will want all-or-nothing delivery and some are happy with partial delivery. One approach is to start providing options for such things as timeouts, partial completion, etc. But the feeling here is that this starts to dictate to users of the library how they write code, which we feel is outside the remit of Beast. Perhaps there is a case for a function that separates out the building of a websocket frame from the sending of it. I’ll give it some thought." />
+<link rel="canonical" href="http://cppalliance.org/richard/2021/03/30/RichardsMarchUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/richard/2021/03/30/RichardsMarchUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-03-30T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Richard’s February/March Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost.PropertyTree is back in the saddle! Last month I took over the maintenance of the Boost Property Tree library. This library is in ubiquitous use but has been without a full time maintainer for some time. There was a backlog of commits on develop that had not made it to master for the boost releases. This is changing in upcoming 1.76 release. Property Tree PRs and issues will get more attention going forward. In addition, Property Tree has gained CI courtesy of GitHub Actions. The test status can be seen here Beast CI Beast has acquired two new continuous integration pipelines. Drone and Github Actions. Drone is the canonical source of truth for the Linux/Windows badge on the readme page while GitHub Actions provides a more comprehensive matrix of targets, C++ standards and compiler versions which I use during the development cycle. Boost Version 1.76 The 1.76 release of boost is imminent. As far as Beast and Property Tree is concerned, this is a maintenance release. Other Activities Much of the past two months has been devoted to resolving user queries, and examining suggestions for changes to Beast and Property Tree. Changes to Property tree are not taken likely. It is used in a great deal of legacy code in the wild and there are few tests. It would be a shame to break existing code noisily, or worse, silently. For better or worse, the behaviour is probably not going to change very much going forward until there are more tests in place. Accepting changes to beast’s behaviour or interface is something we consider very carefully for a different reason. Beast is already a complex library. Like Asio upon which it is built, it is already extremely configurable, with a myriad (actually potentially an unbounded set) of completion tokens, completion handlers and buffer types. Something I am often asked is whether we would consider a “multi-send” interface. For example: std::vector&lt;std::string&gt; messages; ws.write(buffer, messages); Arguably there are some efficiencies available here, since we could potentially build all the resulting websocket frames in one pass, and send as one IO operation. There are some issues however. One is buffer space. What do we do if the buffer runs out of space while be are half way through building the frames? Fail the operation, return a partial failure? Block? Also, what do we do if the ensuing IO operation(s) partially fail(s)? Asio currently has no protocol to report a partial failure. We would have to create such a protocol, test it and then teach it. In reality people’s requirements are often different. Some people may require confirmation of each frame within a time period, some will want all-or-nothing delivery and some are happy with partial delivery. One approach is to start providing options for such things as timeouts, partial completion, etc. But the feeling here is that this starts to dictate to users of the library how they write code, which we feel is outside the remit of Beast. Perhaps there is a case for a function that separates out the building of a websocket frame from the sending of it. I’ll give it some thought.","@type":"BlogPosting","url":"http://cppalliance.org/richard/2021/03/30/RichardsMarchUpdate.html","headline":"Richard’s February/March Update","dateModified":"2021-03-30T00:00:00+00:00","datePublished":"2021-03-30T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/richard/2021/03/30/RichardsMarchUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Richard's February/March Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/richard">
+                  Richard Hodges
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Mar 30, 2021</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="boostpropertytree-is-back-in-the-saddle">Boost.PropertyTree is back in the saddle!</h1>
+
+<p>Last month I took over the maintenance of the Boost Property Tree library.</p>
+
+<p>This library is in ubiquitous use but has been without a full time maintainer for some time. 
+There was a backlog of commits on develop that had not made it to master for the boost releases. 
+This is changing in upcoming 1.76 release. Property Tree PRs and issues will get more attention going forward.
+In addition, Property Tree has gained CI courtesy of GitHub Actions. The test status can be seen 
+<a href="https://github.com/boostorg/property_tree">here</a></p>
+
+<h1 id="beast-ci">Beast CI</h1>
+
+<p>Beast has acquired two new continuous integration pipelines. Drone and Github Actions.
+Drone is the canonical source of truth for the Linux/Windows badge on the
+<a href="https://github.com/boostorg/beast">readme page</a> while GitHub Actions provides a more comprehensive matrix of
+targets, C++ standards and compiler versions which I use during the development cycle.</p>
+
+<h1 id="boost-version-176">Boost Version 1.76</h1>
+
+<p>The 1.76 release of boost is imminent. As far as Beast and Property Tree is concerned, this is a maintenance release.</p>
+
+<h1 id="other-activities">Other Activities</h1>
+
+<p>Much of the past two months has been devoted to resolving user queries, and examining suggestions for changes to Beast 
+and Property Tree.</p>
+
+<p>Changes to Property tree are not taken likely. It is used in a great deal of legacy code in the wild and there are few 
+tests.
+It would be a shame to break existing code noisily, or worse, silently.
+For better or worse, the behaviour is probably not going to change very much going forward until there are more tests in 
+place.</p>
+
+<p>Accepting changes to beast’s behaviour or interface is something we consider very carefully for a different reason.
+Beast is already a complex library. Like Asio upon which it is built, it is already extremely configurable, with a
+myriad (actually potentially an unbounded set) of completion tokens, completion handlers and buffer types.</p>
+
+<p>Something I am often asked is whether we would consider a “multi-send” interface. For example:</p>
+
+<pre><code class="language-cpp">std::vector&lt;std::string&gt; messages;
+ws.write(buffer, messages);
+</code></pre>
+
+<p>Arguably there are some efficiencies available here, since we could potentially build all the resulting websocket frames
+in one pass, and send as one IO operation.</p>
+
+<p>There are some issues however. One is buffer space. What do we do if the buffer runs out of space while be are half way 
+through building the frames? Fail the operation, return a partial failure? Block?
+Also, what do we do if the ensuing IO operation(s) partially fail(s)? Asio currently has no protocol to report a partial 
+failure. We would have to create such a protocol, test it and then teach it.</p>
+
+<p>In reality people’s requirements are often different. Some people may require confirmation of each frame within a time 
+period, some will want all-or-nothing delivery and some are happy with partial delivery.</p>
+
+<p>One approach is to start providing options for such things as timeouts, partial completion, etc. But the feeling here is
+that this starts to dictate to users of the library how they write code, which we feel is outside the remit of Beast.</p>
+
+<p>Perhaps there is a case for a function that separates out the building of a websocket frame from the sending of it. 
+I’ll give it some thought.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/10/2022</span>
+          <a class='text-l news-title link' href="/richard/2022/08/10/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/10/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/10/10/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/05/30/RichardsMayUpdate.html">Richard's May 2021 Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/30/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/03/30/RichardsMarchUpdate.html">Richard's February/March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/01/2021</span>
+          <a class='text-l news-title link' href="/richard/2021/01/01/RichardsNewYearUpdate.html">Richard's New Year Update - Reusable HTTP Connections</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>12/22/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/12/22/RichardsDecemberUpdate.html">Richard's November/December Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/10/31/RichardsOctoberUpdate.html">Richard's October Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/30/RichardsSeptemberUpdate.html">Richard's September Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/09/01/RichardsAugustUpdate.html">Richard's August Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/08/01/RichardsJulyUpdate.html">Richard's July Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/07/01/RichardsJuneUpdate.html">Richard's May/June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/30/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/04/30/RichardsAprilUpdate.html">Richard's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/03/31/RichardsMarchUpdate.html">Richard's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/29/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/02/29/RichardsFebruaryUpdate.html">Richard's February Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/31/2020</span>
+          <a class='text-l news-title link' href="/richard/2020/01/31/RichardsJanuaryUpdate.html">Richard's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

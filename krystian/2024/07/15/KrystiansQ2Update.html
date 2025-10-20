@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's Q2 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s Q2 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s Q2 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="MrDocs This quarter, my primary focus was on MrDocs. To that end, I’m happy to say that the P0 milestone for MrDocs has been reached! Although the vast majority of the work I did was bug hunting/fixing, I also implemented a novel feature which detects and simplifies types that use the SFINAE idiom. Prior to C++20, the primary mechanism for constraining templates was through use of the SFINAE idiom, e.g.: template&lt;typename T&gt; std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; f(T); // only viable when T is a pointer type These kinds of constrained declarations can be rather “noisy” due to the constraints being written into the type of the declaration. One solution is to use macros to show the simplified type when generating documentation: template&lt;typename T&gt; #ifndef DOCS std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; #else T #endif f(T); but this requires manual intervention on the part of the library author. Since MrDocs generates documentation using the clang AST, we can detect whether a template implements the SFINAE idiom and show the “replacement type” instead: template&lt;typename T&gt; std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; // rendered as &#39;T&#39; in the documentation since std::enable_if_t is a SFINAE template f(T); In general, MrDocs determines whether a type naming a member M of a class template C uses the SFINAE idiom by identifying every declaration of M in the primary template and every partial/explicit specialization of C. If M is not found in at least one of the class definitions, and if every declaration of M declares it as an alias for the same type as every other declaration, then C is a template implementing the SFINAE. Clang In addition to working on MrDocs, I merged a number of clang patches this quarter: #98567 [Clang][AST] Move NamespaceDecl bits to DeclContext #98563 [Clang][AST] Don’t use canonical type when checking dependence in Type::isOverloadable #98547 Reapply “[Clang] Implement resolution for CWG1835 (#92957)” #98167 [Clang][Sema] Handle class member access expressions with valid nested-name-specifiers that become invalid after lookup #98027 [Clang][Index] Add support for dependent class scope explicit specializations of function templates to USRGenerator #97596 [Clang][Sema] Correctly transform dependent operands of overloaded binary operator&amp; #97455 [Clang][Sema] Fix crash when rebuilding MemberExprs with invalid object expressions #97425 [Clang][Sema] Treat explicit specializations of static data member templates declared without ‘static’ as static data members when diagnosing uses of ‘auto’ #96364 [Clang][Parse] Fix ambiguity with nested-name-specifiers that may declarative #93873 [Clang][Sema] Diagnose variable template explicit specializations with storage-class-specifiers #92957 [Clang] Implement resolution for CWG1835 #92597 [Clang][Sema] Diagnose current instantiation used as an incomplete base class #92452 [Clang][Sema] Fix crash when diagnosing near-match for ‘constexpr’ redeclaration in C++11 #92449 [Clang][Sema] Do not add implicit ‘const’ when matching constexpr function template explicit specializations after C++14 #92425 [Clang][Sema] ASTContext::getUnconstrainedType propagates dependence #92318 [Clang][Sema] Don’t build CXXDependentScopeMemberExprs for potentially implicit class member access expressions #92283 Reapply “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)” #92149 Revert “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)” #91972 [Clang][Sema] Fix bug where operator-&gt; typo corrects in the current instantiation #91620 [Clang][Sema] Revert changes to operator= lookup in templated classes from #91498, #90999, and #90152 #91534 [Clang][Sema] Do not mark template parameters in the exception specification as used during partial ordering #91498 [Clang][Sema] Fix lookup of dependent operator= outside of complete-class contexts #91393 Reapply “[Clang] Unify interface for accessing template arguments as written for class/variable template specializations (#81642)” #91339 [Clang][Sema] Don’t set instantiated from function when rewriting operator&lt;=&gt; #90999 [Clang][Sema] Fix template name lookup for operator= #90760 [Clang][Sema] Explicit template arguments are not substituted into the exception specification of a function #90517 [Clang][Sema][Parse] Delay parsing of noexcept-specifiers in friend function declarations #90500 [Clang][Sema] Earlier type checking for builtin unary operators #90478 [Clang] Propagate ‘SystemDrive’ environment variable for unit tests #90152 Reapply “[Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes (#84050)” #90104 [Clang][Sema] Fix warnings after #84050" />
+<meta property="og:description" content="MrDocs This quarter, my primary focus was on MrDocs. To that end, I’m happy to say that the P0 milestone for MrDocs has been reached! Although the vast majority of the work I did was bug hunting/fixing, I also implemented a novel feature which detects and simplifies types that use the SFINAE idiom. Prior to C++20, the primary mechanism for constraining templates was through use of the SFINAE idiom, e.g.: template&lt;typename T&gt; std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; f(T); // only viable when T is a pointer type These kinds of constrained declarations can be rather “noisy” due to the constraints being written into the type of the declaration. One solution is to use macros to show the simplified type when generating documentation: template&lt;typename T&gt; #ifndef DOCS std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; #else T #endif f(T); but this requires manual intervention on the part of the library author. Since MrDocs generates documentation using the clang AST, we can detect whether a template implements the SFINAE idiom and show the “replacement type” instead: template&lt;typename T&gt; std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; // rendered as &#39;T&#39; in the documentation since std::enable_if_t is a SFINAE template f(T); In general, MrDocs determines whether a type naming a member M of a class template C uses the SFINAE idiom by identifying every declaration of M in the primary template and every partial/explicit specialization of C. If M is not found in at least one of the class definitions, and if every declaration of M declares it as an alias for the same type as every other declaration, then C is a template implementing the SFINAE. Clang In addition to working on MrDocs, I merged a number of clang patches this quarter: #98567 [Clang][AST] Move NamespaceDecl bits to DeclContext #98563 [Clang][AST] Don’t use canonical type when checking dependence in Type::isOverloadable #98547 Reapply “[Clang] Implement resolution for CWG1835 (#92957)” #98167 [Clang][Sema] Handle class member access expressions with valid nested-name-specifiers that become invalid after lookup #98027 [Clang][Index] Add support for dependent class scope explicit specializations of function templates to USRGenerator #97596 [Clang][Sema] Correctly transform dependent operands of overloaded binary operator&amp; #97455 [Clang][Sema] Fix crash when rebuilding MemberExprs with invalid object expressions #97425 [Clang][Sema] Treat explicit specializations of static data member templates declared without ‘static’ as static data members when diagnosing uses of ‘auto’ #96364 [Clang][Parse] Fix ambiguity with nested-name-specifiers that may declarative #93873 [Clang][Sema] Diagnose variable template explicit specializations with storage-class-specifiers #92957 [Clang] Implement resolution for CWG1835 #92597 [Clang][Sema] Diagnose current instantiation used as an incomplete base class #92452 [Clang][Sema] Fix crash when diagnosing near-match for ‘constexpr’ redeclaration in C++11 #92449 [Clang][Sema] Do not add implicit ‘const’ when matching constexpr function template explicit specializations after C++14 #92425 [Clang][Sema] ASTContext::getUnconstrainedType propagates dependence #92318 [Clang][Sema] Don’t build CXXDependentScopeMemberExprs for potentially implicit class member access expressions #92283 Reapply “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)” #92149 Revert “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)” #91972 [Clang][Sema] Fix bug where operator-&gt; typo corrects in the current instantiation #91620 [Clang][Sema] Revert changes to operator= lookup in templated classes from #91498, #90999, and #90152 #91534 [Clang][Sema] Do not mark template parameters in the exception specification as used during partial ordering #91498 [Clang][Sema] Fix lookup of dependent operator= outside of complete-class contexts #91393 Reapply “[Clang] Unify interface for accessing template arguments as written for class/variable template specializations (#81642)” #91339 [Clang][Sema] Don’t set instantiated from function when rewriting operator&lt;=&gt; #90999 [Clang][Sema] Fix template name lookup for operator= #90760 [Clang][Sema] Explicit template arguments are not substituted into the exception specification of a function #90517 [Clang][Sema][Parse] Delay parsing of noexcept-specifiers in friend function declarations #90500 [Clang][Sema] Earlier type checking for builtin unary operators #90478 [Clang] Propagate ‘SystemDrive’ environment variable for unit tests #90152 Reapply “[Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes (#84050)” #90104 [Clang][Sema] Fix warnings after #84050" />
+<link rel="canonical" href="http://cppalliance.org/krystian/2024/07/15/KrystiansQ2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2024/07/15/KrystiansQ2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-07-15T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s Q2 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"MrDocs This quarter, my primary focus was on MrDocs. To that end, I’m happy to say that the P0 milestone for MrDocs has been reached! Although the vast majority of the work I did was bug hunting/fixing, I also implemented a novel feature which detects and simplifies types that use the SFINAE idiom. Prior to C++20, the primary mechanism for constraining templates was through use of the SFINAE idiom, e.g.: template&lt;typename T&gt; std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; f(T); // only viable when T is a pointer type These kinds of constrained declarations can be rather “noisy” due to the constraints being written into the type of the declaration. One solution is to use macros to show the simplified type when generating documentation: template&lt;typename T&gt; #ifndef DOCS std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; #else T #endif f(T); but this requires manual intervention on the part of the library author. Since MrDocs generates documentation using the clang AST, we can detect whether a template implements the SFINAE idiom and show the “replacement type” instead: template&lt;typename T&gt; std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; // rendered as &#39;T&#39; in the documentation since std::enable_if_t is a SFINAE template f(T); In general, MrDocs determines whether a type naming a member M of a class template C uses the SFINAE idiom by identifying every declaration of M in the primary template and every partial/explicit specialization of C. If M is not found in at least one of the class definitions, and if every declaration of M declares it as an alias for the same type as every other declaration, then C is a template implementing the SFINAE. Clang In addition to working on MrDocs, I merged a number of clang patches this quarter: #98567 [Clang][AST] Move NamespaceDecl bits to DeclContext #98563 [Clang][AST] Don’t use canonical type when checking dependence in Type::isOverloadable #98547 Reapply “[Clang] Implement resolution for CWG1835 (#92957)” #98167 [Clang][Sema] Handle class member access expressions with valid nested-name-specifiers that become invalid after lookup #98027 [Clang][Index] Add support for dependent class scope explicit specializations of function templates to USRGenerator #97596 [Clang][Sema] Correctly transform dependent operands of overloaded binary operator&amp; #97455 [Clang][Sema] Fix crash when rebuilding MemberExprs with invalid object expressions #97425 [Clang][Sema] Treat explicit specializations of static data member templates declared without ‘static’ as static data members when diagnosing uses of ‘auto’ #96364 [Clang][Parse] Fix ambiguity with nested-name-specifiers that may declarative #93873 [Clang][Sema] Diagnose variable template explicit specializations with storage-class-specifiers #92957 [Clang] Implement resolution for CWG1835 #92597 [Clang][Sema] Diagnose current instantiation used as an incomplete base class #92452 [Clang][Sema] Fix crash when diagnosing near-match for ‘constexpr’ redeclaration in C++11 #92449 [Clang][Sema] Do not add implicit ‘const’ when matching constexpr function template explicit specializations after C++14 #92425 [Clang][Sema] ASTContext::getUnconstrainedType propagates dependence #92318 [Clang][Sema] Don’t build CXXDependentScopeMemberExprs for potentially implicit class member access expressions #92283 Reapply “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)” #92149 Revert “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)” #91972 [Clang][Sema] Fix bug where operator-&gt; typo corrects in the current instantiation #91620 [Clang][Sema] Revert changes to operator= lookup in templated classes from #91498, #90999, and #90152 #91534 [Clang][Sema] Do not mark template parameters in the exception specification as used during partial ordering #91498 [Clang][Sema] Fix lookup of dependent operator= outside of complete-class contexts #91393 Reapply “[Clang] Unify interface for accessing template arguments as written for class/variable template specializations (#81642)” #91339 [Clang][Sema] Don’t set instantiated from function when rewriting operator&lt;=&gt; #90999 [Clang][Sema] Fix template name lookup for operator= #90760 [Clang][Sema] Explicit template arguments are not substituted into the exception specification of a function #90517 [Clang][Sema][Parse] Delay parsing of noexcept-specifiers in friend function declarations #90500 [Clang][Sema] Earlier type checking for builtin unary operators #90478 [Clang] Propagate ‘SystemDrive’ environment variable for unit tests #90152 Reapply “[Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes (#84050)” #90104 [Clang][Sema] Fix warnings after #84050","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2024/07/15/KrystiansQ2Update.html","headline":"Krystian’s Q2 2024 Update","dateModified":"2024-07-15T00:00:00+00:00","datePublished":"2024-07-15T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2024/07/15/KrystiansQ2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's Q2 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 15, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="mrdocs">MrDocs</h1>
+
+<p>This quarter, my primary focus was on MrDocs. To that end, I’m happy to say that the P0 milestone for MrDocs has been reached! Although the vast majority of the work I did was bug hunting/fixing, I also implemented a novel feature which detects and simplifies types that use the SFINAE idiom.</p>
+
+<p>Prior to C++20, the primary mechanism for constraining templates was through use of the SFINAE idiom, e.g.:</p>
+
+<pre><code class="language-cpp">template&lt;typename T&gt;
+std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; f(T); // only viable when T is a pointer type
+</code></pre>
+
+<p>These kinds of constrained declarations can be rather “noisy” due to the constraints being written into the type of the declaration. One solution is to use macros to show the simplified type when generating documentation:</p>
+
+<pre><code class="language-cpp">template&lt;typename T&gt;
+#ifndef DOCS
+std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt;
+#else
+T
+#endif
+f(T);
+</code></pre>
+
+<p>but this requires manual intervention on the part of the library author. Since MrDocs generates documentation using the clang AST, we can detect whether a template implements the SFINAE idiom and show the “replacement type” instead:</p>
+
+<pre><code class="language-cpp">template&lt;typename T&gt;
+std::enable_if_t&lt;std::is_pointer_v&lt;T&gt;, T&gt; // rendered as 'T' in the documentation since std::enable_if_t is a SFINAE template
+f(T);
+</code></pre>
+
+<p>In general, MrDocs determines whether a type naming a member <code>M</code> of a class template <code>C</code> uses the SFINAE idiom by identifying every declaration of <code>M</code> in the primary template and every partial/explicit specialization of <code>C</code>. If <code>M</code> is not found in at least one of the class definitions, and if every declaration of <code>M</code> declares it as an alias for the same type as every other declaration, then <code>C</code> is a template implementing the SFINAE.</p>
+
+<h1 id="clang">Clang</h1>
+
+<p>In addition to working on MrDocs, I merged a number of clang patches this quarter:</p>
+
+<ul>
+  <li>#98567 <a href="https://api.github.com/repos/llvm/llvm-project/issues/98567">[Clang][AST] Move NamespaceDecl bits to DeclContext</a></li>
+  <li>#98563 <a href="https://api.github.com/repos/llvm/llvm-project/issues/98563">[Clang][AST] Don’t use canonical type when checking dependence in Type::isOverloadable</a></li>
+  <li>#98547 <a href="https://api.github.com/repos/llvm/llvm-project/issues/98547">Reapply “[Clang] Implement resolution for CWG1835 (#92957)”</a></li>
+  <li>#98167 <a href="https://api.github.com/repos/llvm/llvm-project/issues/98167">[Clang][Sema] Handle class member access expressions with valid nested-name-specifiers that become invalid after lookup</a></li>
+  <li>#98027 <a href="https://api.github.com/repos/llvm/llvm-project/issues/98027">[Clang][Index] Add support for dependent class scope explicit specializations of function templates to USRGenerator</a></li>
+  <li>#97596 <a href="https://api.github.com/repos/llvm/llvm-project/issues/97596">[Clang][Sema] Correctly transform dependent operands of overloaded binary operator&amp;</a></li>
+  <li>#97455 <a href="https://api.github.com/repos/llvm/llvm-project/issues/97455">[Clang][Sema] Fix crash when rebuilding MemberExprs with invalid object expressions</a></li>
+  <li>#97425 <a href="https://api.github.com/repos/llvm/llvm-project/issues/97425">[Clang][Sema] Treat explicit specializations of static data member templates declared without ‘static’ as static data members when diagnosing uses of ‘auto’</a></li>
+  <li>#96364 <a href="https://api.github.com/repos/llvm/llvm-project/issues/96364">[Clang][Parse] Fix ambiguity with nested-name-specifiers that may declarative</a></li>
+  <li>#93873 <a href="https://api.github.com/repos/llvm/llvm-project/issues/93873">[Clang][Sema] Diagnose variable template explicit specializations with storage-class-specifiers</a></li>
+  <li>#92957 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92957">[Clang] Implement resolution for CWG1835</a></li>
+  <li>#92597 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92597">[Clang][Sema] Diagnose current instantiation used as an incomplete base class</a></li>
+  <li>#92452 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92452">[Clang][Sema] Fix crash when diagnosing near-match for ‘constexpr’ redeclaration in C++11</a></li>
+  <li>#92449 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92449">[Clang][Sema] Do not add implicit ‘const’ when matching constexpr function template explicit specializations after C++14</a></li>
+  <li>#92425 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92425">[Clang][Sema] ASTContext::getUnconstrainedType propagates dependence</a></li>
+  <li>#92318 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92318">[Clang][Sema] Don’t build CXXDependentScopeMemberExprs for potentially implicit class member access expressions</a></li>
+  <li>#92283 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92283">Reapply “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)”</a></li>
+  <li>#92149 <a href="https://api.github.com/repos/llvm/llvm-project/issues/92149">Revert “[Clang][Sema] Earlier type checking for builtin unary operators (#90500)”</a></li>
+  <li>#91972 <a href="https://api.github.com/repos/llvm/llvm-project/issues/91972">[Clang][Sema] Fix bug where operator-&gt; typo corrects in the current instantiation</a></li>
+  <li>#91620 <a href="https://api.github.com/repos/llvm/llvm-project/issues/91620">[Clang][Sema] Revert changes to operator= lookup in templated classes from #91498, #90999, and #90152</a></li>
+  <li>#91534 <a href="https://api.github.com/repos/llvm/llvm-project/issues/91534">[Clang][Sema] Do not mark template parameters in the exception specification as used during partial ordering</a></li>
+  <li>#91498 <a href="https://api.github.com/repos/llvm/llvm-project/issues/91498">[Clang][Sema] Fix lookup of dependent operator= outside of complete-class contexts</a></li>
+  <li>#91393 <a href="https://api.github.com/repos/llvm/llvm-project/issues/91393">Reapply “[Clang] Unify interface for accessing template arguments as written for class/variable template specializations (#81642)”</a></li>
+  <li>#91339 <a href="https://api.github.com/repos/llvm/llvm-project/issues/91339">[Clang][Sema] Don’t set instantiated from function when rewriting operator&lt;=&gt;</a></li>
+  <li>#90999 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90999">[Clang][Sema] Fix template name lookup for operator=</a></li>
+  <li>#90760 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90760">[Clang][Sema] Explicit template arguments are not substituted into the exception specification of a function</a></li>
+  <li>#90517 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90517">[Clang][Sema][Parse] Delay parsing of noexcept-specifiers in friend function declarations</a></li>
+  <li>#90500 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90500">[Clang][Sema] Earlier type checking for builtin unary operators</a></li>
+  <li>#90478 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90478">[Clang] Propagate ‘SystemDrive’ environment variable for unit tests</a></li>
+  <li>#90152 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90152">Reapply “[Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes (#84050)”</a></li>
+  <li>#90104 <a href="https://api.github.com/repos/llvm/llvm-project/issues/90104">[Clang][Sema] Fix warnings after #84050</a></li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

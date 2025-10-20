@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New container in Boost.PolyCollection, additions to Boost.Mp11 and more | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>New container in Boost.PolyCollection, additions to Boost.Mp11 and more | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="New container in Boost.PolyCollection, additions to Boost.Mp11 and more" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q4 2024, I’ve been working in the following areas: Boost.Unordered Updated CI support (PR#293, PR#296, PR#297, PR#298). Prepared a private document for Peter Dimov and Braden Ganetsky discussing massively parallel scenarios where ParlayHash has better performance than boost::concurrent_flat_map. We haven’t been able to progress much further than that in Q4 2024, mainly because of my lack of availablity for this specific task. I’ve set up and run benchmarks comparing indivi::flat_umap with boost::unordered_flat_map. Although Indivi is generally slower, a conversation with the author led to some interesting design discussions that may be worth exploring further. After the last major update in Boost 1.87.0, the backlog for Boost.Unordered is basically cleared. This means that the library will likely enter into maintenance mode, except if new requests show up —do you have any? Boost.PolyCollection Updated CI support (PR#22, PR#23). Added the new boost::variant_collection container (to be released in Boost 1.88.0). boost::variant_collection_of&lt;Ts...&gt; is similar to std::vector&lt;std::variant&lt;Ts...&gt;&gt;, with the crucial difference that elements storing the same alternative type are grouped together. For instance, the following: boost::variant_collection_of&lt;int, double, std::string&gt; c; // ... for(const auto&amp; v: c) { visit( [](const auto&amp; x) { std::cout &lt;&lt; x &lt;&lt; &quot;\n&quot;; }, v); } will print first the ints in the collection, then the doubles, and finally the std::strings. In exchange for this restriction, important processing speedups can be obtained. Boost.Mp11 Implemented mp_lambda (released in Boost 1.87.0), a metaprogramming utility inspired by the venerable placeholder expressions from Boost.MPL. mp_lambda allows us to generate complex types specified with a rather natural syntax in terms of elementary input types indicated by Boost.Mp11 placeholder types. For instance, std::pair&lt;_1*, _2*&gt; can be regarded as a type template with two placeholder positions, and mp_lambda&lt;std::pair&lt;_1*, _2*&gt;&gt;::fn&lt;int, char&gt; is, unsurprisingly enough, the type std::pair&lt;int*, char*&gt;. My original motivation for writing this utility is to provide a Boost.Mp11 equivalent to Boost.MPL lambda expressions that can pave the way for an eventual modernization of Boost.Flyweight, which relies heavily on this functionality from Boost.MPL. Rewritten the implementation of mp_is_set (PR#100, released in Boost 1.87.0) to achieve some rather noticeable compile-time improvements. Boost.MultiIndex, Boost.Flyweight Updated CI support (PR#75, PR#78, PR#20). Investigated issue with Boost.Interprocess (#236) that was causing Boost.Flyweight tests to fail in GCC/MinGW. Boost promotion and new website Authored the Boost 1.87 announcement tweet, and the Boost.Hash2 acceptance tweet. Held some meetings with Rob’s team on Asciidoc display problems and a new latest URL scheme for doc publication. I’m very excited about the latter, as this addition will likely help us improve SEO and fight outdated archived links to the libraries docs: for instance, the link https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html will always point to the latest published version of Boost.Asio documentation, unlike version-specific links such as https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html. Filed some issues (#1549, #1576, #1577). Support to the community I’ve proofread Braden Ganetsky’s article on Natvis testing. As a member of the Fiscal Sponsorhip Committee (FSC), we’re having conversations with For Purpose Law Group to finalize the writing of the Boost/C++ Alliance Fiscal Sponsor Agreement (FSA), and with the Boost Foundation to help them complete the transfer of the assets to be controlled by such FSA, most importantly the ownership of the boost.org domain. Both tracks are making progress, albeit at a lower pace than desired." />
+<meta property="og:description" content="During Q4 2024, I’ve been working in the following areas: Boost.Unordered Updated CI support (PR#293, PR#296, PR#297, PR#298). Prepared a private document for Peter Dimov and Braden Ganetsky discussing massively parallel scenarios where ParlayHash has better performance than boost::concurrent_flat_map. We haven’t been able to progress much further than that in Q4 2024, mainly because of my lack of availablity for this specific task. I’ve set up and run benchmarks comparing indivi::flat_umap with boost::unordered_flat_map. Although Indivi is generally slower, a conversation with the author led to some interesting design discussions that may be worth exploring further. After the last major update in Boost 1.87.0, the backlog for Boost.Unordered is basically cleared. This means that the library will likely enter into maintenance mode, except if new requests show up —do you have any? Boost.PolyCollection Updated CI support (PR#22, PR#23). Added the new boost::variant_collection container (to be released in Boost 1.88.0). boost::variant_collection_of&lt;Ts...&gt; is similar to std::vector&lt;std::variant&lt;Ts...&gt;&gt;, with the crucial difference that elements storing the same alternative type are grouped together. For instance, the following: boost::variant_collection_of&lt;int, double, std::string&gt; c; // ... for(const auto&amp; v: c) { visit( [](const auto&amp; x) { std::cout &lt;&lt; x &lt;&lt; &quot;\n&quot;; }, v); } will print first the ints in the collection, then the doubles, and finally the std::strings. In exchange for this restriction, important processing speedups can be obtained. Boost.Mp11 Implemented mp_lambda (released in Boost 1.87.0), a metaprogramming utility inspired by the venerable placeholder expressions from Boost.MPL. mp_lambda allows us to generate complex types specified with a rather natural syntax in terms of elementary input types indicated by Boost.Mp11 placeholder types. For instance, std::pair&lt;_1*, _2*&gt; can be regarded as a type template with two placeholder positions, and mp_lambda&lt;std::pair&lt;_1*, _2*&gt;&gt;::fn&lt;int, char&gt; is, unsurprisingly enough, the type std::pair&lt;int*, char*&gt;. My original motivation for writing this utility is to provide a Boost.Mp11 equivalent to Boost.MPL lambda expressions that can pave the way for an eventual modernization of Boost.Flyweight, which relies heavily on this functionality from Boost.MPL. Rewritten the implementation of mp_is_set (PR#100, released in Boost 1.87.0) to achieve some rather noticeable compile-time improvements. Boost.MultiIndex, Boost.Flyweight Updated CI support (PR#75, PR#78, PR#20). Investigated issue with Boost.Interprocess (#236) that was causing Boost.Flyweight tests to fail in GCC/MinGW. Boost promotion and new website Authored the Boost 1.87 announcement tweet, and the Boost.Hash2 acceptance tweet. Held some meetings with Rob’s team on Asciidoc display problems and a new latest URL scheme for doc publication. I’m very excited about the latter, as this addition will likely help us improve SEO and fight outdated archived links to the libraries docs: for instance, the link https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html will always point to the latest published version of Boost.Asio documentation, unlike version-specific links such as https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html. Filed some issues (#1549, #1576, #1577). Support to the community I’ve proofread Braden Ganetsky’s article on Natvis testing. As a member of the Fiscal Sponsorhip Committee (FSC), we’re having conversations with For Purpose Law Group to finalize the writing of the Boost/C++ Alliance Fiscal Sponsor Agreement (FSA), and with the Boost Foundation to help them complete the transfer of the assets to be controlled by such FSA, most importantly the ownership of the boost.org domain. Both tracks are making progress, albeit at a lower pace than desired." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2025/01/05/Joaquins2024Q4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2025/01/05/Joaquins2024Q4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-05T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="New container in Boost.PolyCollection, additions to Boost.Mp11 and more" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q4 2024, I’ve been working in the following areas: Boost.Unordered Updated CI support (PR#293, PR#296, PR#297, PR#298). Prepared a private document for Peter Dimov and Braden Ganetsky discussing massively parallel scenarios where ParlayHash has better performance than boost::concurrent_flat_map. We haven’t been able to progress much further than that in Q4 2024, mainly because of my lack of availablity for this specific task. I’ve set up and run benchmarks comparing indivi::flat_umap with boost::unordered_flat_map. Although Indivi is generally slower, a conversation with the author led to some interesting design discussions that may be worth exploring further. After the last major update in Boost 1.87.0, the backlog for Boost.Unordered is basically cleared. This means that the library will likely enter into maintenance mode, except if new requests show up —do you have any? Boost.PolyCollection Updated CI support (PR#22, PR#23). Added the new boost::variant_collection container (to be released in Boost 1.88.0). boost::variant_collection_of&lt;Ts...&gt; is similar to std::vector&lt;std::variant&lt;Ts...&gt;&gt;, with the crucial difference that elements storing the same alternative type are grouped together. For instance, the following: boost::variant_collection_of&lt;int, double, std::string&gt; c; // ... for(const auto&amp; v: c) { visit( [](const auto&amp; x) { std::cout &lt;&lt; x &lt;&lt; &quot;\\n&quot;; }, v); } will print first the ints in the collection, then the doubles, and finally the std::strings. In exchange for this restriction, important processing speedups can be obtained. Boost.Mp11 Implemented mp_lambda (released in Boost 1.87.0), a metaprogramming utility inspired by the venerable placeholder expressions from Boost.MPL. mp_lambda allows us to generate complex types specified with a rather natural syntax in terms of elementary input types indicated by Boost.Mp11 placeholder types. For instance, std::pair&lt;_1*, _2*&gt; can be regarded as a type template with two placeholder positions, and mp_lambda&lt;std::pair&lt;_1*, _2*&gt;&gt;::fn&lt;int, char&gt; is, unsurprisingly enough, the type std::pair&lt;int*, char*&gt;. My original motivation for writing this utility is to provide a Boost.Mp11 equivalent to Boost.MPL lambda expressions that can pave the way for an eventual modernization of Boost.Flyweight, which relies heavily on this functionality from Boost.MPL. Rewritten the implementation of mp_is_set (PR#100, released in Boost 1.87.0) to achieve some rather noticeable compile-time improvements. Boost.MultiIndex, Boost.Flyweight Updated CI support (PR#75, PR#78, PR#20). Investigated issue with Boost.Interprocess (#236) that was causing Boost.Flyweight tests to fail in GCC/MinGW. Boost promotion and new website Authored the Boost 1.87 announcement tweet, and the Boost.Hash2 acceptance tweet. Held some meetings with Rob’s team on Asciidoc display problems and a new latest URL scheme for doc publication. I’m very excited about the latter, as this addition will likely help us improve SEO and fight outdated archived links to the libraries docs: for instance, the link https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html will always point to the latest published version of Boost.Asio documentation, unlike version-specific links such as https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html. Filed some issues (#1549, #1576, #1577). Support to the community I’ve proofread Braden Ganetsky’s article on Natvis testing. As a member of the Fiscal Sponsorhip Committee (FSC), we’re having conversations with For Purpose Law Group to finalize the writing of the Boost/C++ Alliance Fiscal Sponsor Agreement (FSA), and with the Boost Foundation to help them complete the transfer of the assets to be controlled by such FSA, most importantly the ownership of the boost.org domain. Both tracks are making progress, albeit at a lower pace than desired.","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2025/01/05/Joaquins2024Q4Update.html","headline":"New container in Boost.PolyCollection, additions to Boost.Mp11 and more","dateModified":"2025-01-05T00:00:00+00:00","datePublished":"2025-01-05T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2025/01/05/Joaquins2024Q4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>New container in Boost.PolyCollection, additions to Boost.Mp11 and more</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 5, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q4 2024, I’ve been working in the following areas:</p>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Updated CI support (<a href="https://github.com/boostorg/unordered/pull/293">PR#293</a>,
+<a href="https://github.com/boostorg/unordered/pull/296">PR#296</a>,
+<a href="https://github.com/boostorg/unordered/pull/297">PR#297</a>,
+<a href="https://github.com/boostorg/unordered/pull/298">PR#298</a>).</li>
+  <li>Prepared a private document for Peter Dimov and Braden Ganetsky discussing
+massively parallel scenarios where <a href="https://github.com/cmuparlay/parlayhash">ParlayHash</a>
+has better performance than <code>boost::concurrent_flat_map</code>. We haven’t been able
+to progress much further than that in Q4 2024, mainly because of my lack
+of availablity for this specific task.</li>
+  <li>I’ve set up and run <a href="https://github.com/boostorg/boost_unordered_benchmarks/tree/boost_unordered_aggregate_indivi">benchmarks</a>
+comparing <a href="https://github.com/gaujay/indivi_collection"><code>indivi::flat_umap</code></a>
+with <code>boost::unordered_flat_map</code>. Although Indivi is generally slower,
+a <a href="https://www.reddit.com/r/cpp/comments/1g2oso8/introducing_flat_umap_a_fast_simdbased_unordered/lrqqsi7/">conversation</a>
+with the author led to some interesting design discussions that may be worth exploring further.</li>
+  <li>After the last <a href="https://www.boost.org/libs/unordered/doc/html/unordered.html#changes_release_1_87_0_major_update">major update in Boost 1.87.0</a>,
+the backlog for Boost.Unordered is basically cleared. This means that the library
+will likely enter into maintenance mode, except if new requests show up
+—do you have any?</li>
+</ul>
+
+<h3 id="boostpolycollection">Boost.PolyCollection</h3>
+
+<ul>
+  <li>Updated CI support (<a href="https://github.com/boostorg/poly_collection/pull/22">PR#22</a>,
+<a href="https://github.com/boostorg/poly_collection/pull/23">PR#23</a>).</li>
+  <li>Added the new <a href="https://www.boost.org/doc/libs/develop/doc/html/poly_collection/reference.html#poly_collection.reference.header_boost_poly_collection_va0"><code>boost::variant_collection</code></a>
+container (to be released in Boost 1.88.0).
+<code>boost::variant_collection_of&lt;Ts...&gt;</code> is similar to
+<code>std::vector&lt;std::variant&lt;Ts...&gt;&gt;</code>, with the crucial difference that elements
+storing the same alternative type are grouped together. For instance, the following:
+    <pre><code class="language-cpp">boost::variant_collection_of&lt;int, double, std::string&gt; c;
+// ...
+for(const auto&amp; v: c) {
+visit(
+  [](const auto&amp; x) { std::cout &lt;&lt; x &lt;&lt; "\n"; },
+  v);
+}
+</code></pre>
+    <p>will print first the <code>int</code>s in the collection, then the <code>double</code>s, and finally
+the <code>std::string</code>s. In exchange for this restriction, important
+<a href="https://www.boost.org/doc/libs/develop/doc/html/poly_collection/performance.html#poly_collection.performance.processing_tests.results_for_boost_variant_collec">processing speedups</a>
+can be obtained.</p>
+  </li>
+</ul>
+
+<h3 id="boostmp11">Boost.Mp11</h3>
+
+<ul>
+  <li>Implemented <a href="https://www.boost.org/libs/mp11/doc/html/mp11.html#lambda"><code>mp_lambda</code></a>
+(released in Boost 1.87.0), a metaprogramming utility inspired by the venerable
+<a href="https://live.boost.org/libs/mpl/doc/refmanual/placeholder-expression.html"><em>placeholder expressions</em> from Boost.MPL</a>.
+<code>mp_lambda</code> allows us to generate complex types specified with a rather natural syntax
+in terms of elementary input types indicated by
+<a href="https://www.boost.org/libs/mp11/doc/html/mp11.html#1_9">Boost.Mp11 <em>placeholder types</em></a>.
+For instance, <code>std::pair&lt;_1*, _2*&gt;</code> can be regarded as a type template with
+two placeholder positions, and <code>mp_lambda&lt;std::pair&lt;_1*, _2*&gt;&gt;::fn&lt;int, char&gt;</code> is,
+unsurprisingly enough, the type <code>std::pair&lt;int*, char*&gt;</code>. My original motivation
+for writing this utility is to provide a Boost.Mp11 equivalent to Boost.MPL lambda
+expressions that can pave the way for an eventual modernization of
+Boost.Flyweight, which <a href="https://www.boost.org/libs/flyweight/doc/tutorial/configuration.html#factory_types">relies heavily</a>
+on this functionality from Boost.MPL.</li>
+  <li>Rewritten the implementation of <code>mp_is_set</code>
+(<a href="https://github.com/boostorg/mp11/pull/100">PR#100</a>, released in Boost 1.87.0) to
+achieve some rather noticeable compile-time improvements.</li>
+</ul>
+
+<h3 id="boostmultiindex-boostflyweight">Boost.MultiIndex, Boost.Flyweight</h3>
+
+<ul>
+  <li>Updated CI support (<a href="https://github.com/boostorg/multi_index/pull/75">PR#75</a>,
+<a href="https://github.com/boostorg/multi_index/pull/78">PR#78</a>,
+<a href="https://github.com/boostorg/flyweight/pull/20">PR#20</a>).</li>
+  <li>Investigated issue with Boost.Interprocess
+(<a href="https://github.com/boostorg/interprocess/issues/236">#236</a>) that was
+causing Boost.Flyweight tests to fail in GCC/MinGW.</li>
+</ul>
+
+<h3 id="boost-promotion-and-new-website">Boost promotion and new website</h3>
+
+<ul>
+  <li>Authored the Boost 1.87 announcement <a href="https://x.com/Boost_Libraries/status/1867161745661583556">tweet</a>, and
+the Boost.Hash2 acceptance <a href="https://x.com/Boost_Libraries/status/1873826841653633076">tweet</a>.</li>
+  <li>Held some meetings with Rob’s team on Asciidoc display problems and a new <code>latest</code> URL scheme for
+doc publication. I’m very excited about the latter, as this addition will likely help
+us improve SEO and fight outdated archived links to the libraries docs: for instance, the
+link <a href="https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html">https://www.boost.io/doc/libs/latest/doc/html/boost_asio.html</a>
+will <em>always</em> point to the latest published version of Boost.Asio documentation,
+unlike version-specific links such as
+<a href="https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html">https://www.boost.io/doc/libs/1_87_0/doc/html/boost_asio.html</a>.</li>
+  <li>Filed some issues (<a href="https://github.com/boostorg/website-v2/issues/1549">#1549</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1576">#1576</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1577">#1577</a>).</li>
+</ul>
+
+<h3 id="support-to-the-community">Support to the community</h3>
+
+<ul>
+  <li>I’ve proofread Braden Ganetsky’s article on <a href="https://blog.ganets.ky/NatvisTesting/">Natvis testing</a>.</li>
+  <li>As a member of the Fiscal Sponsorhip Committee (FSC), we’re having conversations with
+<a href="https://www.fplglaw.com/">For Purpose Law Group</a> to finalize the writing of the Boost/C++ Alliance Fiscal Sponsor Agreement (FSA),
+and with the Boost Foundation to help them complete the transfer of
+the assets to be controlled by such FSA, most importantly the ownership of the
+boost.org domain. Both tracks are making progress, albeit at a lower pace than desired.</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

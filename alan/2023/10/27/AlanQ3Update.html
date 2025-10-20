@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alan's Q3 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Alan’s Q3 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Alan’s Q3 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Summary MrDocs Handlebars The DOM Javascript Bindings Unit tests Boost Website Boost Release Tools Boost Libraries C++ Github Actions Gray-box local search MrDocs Over the last quarter, we have been working intensely on MrDocs, a documentation generator for C++ projects. I’ve been overseeing and reviewing all the work done by the other contributors in the project. I’ve also been responsible for: setting up and maintaining CI for the project; MrDocs and LLVM release binaries; build scripts; setting up and integrating dependencies; setting up and deploying the Antora toolchains and documentation to the project website; working on supporting libraries; and fixing bugs. These are some of the highlights of the work done in the last quarter: Refactor library layout and scripts so all the implementation files are in src Automated deployment of demo documentation to the project website. The website is updated on every commit to the develop or master branches. The action uses the actual release package to generate the documentation. This PR involved fixing all scripts and directory layouts for the release package to be properly usable. The new project layout uses the FHS standard. CMake modules to create a target to generate the documentation for projects were included in the installation. The MrDocs executable and libraries are installed as separate CMake package components. Any usage of FetchContent has been removed from the CMake scripts. The documentation was refactored to reflect the changes. Included complete instructions in the documentation pages for installation and usage, describing all commands and options. Deployed new LLVM binaries to the website and updated CI. The binaries were regenerated for all platforms in 4 modes: Debug, Release, RelWithDebInfo, and DebWithOpt. This involved fixing long-standing bugs related to conflicts in LLVM versions used by the project and providing new pre-built binaries on the website. In particular, the previous pre-built binaries used a special ReleaseWithDebInfo LLVM configuration that caused conflicts with MrDocs on MSVC, being used with a Debug CMake configuration variant by developers. This eliminated the need for the ad-hoc GitHub LLVM binaries release and for the special docker container we had been using so far. Added support for CMakePresets. This allowed us to simplify the build process for MrDocs and its dependencies, which was previously counting on long command line commands and CMakeUserPresets.json files without a corresponding CMakePresets.json file. It was also a step towards the new installation instructions in the documentation. An example file for CMakeUserPresets.json including all compilers was provided. The base CMakePresets.json file included a special vendor configuration to hide base configurations from Visual Studio. CMakeSettings.json was deprecated. Added complete installation instructions for the project. The instructions were adapted so that all commands are relative to an enclosing directory containing all the dependencies and MrDocs. Included instructions for all steps considering package managers, installed dependencies, or binaries provided on the project website. The CMake scripts were adapted to make it easier to build the project in a variety of environments according to the instructions. Included a polyfill implementation of std::expected as mrdocs::Expected. This implementation is currently being used by MrDocs and support libraries. Refactored MrDocs generators to use our custom C++ implementation of the Handlebars template engine. Javascript helpers are loaded with duktape with our Javascript Bindings and compiled into functions in the Javascript engine. Refactored the project name from MrDox to MrDocs Handlebars MrDocs includes a support library that reimplements the Handlebars template engine in C++. This module is used to generate documentation from templates. Over the last quarter, this is the MrDocs support library in which I have been investing most of my time. All the development started in this same quarter in July. It already supports all features from the original Handlebars test suite, including all mustache features. The library is already integrated with MrDocs to generate the documentation for the project website. Initial proposal of the C++ Handlebars library. Fixed and refactored code that relied on references to temporaries generated by the Dom. Included support for inverse blocks without helpers All features, specs, and tests from the original Handlebars test suite were then ported to C++ and are now passing: basic specs; partials and automatic indentation; whitespace control; block helpers, mustache blocks, and chained blocks; subexpressions; builtin helpers; private data; helper formats; track-ids mode; strict mode; util; mustache. As many handlebars features were undocumented in the original implementation, adjusting our handlebars implementation, which was only designed to handle basic templates, to pass all tests from the original Handlebars test suite involved multiple significant refactors and improvements to the entire codebase. The tests are a superset of the mustache specs, which are also passing. The previously available SafeString type because a regular dom::Value with the implementation of the specs. Support for dom::Function in all components of the Handlebars engine instead of custom callback types. This also allows the engine context to contain functions that can work similarly to helpers. The engine callback object is passed as the last argument in a helper, similar to the Javascript implementation. Because most built-in helpers support variable arguments, a new dom::Function implementation type was provided to support this use case. Support for error handling via Expected. All functions that might fail have a variant that throws exceptions and another that returns an Expected value. Helpers functions are also allowed to propagate errors via mrdocs::Error. Fixed a bug that caused MrDocs to emit [object Object] for \n after the transition to C++ handlebars. The “find” helper was adjusted to support strings, arrays, and objects. This fixes a problem with the variants of similar but conflicting helpers that were categorized as container and string helpers. The DOM MrDocs also includes a support library called “DOM” that provides a C++ interface to type-erased property trees, such as JSON and Javascript Objects. This module is used by MrDocs to create opaque representations of property trees that can be used by the Handlebars engine and other library functions. Such representations can come from a variety of sources, including JSON files, Javascript objects, and internal C++ objects with information parsed by MrDocs. After completing the Handlebars implementation, I also included complete unit tests for the DOM. Tests were included for all DOM types and many bugs have been fixed. All classes have been documented to reflect their intended behavior, which is loosely modeled after JavaScript types and data structures. The APIs have also been adjusted to be safer and more consistent with the model for reference types. Objects and Value types received functions for nested object lookup and objects were generalized to support non-enumerable properties and Javascript bindings. Javascript Bindings MrDocs includes a support library that wraps duktape to provide a C++ interface to the Javascript engine. This module is used by the MrDocs executable to evaluate user-defined helpers. I also included unit tests for Javascript wrapper and bindings. Throughout the process, the implementation was completed for classes that were placeholders and existing bugs have been fixed the API was documented The javascript Scope object was extended to support all types of alternative syntax to evaluate expressions. Value types: support for integers and floating point numbers. Value types: support for all dom::Value operations using the native duktape functions Provided classes to wrap javascript Objects, Arrays, and Functions as DOM values Scope functions that might fail were adjusted to return Expected values Unit Tests MrDocs includes a support library for unit tests. The library was initially adapted from the Boost.URL unit tests and extended to support the needs of MrDocs. I had previously implemented a smaller system for the Handlebars unit tests which was then integrated with the boost.url test suite library. Features from the handlebars test suite library were ported to the boost.url test suite library, including the expression decomposer and the diff algorithm for golden master tests. With this integration, Handlebars tests were then listed among any other tests in the library. These tests were later complemented with regular MrDocs tests. The decomposer has later been improved for integral comparison operators. Boost Website In this last quarter, the Boost website went beta on https://www.preview.boost.org/. Among the many support projects for the website, I’ve been helping the most on the cppalliance/site-docs, which includes the Boost website documentation as an Antora project. Its components represent the “User Guide”, “Contributor Guide”, and “Formal Review” sections of the website. Since the inception of the project, I’ve been overseeing and reviewing all the work done by the other contributors to the project. I’ve also been responsible for: setting up and maintaining CI for the project; coordinating with cppalliance/temp-site on content uploaded to AWS buckets; build scripts to be reused by the release tools and previews; writing sections of the documentation that require technical knowledge; developing custom Boost/Antora extensions, such as the Boost Macro extension; maintaining the Antora toolchain and templates; and adjusted Boost libraries to match formats expected by the website. The Antora playbooks were recently adjusted to initially contain no content sources, now that the Antora-enabled build process also implemented by me was deployed in the official Boost release process. Boost Libraries As in other quarters, the Boost Library in which I have been investing most of my time is Boost.URL, since it’s our most recently accepted library. The library is in maintenance mode since our focus shifted to MrDocs, but considering how recent it is, there is a constant demand for work fixing bugs and improving the documentation. In Boost.URL, I’ve been responsible for: upgrading CI, mostly coordinating with the C++ Github Actions; maintaining, simplifying, and updating build scripts; integrating more spec tests, such as the Ada tests included more recently; including more examples, such as the more recent sanitize-URL example; fixing documentation content that is out of date; and fixing bugs. Besides bugs, the library was recently refactored to remove what was previously called a “header-only” mode and deprecated several aliases, which caused some small friction in this last quarter. These are some of the highlights of the work done in the last quarter: Extended fuzz testing. Fuzz was included as a new clang factor in CI. The process was adjusted so that the corpus is properly reused from and stored in GitHub action archives. CMake scripts were refactored to include CMake options that control the fuzzer parameters. Fuzzers were included for each of the grammar rules for URLs. Support IP-literal as IPv6addrz. This is an issue where a valid IPv6addrz wasn’t being considered an IP-literal. IPv6addrz includes a ZoneID at the end, delimited by an encoded &quot;%25&quot;. The ipv6_address class is unmodified, as the mapping from the ZoneID to a std::uint32_t is dependent on the application context. The original ZoneID can be obtained from the url_view but the library is agnostic about it. Included GDB pretty printers and documentation. All available URL components are now pretty printed in GDB. A developer mode was also included which prints the URL components in a format corresponding to the internal URL string offsets. Updated the content of both the documentation and README.adoc so that they match current best practices. The documentation in README.md contained dated and incorrect information, while the quickbook documentation was missing important information and contained bad practices. Some relevant bug fixes were: Enforced that appropriate CMake BOOST_INCLUDE_LIBRARIES are set according to the build options. The previous implementation included these extra libraries whenever they were available, which caused problems for other libraries that depended on Boost.URL via depinst.py. Fix and include unit-tests for issues #755 and #446 We disabled and re-enabled drone caching. This is related to a bug where Drone would attempt to cache the b2 binary, which would cause conflicts. This was fixed with PR #123 in boostorg/boost-ci. Remove quickbook references to variant. Links and references to variant in both the .qbk and .xml files were removed as the variant alias had been deprecated in 96438f6. Updated javadoc deprecated references. This fixed a mistake where the Javadoc for many deprecated aliases included references to the deprecated alias boost::core::string_view instead of the correct deprecated aliases boost::optional, system::error_category, system::error_code, system::error_condition, system::system_error, and system::result. Replaced @ref prefixes with backtick for references in javadocs. This caused an issue in the documentation since several aliases were deprecated in favor of symbols from Boost.Core. Refactored variable name in url::set_params. This issue was causing an error in the documentation for url_base::set_params. Fix bug where url_view/string_view constructor would require a non-url_view_base as input. This cased the constructor to reparse the string_view from an already parsed url_view_base. Fix bug where parse_query would recreate std::string_views. This would make the query include values in the underlying std::string beyond the expected string_view. Updated changelog for boost release. Besides Boost.URL, as usual, I’ve been overseeing and fixing smaller issues with other boost libraries, such as Boost.Docca, Boost.StaticString, and helping with libraries by other contributors when asked for assistance, as in a more recent case with Boost.Outcome. In particular, we had to fix a smaller issue in Boost.Docca that was also affecting Boost.URL. The issue involved Boost.Docca’s dependence on a deprecated version of Doxygen that is no longer supported by the Boost toolchain. Boost Release Tools Over the last quarter, I’ve been working on the integration of toolchains I developed into the Boost Release Tools to add support for features desired for the new website. Some of the highlights of the work done in the last quarter: Introduced support for libraries with Antora documentation into the official Boost release process. Deployed new docker containers that include NodeJS, Gulp, and the Antora toolchain. With this enhancement, each library now can function as an Antora component within an Antora master project hosted in a separate repository (https://github.com/cppalliance/site-docs). This master project repository also contains additional components, such as the user guide, contributor guide, and a dedicated component for the review process. In a subsequent phase of the release process, this Antora documentation is seamlessly merged with the pre-existing in-source documentation, which has been generated using various other tools. When a library is “Antora-enabled”, the release process will automatically generate the Antora documentation and publish it with the documentation of other libraries. No b2 scripts are required to generate the documentation for the library. All Antora-enabled libraries use the same master Antora UI template that matches the design of the boost website. Antora playbooks were adjusted to initially contain no content sources, now that the Antora-enabled build process in deployed in the official Boost release process. Deployed new container to boostorg/boost to support the new release process. New archive variants for boost. Add extra archive variants such as boost-docs and boost-source. These variants can reduce expenses with JFrog download bandwidth, provide users with archives that are simpler to use, and provide docs-only archives for the website. The new MakeBoostDistro.py script includes parameters to determine what types of files should be included in the distribution. All other functions are adapted to handle these requirements accordingly. Switching to source-only downloads would save Boost $1000 per month. C++ Github Actions C++ Github Actions is a project I created and have been maintaining since the second quarter of the year. It is a collection of reusable Github Actions for any C++ project that needs to be tested on a variety of compilers. Both MrDocs are Boost.URL are currently using these actions in their CI. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs These actions include a myriad of options and features. The “setup-*” actions include logic to detect, install, and cache dependencies, which can be used by the CMake and b2 actions. Individual options and actions attempt to set up a wide variety of compilers on different platforms, including MSVC, GCC, Clang, MinGW, AppleClang, and Clang-CL. Actions that generate reports include a multitude of tools and options to analyze changes, time traces, and coverage. Since then, these actions have been adapted as needed to support the needs of MrDocs and Boost.URL, which have also been using conventional commits. Here’s a recent summary report generated for Boost.URL by the CI workflow: https://github.com/boostorg/url/actions/runs/6512424067 The project documentation also uses the Antora UI template we have been maintaining for all other projects: https://alandefreitas.github.io/cpp-actions Gray-box local search On 13 September 2023, the following paper I co-authored was published: Lopes, R.A., Freitas, A.R.R. Gray-box local search with groups of step sizes. Soft Computing. p. 1-14 2023 https://doi.org/10.1007/s00500-023-09129-1 The paper was accepted on 18 August 2023 and published on 13 September 2023. While the paper is more aligned with my educational background than my daily C++ Alliance tasks, it is one more paper that carries the C++ Alliance in the affiliation, contributing to its reputation." />
+<meta property="og:description" content="Summary MrDocs Handlebars The DOM Javascript Bindings Unit tests Boost Website Boost Release Tools Boost Libraries C++ Github Actions Gray-box local search MrDocs Over the last quarter, we have been working intensely on MrDocs, a documentation generator for C++ projects. I’ve been overseeing and reviewing all the work done by the other contributors in the project. I’ve also been responsible for: setting up and maintaining CI for the project; MrDocs and LLVM release binaries; build scripts; setting up and integrating dependencies; setting up and deploying the Antora toolchains and documentation to the project website; working on supporting libraries; and fixing bugs. These are some of the highlights of the work done in the last quarter: Refactor library layout and scripts so all the implementation files are in src Automated deployment of demo documentation to the project website. The website is updated on every commit to the develop or master branches. The action uses the actual release package to generate the documentation. This PR involved fixing all scripts and directory layouts for the release package to be properly usable. The new project layout uses the FHS standard. CMake modules to create a target to generate the documentation for projects were included in the installation. The MrDocs executable and libraries are installed as separate CMake package components. Any usage of FetchContent has been removed from the CMake scripts. The documentation was refactored to reflect the changes. Included complete instructions in the documentation pages for installation and usage, describing all commands and options. Deployed new LLVM binaries to the website and updated CI. The binaries were regenerated for all platforms in 4 modes: Debug, Release, RelWithDebInfo, and DebWithOpt. This involved fixing long-standing bugs related to conflicts in LLVM versions used by the project and providing new pre-built binaries on the website. In particular, the previous pre-built binaries used a special ReleaseWithDebInfo LLVM configuration that caused conflicts with MrDocs on MSVC, being used with a Debug CMake configuration variant by developers. This eliminated the need for the ad-hoc GitHub LLVM binaries release and for the special docker container we had been using so far. Added support for CMakePresets. This allowed us to simplify the build process for MrDocs and its dependencies, which was previously counting on long command line commands and CMakeUserPresets.json files without a corresponding CMakePresets.json file. It was also a step towards the new installation instructions in the documentation. An example file for CMakeUserPresets.json including all compilers was provided. The base CMakePresets.json file included a special vendor configuration to hide base configurations from Visual Studio. CMakeSettings.json was deprecated. Added complete installation instructions for the project. The instructions were adapted so that all commands are relative to an enclosing directory containing all the dependencies and MrDocs. Included instructions for all steps considering package managers, installed dependencies, or binaries provided on the project website. The CMake scripts were adapted to make it easier to build the project in a variety of environments according to the instructions. Included a polyfill implementation of std::expected as mrdocs::Expected. This implementation is currently being used by MrDocs and support libraries. Refactored MrDocs generators to use our custom C++ implementation of the Handlebars template engine. Javascript helpers are loaded with duktape with our Javascript Bindings and compiled into functions in the Javascript engine. Refactored the project name from MrDox to MrDocs Handlebars MrDocs includes a support library that reimplements the Handlebars template engine in C++. This module is used to generate documentation from templates. Over the last quarter, this is the MrDocs support library in which I have been investing most of my time. All the development started in this same quarter in July. It already supports all features from the original Handlebars test suite, including all mustache features. The library is already integrated with MrDocs to generate the documentation for the project website. Initial proposal of the C++ Handlebars library. Fixed and refactored code that relied on references to temporaries generated by the Dom. Included support for inverse blocks without helpers All features, specs, and tests from the original Handlebars test suite were then ported to C++ and are now passing: basic specs; partials and automatic indentation; whitespace control; block helpers, mustache blocks, and chained blocks; subexpressions; builtin helpers; private data; helper formats; track-ids mode; strict mode; util; mustache. As many handlebars features were undocumented in the original implementation, adjusting our handlebars implementation, which was only designed to handle basic templates, to pass all tests from the original Handlebars test suite involved multiple significant refactors and improvements to the entire codebase. The tests are a superset of the mustache specs, which are also passing. The previously available SafeString type because a regular dom::Value with the implementation of the specs. Support for dom::Function in all components of the Handlebars engine instead of custom callback types. This also allows the engine context to contain functions that can work similarly to helpers. The engine callback object is passed as the last argument in a helper, similar to the Javascript implementation. Because most built-in helpers support variable arguments, a new dom::Function implementation type was provided to support this use case. Support for error handling via Expected. All functions that might fail have a variant that throws exceptions and another that returns an Expected value. Helpers functions are also allowed to propagate errors via mrdocs::Error. Fixed a bug that caused MrDocs to emit [object Object] for \n after the transition to C++ handlebars. The “find” helper was adjusted to support strings, arrays, and objects. This fixes a problem with the variants of similar but conflicting helpers that were categorized as container and string helpers. The DOM MrDocs also includes a support library called “DOM” that provides a C++ interface to type-erased property trees, such as JSON and Javascript Objects. This module is used by MrDocs to create opaque representations of property trees that can be used by the Handlebars engine and other library functions. Such representations can come from a variety of sources, including JSON files, Javascript objects, and internal C++ objects with information parsed by MrDocs. After completing the Handlebars implementation, I also included complete unit tests for the DOM. Tests were included for all DOM types and many bugs have been fixed. All classes have been documented to reflect their intended behavior, which is loosely modeled after JavaScript types and data structures. The APIs have also been adjusted to be safer and more consistent with the model for reference types. Objects and Value types received functions for nested object lookup and objects were generalized to support non-enumerable properties and Javascript bindings. Javascript Bindings MrDocs includes a support library that wraps duktape to provide a C++ interface to the Javascript engine. This module is used by the MrDocs executable to evaluate user-defined helpers. I also included unit tests for Javascript wrapper and bindings. Throughout the process, the implementation was completed for classes that were placeholders and existing bugs have been fixed the API was documented The javascript Scope object was extended to support all types of alternative syntax to evaluate expressions. Value types: support for integers and floating point numbers. Value types: support for all dom::Value operations using the native duktape functions Provided classes to wrap javascript Objects, Arrays, and Functions as DOM values Scope functions that might fail were adjusted to return Expected values Unit Tests MrDocs includes a support library for unit tests. The library was initially adapted from the Boost.URL unit tests and extended to support the needs of MrDocs. I had previously implemented a smaller system for the Handlebars unit tests which was then integrated with the boost.url test suite library. Features from the handlebars test suite library were ported to the boost.url test suite library, including the expression decomposer and the diff algorithm for golden master tests. With this integration, Handlebars tests were then listed among any other tests in the library. These tests were later complemented with regular MrDocs tests. The decomposer has later been improved for integral comparison operators. Boost Website In this last quarter, the Boost website went beta on https://www.preview.boost.org/. Among the many support projects for the website, I’ve been helping the most on the cppalliance/site-docs, which includes the Boost website documentation as an Antora project. Its components represent the “User Guide”, “Contributor Guide”, and “Formal Review” sections of the website. Since the inception of the project, I’ve been overseeing and reviewing all the work done by the other contributors to the project. I’ve also been responsible for: setting up and maintaining CI for the project; coordinating with cppalliance/temp-site on content uploaded to AWS buckets; build scripts to be reused by the release tools and previews; writing sections of the documentation that require technical knowledge; developing custom Boost/Antora extensions, such as the Boost Macro extension; maintaining the Antora toolchain and templates; and adjusted Boost libraries to match formats expected by the website. The Antora playbooks were recently adjusted to initially contain no content sources, now that the Antora-enabled build process also implemented by me was deployed in the official Boost release process. Boost Libraries As in other quarters, the Boost Library in which I have been investing most of my time is Boost.URL, since it’s our most recently accepted library. The library is in maintenance mode since our focus shifted to MrDocs, but considering how recent it is, there is a constant demand for work fixing bugs and improving the documentation. In Boost.URL, I’ve been responsible for: upgrading CI, mostly coordinating with the C++ Github Actions; maintaining, simplifying, and updating build scripts; integrating more spec tests, such as the Ada tests included more recently; including more examples, such as the more recent sanitize-URL example; fixing documentation content that is out of date; and fixing bugs. Besides bugs, the library was recently refactored to remove what was previously called a “header-only” mode and deprecated several aliases, which caused some small friction in this last quarter. These are some of the highlights of the work done in the last quarter: Extended fuzz testing. Fuzz was included as a new clang factor in CI. The process was adjusted so that the corpus is properly reused from and stored in GitHub action archives. CMake scripts were refactored to include CMake options that control the fuzzer parameters. Fuzzers were included for each of the grammar rules for URLs. Support IP-literal as IPv6addrz. This is an issue where a valid IPv6addrz wasn’t being considered an IP-literal. IPv6addrz includes a ZoneID at the end, delimited by an encoded &quot;%25&quot;. The ipv6_address class is unmodified, as the mapping from the ZoneID to a std::uint32_t is dependent on the application context. The original ZoneID can be obtained from the url_view but the library is agnostic about it. Included GDB pretty printers and documentation. All available URL components are now pretty printed in GDB. A developer mode was also included which prints the URL components in a format corresponding to the internal URL string offsets. Updated the content of both the documentation and README.adoc so that they match current best practices. The documentation in README.md contained dated and incorrect information, while the quickbook documentation was missing important information and contained bad practices. Some relevant bug fixes were: Enforced that appropriate CMake BOOST_INCLUDE_LIBRARIES are set according to the build options. The previous implementation included these extra libraries whenever they were available, which caused problems for other libraries that depended on Boost.URL via depinst.py. Fix and include unit-tests for issues #755 and #446 We disabled and re-enabled drone caching. This is related to a bug where Drone would attempt to cache the b2 binary, which would cause conflicts. This was fixed with PR #123 in boostorg/boost-ci. Remove quickbook references to variant. Links and references to variant in both the .qbk and .xml files were removed as the variant alias had been deprecated in 96438f6. Updated javadoc deprecated references. This fixed a mistake where the Javadoc for many deprecated aliases included references to the deprecated alias boost::core::string_view instead of the correct deprecated aliases boost::optional, system::error_category, system::error_code, system::error_condition, system::system_error, and system::result. Replaced @ref prefixes with backtick for references in javadocs. This caused an issue in the documentation since several aliases were deprecated in favor of symbols from Boost.Core. Refactored variable name in url::set_params. This issue was causing an error in the documentation for url_base::set_params. Fix bug where url_view/string_view constructor would require a non-url_view_base as input. This cased the constructor to reparse the string_view from an already parsed url_view_base. Fix bug where parse_query would recreate std::string_views. This would make the query include values in the underlying std::string beyond the expected string_view. Updated changelog for boost release. Besides Boost.URL, as usual, I’ve been overseeing and fixing smaller issues with other boost libraries, such as Boost.Docca, Boost.StaticString, and helping with libraries by other contributors when asked for assistance, as in a more recent case with Boost.Outcome. In particular, we had to fix a smaller issue in Boost.Docca that was also affecting Boost.URL. The issue involved Boost.Docca’s dependence on a deprecated version of Doxygen that is no longer supported by the Boost toolchain. Boost Release Tools Over the last quarter, I’ve been working on the integration of toolchains I developed into the Boost Release Tools to add support for features desired for the new website. Some of the highlights of the work done in the last quarter: Introduced support for libraries with Antora documentation into the official Boost release process. Deployed new docker containers that include NodeJS, Gulp, and the Antora toolchain. With this enhancement, each library now can function as an Antora component within an Antora master project hosted in a separate repository (https://github.com/cppalliance/site-docs). This master project repository also contains additional components, such as the user guide, contributor guide, and a dedicated component for the review process. In a subsequent phase of the release process, this Antora documentation is seamlessly merged with the pre-existing in-source documentation, which has been generated using various other tools. When a library is “Antora-enabled”, the release process will automatically generate the Antora documentation and publish it with the documentation of other libraries. No b2 scripts are required to generate the documentation for the library. All Antora-enabled libraries use the same master Antora UI template that matches the design of the boost website. Antora playbooks were adjusted to initially contain no content sources, now that the Antora-enabled build process in deployed in the official Boost release process. Deployed new container to boostorg/boost to support the new release process. New archive variants for boost. Add extra archive variants such as boost-docs and boost-source. These variants can reduce expenses with JFrog download bandwidth, provide users with archives that are simpler to use, and provide docs-only archives for the website. The new MakeBoostDistro.py script includes parameters to determine what types of files should be included in the distribution. All other functions are adapted to handle these requirements accordingly. Switching to source-only downloads would save Boost $1000 per month. C++ Github Actions C++ Github Actions is a project I created and have been maintaining since the second quarter of the year. It is a collection of reusable Github Actions for any C++ project that needs to be tested on a variety of compilers. Both MrDocs are Boost.URL are currently using these actions in their CI. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs These actions include a myriad of options and features. The “setup-*” actions include logic to detect, install, and cache dependencies, which can be used by the CMake and b2 actions. Individual options and actions attempt to set up a wide variety of compilers on different platforms, including MSVC, GCC, Clang, MinGW, AppleClang, and Clang-CL. Actions that generate reports include a multitude of tools and options to analyze changes, time traces, and coverage. Since then, these actions have been adapted as needed to support the needs of MrDocs and Boost.URL, which have also been using conventional commits. Here’s a recent summary report generated for Boost.URL by the CI workflow: https://github.com/boostorg/url/actions/runs/6512424067 The project documentation also uses the Antora UI template we have been maintaining for all other projects: https://alandefreitas.github.io/cpp-actions Gray-box local search On 13 September 2023, the following paper I co-authored was published: Lopes, R.A., Freitas, A.R.R. Gray-box local search with groups of step sizes. Soft Computing. p. 1-14 2023 https://doi.org/10.1007/s00500-023-09129-1 The paper was accepted on 18 August 2023 and published on 13 September 2023. While the paper is more aligned with my educational background than my daily C++ Alliance tasks, it is one more paper that carries the C++ Alliance in the affiliation, contributing to its reputation." />
+<link rel="canonical" href="http://cppalliance.org/alan/2023/10/27/AlanQ3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/alan/2023/10/27/AlanQ3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2023-10-27T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Alan’s Q3 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Summary MrDocs Handlebars The DOM Javascript Bindings Unit tests Boost Website Boost Release Tools Boost Libraries C++ Github Actions Gray-box local search MrDocs Over the last quarter, we have been working intensely on MrDocs, a documentation generator for C++ projects. I’ve been overseeing and reviewing all the work done by the other contributors in the project. I’ve also been responsible for: setting up and maintaining CI for the project; MrDocs and LLVM release binaries; build scripts; setting up and integrating dependencies; setting up and deploying the Antora toolchains and documentation to the project website; working on supporting libraries; and fixing bugs. These are some of the highlights of the work done in the last quarter: Refactor library layout and scripts so all the implementation files are in src Automated deployment of demo documentation to the project website. The website is updated on every commit to the develop or master branches. The action uses the actual release package to generate the documentation. This PR involved fixing all scripts and directory layouts for the release package to be properly usable. The new project layout uses the FHS standard. CMake modules to create a target to generate the documentation for projects were included in the installation. The MrDocs executable and libraries are installed as separate CMake package components. Any usage of FetchContent has been removed from the CMake scripts. The documentation was refactored to reflect the changes. Included complete instructions in the documentation pages for installation and usage, describing all commands and options. Deployed new LLVM binaries to the website and updated CI. The binaries were regenerated for all platforms in 4 modes: Debug, Release, RelWithDebInfo, and DebWithOpt. This involved fixing long-standing bugs related to conflicts in LLVM versions used by the project and providing new pre-built binaries on the website. In particular, the previous pre-built binaries used a special ReleaseWithDebInfo LLVM configuration that caused conflicts with MrDocs on MSVC, being used with a Debug CMake configuration variant by developers. This eliminated the need for the ad-hoc GitHub LLVM binaries release and for the special docker container we had been using so far. Added support for CMakePresets. This allowed us to simplify the build process for MrDocs and its dependencies, which was previously counting on long command line commands and CMakeUserPresets.json files without a corresponding CMakePresets.json file. It was also a step towards the new installation instructions in the documentation. An example file for CMakeUserPresets.json including all compilers was provided. The base CMakePresets.json file included a special vendor configuration to hide base configurations from Visual Studio. CMakeSettings.json was deprecated. Added complete installation instructions for the project. The instructions were adapted so that all commands are relative to an enclosing directory containing all the dependencies and MrDocs. Included instructions for all steps considering package managers, installed dependencies, or binaries provided on the project website. The CMake scripts were adapted to make it easier to build the project in a variety of environments according to the instructions. Included a polyfill implementation of std::expected as mrdocs::Expected. This implementation is currently being used by MrDocs and support libraries. Refactored MrDocs generators to use our custom C++ implementation of the Handlebars template engine. Javascript helpers are loaded with duktape with our Javascript Bindings and compiled into functions in the Javascript engine. Refactored the project name from MrDox to MrDocs Handlebars MrDocs includes a support library that reimplements the Handlebars template engine in C++. This module is used to generate documentation from templates. Over the last quarter, this is the MrDocs support library in which I have been investing most of my time. All the development started in this same quarter in July. It already supports all features from the original Handlebars test suite, including all mustache features. The library is already integrated with MrDocs to generate the documentation for the project website. Initial proposal of the C++ Handlebars library. Fixed and refactored code that relied on references to temporaries generated by the Dom. Included support for inverse blocks without helpers All features, specs, and tests from the original Handlebars test suite were then ported to C++ and are now passing: basic specs; partials and automatic indentation; whitespace control; block helpers, mustache blocks, and chained blocks; subexpressions; builtin helpers; private data; helper formats; track-ids mode; strict mode; util; mustache. As many handlebars features were undocumented in the original implementation, adjusting our handlebars implementation, which was only designed to handle basic templates, to pass all tests from the original Handlebars test suite involved multiple significant refactors and improvements to the entire codebase. The tests are a superset of the mustache specs, which are also passing. The previously available SafeString type because a regular dom::Value with the implementation of the specs. Support for dom::Function in all components of the Handlebars engine instead of custom callback types. This also allows the engine context to contain functions that can work similarly to helpers. The engine callback object is passed as the last argument in a helper, similar to the Javascript implementation. Because most built-in helpers support variable arguments, a new dom::Function implementation type was provided to support this use case. Support for error handling via Expected. All functions that might fail have a variant that throws exceptions and another that returns an Expected value. Helpers functions are also allowed to propagate errors via mrdocs::Error. Fixed a bug that caused MrDocs to emit [object Object] for \\n after the transition to C++ handlebars. The “find” helper was adjusted to support strings, arrays, and objects. This fixes a problem with the variants of similar but conflicting helpers that were categorized as container and string helpers. The DOM MrDocs also includes a support library called “DOM” that provides a C++ interface to type-erased property trees, such as JSON and Javascript Objects. This module is used by MrDocs to create opaque representations of property trees that can be used by the Handlebars engine and other library functions. Such representations can come from a variety of sources, including JSON files, Javascript objects, and internal C++ objects with information parsed by MrDocs. After completing the Handlebars implementation, I also included complete unit tests for the DOM. Tests were included for all DOM types and many bugs have been fixed. All classes have been documented to reflect their intended behavior, which is loosely modeled after JavaScript types and data structures. The APIs have also been adjusted to be safer and more consistent with the model for reference types. Objects and Value types received functions for nested object lookup and objects were generalized to support non-enumerable properties and Javascript bindings. Javascript Bindings MrDocs includes a support library that wraps duktape to provide a C++ interface to the Javascript engine. This module is used by the MrDocs executable to evaluate user-defined helpers. I also included unit tests for Javascript wrapper and bindings. Throughout the process, the implementation was completed for classes that were placeholders and existing bugs have been fixed the API was documented The javascript Scope object was extended to support all types of alternative syntax to evaluate expressions. Value types: support for integers and floating point numbers. Value types: support for all dom::Value operations using the native duktape functions Provided classes to wrap javascript Objects, Arrays, and Functions as DOM values Scope functions that might fail were adjusted to return Expected values Unit Tests MrDocs includes a support library for unit tests. The library was initially adapted from the Boost.URL unit tests and extended to support the needs of MrDocs. I had previously implemented a smaller system for the Handlebars unit tests which was then integrated with the boost.url test suite library. Features from the handlebars test suite library were ported to the boost.url test suite library, including the expression decomposer and the diff algorithm for golden master tests. With this integration, Handlebars tests were then listed among any other tests in the library. These tests were later complemented with regular MrDocs tests. The decomposer has later been improved for integral comparison operators. Boost Website In this last quarter, the Boost website went beta on https://www.preview.boost.org/. Among the many support projects for the website, I’ve been helping the most on the cppalliance/site-docs, which includes the Boost website documentation as an Antora project. Its components represent the “User Guide”, “Contributor Guide”, and “Formal Review” sections of the website. Since the inception of the project, I’ve been overseeing and reviewing all the work done by the other contributors to the project. I’ve also been responsible for: setting up and maintaining CI for the project; coordinating with cppalliance/temp-site on content uploaded to AWS buckets; build scripts to be reused by the release tools and previews; writing sections of the documentation that require technical knowledge; developing custom Boost/Antora extensions, such as the Boost Macro extension; maintaining the Antora toolchain and templates; and adjusted Boost libraries to match formats expected by the website. The Antora playbooks were recently adjusted to initially contain no content sources, now that the Antora-enabled build process also implemented by me was deployed in the official Boost release process. Boost Libraries As in other quarters, the Boost Library in which I have been investing most of my time is Boost.URL, since it’s our most recently accepted library. The library is in maintenance mode since our focus shifted to MrDocs, but considering how recent it is, there is a constant demand for work fixing bugs and improving the documentation. In Boost.URL, I’ve been responsible for: upgrading CI, mostly coordinating with the C++ Github Actions; maintaining, simplifying, and updating build scripts; integrating more spec tests, such as the Ada tests included more recently; including more examples, such as the more recent sanitize-URL example; fixing documentation content that is out of date; and fixing bugs. Besides bugs, the library was recently refactored to remove what was previously called a “header-only” mode and deprecated several aliases, which caused some small friction in this last quarter. These are some of the highlights of the work done in the last quarter: Extended fuzz testing. Fuzz was included as a new clang factor in CI. The process was adjusted so that the corpus is properly reused from and stored in GitHub action archives. CMake scripts were refactored to include CMake options that control the fuzzer parameters. Fuzzers were included for each of the grammar rules for URLs. Support IP-literal as IPv6addrz. This is an issue where a valid IPv6addrz wasn’t being considered an IP-literal. IPv6addrz includes a ZoneID at the end, delimited by an encoded &quot;%25&quot;. The ipv6_address class is unmodified, as the mapping from the ZoneID to a std::uint32_t is dependent on the application context. The original ZoneID can be obtained from the url_view but the library is agnostic about it. Included GDB pretty printers and documentation. All available URL components are now pretty printed in GDB. A developer mode was also included which prints the URL components in a format corresponding to the internal URL string offsets. Updated the content of both the documentation and README.adoc so that they match current best practices. The documentation in README.md contained dated and incorrect information, while the quickbook documentation was missing important information and contained bad practices. Some relevant bug fixes were: Enforced that appropriate CMake BOOST_INCLUDE_LIBRARIES are set according to the build options. The previous implementation included these extra libraries whenever they were available, which caused problems for other libraries that depended on Boost.URL via depinst.py. Fix and include unit-tests for issues #755 and #446 We disabled and re-enabled drone caching. This is related to a bug where Drone would attempt to cache the b2 binary, which would cause conflicts. This was fixed with PR #123 in boostorg/boost-ci. Remove quickbook references to variant. Links and references to variant in both the .qbk and .xml files were removed as the variant alias had been deprecated in 96438f6. Updated javadoc deprecated references. This fixed a mistake where the Javadoc for many deprecated aliases included references to the deprecated alias boost::core::string_view instead of the correct deprecated aliases boost::optional, system::error_category, system::error_code, system::error_condition, system::system_error, and system::result. Replaced @ref prefixes with backtick for references in javadocs. This caused an issue in the documentation since several aliases were deprecated in favor of symbols from Boost.Core. Refactored variable name in url::set_params. This issue was causing an error in the documentation for url_base::set_params. Fix bug where url_view/string_view constructor would require a non-url_view_base as input. This cased the constructor to reparse the string_view from an already parsed url_view_base. Fix bug where parse_query would recreate std::string_views. This would make the query include values in the underlying std::string beyond the expected string_view. Updated changelog for boost release. Besides Boost.URL, as usual, I’ve been overseeing and fixing smaller issues with other boost libraries, such as Boost.Docca, Boost.StaticString, and helping with libraries by other contributors when asked for assistance, as in a more recent case with Boost.Outcome. In particular, we had to fix a smaller issue in Boost.Docca that was also affecting Boost.URL. The issue involved Boost.Docca’s dependence on a deprecated version of Doxygen that is no longer supported by the Boost toolchain. Boost Release Tools Over the last quarter, I’ve been working on the integration of toolchains I developed into the Boost Release Tools to add support for features desired for the new website. Some of the highlights of the work done in the last quarter: Introduced support for libraries with Antora documentation into the official Boost release process. Deployed new docker containers that include NodeJS, Gulp, and the Antora toolchain. With this enhancement, each library now can function as an Antora component within an Antora master project hosted in a separate repository (https://github.com/cppalliance/site-docs). This master project repository also contains additional components, such as the user guide, contributor guide, and a dedicated component for the review process. In a subsequent phase of the release process, this Antora documentation is seamlessly merged with the pre-existing in-source documentation, which has been generated using various other tools. When a library is “Antora-enabled”, the release process will automatically generate the Antora documentation and publish it with the documentation of other libraries. No b2 scripts are required to generate the documentation for the library. All Antora-enabled libraries use the same master Antora UI template that matches the design of the boost website. Antora playbooks were adjusted to initially contain no content sources, now that the Antora-enabled build process in deployed in the official Boost release process. Deployed new container to boostorg/boost to support the new release process. New archive variants for boost. Add extra archive variants such as boost-docs and boost-source. These variants can reduce expenses with JFrog download bandwidth, provide users with archives that are simpler to use, and provide docs-only archives for the website. The new MakeBoostDistro.py script includes parameters to determine what types of files should be included in the distribution. All other functions are adapted to handle these requirements accordingly. Switching to source-only downloads would save Boost $1000 per month. C++ Github Actions C++ Github Actions is a project I created and have been maintaining since the second quarter of the year. It is a collection of reusable Github Actions for any C++ project that needs to be tested on a variety of compilers. Both MrDocs are Boost.URL are currently using these actions in their CI. The project includes actions to: Generate a Github Actions Matrix for C++ projects; Setup C++ compilers; Install and setup packages; Clone Boost modules; Run complete CMake and b2 workflows; Generate changelogs from conventional commits; Generate summaries; and Generate time-trace reports and flame graphs These actions include a myriad of options and features. The “setup-*” actions include logic to detect, install, and cache dependencies, which can be used by the CMake and b2 actions. Individual options and actions attempt to set up a wide variety of compilers on different platforms, including MSVC, GCC, Clang, MinGW, AppleClang, and Clang-CL. Actions that generate reports include a multitude of tools and options to analyze changes, time traces, and coverage. Since then, these actions have been adapted as needed to support the needs of MrDocs and Boost.URL, which have also been using conventional commits. Here’s a recent summary report generated for Boost.URL by the CI workflow: https://github.com/boostorg/url/actions/runs/6512424067 The project documentation also uses the Antora UI template we have been maintaining for all other projects: https://alandefreitas.github.io/cpp-actions Gray-box local search On 13 September 2023, the following paper I co-authored was published: Lopes, R.A., Freitas, A.R.R. Gray-box local search with groups of step sizes. Soft Computing. p. 1-14 2023 https://doi.org/10.1007/s00500-023-09129-1 The paper was accepted on 18 August 2023 and published on 13 September 2023. While the paper is more aligned with my educational background than my daily C++ Alliance tasks, it is one more paper that carries the C++ Alliance in the affiliation, contributing to its reputation.","@type":"BlogPosting","url":"http://cppalliance.org/alan/2023/10/27/AlanQ3Update.html","headline":"Alan’s Q3 Update","dateModified":"2023-10-27T00:00:00+00:00","datePublished":"2023-10-27T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/alan/2023/10/27/AlanQ3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Alan's Q3 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/alan">
+                  Alan Freitas
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 27, 2023</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="summary">Summary</h1>
+
+<ul>
+  <li><a href="#mrdocs">MrDocs</a>
+    <ul>
+      <li><a href="#handlebars">Handlebars</a></li>
+      <li><a href="#the-dom">The DOM</a></li>
+      <li><a href="#javascript-bindings">Javascript Bindings</a></li>
+      <li><a href="#unit-tests">Unit tests</a></li>
+    </ul>
+  </li>
+  <li><a href="#boost-website">Boost Website</a></li>
+  <li><a href="#boost-release-tools">Boost Release Tools</a></li>
+  <li><a href="#boost-libraries">Boost Libraries</a></li>
+  <li><a href="#c-github-actions">C++ Github Actions</a></li>
+  <li><a href="#gray-box-local-search">Gray-box local search</a></li>
+</ul>
+
+<h2 id="mrdocs">MrDocs</h2>
+
+<p>Over the last quarter, we have been working intensely on <a href="https://github.com/cppalliance/mrdocs">MrDocs</a>, a documentation generator for C++ projects. I’ve been overseeing and reviewing all the work done by the other contributors in the project. I’ve also been responsible for:</p>
+
+<ul>
+  <li>setting up and maintaining CI for the project;</li>
+  <li>MrDocs and LLVM release binaries;</li>
+  <li>build scripts;</li>
+  <li>setting up and integrating dependencies;</li>
+  <li>setting up and deploying the Antora toolchains and documentation to the project website;</li>
+  <li>working on supporting libraries; and</li>
+  <li>fixing bugs.</li>
+</ul>
+
+<p>These are some of the highlights of the work done in the last quarter:</p>
+
+<ul>
+  <li>Refactor library layout and scripts so all the implementation files are in <a href="https://github.com/cppalliance/mrdocs/commit/04f75ddbeb666a65a3a8604b5cfaead1977e8c1c"><code>src</code></a></li>
+  <li><a href="https://github.com/cppalliance/mrdocs/commit/5bd2cc494d82e10189041f138efc6a9abf3bd55e">Automated deployment</a> of demo documentation to the project website. The website is updated on every commit to the <code>develop</code> or <code>master</code> branches.  The action uses the actual release package to generate the documentation. This PR involved fixing all scripts and directory layouts for the release package to be properly usable. The new project layout uses the FHS standard. CMake modules to create a target to generate the documentation for projects were included in the installation. The MrDocs executable and libraries are installed as separate CMake package components. Any usage of FetchContent has been removed from the CMake scripts. The documentation was refactored to reflect the changes. Included complete instructions in the documentation pages for installation and usage, describing all commands and options.</li>
+  <li>Deployed <a href="https://mrdox.com/llvm+clang/">new LLVM binaries to the website</a> and <a href="https://github.com/cppalliance/mrdocs/commit/2584328ab143d50d4d8289ac83f019f622200fa4">updated CI</a>. The binaries were regenerated for all platforms in 4 modes: <code>Debug</code>, <code>Release</code>, <code>RelWithDebInfo</code>, and <code>DebWithOpt</code>. This involved fixing long-standing bugs related to conflicts in LLVM versions used by the project and providing new pre-built binaries on the website. In particular, the previous pre-built binaries used a special ReleaseWithDebInfo LLVM configuration that caused conflicts with MrDocs on MSVC, being used with a Debug CMake configuration variant by developers. This eliminated the need for the ad-hoc GitHub LLVM binaries release and for the special docker container we had been using so far.</li>
+  <li>Added <a href="https://github.com/cppalliance/mrdocs/commit/ba63ed0f8cab4846dbff468b8d1f24d14f5d22c8">support for CMakePresets</a>. This allowed us to simplify the build process for MrDocs and its dependencies, which was previously counting on long command line commands and <code>CMakeUserPresets.json</code> files without a corresponding <code>CMakePresets.json</code> file. It was also a step towards the new installation instructions in the documentation. An example file for <code>CMakeUserPresets.json</code> including all compilers was provided. The base <code>CMakePresets.json</code> file included a special vendor configuration to hide base configurations from Visual Studio. <code>CMakeSettings.json</code> was deprecated.</li>
+  <li>Added complete <a href="https://github.com/cppalliance/mrdocs/commit/34912248fbbd006b163c6bd438e30ff52efc4fac">installation instructions</a> for the project. The instructions were adapted so that all commands are relative to an enclosing directory containing all the dependencies and MrDocs. Included instructions for all steps considering package managers, installed dependencies, or binaries provided on the project website. The CMake scripts were adapted to make it easier to build the project in a variety of environments according to the instructions.</li>
+  <li>Included a <a href="https://github.com/cppalliance/mrdocs/commit/2e554c8b636f31815fb80656717e910e097fbb77">polyfill implementation of <code>std::expected</code></a> as <code>mrdocs::Expected</code>. This implementation is currently being used by MrDocs and support libraries.</li>
+  <li><a href="https://github.com/cppalliance/mrdocs/commit/63ac382438b6fa78041210f67f0736d0977a924b">Refactored MrDocs generators</a> to use our custom <a href="#handlebars">C++ implementation</a> of the Handlebars template engine. Javascript helpers are loaded with <a href="https://duktape.org/">duktape</a> with our <a href="#javascript-bindings">Javascript Bindings</a> and compiled into functions in the Javascript engine.</li>
+  <li>Refactored the project name from MrDox to <a href="https://github.com/cppalliance/mrdocs/commit/12c027f4f1b449570ae58b601634b29f5fdbfd3f">MrDocs</a></li>
+</ul>
+
+<h3 id="handlebars">Handlebars</h3>
+
+<p>MrDocs includes a support library that reimplements the <a href="https://handlebarsjs.com/">Handlebars</a> template engine in C++. This module is used to generate documentation from templates.</p>
+
+<p>Over the last quarter, this is the MrDocs support library in which I have been investing most of my time. All the development started in this same quarter in July. It already supports all features from the original Handlebars test suite, including all mustache features. The library is already integrated with MrDocs to generate the documentation for the project website.</p>
+
+<ul>
+  <li><a href="https://github.com/cppalliance/mrdocs/commit/81a5b886d09999a0cd36e983349515e5d0ae6d27">Initial proposal</a> of the C++ Handlebars library.</li>
+  <li>Fixed and refactored code that relied on <a href="https://github.com/cppalliance/mrdocs/commit/353fe987825023c9a886411c76798e93e27adabb">references to temporaries</a> generated by the Dom.</li>
+  <li>Included support for <a href="https://github.com/cppalliance/mrdocs/commit/68491d0ee8a9d13088e2f0f96bd4aad6cfc78435">inverse blocks without helpers</a></li>
+  <li>All features, specs, and tests from the original Handlebars test suite were then ported to C++ and are now passing: <a href="https://github.com/cppalliance/mrdocs/commit/74fd1f357543e3097e58e1a1e5ed3992c918402b">basic specs</a>; <a href="https://github.com/cppalliance/mrdocs/commit/5a0409a032d99c2efef374f74f3e2cb7fc80d49c">partials and automatic indentation</a>; <a href="https://github.com/cppalliance/mrdocs/commit/7e5250ea35e5e5e30175d5cc533337739f3d46f9">whitespace control</a>; <a href="https://github.com/cppalliance/mrdocs/commit/95210f86884ff831d0a6a7d7f22aee05b6ec281b">block helpers, mustache blocks, and chained blocks</a>; <a href="https://github.com/cppalliance/mrdocs/commit/f3e686136212ade78c2b0573bb2e81b9edbc01bf">subexpressions</a>; <a href="https://github.com/cppalliance/mrdocs/commit/7510558dce3950059470d3ec9f11870f6b7354e2">builtin helpers</a>; <a href="https://github.com/cppalliance/mrdocs/commit/c1223af5f866351821f3dd69fa4ed7f0d6deb9a8">private data</a>; <a href="https://github.com/cppalliance/mrdocs/commit/8f674d5bb220f24539ec46430cae234ebeb832ee">helper formats</a>; <a href="https://github.com/cppalliance/mrdocs/commit/517d4d41e0456f134f79710326f2b05c0c213267">track-ids mode</a>; <a href="https://github.com/cppalliance/mrdocs/commit/deaa47c876e50e5018ac22ede69a79f35a611fa4">strict mode</a>; <a href="https://github.com/cppalliance/mrdocs/commit/d10a92142e7420d7af4656048e548ee314fd9ff9">util</a>; <a href="https://github.com/cppalliance/mrdocs/commit/f63df18387c3d2461ba8d2ae7dbe9b103cc69a10">mustache</a>. As many handlebars features were undocumented in the original implementation, adjusting our handlebars implementation, which was only designed to handle basic templates, to pass all tests from the original Handlebars test suite involved multiple significant refactors and improvements to the entire codebase. The tests are a superset of the mustache specs, which are also passing. The previously available <a href="https://github.com/cppalliance/mrdocs/commit/2f9fe70c30b0d8deeaf4bb104258802b6aa1f138">SafeString</a> type because a regular <code>dom::Value</code> with the implementation of the specs.</li>
+  <li>Support for <a href="https://github.com/cppalliance/mrdocs/commit/93a1bf991e4d754fdadb77dd3f1d175dfb77f60f"><code>dom::Function</code></a> in all components of the Handlebars engine instead of custom callback types. This also allows the engine context to contain functions that can work similarly to helpers. The engine callback object is passed as the last argument in a helper, similar to the Javascript implementation. Because most built-in helpers support variable arguments, a new <code>dom::Function</code> implementation type was provided to support this use case.</li>
+  <li>Support for <a href="https://github.com/cppalliance/mrdocs/commit/2e554c8b636f31815fb80656717e910e097fbb77">error handling via <code>Expected</code></a>. All functions that might fail have a variant that throws exceptions and another that returns an <code>Expected</code> value. Helpers functions are also allowed to propagate errors via <code>mrdocs::Error</code>.</li>
+  <li>Fixed a <a href="https://github.com/cppalliance/mrdocs/commit/bf64028b4ec2cdb6cef34e53259fdd99bf199a98">bug</a> that caused MrDocs to emit <code>[object Object]</code> for <code>\n</code> after the <a href="https://github.com/cppalliance/mrdocs/commit/63ac382438b6fa78041210f67f0736d0977a924b">transition to C++ handlebars</a>.</li>
+  <li>The “find” helper was adjusted to <a href="https://github.com/cppalliance/mrdocs/commit/60d79ff116a4eb7532aef218860e48818c2b95e2">support strings, arrays, and objects</a>. This fixes a problem with the variants of similar but conflicting helpers that were categorized as container and string helpers.</li>
+</ul>
+
+<h3 id="the-dom">The DOM</h3>
+
+<p>MrDocs also includes a support library called “DOM” that provides a C++ interface to type-erased property trees, such as JSON and Javascript Objects. This module is used by MrDocs to create opaque representations of property trees that can be used by the Handlebars engine and other library functions. Such representations can come from a variety of sources, including JSON files, Javascript objects, and internal C++ objects with information parsed by MrDocs.</p>
+
+<p>After completing the Handlebars implementation, I also included <a href="https://github.com/cppalliance/mrdocs/commit/cc9e397f25e9f969e0569a79327754bd2e6b26fa">complete unit tests</a> for the DOM. Tests were included for all DOM types and many bugs have been fixed.</p>
+
+<p>All classes have been documented to reflect their intended behavior, which is loosely modeled after JavaScript types and data structures. The APIs have also been adjusted to be safer and more consistent with the model for reference types. Objects and Value types received functions for nested object lookup and objects were generalized to support non-enumerable properties and Javascript bindings.</p>
+
+<h3 id="javascript-bindings">Javascript Bindings</h3>
+
+<p>MrDocs includes a support library that wraps <a href="https://duktape.org/">duktape</a> to provide a C++ interface to the Javascript engine. This module is used by the MrDocs executable to evaluate user-defined helpers.</p>
+
+<p>I also included <a href="https://github.com/cppalliance/mrdocs/commit/d5b7b3d1bf983cde57619314e49681e3c73c1a02">unit tests</a> for Javascript wrapper and bindings.</p>
+
+<p>Throughout the process,</p>
+
+<ul>
+  <li>the implementation was completed for classes that were placeholders and existing bugs have been fixed</li>
+  <li>the API was documented</li>
+  <li>The javascript <code>Scope</code> object was extended to support all types of alternative syntax to evaluate expressions.</li>
+  <li>Value types: support for integers and floating point numbers.</li>
+  <li>Value types: support for all dom::Value operations using the native <code>duktape</code> functions</li>
+  <li>Provided classes to wrap javascript Objects, Arrays, and Functions as <a href="#the-dom">DOM</a> values</li>
+  <li><code>Scope</code> functions that might fail were adjusted to return <code>Expected</code> values</li>
+</ul>
+
+<h3 id="unit-tests">Unit Tests</h3>
+
+<p>MrDocs includes a support library for unit tests. The library was initially adapted from the Boost.URL unit tests and extended to support the needs of MrDocs.</p>
+
+<p>I had previously implemented a smaller system for the Handlebars unit tests which was then <a href="https://github.com/cppalliance/mrdocs/commit/e14fe087c2ecb7884f0af21b94ce34414506b3ef">integrated with the boost.url test suite library</a>. Features from the handlebars test suite library were ported to the boost.url test suite library, including the expression decomposer and the diff algorithm for golden master tests.</p>
+
+<p>With this integration, Handlebars tests were then listed among any other tests in the library. These tests were later complemented with regular MrDocs tests.</p>
+
+<p>The decomposer has later been improved for <a href="https://github.com/cppalliance/mrdocs/commit/831a691957de8266788dd42b3a4c1116c8f46505">integral comparison operators</a>.</p>
+
+<h2 id="boost-website">Boost Website</h2>
+
+<p>In this last quarter, the Boost website went beta on https://www.preview.boost.org/. Among the many support projects for the website, I’ve been helping the most on the <a href="https://github.com/cppalliance/site-docs"><code>cppalliance/site-docs</code></a>, which includes the Boost website documentation as an Antora project. Its components represent the “User Guide”, “Contributor Guide”, and “Formal Review” sections of the website.</p>
+
+<p>Since the inception of the project, I’ve been overseeing and reviewing all the work done by the other contributors to the project. I’ve also been responsible for:</p>
+
+<ul>
+  <li>setting up and maintaining CI for the project;</li>
+  <li>coordinating with <a href="https://github.com/cppalliance/temp-site"><code>cppalliance/temp-site</code></a> on content uploaded to AWS buckets;</li>
+  <li>build scripts to be reused by the release tools and previews;</li>
+  <li>writing sections of the documentation that require technical knowledge;</li>
+  <li>developing custom Boost/Antora extensions, such as the Boost Macro extension;</li>
+  <li>maintaining the Antora toolchain and templates; and</li>
+  <li>adjusted Boost libraries to match formats expected by the website.</li>
+</ul>
+
+<p>The Antora <a href="https://github.com/cppalliance/site-docs/commit/aefae2a6062cc19a731e007bc28c275180e290fd">playbooks were recently adjusted</a> to initially contain no content sources, now that the Antora-enabled build process also implemented by me was deployed in the official Boost release process.</p>
+
+<h2 id="boost-libraries">Boost Libraries</h2>
+
+<p>As in other quarters, the Boost Library in which I have been investing most of my time is <a href="https://github.com/boostorg/url">Boost.URL</a>, since it’s our most recently accepted library. The library is in maintenance mode since our focus shifted to MrDocs, but considering how recent it is, there is a constant demand for work fixing bugs and improving the documentation. In Boost.URL, I’ve been responsible for:</p>
+
+<ul>
+  <li>upgrading CI, mostly coordinating with the <a href="#c-github-actions">C++ Github Actions</a>;</li>
+  <li>maintaining, simplifying, and updating build scripts;</li>
+  <li>integrating more spec tests, such as the Ada tests included more recently;</li>
+  <li>including more examples, such as the more recent sanitize-URL example;</li>
+  <li>fixing documentation content that is out of date; and</li>
+  <li>fixing bugs.</li>
+</ul>
+
+<p>Besides bugs, the library was recently refactored to remove what was previously called a “header-only” mode and deprecated several aliases, which caused some small friction in this last quarter. These are some of the highlights of the work done in the last quarter:</p>
+
+<ul>
+  <li>Extended <a href="https://github.com/boostorg/url/commit/516e0093c55271a6ec9b9f271292fc29bcd586cd">fuzz testing</a>. <code>Fuzz</code> was included as a new clang factor in CI. The process was adjusted so that the corpus is properly reused from and stored in GitHub action archives. CMake scripts were refactored to include CMake options that control the fuzzer parameters. Fuzzers were included for each of the grammar rules for URLs.</li>
+  <li><a href="https://github.com/boostorg/url/commit/f2bb191b902ab63fa2207c64cfe273bd516a719d">Support <code>IP-literal</code> as <code>IPv6addrz</code></a>. This is an <a href="https://github.com/boostorg/url/issues/711">issue</a> where a valid <code>IPv6addrz</code> wasn’t being considered an <code>IP-literal</code>. IPv6addrz includes a <code>ZoneID</code> at the end, delimited by an encoded <code>"%25"</code>. The <code>ipv6_address</code> class is unmodified, as the mapping from the <code>ZoneID</code> to a <code>std::uint32_t</code> is dependent on the application context. The original <code>ZoneID</code> can be obtained from the url_view but the library is agnostic about it.</li>
+  <li>Included <a href="https://github.com/boostorg/url/commit/f3fe229c9d349d06083f9cdf1ae163b84b1ad1d8">GDB pretty printers</a> and documentation. All available URL components are now pretty printed in GDB. A developer mode was also included which prints the URL components in a format corresponding to the internal URL string offsets.</li>
+  <li>Updated the <a href="https://github.com/boostorg/url/commit/7e47e9fef6fecce45f7c65277601b7e7ff38c365">content of both the documentation and README.adoc</a> so that they match current best practices. The documentation in README.md contained dated and incorrect information, while the quickbook documentation was missing important information and contained bad practices.</li>
+</ul>
+
+<p>Some relevant bug fixes were:</p>
+
+<ul>
+  <li>Enforced that appropriate CMake BOOST_INCLUDE_LIBRARIES are set <a href="https://github.com/boostorg/url/commit/d0746ebf941230d0c8a535859da2a0f7e6a747ca">according to the build options</a>. The previous implementation included these extra libraries whenever they were available, which caused problems for other libraries that depended on Boost.URL via <code>depinst.py</code>.</li>
+  <li>Fix and include unit-tests for issues <a href="https://github.com/boostorg/url/issues/755">#755</a> and <a href="https://github.com/boostorg/url/issues/446">#446</a></li>
+  <li>We <a href="https://github.com/boostorg/url/commit/20ab896ffede3c4ac9cbfb6740e6e97f321ccd87">disabled</a> and <a href="https://github.com/boostorg/url/commit/cac7c200e28e3559d4ea9ea43033bda5e8f66c39">re-enabled</a> drone caching. This is related to a bug where Drone would attempt to cache the <code>b2</code> binary, which would cause conflicts. This was fixed with <a href="https://github.com/boostorg/boost-ci/pull/213">PR #123 in boostorg/boost-ci</a>.</li>
+  <li>Remove quickbook <a href="https://github.com/boostorg/url/commit/b156eb230193e5f2d79980812106872f2d71c535">references to variant</a>. Links and references to <code>variant</code> in both the <code>.qbk</code> and <code>.xml</code> files were removed as the <code>variant</code> alias had been deprecated in <a href="https://github.com/boostorg/url/commit/96438f683e09e20183fab1b6059fa7f1b0ffe67d">96438f6</a>.</li>
+  <li>Updated <a href="https://github.com/boostorg/url/commit/705554ca127cc1deb5d66efcdbd16cc593e31950">javadoc deprecated references</a>. This fixed a mistake where the Javadoc for many deprecated aliases included references to the deprecated alias <code>boost::core::string_view</code> instead of the correct deprecated aliases <code>boost::optional</code>, <code>system::error_category</code>, <code>system::error_code</code>, <code>system::error_condition</code>, <code>system::system_error</code>, and <code>system::result</code>.</li>
+  <li>Replaced <code>@ref</code> prefixes <a href="https://github.com/boostorg/url/commit/3db1407cc9d792c1e192b401d31c2c12f607ec25">with backtick for references</a> in javadocs. This caused an issue in the documentation since several aliases were deprecated in favor of symbols from Boost.Core.</li>
+  <li><a href="https://github.com/boostorg/url/commit/a1181275d02a0a4c6ab8147354f752ec36e1dd98">Refactored variable name in url::set_params</a>. This issue was causing an error in the documentation for <code>url_base::set_params</code>.</li>
+  <li><a href="https://github.com/boostorg/url/commit/0ca58467a472c72e84405a7d991201f58ffdf327">Fix bug</a> where <code>url_view</code>/<code>string_view</code> constructor would require a non-<code>url_view_base</code> as input. This <a href="https://github.com/boostorg/url/issues/756">cased the constructor to reparse the <code>string_view</code></a> from an already parsed <code>url_view_base</code>.</li>
+  <li><a href="https://github.com/boostorg/url/commit/c97bc2782cdd9b343ede1492863a672805c255cd">Fix bug</a> where <code>parse_query</code> would recreate <code>std::string_view</code>s. This would make the query <a href="https://github.com/boostorg/url/issues/757">include values in the underlying std::string beyond the expected string_view</a>.</li>
+  <li>Updated <a href="https://github.com/boostorg/website/commit/8c39fd223c5c9f74f0d70d611c35360415d862da">changelog</a> for boost release.</li>
+</ul>
+
+<p>Besides Boost.URL, as usual, I’ve been overseeing and fixing smaller issues with other boost libraries, such as Boost.Docca, Boost.StaticString, and helping with libraries by other contributors when asked for assistance, as in a more recent case with Boost.Outcome.</p>
+
+<p>In particular, we had to fix a smaller issue in Boost.Docca that was also affecting Boost.URL. The issue involved Boost.Docca’s dependence on a deprecated version of Doxygen that is no longer supported by the Boost toolchain.</p>
+
+<h2 id="boost-release-tools">Boost Release Tools</h2>
+
+<p>Over the last quarter, I’ve been working on the integration of toolchains I developed into the Boost Release Tools to add support for features desired for the new website.</p>
+
+<p>Some of the highlights of the work done in the last quarter:</p>
+
+<ul>
+  <li>Introduced support for libraries with Antora documentation <a href="https://github.com/boostorg/release-tools/commit/66670dfcf4d1ac69a963aa74cd9c06ffade73d58">into the official Boost release process</a>. Deployed new docker containers that include NodeJS, Gulp, and the Antora toolchain. With this enhancement, each library now can function as an Antora component within an Antora master project hosted in a separate repository (https://github.com/cppalliance/site-docs). This master project repository also contains additional components, such as the user guide, contributor guide, and a dedicated component for the review process. In a subsequent phase of the release process, this Antora documentation is seamlessly merged with the pre-existing in-source documentation, which has been generated using various other tools. When a library is “Antora-enabled”, the release process will automatically generate the Antora documentation and publish it with the documentation of other libraries. No <code>b2</code> scripts are required to generate the documentation for the library. All Antora-enabled libraries use the same master Antora UI template that matches the design of the boost website. Antora <a href="https://github.com/cppalliance/site-docs/commit/aefae2a6062cc19a731e007bc28c275180e290fd">playbooks were adjusted</a> to initially contain no content sources, now that the Antora-enabled build process in deployed in the official Boost release process.</li>
+  <li>Deployed new container <a href="https://github.com/boostorg/boost/commit/30f0ef1de2d8f205502d2a557ee0c9cb5a3b4708">to <code>boostorg/boost</code></a> to support the new release process.</li>
+  <li>New <a href="https://github.com/boostorg/release-tools/pull/52">archive variants</a> for boost. Add extra archive variants such as <code>boost-docs</code> and <code>boost-source</code>. These variants can reduce expenses with JFrog download bandwidth, provide users with archives that are simpler to use, and provide docs-only archives for the website. The new MakeBoostDistro.py script includes parameters to determine what types of files should be included in the distribution. All other functions are adapted to handle these requirements accordingly. Switching to source-only downloads would save Boost $1000 per month.</li>
+</ul>
+
+<h2 id="c-github-actions">C++ Github Actions</h2>
+
+<p><a href="https://github.com/alandefreitas/cpp-actions">C++ Github Actions</a> is a project I created and have been maintaining since the second quarter of the year. It is a collection of reusable Github Actions for any C++ project that needs to be tested on a variety of compilers. Both MrDocs are Boost.URL are currently using these actions in their CI.</p>
+
+<p>The project includes actions to:</p>
+
+<ul>
+  <li>Generate a Github Actions Matrix for C++ projects;</li>
+  <li>Setup C++ compilers;</li>
+  <li>Install and setup packages;</li>
+  <li>Clone Boost modules;</li>
+  <li>Run complete CMake and <code>b2</code> workflows;</li>
+  <li>Generate changelogs from conventional commits;</li>
+  <li>Generate summaries; and</li>
+  <li>Generate time-trace reports and flame graphs</li>
+</ul>
+
+<p>These actions include a myriad of options and features.</p>
+
+<ul>
+  <li>The “setup-*” actions include logic to detect, install, and cache dependencies, which can be used by the CMake and <code>b2</code> actions.</li>
+  <li>Individual options and actions attempt to set up a wide variety of compilers on different platforms, including MSVC, GCC, Clang, MinGW, AppleClang, and Clang-CL.</li>
+  <li>Actions that generate reports include a multitude of tools and options to analyze changes, time traces, and coverage.</li>
+</ul>
+
+<p>Since then, these actions have been adapted as needed to support the needs of MrDocs and Boost.URL, which have also been using conventional commits. Here’s a recent summary report generated for Boost.URL by the CI workflow: https://github.com/boostorg/url/actions/runs/6512424067</p>
+
+<p>The project documentation also uses the Antora UI template we have been maintaining for all other projects: https://alandefreitas.github.io/cpp-actions</p>
+
+<h2 id="gray-box-local-search">Gray-box local search</h2>
+
+<p>On 13 September 2023, the <a href="https://link.springer.com/article/10.1007/s00500-023-09129-1">following paper</a> I co-authored was published:</p>
+
+<pre><code>Lopes, R.A., Freitas, A.R.R. 
+Gray-box local search with groups of step sizes. 
+Soft Computing. 
+p. 1-14
+2023
+https://doi.org/10.1007/s00500-023-09129-1
+</code></pre>
+
+<p>The paper was accepted on 18 August 2023 and published on 13 September 2023.</p>
+
+<p>While the paper is more aligned with my educational background than my daily C++ Alliance tasks, it is one more paper that carries the C++ Alliance in the affiliation, contributing to its reputation.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/07/10/Alan.html">Bringing B2-Style Test Granularity to CMake</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/01/10/AlanQ4Update.html">Alan's Q4 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/13/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/07/13/AlanQ2Update.html">Alan's Q2 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/07/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/05/07/AlanQ1Update.html">Alan's Q1 Update 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/01/12/AlanQ4Update.html">Alan's Q4 Update 2023</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/alan/2023/10/27/AlanQ3Update.html">Alan's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

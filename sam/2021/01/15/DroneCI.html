@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drone CI | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Drone CI | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Drone CI" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Overview A message currently appears (mid-January 2021) at the top of the travis-ci.org website. “Please be aware travis-ci.org will be shutting down in several weeks, with all accounts migrating to travis-ci.com. Please stay tuned here for more information.” The transition has not been a smooth one, with long, disruptive delays occurring on existing builds, and lack of clear communication from the company. Many were unaware of the impending change. Some informative posts about the topic are Travis CI’s new pricing plan threw a wrench in my open source works and Extremely poor official communication of the .org shutdown. The C++ Alliance has decided to implement an in-house CI solution and make the new service available for Boost libraries also. Selection Process The first step was choosing which software to use. There are truly a surprising number of alternatives. An extensive review was conducted, including many Continuous Integration services from awesome-ci which lists more than 50. Coincidentally, Rene Rivera had recently done an analysis as well for ci_playground, and his example config files eventually became the basis for our new config files. The top choices: Appveyor Azure Pipelines BuildBot CircleCI CirrusCI Drone Github Actions Semaphore Shippable TeamCity From this list, Appveyor and Drone seemed the most promising to start with. Both allow for 100% self-hosting. Appveyor The appeal of Appveyor is that the config files are basic yaml, and everything runs in a Docker container. It sounds perfect. However, after experimentation there were a few issues. Appveyor was originally designed for Microsoft Windows, with .NET and Powershell being key ingredients. While it can run on Linux, it’s not a native Linux application. Most of the CI testing done by Boost and CPPAlliance runs on Linux. Specifically, the Docker experience on Windows is not nearly as smooth as Linux. I encountered numerous complexities when setting up Appveyor Windows Docker containers. Bugs in their app. Due to a combination of those reasons, Appveyor was not the best choice for this project. Drone Within the first day or two experimenting with Drone, it became clear that this was an excellent CI framework: Simple, usable UI Easy installation Linux and Docker native Small number of processes to run Integrates with PostgreSQL, MySQL, Amazon S3 Autoscale the agents Badges on github repos The main drawback with Drone is the absence of “matrix” builds. Their alternative for matrices is jsonnet or starlark, which are flexible scripting languages. I was apprehensive about this point, thinking that the end-user would prefer simple yaml files - exactly like Travis. And, in fact, that is probably the case. Basic yaml files are easier to understand. However, on balance, this was the only noticable problem with Drone, and everything else seemed to be in order. The resulting starlark files do have a matrix-like configuration where each job can be customized. To discuss Starlark for a moment - it’s a subset of python, and therefore easy to learn. Why would I use Starlark instead of just Python? “Sandboxing. The primary reason this was written is for the “hermetic execution” feature of Starlark. Python is notoriously difficult to sandbox and there didn’t appear to be any sandboxing solutions that could run within Python to run Python or Python-like code. While Starlark isn’t exactly Python it is very very close to it. You can think of this as a secure way to run very simplistic Python functions. Note that this library itself doesn’t really provide any security guarantees and your program may crash while using it (PRs welcome). Starlark itself is providing the security guarantees.” Running a drone server Create a script startdrone.sh with these contents: #!/bin/bash docker run \ --volume=/var/lib/drone:/data \ --env=DRONE_GITHUB_CLIENT_ID= \ --env=DRONE_GITHUB_CLIENT_SECRET= \ --env=DRONE_RPC_SECRET= \ --env=DRONE_TLS_AUTOCERT= \ --env=DRONE_SERVER_HOST= \ --env=DRONE_SERVER_PROTO= \ --env=DRONE_CONVERT_PLUGIN_ENDPOINT= \ --env=DRONE_CONVERT_PLUGIN_SECRET= \ --env=DRONE_HTTP_SSL_REDIRECT= \ --env=DRONE_HTTP_SSL_TEMPORARY_REDIRECT= \ --env=DRONE_S3_BUCKET= \ --env=DRONE_LOGS_PRETTY= \ --env=AWS_ACCESS_KEY_ID= \ --env=AWS_SECRET_ACCESS_KEY= \ --env=AWS_DEFAULT_REGION= \ --env=AWS_REGION= \ --env=DRONE_DATABASE_DRIVER= \ --env=DRONE_DATABASE_DATASOURCE= \ --env=DRONE_USER_CREATE= \ --env=DRONE_REPOSITORY_FILTER= \ --env=DRONE_GITHUB_SCOPE= \ --publish=80:80 \ --publish=443:443 \ --restart=always \ --detach=true \ --name=drone \ drone/drone:1 Fill in the variables. (Many of those are secure keys which shouldn’t be published on a public webpage.) Then, run the script. ./startdrone.sh Drone is up and running. Next, the starlark plugin. Edit startstarlark.sh: #!/bin/bash docker run -d \ --volume=/var/lib/starlark:/data \ --env= \ --publish= \ --env=DRONE_DEBUG= \ --env=DRONE_SECRET= \ --restart=always \ --name=starlark drone/drone-convert-starlark and run it: ./startstarlark.sh Starlark is up and running. Finally, the autoscaler. #!/bin/bash docker run -d \ -v /var/lib/autoscaler:/data \ -e DRONE_POOL_MIN= \ -e DRONE_POOL_MAX= \ -e DRONE_SERVER_PROTO= \ -e DRONE_SERVER_HOST= \ -e DRONE_SERVER_TOKEN= \ -e DRONE_AGENT_TOKEN= \ -e DRONE_AMAZON_REGION= \ -e DRONE_AMAZON_SUBNET_ID= \ -e DRONE_AMAZON_SECURITY_GROUP= \ -e AWS_ACCESS_KEY_ID= \ -e AWS_SECRET_ACCESS_KEY= \ -e DRONE_CAPACITY_BUFFER= \ -e DRONE_REAPER_INTERVAL= \ -e DRONE_REAPER_ENABLED= \ -e DRONE_ENABLE_REAPER= \ -e DRONE_AMAZON_INSTANCE= \ -e DRONE_AMAZON_VOLUME_TYPE= \ -e DRONE_AMAZON_VOLUME_IOPS= \ -p \ --restart=always \ --name=autoscaler \ drone/autoscaler Start the autoscaler. ./startautoscaler.sh Windows autoscaler is still experimental. For now, both Windows and Mac servers have been installed manually and will be scaled individually. Because they are less common operating systems, with most boost builds running in Linux, the CPU load on these other machines is not as significant. Configs The real complexities appear when composing the config files for each repository. After manually porting .travis.yml for https://github.com/boostorg/beast and https://github.com/boostorg/json, the next step was creating a Python script which automates the entire process. Drone Converter A copy of the script can be viewed at https://github.com/CPPAlliance/droneconverter-demo The idea is to be able to go into any directory with a .travis.yml file, and migrate to Drone by executing a single command: cd boostorg/accumulators droneconverter The converter ingests a source file, parses it with PyYAML, and dumps the output in Jinja2 templates. The method to write the script was by beginning with any library, such as boostorg/array, and just get that one working. Then, move on to others, boostorg/assign, boostorg/bind, etc. Each library contains a mix of travis jobs which are both similar and different to the previously translated libraries. Thus, each new travis file presents a new puzzle to solve, but hopefully in a generalized way that will also work for all repositories. Versions of clang ranging from 3.3 to 11 are targeted in the tests. While later releases such as clang-6 or clang-7 usually build right away without errors, the earlier versions in the 3.x series were failing to build for a variety of reasons. First of all, those versions are not available on Ubuntu 16.04 and later, which means being stuck on Ubuntu 14.04, preventing an across-the-board upgrade to a newer Ubuntu. Then, if a standard “base” clang is simultaneously installed, such as clang-7 or 9, this seems to cause other dependent packages and libraries to be installed, which conflict with clang-3. The solution was to figure out what travis does, and copy it. Travis images have downloaded and installed clang-7 into a completely separate directory, not using the ordinary system packages. Then the extra directory /usr/local/clang-7.0.0/bin has been added to the $PATH. Some .travis.yml files have a “matrix” section. Others have “jobs”. Some .travis files place all the logic in one main “install” script. Others refer to a variety of script sections including “install”, “script”, “before_install”, “before_script”, “after_success”, which may or may not be shared between the 20 jobs contained in the file. Some job in travis were moving (with the mv command) their source directory, which is baffling and not usually permitted in Jenkins or Drone. This must be converted to a copy command instead. “travis_wait” and “travis_retry” must be deleted, they are travis-specific. Many travis variables such as TRAVIS_OS_NAME or TRAVIS_BRANCH need to be set and/or replaced in the resulting scripts. Environment variables in the travis file might be presented as a list, or a string, without quotes, or with single quotes, or double quotes, or single quotes embedded in double quotes, or double quotes embedded in single quotes, or missing entirely and included as a global env section at the top of the file. The CXX variable, which determines the compiler used by boost build, isn’t always apparent and could be derived from a variety of sources, including the COMPILER variable or the list of packages. The list of these types of conversion fixes goes on and on, you can see them in the droneconverter program. Apple Macs Developer Tools depends on Xcode, with an array of possible Xcode version numbers from 6 to 12, and counting. Catalina only runs 10 and above. High Sierra will run 7-9. None of these will operate without accepting the license agreement, however the license agreement might reset if switching to a newer version of Xcode. The presence of “Command Line Tools” seems to break some builds during testing, however everything works if “Command Line Tools” is missing and the build directly accesses Xcode in the /Applications/Xcode-11.7.app/Contents/Developer directory. On the other hand, the package manager “brew” needs “Command Line Tools” (on High Sierra) or it can’t install packages. A solution which appears to be sufficiently effective is to “mv CommandLineTools CommandLineTools.bck”, or the reverse, when needed. Drone will not start on a Mac during reboot unless the Drone user has a window console sessions running too. So, Apple is not an ideal command-line-only remote server environment. Drone Deployments Pull requests with the new drone configs were rolled out to all those boost repositories with 100% travis build success rate and 100% drone build success rate, which accounts for about half of boost libraries. The other half of boost libraries are either missing a .travis.yml file, or they have a couple of travis/drone jobs which are failing. These should be addressed individually, even if only to post details about it in the pull requests. Ideally, attention should be focused on these failing tests, one by one, until the jobs attain a 100% build success rate and the badge displays green instead of red. The long tail distribution of edge-cases require individual attention and rewritten tests. Github Actions The droneconverter script is being enhanced to also generate Github Actions config files. A first draft, tested on a few boost libraries, is building Linux jobs successfully. Ongoing." />
+<meta property="og:description" content="Overview A message currently appears (mid-January 2021) at the top of the travis-ci.org website. “Please be aware travis-ci.org will be shutting down in several weeks, with all accounts migrating to travis-ci.com. Please stay tuned here for more information.” The transition has not been a smooth one, with long, disruptive delays occurring on existing builds, and lack of clear communication from the company. Many were unaware of the impending change. Some informative posts about the topic are Travis CI’s new pricing plan threw a wrench in my open source works and Extremely poor official communication of the .org shutdown. The C++ Alliance has decided to implement an in-house CI solution and make the new service available for Boost libraries also. Selection Process The first step was choosing which software to use. There are truly a surprising number of alternatives. An extensive review was conducted, including many Continuous Integration services from awesome-ci which lists more than 50. Coincidentally, Rene Rivera had recently done an analysis as well for ci_playground, and his example config files eventually became the basis for our new config files. The top choices: Appveyor Azure Pipelines BuildBot CircleCI CirrusCI Drone Github Actions Semaphore Shippable TeamCity From this list, Appveyor and Drone seemed the most promising to start with. Both allow for 100% self-hosting. Appveyor The appeal of Appveyor is that the config files are basic yaml, and everything runs in a Docker container. It sounds perfect. However, after experimentation there were a few issues. Appveyor was originally designed for Microsoft Windows, with .NET and Powershell being key ingredients. While it can run on Linux, it’s not a native Linux application. Most of the CI testing done by Boost and CPPAlliance runs on Linux. Specifically, the Docker experience on Windows is not nearly as smooth as Linux. I encountered numerous complexities when setting up Appveyor Windows Docker containers. Bugs in their app. Due to a combination of those reasons, Appveyor was not the best choice for this project. Drone Within the first day or two experimenting with Drone, it became clear that this was an excellent CI framework: Simple, usable UI Easy installation Linux and Docker native Small number of processes to run Integrates with PostgreSQL, MySQL, Amazon S3 Autoscale the agents Badges on github repos The main drawback with Drone is the absence of “matrix” builds. Their alternative for matrices is jsonnet or starlark, which are flexible scripting languages. I was apprehensive about this point, thinking that the end-user would prefer simple yaml files - exactly like Travis. And, in fact, that is probably the case. Basic yaml files are easier to understand. However, on balance, this was the only noticable problem with Drone, and everything else seemed to be in order. The resulting starlark files do have a matrix-like configuration where each job can be customized. To discuss Starlark for a moment - it’s a subset of python, and therefore easy to learn. Why would I use Starlark instead of just Python? “Sandboxing. The primary reason this was written is for the “hermetic execution” feature of Starlark. Python is notoriously difficult to sandbox and there didn’t appear to be any sandboxing solutions that could run within Python to run Python or Python-like code. While Starlark isn’t exactly Python it is very very close to it. You can think of this as a secure way to run very simplistic Python functions. Note that this library itself doesn’t really provide any security guarantees and your program may crash while using it (PRs welcome). Starlark itself is providing the security guarantees.” Running a drone server Create a script startdrone.sh with these contents: #!/bin/bash docker run \ --volume=/var/lib/drone:/data \ --env=DRONE_GITHUB_CLIENT_ID= \ --env=DRONE_GITHUB_CLIENT_SECRET= \ --env=DRONE_RPC_SECRET= \ --env=DRONE_TLS_AUTOCERT= \ --env=DRONE_SERVER_HOST= \ --env=DRONE_SERVER_PROTO= \ --env=DRONE_CONVERT_PLUGIN_ENDPOINT= \ --env=DRONE_CONVERT_PLUGIN_SECRET= \ --env=DRONE_HTTP_SSL_REDIRECT= \ --env=DRONE_HTTP_SSL_TEMPORARY_REDIRECT= \ --env=DRONE_S3_BUCKET= \ --env=DRONE_LOGS_PRETTY= \ --env=AWS_ACCESS_KEY_ID= \ --env=AWS_SECRET_ACCESS_KEY= \ --env=AWS_DEFAULT_REGION= \ --env=AWS_REGION= \ --env=DRONE_DATABASE_DRIVER= \ --env=DRONE_DATABASE_DATASOURCE= \ --env=DRONE_USER_CREATE= \ --env=DRONE_REPOSITORY_FILTER= \ --env=DRONE_GITHUB_SCOPE= \ --publish=80:80 \ --publish=443:443 \ --restart=always \ --detach=true \ --name=drone \ drone/drone:1 Fill in the variables. (Many of those are secure keys which shouldn’t be published on a public webpage.) Then, run the script. ./startdrone.sh Drone is up and running. Next, the starlark plugin. Edit startstarlark.sh: #!/bin/bash docker run -d \ --volume=/var/lib/starlark:/data \ --env= \ --publish= \ --env=DRONE_DEBUG= \ --env=DRONE_SECRET= \ --restart=always \ --name=starlark drone/drone-convert-starlark and run it: ./startstarlark.sh Starlark is up and running. Finally, the autoscaler. #!/bin/bash docker run -d \ -v /var/lib/autoscaler:/data \ -e DRONE_POOL_MIN= \ -e DRONE_POOL_MAX= \ -e DRONE_SERVER_PROTO= \ -e DRONE_SERVER_HOST= \ -e DRONE_SERVER_TOKEN= \ -e DRONE_AGENT_TOKEN= \ -e DRONE_AMAZON_REGION= \ -e DRONE_AMAZON_SUBNET_ID= \ -e DRONE_AMAZON_SECURITY_GROUP= \ -e AWS_ACCESS_KEY_ID= \ -e AWS_SECRET_ACCESS_KEY= \ -e DRONE_CAPACITY_BUFFER= \ -e DRONE_REAPER_INTERVAL= \ -e DRONE_REAPER_ENABLED= \ -e DRONE_ENABLE_REAPER= \ -e DRONE_AMAZON_INSTANCE= \ -e DRONE_AMAZON_VOLUME_TYPE= \ -e DRONE_AMAZON_VOLUME_IOPS= \ -p \ --restart=always \ --name=autoscaler \ drone/autoscaler Start the autoscaler. ./startautoscaler.sh Windows autoscaler is still experimental. For now, both Windows and Mac servers have been installed manually and will be scaled individually. Because they are less common operating systems, with most boost builds running in Linux, the CPU load on these other machines is not as significant. Configs The real complexities appear when composing the config files for each repository. After manually porting .travis.yml for https://github.com/boostorg/beast and https://github.com/boostorg/json, the next step was creating a Python script which automates the entire process. Drone Converter A copy of the script can be viewed at https://github.com/CPPAlliance/droneconverter-demo The idea is to be able to go into any directory with a .travis.yml file, and migrate to Drone by executing a single command: cd boostorg/accumulators droneconverter The converter ingests a source file, parses it with PyYAML, and dumps the output in Jinja2 templates. The method to write the script was by beginning with any library, such as boostorg/array, and just get that one working. Then, move on to others, boostorg/assign, boostorg/bind, etc. Each library contains a mix of travis jobs which are both similar and different to the previously translated libraries. Thus, each new travis file presents a new puzzle to solve, but hopefully in a generalized way that will also work for all repositories. Versions of clang ranging from 3.3 to 11 are targeted in the tests. While later releases such as clang-6 or clang-7 usually build right away without errors, the earlier versions in the 3.x series were failing to build for a variety of reasons. First of all, those versions are not available on Ubuntu 16.04 and later, which means being stuck on Ubuntu 14.04, preventing an across-the-board upgrade to a newer Ubuntu. Then, if a standard “base” clang is simultaneously installed, such as clang-7 or 9, this seems to cause other dependent packages and libraries to be installed, which conflict with clang-3. The solution was to figure out what travis does, and copy it. Travis images have downloaded and installed clang-7 into a completely separate directory, not using the ordinary system packages. Then the extra directory /usr/local/clang-7.0.0/bin has been added to the $PATH. Some .travis.yml files have a “matrix” section. Others have “jobs”. Some .travis files place all the logic in one main “install” script. Others refer to a variety of script sections including “install”, “script”, “before_install”, “before_script”, “after_success”, which may or may not be shared between the 20 jobs contained in the file. Some job in travis were moving (with the mv command) their source directory, which is baffling and not usually permitted in Jenkins or Drone. This must be converted to a copy command instead. “travis_wait” and “travis_retry” must be deleted, they are travis-specific. Many travis variables such as TRAVIS_OS_NAME or TRAVIS_BRANCH need to be set and/or replaced in the resulting scripts. Environment variables in the travis file might be presented as a list, or a string, without quotes, or with single quotes, or double quotes, or single quotes embedded in double quotes, or double quotes embedded in single quotes, or missing entirely and included as a global env section at the top of the file. The CXX variable, which determines the compiler used by boost build, isn’t always apparent and could be derived from a variety of sources, including the COMPILER variable or the list of packages. The list of these types of conversion fixes goes on and on, you can see them in the droneconverter program. Apple Macs Developer Tools depends on Xcode, with an array of possible Xcode version numbers from 6 to 12, and counting. Catalina only runs 10 and above. High Sierra will run 7-9. None of these will operate without accepting the license agreement, however the license agreement might reset if switching to a newer version of Xcode. The presence of “Command Line Tools” seems to break some builds during testing, however everything works if “Command Line Tools” is missing and the build directly accesses Xcode in the /Applications/Xcode-11.7.app/Contents/Developer directory. On the other hand, the package manager “brew” needs “Command Line Tools” (on High Sierra) or it can’t install packages. A solution which appears to be sufficiently effective is to “mv CommandLineTools CommandLineTools.bck”, or the reverse, when needed. Drone will not start on a Mac during reboot unless the Drone user has a window console sessions running too. So, Apple is not an ideal command-line-only remote server environment. Drone Deployments Pull requests with the new drone configs were rolled out to all those boost repositories with 100% travis build success rate and 100% drone build success rate, which accounts for about half of boost libraries. The other half of boost libraries are either missing a .travis.yml file, or they have a couple of travis/drone jobs which are failing. These should be addressed individually, even if only to post details about it in the pull requests. Ideally, attention should be focused on these failing tests, one by one, until the jobs attain a 100% build success rate and the badge displays green instead of red. The long tail distribution of edge-cases require individual attention and rewritten tests. Github Actions The droneconverter script is being enhanced to also generate Github Actions config files. A first draft, tested on a few boost libraries, is building Linux jobs successfully. Ongoing." />
+<link rel="canonical" href="http://cppalliance.org/sam/2021/01/15/DroneCI.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2021/01/15/DroneCI.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-01-15T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Drone CI" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Overview A message currently appears (mid-January 2021) at the top of the travis-ci.org website. “Please be aware travis-ci.org will be shutting down in several weeks, with all accounts migrating to travis-ci.com. Please stay tuned here for more information.” The transition has not been a smooth one, with long, disruptive delays occurring on existing builds, and lack of clear communication from the company. Many were unaware of the impending change. Some informative posts about the topic are Travis CI’s new pricing plan threw a wrench in my open source works and Extremely poor official communication of the .org shutdown. The C++ Alliance has decided to implement an in-house CI solution and make the new service available for Boost libraries also. Selection Process The first step was choosing which software to use. There are truly a surprising number of alternatives. An extensive review was conducted, including many Continuous Integration services from awesome-ci which lists more than 50. Coincidentally, Rene Rivera had recently done an analysis as well for ci_playground, and his example config files eventually became the basis for our new config files. The top choices: Appveyor Azure Pipelines BuildBot CircleCI CirrusCI Drone Github Actions Semaphore Shippable TeamCity From this list, Appveyor and Drone seemed the most promising to start with. Both allow for 100% self-hosting. Appveyor The appeal of Appveyor is that the config files are basic yaml, and everything runs in a Docker container. It sounds perfect. However, after experimentation there were a few issues. Appveyor was originally designed for Microsoft Windows, with .NET and Powershell being key ingredients. While it can run on Linux, it’s not a native Linux application. Most of the CI testing done by Boost and CPPAlliance runs on Linux. Specifically, the Docker experience on Windows is not nearly as smooth as Linux. I encountered numerous complexities when setting up Appveyor Windows Docker containers. Bugs in their app. Due to a combination of those reasons, Appveyor was not the best choice for this project. Drone Within the first day or two experimenting with Drone, it became clear that this was an excellent CI framework: Simple, usable UI Easy installation Linux and Docker native Small number of processes to run Integrates with PostgreSQL, MySQL, Amazon S3 Autoscale the agents Badges on github repos The main drawback with Drone is the absence of “matrix” builds. Their alternative for matrices is jsonnet or starlark, which are flexible scripting languages. I was apprehensive about this point, thinking that the end-user would prefer simple yaml files - exactly like Travis. And, in fact, that is probably the case. Basic yaml files are easier to understand. However, on balance, this was the only noticable problem with Drone, and everything else seemed to be in order. The resulting starlark files do have a matrix-like configuration where each job can be customized. To discuss Starlark for a moment - it’s a subset of python, and therefore easy to learn. Why would I use Starlark instead of just Python? “Sandboxing. The primary reason this was written is for the “hermetic execution” feature of Starlark. Python is notoriously difficult to sandbox and there didn’t appear to be any sandboxing solutions that could run within Python to run Python or Python-like code. While Starlark isn’t exactly Python it is very very close to it. You can think of this as a secure way to run very simplistic Python functions. Note that this library itself doesn’t really provide any security guarantees and your program may crash while using it (PRs welcome). Starlark itself is providing the security guarantees.” Running a drone server Create a script startdrone.sh with these contents: #!/bin/bash docker run \\ --volume=/var/lib/drone:/data \\ --env=DRONE_GITHUB_CLIENT_ID= \\ --env=DRONE_GITHUB_CLIENT_SECRET= \\ --env=DRONE_RPC_SECRET= \\ --env=DRONE_TLS_AUTOCERT= \\ --env=DRONE_SERVER_HOST= \\ --env=DRONE_SERVER_PROTO= \\ --env=DRONE_CONVERT_PLUGIN_ENDPOINT= \\ --env=DRONE_CONVERT_PLUGIN_SECRET= \\ --env=DRONE_HTTP_SSL_REDIRECT= \\ --env=DRONE_HTTP_SSL_TEMPORARY_REDIRECT= \\ --env=DRONE_S3_BUCKET= \\ --env=DRONE_LOGS_PRETTY= \\ --env=AWS_ACCESS_KEY_ID= \\ --env=AWS_SECRET_ACCESS_KEY= \\ --env=AWS_DEFAULT_REGION= \\ --env=AWS_REGION= \\ --env=DRONE_DATABASE_DRIVER= \\ --env=DRONE_DATABASE_DATASOURCE= \\ --env=DRONE_USER_CREATE= \\ --env=DRONE_REPOSITORY_FILTER= \\ --env=DRONE_GITHUB_SCOPE= \\ --publish=80:80 \\ --publish=443:443 \\ --restart=always \\ --detach=true \\ --name=drone \\ drone/drone:1 Fill in the variables. (Many of those are secure keys which shouldn’t be published on a public webpage.) Then, run the script. ./startdrone.sh Drone is up and running. Next, the starlark plugin. Edit startstarlark.sh: #!/bin/bash docker run -d \\ --volume=/var/lib/starlark:/data \\ --env= \\ --publish= \\ --env=DRONE_DEBUG= \\ --env=DRONE_SECRET= \\ --restart=always \\ --name=starlark drone/drone-convert-starlark and run it: ./startstarlark.sh Starlark is up and running. Finally, the autoscaler. #!/bin/bash docker run -d \\ -v /var/lib/autoscaler:/data \\ -e DRONE_POOL_MIN= \\ -e DRONE_POOL_MAX= \\ -e DRONE_SERVER_PROTO= \\ -e DRONE_SERVER_HOST= \\ -e DRONE_SERVER_TOKEN= \\ -e DRONE_AGENT_TOKEN= \\ -e DRONE_AMAZON_REGION= \\ -e DRONE_AMAZON_SUBNET_ID= \\ -e DRONE_AMAZON_SECURITY_GROUP= \\ -e AWS_ACCESS_KEY_ID= \\ -e AWS_SECRET_ACCESS_KEY= \\ -e DRONE_CAPACITY_BUFFER= \\ -e DRONE_REAPER_INTERVAL= \\ -e DRONE_REAPER_ENABLED= \\ -e DRONE_ENABLE_REAPER= \\ -e DRONE_AMAZON_INSTANCE= \\ -e DRONE_AMAZON_VOLUME_TYPE= \\ -e DRONE_AMAZON_VOLUME_IOPS= \\ -p \\ --restart=always \\ --name=autoscaler \\ drone/autoscaler Start the autoscaler. ./startautoscaler.sh Windows autoscaler is still experimental. For now, both Windows and Mac servers have been installed manually and will be scaled individually. Because they are less common operating systems, with most boost builds running in Linux, the CPU load on these other machines is not as significant. Configs The real complexities appear when composing the config files for each repository. After manually porting .travis.yml for https://github.com/boostorg/beast and https://github.com/boostorg/json, the next step was creating a Python script which automates the entire process. Drone Converter A copy of the script can be viewed at https://github.com/CPPAlliance/droneconverter-demo The idea is to be able to go into any directory with a .travis.yml file, and migrate to Drone by executing a single command: cd boostorg/accumulators droneconverter The converter ingests a source file, parses it with PyYAML, and dumps the output in Jinja2 templates. The method to write the script was by beginning with any library, such as boostorg/array, and just get that one working. Then, move on to others, boostorg/assign, boostorg/bind, etc. Each library contains a mix of travis jobs which are both similar and different to the previously translated libraries. Thus, each new travis file presents a new puzzle to solve, but hopefully in a generalized way that will also work for all repositories. Versions of clang ranging from 3.3 to 11 are targeted in the tests. While later releases such as clang-6 or clang-7 usually build right away without errors, the earlier versions in the 3.x series were failing to build for a variety of reasons. First of all, those versions are not available on Ubuntu 16.04 and later, which means being stuck on Ubuntu 14.04, preventing an across-the-board upgrade to a newer Ubuntu. Then, if a standard “base” clang is simultaneously installed, such as clang-7 or 9, this seems to cause other dependent packages and libraries to be installed, which conflict with clang-3. The solution was to figure out what travis does, and copy it. Travis images have downloaded and installed clang-7 into a completely separate directory, not using the ordinary system packages. Then the extra directory /usr/local/clang-7.0.0/bin has been added to the $PATH. Some .travis.yml files have a “matrix” section. Others have “jobs”. Some .travis files place all the logic in one main “install” script. Others refer to a variety of script sections including “install”, “script”, “before_install”, “before_script”, “after_success”, which may or may not be shared between the 20 jobs contained in the file. Some job in travis were moving (with the mv command) their source directory, which is baffling and not usually permitted in Jenkins or Drone. This must be converted to a copy command instead. “travis_wait” and “travis_retry” must be deleted, they are travis-specific. Many travis variables such as TRAVIS_OS_NAME or TRAVIS_BRANCH need to be set and/or replaced in the resulting scripts. Environment variables in the travis file might be presented as a list, or a string, without quotes, or with single quotes, or double quotes, or single quotes embedded in double quotes, or double quotes embedded in single quotes, or missing entirely and included as a global env section at the top of the file. The CXX variable, which determines the compiler used by boost build, isn’t always apparent and could be derived from a variety of sources, including the COMPILER variable or the list of packages. The list of these types of conversion fixes goes on and on, you can see them in the droneconverter program. Apple Macs Developer Tools depends on Xcode, with an array of possible Xcode version numbers from 6 to 12, and counting. Catalina only runs 10 and above. High Sierra will run 7-9. None of these will operate without accepting the license agreement, however the license agreement might reset if switching to a newer version of Xcode. The presence of “Command Line Tools” seems to break some builds during testing, however everything works if “Command Line Tools” is missing and the build directly accesses Xcode in the /Applications/Xcode-11.7.app/Contents/Developer directory. On the other hand, the package manager “brew” needs “Command Line Tools” (on High Sierra) or it can’t install packages. A solution which appears to be sufficiently effective is to “mv CommandLineTools CommandLineTools.bck”, or the reverse, when needed. Drone will not start on a Mac during reboot unless the Drone user has a window console sessions running too. So, Apple is not an ideal command-line-only remote server environment. Drone Deployments Pull requests with the new drone configs were rolled out to all those boost repositories with 100% travis build success rate and 100% drone build success rate, which accounts for about half of boost libraries. The other half of boost libraries are either missing a .travis.yml file, or they have a couple of travis/drone jobs which are failing. These should be addressed individually, even if only to post details about it in the pull requests. Ideally, attention should be focused on these failing tests, one by one, until the jobs attain a 100% build success rate and the badge displays green instead of red. The long tail distribution of edge-cases require individual attention and rewritten tests. Github Actions The droneconverter script is being enhanced to also generate Github Actions config files. A first draft, tested on a few boost libraries, is building Linux jobs successfully. Ongoing.","@type":"BlogPosting","url":"http://cppalliance.org/sam/2021/01/15/DroneCI.html","headline":"Drone CI","dateModified":"2021-01-15T00:00:00+00:00","datePublished":"2021-01-15T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2021/01/15/DroneCI.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Drone CI</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 15, 2021</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="overview">Overview</h1>
+
+<p>A message currently appears (mid-January 2021) at the top of the travis-ci.org website.</p>
+
+<p>“Please be aware travis-ci.org will be shutting down in several weeks, with all accounts migrating to travis-ci.com. Please stay tuned here for more information.”</p>
+
+<p>The transition has not been a smooth one, with long, disruptive delays occurring on existing builds, and lack of clear communication from the company. Many were unaware of the impending change. Some informative posts about the topic are <a href="https://www.jeffgeerling.com/blog/2020/travis-cis-new-pricing-plan-threw-wrench-my-open-source-works">Travis CI’s new pricing plan threw a wrench in my open source works</a> and <a href="https://travis-ci.community/t/extremely-poor-official-communication-of-the-org-shutdown/10568">Extremely poor official communication of the .org shutdown</a>.</p>
+
+<p>The C++ Alliance has decided to implement an in-house CI solution and make the new service available for Boost libraries also.</p>
+
+<h1 id="selection-process">Selection Process</h1>
+
+<p>The first step was choosing which software to use. There are truly a surprising number of alternatives. An extensive review was conducted, including many Continuous Integration services from <a href="https://github.com/ligurio/awesome-ci">awesome-ci</a> which lists more than 50.  Coincidentally, Rene Rivera had recently done an analysis as well for <a href="https://github.com/bfgroup/ci_playground">ci_playground</a>, and his example config files eventually became the basis for our new config files.</p>
+
+<p>The top choices:<br />
+Appveyor<br />
+Azure Pipelines<br />
+BuildBot<br />
+CircleCI<br />
+CirrusCI<br />
+Drone<br />
+Github Actions<br />
+Semaphore<br />
+Shippable<br />
+TeamCity</p>
+
+<p>From this list, Appveyor and Drone seemed the most promising to start with.  Both allow for 100% self-hosting.</p>
+
+<h2 id="appveyor">Appveyor</h2>
+
+<p>The appeal of Appveyor is that the config files are basic yaml, and everything runs in a Docker container. It sounds perfect. However, after experimentation there were a few issues.</p>
+<ol>
+  <li>Appveyor was originally designed for Microsoft Windows, with .NET and Powershell being key ingredients. While it can run on Linux, it’s not a native Linux application.  Most of the CI testing done by Boost and CPPAlliance runs on Linux.</li>
+  <li>Specifically, the Docker experience on Windows is not nearly as smooth as Linux. I encountered numerous complexities when setting up Appveyor Windows Docker containers.</li>
+  <li>Bugs in their app.</li>
+</ol>
+
+<p>Due to a combination of those reasons, Appveyor was not the best choice for this project.</p>
+<h2 id="drone">Drone</h2>
+
+<p>Within the first day or two experimenting with Drone, it became clear that this was an excellent CI framework:</p>
+<ol>
+  <li>Simple, usable UI</li>
+  <li>Easy installation</li>
+  <li>Linux and Docker native</li>
+  <li>Small number of processes to run</li>
+  <li>Integrates with PostgreSQL, MySQL, Amazon S3</li>
+  <li>Autoscale the agents</li>
+  <li>Badges on github repos</li>
+</ol>
+
+<p>The main drawback with Drone is the absence of “matrix” builds. Their alternative for matrices is jsonnet or starlark, which are flexible scripting languages. I was apprehensive about this point, thinking that the end-user would prefer simple yaml files - exactly like Travis. And, in fact, that is probably the case. Basic yaml files are easier to understand. However, on balance, this was the only noticable problem with Drone, and everything else seemed to be in order. The resulting starlark files do have a matrix-like configuration where each job can be customized.</p>
+
+<p>To discuss <a href="https://docs.bazel.build/versions/master/skylark/language.html">Starlark</a> for a moment - it’s a subset of python, and therefore easy to learn. <a href="https://pypi.org/project/pystarlark/">Why would I use Starlark instead of just Python?</a> “Sandboxing. The primary reason this was written is for the “hermetic execution” feature of Starlark. Python is notoriously difficult to sandbox and there didn’t appear to be any sandboxing solutions that could run within Python to run Python or Python-like code. While Starlark isn’t exactly Python it is very very close to it. You can think of this as a secure way to run very simplistic Python functions. Note that this library itself doesn’t really provide any security guarantees and your program may crash while using it (PRs welcome). Starlark itself is providing the security guarantees.”</p>
+
+<h3 id="running-a-drone-server">Running a drone server</h3>
+
+<p>Create a script startdrone.sh with these contents:</p>
+<pre><code>#!/bin/bash
+  
+docker run \
+  --volume=/var/lib/drone:/data \
+  --env=DRONE_GITHUB_CLIENT_ID= \
+  --env=DRONE_GITHUB_CLIENT_SECRET= \
+  --env=DRONE_RPC_SECRET= \
+  --env=DRONE_TLS_AUTOCERT= \
+  --env=DRONE_SERVER_HOST= \
+  --env=DRONE_SERVER_PROTO= \
+  --env=DRONE_CONVERT_PLUGIN_ENDPOINT= \
+  --env=DRONE_CONVERT_PLUGIN_SECRET= \
+  --env=DRONE_HTTP_SSL_REDIRECT= \
+  --env=DRONE_HTTP_SSL_TEMPORARY_REDIRECT= \
+  --env=DRONE_S3_BUCKET= \
+  --env=DRONE_LOGS_PRETTY= \
+  --env=AWS_ACCESS_KEY_ID= \
+  --env=AWS_SECRET_ACCESS_KEY= \
+  --env=AWS_DEFAULT_REGION= \
+  --env=AWS_REGION= \
+  --env=DRONE_DATABASE_DRIVER= \
+  --env=DRONE_DATABASE_DATASOURCE= \
+  --env=DRONE_USER_CREATE= \
+  --env=DRONE_REPOSITORY_FILTER= \
+  --env=DRONE_GITHUB_SCOPE= \
+  --publish=80:80 \
+  --publish=443:443 \
+  --restart=always \
+  --detach=true \
+  --name=drone \
+  drone/drone:1
+</code></pre>
+
+<p>Fill in the variables. (Many of those are secure keys which shouldn’t be published on a public webpage.)<br />
+Then, run the script.</p>
+
+<pre><code>./startdrone.sh  
+</code></pre>
+
+<p>Drone is up and running.</p>
+
+<p>Next, the starlark plugin. Edit startstarlark.sh:</p>
+<pre><code>#!/bin/bash
+  
+docker run -d \
+  --volume=/var/lib/starlark:/data \
+  --env= \
+  --publish= \
+  --env=DRONE_DEBUG= \
+  --env=DRONE_SECRET= \
+  --restart=always \
+  --name=starlark drone/drone-convert-starlark
+</code></pre>
+<p>and run it:</p>
+
+<pre><code>./startstarlark.sh
+</code></pre>
+
+<p>Starlark is up and running. Finally, the autoscaler.</p>
+<pre><code>#!/bin/bash
+  
+docker run -d \
+  -v /var/lib/autoscaler:/data \
+  -e DRONE_POOL_MIN= \
+  -e DRONE_POOL_MAX= \
+  -e DRONE_SERVER_PROTO= \
+  -e DRONE_SERVER_HOST= \
+  -e DRONE_SERVER_TOKEN= \
+  -e DRONE_AGENT_TOKEN= \
+  -e DRONE_AMAZON_REGION= \
+  -e DRONE_AMAZON_SUBNET_ID= \
+  -e DRONE_AMAZON_SECURITY_GROUP= \
+  -e AWS_ACCESS_KEY_ID= \
+  -e AWS_SECRET_ACCESS_KEY= \
+  -e DRONE_CAPACITY_BUFFER= \
+  -e DRONE_REAPER_INTERVAL= \
+  -e DRONE_REAPER_ENABLED= \
+  -e DRONE_ENABLE_REAPER= \
+  -e DRONE_AMAZON_INSTANCE= \
+  -e DRONE_AMAZON_VOLUME_TYPE= \
+  -e DRONE_AMAZON_VOLUME_IOPS= \
+  -p  \
+  --restart=always \
+  --name=autoscaler \
+  drone/autoscaler
+</code></pre>
+<p>Start the autoscaler.</p>
+<pre><code>./startautoscaler.sh
+</code></pre>
+
+<p>Windows autoscaler is still experimental. For now, both Windows and Mac servers have been installed manually and will be scaled individually. Because they are less common operating systems, with most boost builds running in Linux, the CPU load on these other machines is not as significant.</p>
+
+<h1 id="configs">Configs</h1>
+
+<p>The real complexities appear when composing the config files for each repository. After manually porting .travis.yml for <a href="https://github.com/boostorg/beast">https://github.com/boostorg/beast</a> and <a href="https://github.com/boostorg/json">https://github.com/boostorg/json</a>, the next step was creating a Python script which automates the entire process.</p>
+
+<h2 id="drone-converter">Drone Converter</h2>
+
+<p>A copy of the script can be viewed at <a href="https://github.com/CPPAlliance/droneconverter-demo">https://github.com/CPPAlliance/droneconverter-demo</a></p>
+
+<p>The idea is to be able to go into any directory with a .travis.yml file, and migrate to Drone by executing a single command:</p>
+
+<pre><code>cd boostorg/accumulators
+droneconverter
+</code></pre>
+
+<p>The converter ingests a source file, parses it with PyYAML, and dumps the output in Jinja2 templates. The method to write the script was by beginning with any library, such as <a href="https://github.com/boostorg/array">boostorg/array</a>, and just get that one working. Then, move on to others, <a href="https://github.com/boostorg/assign">boostorg/assign</a>,  <a href="https://github.com/boostorg/bind">boostorg/bind</a>, etc. Each library contains a mix of travis jobs which are both similar and different to the previously translated libraries. Thus, each new travis file presents a new puzzle to solve, but hopefully in a generalized way that will also work for all repositories.</p>
+
+<p>Versions of <a href="https://clang.llvm.org/">clang</a> ranging from 3.3 to 11 are targeted in the tests. While later releases such as clang-6 or clang-7 usually build right away without errors, the earlier versions in the 3.x series were failing to build for a variety of reasons. First of all, those versions are not available on Ubuntu 16.04 and later, which means being stuck on Ubuntu 14.04, preventing an across-the-board upgrade to a newer Ubuntu.  Then, if a standard “base” clang is simultaneously installed, such as clang-7 or 9, this seems to cause other dependent packages and libraries to be installed, which conflict with clang-3. The solution was to figure out what travis does, and copy it. Travis images have downloaded and installed clang-7 into a completely separate directory, not using the ordinary system packages. Then the extra directory /usr/local/clang-7.0.0/bin has been added to the $PATH.</p>
+
+<p>Some .travis.yml files have a “matrix” section. Others have “jobs”. Some .travis files place all the logic in one main “install” script. Others refer to a variety of script sections including “install”, “script”, “before_install”, “before_script”, “after_success”, which may or may not be shared between the 20 jobs contained in the file. Some job in travis were moving (with the mv command) their source directory, which is baffling and not usually permitted in Jenkins or Drone.  This must be converted to a copy command instead. “travis_wait” and “travis_retry” must be deleted, they are travis-specific.  Many travis variables such as TRAVIS_OS_NAME or TRAVIS_BRANCH need to be set and/or replaced in the resulting scripts. Environment variables in the travis file might be presented as a list, or a string, without quotes, or with single quotes, or double quotes, or single quotes embedded in double quotes, or double quotes embedded in single quotes, or missing entirely and included as a global env section at the top of the file.  The CXX variable, which determines the compiler used by boost build, isn’t always apparent and could be derived from a variety of sources, including the COMPILER variable or the list of packages. The list of these types of conversion fixes goes on and on, you can see them in the droneconverter program.</p>
+
+<p>Apple Macs Developer Tools depends on Xcode, with an array of possible Xcode version numbers from 6 to 12, and counting.  Catalina only runs 10 and above. High Sierra will run 7-9. None of these will operate without accepting the license agreement, however the license agreement might reset if switching to a newer version of Xcode. The presence of “Command Line Tools” seems to break some builds during testing, however everything works if “Command Line Tools” is missing and the build directly accesses Xcode in the /Applications/Xcode-11.7.app/Contents/Developer directory. On the other hand, the package manager “brew” needs “Command Line Tools” (on High Sierra) or it can’t install packages. A solution which appears to be sufficiently effective is to “mv CommandLineTools CommandLineTools.bck”, or the reverse, when needed.</p>
+
+<p>Drone will not start on a Mac during reboot unless the Drone user has a window console sessions running too. So, Apple is not an ideal command-line-only remote server environment.</p>
+
+<h1 id="drone-deployments">Drone Deployments</h1>
+
+<p>Pull requests with the new drone configs were rolled out to all those boost repositories with 100% travis build success rate and 100% drone build success rate, which accounts for about half of boost libraries. The other half of boost libraries are either missing a .travis.yml file, or they have a couple of travis/drone jobs which are failing. These should be addressed individually, even if only to post details about it in the pull requests. Ideally, attention should be focused on these failing tests, one by one, until the jobs attain a 100% build success rate and the badge displays green instead of red.  The <a href="https://en.wikipedia.org/wiki/Long_tail">long tail</a> distribution of edge-cases require individual attention and rewritten tests.</p>
+
+<h1 id="github-actions">Github Actions</h1>
+
+<p>The droneconverter script is being enhanced to also generate Github Actions config files. A first draft, tested on a few boost libraries, is building Linux jobs successfully. Ongoing.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

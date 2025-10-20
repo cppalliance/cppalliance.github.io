@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hashing and Matching | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Hashing and Matching | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Hashing and Matching" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Boost.Hash2 I’m happy to report that the library I helped Peter Dimov develop, Hash2, was accepted after probably one of the most thorough Boost reviews to have happened in recent history. I can’t claim to have contributed all too much to the design. After all, Hash2 was an implementation of Types Don’t Know #. But I did come along and help implement myriad algorithms and help with the absolutely massive testing burden. Interestingly, I think people who don’t sit and write/maintain Boost libraries all day underestimate just how much testing even something like 10 extra lines of source can require. When you write software with a certain minimum bar of quality, almost all your effort and time go into testing it than anything else. This is because if a Boost library gets it wrong, there’s really no good way to unwind that. Bad versions of libboost-dev will have already gone out and then packagers need to re-package and the whole thing is a huge debacle for users and packagers. Working on Hash2 is fun and engaging and more importantly, it finally gives C++ developers something reputable and makes hashing as easy as it should be. The only problem with Hash2 that I can think of as a user of Boost would be that it took until 2024 (and now basically 2025) for Boost to have simple and effective hashing routines. For example, std::string get_digest(std::vector&lt;char&gt; const&amp; buf) { boost::hash2::sha2_256 h; h.update(buf.data(), buf.size()); return to_string(h.result()); } Very simple, very nice and clean and does what it says on the box. The version of the library that was accepted is also far from the final version as well. The library will continue to evolve and quality of implementation will be iterated on and the interfaces will naturally be refined. It’s good for reviewers and authors of Boost libraries to keep in mind that libraries aren’t some static thing that are carved out of stone. The accepted version of a Boost library is very seldom similar to the version 4 releases down the line. Boost.Asio is probably the most emblematic of this, having undergone dramatic refactors over the years. One thing I’m particularly looking forward to is experimenting with sha-256 intrinsics available on certain Intel CPUs but that’ll come later once the base sha2 family has had a nice performance overhaul and maybe a few new algorithms are also added to the collection. Boost.Regex I’ve also started working with Boost.Regex author John Maddock to squash CVEs filed against Boost.Regex found by Google’s oss-fuzz project, which is a wonderful contribution to the world of open-source. While as developers we may use regexes in our day-to-day lives, it’s an entirely different world to actually implement a regex engine. Learning what goes into this has been fascinating and I do have to admit, I’m tremendously humbled by John’s prowess and ability to navigate the complexities of the state machine construction. In a similar vein, I’m equally impressed at just how effective fuzzing is at crafting input. I’ve known about fuzzing for a good bit of time now as most modern software developers do but I’ve never stopped to sit down and truly appreciate just how valuable these tools are. One of the first things I essentially had to do for the repo was get it to a place where clangd could handle the generated compiled_commands.json. clangd is one of the better developer tools to come out but has caveats in that it can’t handle non-self-contained header files and old school Boost libraries like to #include various implementation headers at the bottom. Fixing this for clangd normally requires recursive #includes or just not using implementation headers. In most cases, it’s easiest to deal with the recursion and solve it by simply just adding #pragma once. Because this is Boost, the Config module even has all the macros that help detect when #pragma once is available so we can support all the compilers and all the toolchains no matter what. I look forward to continuing to work with John on Regex but in the interim, I’m having fun taking a Hash2 break. – Christian" />
+<meta property="og:description" content="Boost.Hash2 I’m happy to report that the library I helped Peter Dimov develop, Hash2, was accepted after probably one of the most thorough Boost reviews to have happened in recent history. I can’t claim to have contributed all too much to the design. After all, Hash2 was an implementation of Types Don’t Know #. But I did come along and help implement myriad algorithms and help with the absolutely massive testing burden. Interestingly, I think people who don’t sit and write/maintain Boost libraries all day underestimate just how much testing even something like 10 extra lines of source can require. When you write software with a certain minimum bar of quality, almost all your effort and time go into testing it than anything else. This is because if a Boost library gets it wrong, there’s really no good way to unwind that. Bad versions of libboost-dev will have already gone out and then packagers need to re-package and the whole thing is a huge debacle for users and packagers. Working on Hash2 is fun and engaging and more importantly, it finally gives C++ developers something reputable and makes hashing as easy as it should be. The only problem with Hash2 that I can think of as a user of Boost would be that it took until 2024 (and now basically 2025) for Boost to have simple and effective hashing routines. For example, std::string get_digest(std::vector&lt;char&gt; const&amp; buf) { boost::hash2::sha2_256 h; h.update(buf.data(), buf.size()); return to_string(h.result()); } Very simple, very nice and clean and does what it says on the box. The version of the library that was accepted is also far from the final version as well. The library will continue to evolve and quality of implementation will be iterated on and the interfaces will naturally be refined. It’s good for reviewers and authors of Boost libraries to keep in mind that libraries aren’t some static thing that are carved out of stone. The accepted version of a Boost library is very seldom similar to the version 4 releases down the line. Boost.Asio is probably the most emblematic of this, having undergone dramatic refactors over the years. One thing I’m particularly looking forward to is experimenting with sha-256 intrinsics available on certain Intel CPUs but that’ll come later once the base sha2 family has had a nice performance overhaul and maybe a few new algorithms are also added to the collection. Boost.Regex I’ve also started working with Boost.Regex author John Maddock to squash CVEs filed against Boost.Regex found by Google’s oss-fuzz project, which is a wonderful contribution to the world of open-source. While as developers we may use regexes in our day-to-day lives, it’s an entirely different world to actually implement a regex engine. Learning what goes into this has been fascinating and I do have to admit, I’m tremendously humbled by John’s prowess and ability to navigate the complexities of the state machine construction. In a similar vein, I’m equally impressed at just how effective fuzzing is at crafting input. I’ve known about fuzzing for a good bit of time now as most modern software developers do but I’ve never stopped to sit down and truly appreciate just how valuable these tools are. One of the first things I essentially had to do for the repo was get it to a place where clangd could handle the generated compiled_commands.json. clangd is one of the better developer tools to come out but has caveats in that it can’t handle non-self-contained header files and old school Boost libraries like to #include various implementation headers at the bottom. Fixing this for clangd normally requires recursive #includes or just not using implementation headers. In most cases, it’s easiest to deal with the recursion and solve it by simply just adding #pragma once. Because this is Boost, the Config module even has all the macros that help detect when #pragma once is available so we can support all the compilers and all the toolchains no matter what. I look forward to continuing to work with John on Regex but in the interim, I’m having fun taking a Hash2 break. – Christian" />
+<link rel="canonical" href="http://cppalliance.org/christian/2025/01/07/Christian2024Q4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/christian/2025/01/07/Christian2024Q4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-01-07T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Hashing and Matching" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Boost.Hash2 I’m happy to report that the library I helped Peter Dimov develop, Hash2, was accepted after probably one of the most thorough Boost reviews to have happened in recent history. I can’t claim to have contributed all too much to the design. After all, Hash2 was an implementation of Types Don’t Know #. But I did come along and help implement myriad algorithms and help with the absolutely massive testing burden. Interestingly, I think people who don’t sit and write/maintain Boost libraries all day underestimate just how much testing even something like 10 extra lines of source can require. When you write software with a certain minimum bar of quality, almost all your effort and time go into testing it than anything else. This is because if a Boost library gets it wrong, there’s really no good way to unwind that. Bad versions of libboost-dev will have already gone out and then packagers need to re-package and the whole thing is a huge debacle for users and packagers. Working on Hash2 is fun and engaging and more importantly, it finally gives C++ developers something reputable and makes hashing as easy as it should be. The only problem with Hash2 that I can think of as a user of Boost would be that it took until 2024 (and now basically 2025) for Boost to have simple and effective hashing routines. For example, std::string get_digest(std::vector&lt;char&gt; const&amp; buf) { boost::hash2::sha2_256 h; h.update(buf.data(), buf.size()); return to_string(h.result()); } Very simple, very nice and clean and does what it says on the box. The version of the library that was accepted is also far from the final version as well. The library will continue to evolve and quality of implementation will be iterated on and the interfaces will naturally be refined. It’s good for reviewers and authors of Boost libraries to keep in mind that libraries aren’t some static thing that are carved out of stone. The accepted version of a Boost library is very seldom similar to the version 4 releases down the line. Boost.Asio is probably the most emblematic of this, having undergone dramatic refactors over the years. One thing I’m particularly looking forward to is experimenting with sha-256 intrinsics available on certain Intel CPUs but that’ll come later once the base sha2 family has had a nice performance overhaul and maybe a few new algorithms are also added to the collection. Boost.Regex I’ve also started working with Boost.Regex author John Maddock to squash CVEs filed against Boost.Regex found by Google’s oss-fuzz project, which is a wonderful contribution to the world of open-source. While as developers we may use regexes in our day-to-day lives, it’s an entirely different world to actually implement a regex engine. Learning what goes into this has been fascinating and I do have to admit, I’m tremendously humbled by John’s prowess and ability to navigate the complexities of the state machine construction. In a similar vein, I’m equally impressed at just how effective fuzzing is at crafting input. I’ve known about fuzzing for a good bit of time now as most modern software developers do but I’ve never stopped to sit down and truly appreciate just how valuable these tools are. One of the first things I essentially had to do for the repo was get it to a place where clangd could handle the generated compiled_commands.json. clangd is one of the better developer tools to come out but has caveats in that it can’t handle non-self-contained header files and old school Boost libraries like to #include various implementation headers at the bottom. Fixing this for clangd normally requires recursive #includes or just not using implementation headers. In most cases, it’s easiest to deal with the recursion and solve it by simply just adding #pragma once. Because this is Boost, the Config module even has all the macros that help detect when #pragma once is available so we can support all the compilers and all the toolchains no matter what. I look forward to continuing to work with John on Regex but in the interim, I’m having fun taking a Hash2 break. – Christian","@type":"BlogPosting","url":"http://cppalliance.org/christian/2025/01/07/Christian2024Q4Update.html","headline":"Hashing and Matching","dateModified":"2025-01-07T00:00:00+00:00","datePublished":"2025-01-07T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/christian/2025/01/07/Christian2024Q4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Hashing and Matching</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/christian">
+                  Christian Mazakas
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jan 7, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="boosthash2">Boost.Hash2</h2>
+
+<p>I’m happy to report that the library I helped Peter Dimov develop, <a href="https://github.com/pdimov/hash2">Hash2</a>, was accepted
+after probably one of the most thorough Boost reviews to have happened in recent history.</p>
+
+<p>I can’t claim to have contributed all too much to the design. After all, Hash2 was an implementation of
+<a href="https://open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3980.html">Types Don’t Know #</a>.
+But I did come along and help implement myriad algorithms and help with the absolutely massive testing burden.
+Interestingly, I think people who don’t sit and write/maintain Boost libraries all day underestimate just how much testing
+even something like 10 extra lines of source can require. When you write software with a certain minimum bar of quality,
+almost all your effort and time go into testing it than anything else. This is because if a Boost library gets it wrong,
+there’s really no good way to unwind that. Bad versions of <code>libboost-dev</code> will have already gone out and then packagers
+need to re-package and the whole thing is a huge debacle for users and packagers.</p>
+
+<p>Working on Hash2 is fun and engaging and more importantly, it finally gives C++ developers something reputable and makes
+hashing as easy as it should be. The only problem with Hash2 that I can think of as a user of Boost would be that it took
+until 2024 (and now basically 2025) for Boost to have simple and effective hashing routines.</p>
+
+<p>For example,</p>
+<pre><code class="language-cpp">std::string get_digest(std::vector&lt;char&gt; const&amp; buf)
+{
+    boost::hash2::sha2_256 h;
+    h.update(buf.data(), buf.size());
+    return to_string(h.result());
+}
+</code></pre>
+
+<p>Very simple, very nice and clean and does what it says on the box.</p>
+
+<p>The version of the library that was accepted is also far from the final version as well. The library will continue to evolve
+and quality of implementation will be iterated on and the interfaces will naturally be refined. It’s good for reviewers and
+authors of Boost libraries to keep in mind that libraries aren’t some static thing that are carved out of stone. The accepted
+version of a Boost library is very seldom similar to the version 4 releases down the line. Boost.Asio is probably the most
+emblematic of this, having undergone dramatic refactors over the years.</p>
+
+<p>One thing I’m particularly looking forward to is experimenting with sha-256 intrinsics available on certain Intel CPUs but
+that’ll come later once the base sha2 family has had a nice performance overhaul and maybe a few new algorithms are also added
+to the collection.</p>
+
+<h2 id="boostregex">Boost.Regex</h2>
+
+<p>I’ve also started working with Boost.Regex author John Maddock to squash CVEs filed against Boost.Regex found by Google’s oss-fuzz
+project, which is a wonderful contribution to the world of open-source.</p>
+
+<p>While as developers we may use regexes in our day-to-day lives, it’s an entirely different world to actually implement a regex engine.
+Learning what goes into this has been fascinating and I do have to admit, I’m tremendously humbled by John’s prowess and ability
+to navigate the complexities of the state machine construction. In a similar vein, I’m equally impressed at just how effective fuzzing is
+at crafting input. I’ve known about fuzzing for a good bit of time now as most modern software developers do but I’ve never stopped to
+sit down and truly appreciate just how valuable these tools are.</p>
+
+<p>One of the first things I essentially had to do for the repo was get it to a place where clangd could handle the generated compiled_commands.json.
+clangd is one of the better developer tools to come out but has caveats in that it can’t handle non-self-contained header files and old school Boost
+libraries like to <code>#include</code> various implementation headers at the bottom. Fixing this for clangd normally requires recursive <code>#include</code>s or just not
+using implementation headers. In most cases, it’s easiest to deal with the recursion and solve it by simply just adding <code>#pragma once</code>. Because this is
+Boost, the Config module even has all the macros that help detect when <code>#pragma once</code> is available so we can support all the compilers and all the
+toolchains no matter what.</p>
+
+<p>I look forward to continuing to work with John on Regex but in the interim, I’m having fun taking a Hash2 break.</p>
+
+<p>– Christian</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/17/2025</span>
+          <a class='text-l news-title link' href="/christian/2025/04/17/Christians2025Q1Update.html">Unordered's New Look</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/christian/2025/01/07/Christian2024Q4Update.html">Hashing and Matching</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/10/20/Christian2024Q3Update.html">The Safe C++ Saga</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/07/10/ChristiansQ2Update.html">Christian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/04/20/ChristiansQ1Update.html">Christian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/christian/2024/01/10/ChristiansQ4Update.html">Christian's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/christian/2023/10/27/Christians2023Q3Update.html">Christian's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

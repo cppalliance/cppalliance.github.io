@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's May & June Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s May &amp; June Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s May &amp; June Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Overview I’ve been very busy these last two months getting Boost.JSON ready for release, hence the combined blog post. Now that things are winding down, I hopefully can get back the normal blog release schedule. Boost.JSON Aside from a couple of personal projects, the vast majority of my time was spent getting Boost.JSON set for release. Breaking it down, this consisted of three main tasks: a tag_invoke based value conversion interface, parser optimizations, and support for extended JSON syntax. Value Conversion Our previous interface that allowed users to specify their own conversions to and from value proved unsatisfactory, as it required too much boiler-plate when specifying conversions to and from non-class types (e.g. enumeration types). To remedy this, I was tasked with implementing an ADL solution based on tag_invoke which greatly reduces the amount of boiler-plate and provides a single, straightforward way to implement a custom conversion. For example, consider the following class type: struct customer { std::string name; std::size_t balance; }; To convert an object of type customer to value, all you need is to write an overload of tag_invoke. This can be implemented as an inline friend function within the class definition (thus making it visible to ADL but not unqualified lookup; see [[basic.lookup.argdep] p4.3]](http://eel.is/c++draft/basic.lookup.argdep#4.3)), or as a free function: void tag_invoke(value_from_tag, value&amp; jv, const customer&amp; c) { object&amp; obj = jv.emplace_object(); obj[&quot;name&quot;] = c.name; obj[&quot;balance&quot;] = c.balance; } Note that a reference to value is passed to the function performing the conversion. This ensures that the storage_ptr passed to the calling function (i.e. value_from(T&amp;&amp;, storage_ptr)) is correctly propagated to the result. Conversions from value to a type T are specified in a similar fashion: customer tag_invoke(value_to_tag&lt;customer&gt;, const value&amp; jv) { return customer{ value_to&lt;std::string&gt;(jv.at(&quot;name&quot;])), jv.at(&quot;balance&quot;).as_uint64() }; } In addition to user-provided tag_invoke overloads, generic conversions are provided for container-like, map-like, and string-like types, with obvious results. In general, if your container works with a range-based for loop, it will work with value_from and value_to without you having to write anything. Parser Optimizations Optimizing the parser was a side-project turned obsession for me. While it’s often a painfully tedious process of trying an idea, running benchmarks, and being disappointed with the results, the few times that you get a performance increase makes it all worth it. To preface, Boost.JSON is unique in that it can parse incrementally (no other C++ libraries implement this). However, incremental parsing is considerably slower than parsing a JSON document in its entirety, as a stack must be maintained to track which function the parser should resume to once more data is available. In addition to this, the use cases for incremental parsing will often involve bottlenecks much more significant than the speed of the parser. With this in mind, Boost.JSON’s parser is optimized for non-incremental parsing of a valid JSON document. The remainder of this post will be written without consideration for incremental parsing. Most of the optimizations were branch eliminations, such as removing branches based on call site preconditions. These yield small performance gains, but once compounded we saw a performance increase of up to 7% on certain benchmarks. The biggest gain in this category came from removing a large switch statement in parse_value in favor of a manually written jump table. Making this function branchless significantly increases performance as it’s the most called function when parsing. This also makes the function very compact, meaning it can be inlined almost everywhere. In addition to benchmark driven optimization, I also optimized based on codegen. Going into it I really had no idea what I was doing, but after staring at it for a long time and watching some videos I got the hang of it. I used this method to optimize parse_array and parse_object, aiming to get the most linear hot path possible, with the fewest number of jumps. It took a few hours, but I was able to reach my target. This was done by moving some branches around, removing the local_const_stream variable, and adding some optimization hints to various branches. In addition to this, the std::size_t parameter (representing the number of elements) was removed from the on_array_end and on_object_end handlers as it didn’t provide any useful information and is not used by parser. This yielded a performance increase of up to 4% in certain cases. The last major optimization was suggested by Joaquín M López Muñoz. In essence, integer division is a slow operation, so compilers have all sorts of ways to avoid it; one of which is doing multiplication instead. When dividing by a constant divisor, the compiler is able to convert this to multiplication by the reciprocal of the divisor, which can be up to 20 times faster. Where this is applicable in Boost.JSON is in the calculation used to get the index of the bucket for a object key. The implementation was pretty straightforward, and it yielded up to a 10% increase in performance for object heavy benchmarks – a remarkable gain from such a small change. Thank you Joaquín :) Parser Extensions The last major thing I worked on for Boost.JSON was implementing support for extended JSON syntaxes. The two supported extensions are: - allowing C and C++ style comments to appear within whitespace, and allowing trailing commas to appear after the last element of an array or object. This post isn’t quite in chronological order, but comment support was my introduction into working on the parser (a trial by fire). After a few naive attempts at implementation, the result was comment parsing that did not affect performance at all when not enabled (as it should) and only has a minor impact on performance when enabled. This was done by building off existing branches within parse_array and parse_object instead of checking for comments every time whitespace is being parsed. Allowing for trailing commas was done in much the same way. The larger takeaway from implementing these extensions was getting to know the internals of the parser much better, allowing me to implement the aforementioned optimizations, as well as more complex extensions in the future. If you want to get in touch with me, you can message me on the Cpplang slack, or shoot me an email." />
+<meta property="og:description" content="Overview I’ve been very busy these last two months getting Boost.JSON ready for release, hence the combined blog post. Now that things are winding down, I hopefully can get back the normal blog release schedule. Boost.JSON Aside from a couple of personal projects, the vast majority of my time was spent getting Boost.JSON set for release. Breaking it down, this consisted of three main tasks: a tag_invoke based value conversion interface, parser optimizations, and support for extended JSON syntax. Value Conversion Our previous interface that allowed users to specify their own conversions to and from value proved unsatisfactory, as it required too much boiler-plate when specifying conversions to and from non-class types (e.g. enumeration types). To remedy this, I was tasked with implementing an ADL solution based on tag_invoke which greatly reduces the amount of boiler-plate and provides a single, straightforward way to implement a custom conversion. For example, consider the following class type: struct customer { std::string name; std::size_t balance; }; To convert an object of type customer to value, all you need is to write an overload of tag_invoke. This can be implemented as an inline friend function within the class definition (thus making it visible to ADL but not unqualified lookup; see [[basic.lookup.argdep] p4.3]](http://eel.is/c++draft/basic.lookup.argdep#4.3)), or as a free function: void tag_invoke(value_from_tag, value&amp; jv, const customer&amp; c) { object&amp; obj = jv.emplace_object(); obj[&quot;name&quot;] = c.name; obj[&quot;balance&quot;] = c.balance; } Note that a reference to value is passed to the function performing the conversion. This ensures that the storage_ptr passed to the calling function (i.e. value_from(T&amp;&amp;, storage_ptr)) is correctly propagated to the result. Conversions from value to a type T are specified in a similar fashion: customer tag_invoke(value_to_tag&lt;customer&gt;, const value&amp; jv) { return customer{ value_to&lt;std::string&gt;(jv.at(&quot;name&quot;])), jv.at(&quot;balance&quot;).as_uint64() }; } In addition to user-provided tag_invoke overloads, generic conversions are provided for container-like, map-like, and string-like types, with obvious results. In general, if your container works with a range-based for loop, it will work with value_from and value_to without you having to write anything. Parser Optimizations Optimizing the parser was a side-project turned obsession for me. While it’s often a painfully tedious process of trying an idea, running benchmarks, and being disappointed with the results, the few times that you get a performance increase makes it all worth it. To preface, Boost.JSON is unique in that it can parse incrementally (no other C++ libraries implement this). However, incremental parsing is considerably slower than parsing a JSON document in its entirety, as a stack must be maintained to track which function the parser should resume to once more data is available. In addition to this, the use cases for incremental parsing will often involve bottlenecks much more significant than the speed of the parser. With this in mind, Boost.JSON’s parser is optimized for non-incremental parsing of a valid JSON document. The remainder of this post will be written without consideration for incremental parsing. Most of the optimizations were branch eliminations, such as removing branches based on call site preconditions. These yield small performance gains, but once compounded we saw a performance increase of up to 7% on certain benchmarks. The biggest gain in this category came from removing a large switch statement in parse_value in favor of a manually written jump table. Making this function branchless significantly increases performance as it’s the most called function when parsing. This also makes the function very compact, meaning it can be inlined almost everywhere. In addition to benchmark driven optimization, I also optimized based on codegen. Going into it I really had no idea what I was doing, but after staring at it for a long time and watching some videos I got the hang of it. I used this method to optimize parse_array and parse_object, aiming to get the most linear hot path possible, with the fewest number of jumps. It took a few hours, but I was able to reach my target. This was done by moving some branches around, removing the local_const_stream variable, and adding some optimization hints to various branches. In addition to this, the std::size_t parameter (representing the number of elements) was removed from the on_array_end and on_object_end handlers as it didn’t provide any useful information and is not used by parser. This yielded a performance increase of up to 4% in certain cases. The last major optimization was suggested by Joaquín M López Muñoz. In essence, integer division is a slow operation, so compilers have all sorts of ways to avoid it; one of which is doing multiplication instead. When dividing by a constant divisor, the compiler is able to convert this to multiplication by the reciprocal of the divisor, which can be up to 20 times faster. Where this is applicable in Boost.JSON is in the calculation used to get the index of the bucket for a object key. The implementation was pretty straightforward, and it yielded up to a 10% increase in performance for object heavy benchmarks – a remarkable gain from such a small change. Thank you Joaquín :) Parser Extensions The last major thing I worked on for Boost.JSON was implementing support for extended JSON syntaxes. The two supported extensions are: - allowing C and C++ style comments to appear within whitespace, and allowing trailing commas to appear after the last element of an array or object. This post isn’t quite in chronological order, but comment support was my introduction into working on the parser (a trial by fire). After a few naive attempts at implementation, the result was comment parsing that did not affect performance at all when not enabled (as it should) and only has a minor impact on performance when enabled. This was done by building off existing branches within parse_array and parse_object instead of checking for comments every time whitespace is being parsed. Allowing for trailing commas was done in much the same way. The larger takeaway from implementing these extensions was getting to know the internals of the parser much better, allowing me to implement the aforementioned optimizations, as well as more complex extensions in the future. If you want to get in touch with me, you can message me on the Cpplang slack, or shoot me an email." />
+<link rel="canonical" href="http://cppalliance.org/krystian/2020/07/01/KrystiansMayJuneUpdate.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2020/07/01/KrystiansMayJuneUpdate.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-07-01T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s May &amp; June Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Overview I’ve been very busy these last two months getting Boost.JSON ready for release, hence the combined blog post. Now that things are winding down, I hopefully can get back the normal blog release schedule. Boost.JSON Aside from a couple of personal projects, the vast majority of my time was spent getting Boost.JSON set for release. Breaking it down, this consisted of three main tasks: a tag_invoke based value conversion interface, parser optimizations, and support for extended JSON syntax. Value Conversion Our previous interface that allowed users to specify their own conversions to and from value proved unsatisfactory, as it required too much boiler-plate when specifying conversions to and from non-class types (e.g. enumeration types). To remedy this, I was tasked with implementing an ADL solution based on tag_invoke which greatly reduces the amount of boiler-plate and provides a single, straightforward way to implement a custom conversion. For example, consider the following class type: struct customer { std::string name; std::size_t balance; }; To convert an object of type customer to value, all you need is to write an overload of tag_invoke. This can be implemented as an inline friend function within the class definition (thus making it visible to ADL but not unqualified lookup; see [[basic.lookup.argdep] p4.3]](http://eel.is/c++draft/basic.lookup.argdep#4.3)), or as a free function: void tag_invoke(value_from_tag, value&amp; jv, const customer&amp; c) { object&amp; obj = jv.emplace_object(); obj[&quot;name&quot;] = c.name; obj[&quot;balance&quot;] = c.balance; } Note that a reference to value is passed to the function performing the conversion. This ensures that the storage_ptr passed to the calling function (i.e. value_from(T&amp;&amp;, storage_ptr)) is correctly propagated to the result. Conversions from value to a type T are specified in a similar fashion: customer tag_invoke(value_to_tag&lt;customer&gt;, const value&amp; jv) { return customer{ value_to&lt;std::string&gt;(jv.at(&quot;name&quot;])), jv.at(&quot;balance&quot;).as_uint64() }; } In addition to user-provided tag_invoke overloads, generic conversions are provided for container-like, map-like, and string-like types, with obvious results. In general, if your container works with a range-based for loop, it will work with value_from and value_to without you having to write anything. Parser Optimizations Optimizing the parser was a side-project turned obsession for me. While it’s often a painfully tedious process of trying an idea, running benchmarks, and being disappointed with the results, the few times that you get a performance increase makes it all worth it. To preface, Boost.JSON is unique in that it can parse incrementally (no other C++ libraries implement this). However, incremental parsing is considerably slower than parsing a JSON document in its entirety, as a stack must be maintained to track which function the parser should resume to once more data is available. In addition to this, the use cases for incremental parsing will often involve bottlenecks much more significant than the speed of the parser. With this in mind, Boost.JSON’s parser is optimized for non-incremental parsing of a valid JSON document. The remainder of this post will be written without consideration for incremental parsing. Most of the optimizations were branch eliminations, such as removing branches based on call site preconditions. These yield small performance gains, but once compounded we saw a performance increase of up to 7% on certain benchmarks. The biggest gain in this category came from removing a large switch statement in parse_value in favor of a manually written jump table. Making this function branchless significantly increases performance as it’s the most called function when parsing. This also makes the function very compact, meaning it can be inlined almost everywhere. In addition to benchmark driven optimization, I also optimized based on codegen. Going into it I really had no idea what I was doing, but after staring at it for a long time and watching some videos I got the hang of it. I used this method to optimize parse_array and parse_object, aiming to get the most linear hot path possible, with the fewest number of jumps. It took a few hours, but I was able to reach my target. This was done by moving some branches around, removing the local_const_stream variable, and adding some optimization hints to various branches. In addition to this, the std::size_t parameter (representing the number of elements) was removed from the on_array_end and on_object_end handlers as it didn’t provide any useful information and is not used by parser. This yielded a performance increase of up to 4% in certain cases. The last major optimization was suggested by Joaquín M López Muñoz. In essence, integer division is a slow operation, so compilers have all sorts of ways to avoid it; one of which is doing multiplication instead. When dividing by a constant divisor, the compiler is able to convert this to multiplication by the reciprocal of the divisor, which can be up to 20 times faster. Where this is applicable in Boost.JSON is in the calculation used to get the index of the bucket for a object key. The implementation was pretty straightforward, and it yielded up to a 10% increase in performance for object heavy benchmarks – a remarkable gain from such a small change. Thank you Joaquín :) Parser Extensions The last major thing I worked on for Boost.JSON was implementing support for extended JSON syntaxes. The two supported extensions are: - allowing C and C++ style comments to appear within whitespace, and allowing trailing commas to appear after the last element of an array or object. This post isn’t quite in chronological order, but comment support was my introduction into working on the parser (a trial by fire). After a few naive attempts at implementation, the result was comment parsing that did not affect performance at all when not enabled (as it should) and only has a minor impact on performance when enabled. This was done by building off existing branches within parse_array and parse_object instead of checking for comments every time whitespace is being parsed. Allowing for trailing commas was done in much the same way. The larger takeaway from implementing these extensions was getting to know the internals of the parser much better, allowing me to implement the aforementioned optimizations, as well as more complex extensions in the future. If you want to get in touch with me, you can message me on the Cpplang slack, or shoot me an email.","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2020/07/01/KrystiansMayJuneUpdate.html","headline":"Krystian’s May &amp; June Update","dateModified":"2020-07-01T00:00:00+00:00","datePublished":"2020-07-01T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2020/07/01/KrystiansMayJuneUpdate.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's May & June Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Jul 1, 2020</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="overview">Overview</h1>
+
+<p>I’ve been very busy these last two months getting Boost.JSON ready for release, hence the combined blog post. Now that things are winding down, I hopefully can get back the normal blog release schedule.</p>
+
+<h1 id="boostjson">Boost.JSON</h1>
+
+<p>Aside from a couple of personal projects, the vast majority of my time was spent getting Boost.JSON set for release. Breaking it down, this consisted of three main tasks: a <code>tag_invoke</code> based <code>value</code> conversion interface, parser optimizations, and support for extended JSON syntax.</p>
+
+<h2 id="value-conversion">Value Conversion</h2>
+
+<p>Our previous interface that allowed users to specify their own conversions to and from <code>value</code> proved unsatisfactory, as it required too much boiler-plate when specifying conversions to and from non-class types (e.g. enumeration types). To remedy this, I was tasked with implementing an ADL solution based on <code>tag_invoke</code> which greatly reduces the amount of boiler-plate and provides a single, straightforward way to implement a custom conversion. For example, consider the following class type:</p>
+
+<pre><code class="language-cpp">struct customer
+{
+	std::string name;
+	std::size_t balance;
+};
+</code></pre>
+
+<p>To convert an object of type <code>customer</code> to <code>value</code>, all you need is to write an overload of <code>tag_invoke</code>. This can be implemented as an inline <code>friend</code> function within the class definition (thus making it visible to ADL but not unqualified lookup; see [[basic.lookup.argdep] p4.3]](http://eel.is/c++draft/basic.lookup.argdep#4.3)), or as a free function:</p>
+
+<pre><code class="language-cpp">void tag_invoke(value_from_tag, value&amp; jv, const customer&amp; c)
+{
+	object&amp; obj = jv.emplace_object();
+	obj["name"] = c.name;
+	obj["balance"] = c.balance;
+}
+</code></pre>
+
+<p>Note that a reference to <code>value</code> is passed to the function performing the conversion. This ensures that the <code>storage_ptr</code> passed to the calling function (i.e. <code>value_from(T&amp;&amp;, storage_ptr)</code>) is correctly propagated to the result.</p>
+
+<p>Conversions from <code>value</code> to a type <code>T</code> are specified in a similar fashion:</p>
+
+<pre><code class="language-cpp">customer tag_invoke(value_to_tag&lt;customer&gt;, const value&amp; jv)
+{
+	return customer{
+		value_to&lt;std::string&gt;(jv.at("name"])), 
+		jv.at("balance").as_uint64() 
+	};
+}
+</code></pre>
+
+<p>In addition to user-provided <code>tag_invoke</code> overloads, generic conversions are provided for container-like, map-like, and string-like types, with obvious results. In general, if your container works with a range-based for loop, it will work with <code>value_from</code> and <code>value_to</code> without you having to write anything.</p>
+
+<h2 id="parser-optimizations">Parser Optimizations</h2>
+
+<p>Optimizing the parser was a side-project turned obsession for me. While it’s often a painfully tedious process of trying an idea, running benchmarks, and being disappointed with the results, the few times that you get a performance increase makes it all worth it.</p>
+
+<p>To preface, Boost.JSON is unique in that it can parse incrementally (no other C++ libraries implement this). However, incremental parsing is considerably slower than parsing a JSON document in its entirety, as a stack must be maintained to track which function the parser should resume to once more data is available. In addition to this, the use cases for incremental parsing will often involve bottlenecks much more significant than the speed of the parser. With this in mind, Boost.JSON’s parser is optimized for non-incremental parsing of a valid JSON document. The remainder of this post will be written without consideration for incremental parsing.</p>
+
+<p>Most of the optimizations were branch eliminations, such as removing branches based on call site preconditions. These yield small performance gains, but once compounded we saw a performance increase of up to 7% on certain benchmarks. The biggest gain in this category came from removing a large switch statement in <code>parse_value</code> in favor of a manually written jump table. Making this function branchless significantly increases performance as it’s the most called function when parsing. This also makes the function very compact, meaning it can be inlined almost everywhere.</p>
+
+<p>In addition to benchmark driven optimization, I also optimized based on codegen. Going into it I really had no idea what I was doing, but after staring at it for a long time and watching some videos I got the hang of it. I used this method to optimize <code>parse_array</code> and <code>parse_object</code>, aiming to get the most linear hot path possible, with the fewest number of jumps. It took a few hours, but I was able to reach my target. This was done by moving some branches around, removing the <code>local_const_stream</code> variable, and adding some optimization hints to various branches. In addition to this, the <code>std::size_t</code> parameter (representing the number of elements) was removed from the <code>on_array_end</code> and <code>on_object_end</code> handlers as it didn’t provide any useful information and is not used by <code>parser</code>. This yielded a performance increase of up to 4% in certain cases.</p>
+
+<p>The last major optimization was <a href="https://github.com/CPPAlliance/json/issues/115">suggested</a> by <a href="https://github.com/joaquintides">Joaquín M López Muñoz</a>. In essence, integer division is a slow operation, so compilers have all sorts of ways to avoid it; one of which is doing multiplication instead. When dividing by a constant divisor, the compiler is able to convert this to multiplication by the reciprocal of the divisor, which can be up to 20 times faster. Where this is applicable in Boost.JSON is in the calculation used to get the index of the bucket for a <code>object</code> key. The implementation was pretty straightforward, and it yielded up to a 10% increase in performance for <code>object</code> heavy benchmarks – a remarkable gain from such a small change. Thank you Joaquín :)</p>
+
+<h2 id="parser-extensions">Parser Extensions</h2>
+
+<p>The last major thing I worked on for Boost.JSON was implementing support for extended JSON syntaxes. The two supported extensions are: - allowing C and C++ style comments to appear within whitespace, and</p>
+<ul>
+  <li>allowing trailing commas to appear after the last element of an array or object. 
+This post isn’t quite in chronological order, but comment support was my introduction into working on the parser (a trial by fire). After a few naive attempts at implementation, the result was comment parsing that did not affect performance at all when not enabled (as it should) and only has a minor impact on performance when enabled. This was done by building off existing branches within <code>parse_array</code> and <code>parse_object</code> instead of checking for comments every time whitespace is being parsed. Allowing for trailing commas was done in much the same way. The larger takeaway from implementing these extensions was getting to know the internals of the parser much better, allowing me to implement the aforementioned optimizations, as well as more complex extensions in the future.</li>
+</ul>
+
+<p>If you want to get in touch with me, you can message me on the <a href="http://slack.cpp.al/">Cpplang slack</a>, or <a href="mailto:sdkrystian@gmail.com">shoot me an email</a>.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

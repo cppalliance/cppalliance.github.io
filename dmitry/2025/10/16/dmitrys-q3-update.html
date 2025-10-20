@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conan Packages for Boost | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Conan Packages for Boost | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Conan Packages for Boost" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Back in April my former colleague Christian Mazakas has announced his work on registry of nightly Boost packages for vcpkg. That same month Conan developers have introduced a new feature that significantly simplified providing of an alternative Conan package source. These two events gave me an idea to create an index of nightly Boost packages for Conan. Conan Remotes Conan installs packages from a remote, which is usually a web server. When you request a package in a particular version range, the remote determines if it has a version that satisfies that range, and then sends you the package recipe and, if possible, compatible binaries for the package. Local-recipes-index is a new kind of Conan remote that is not actually a remote server and is just a local directory hierarchy of this kind: recipes ├── pkg1 │ ├── all │ │ ├── conandata.yml │ │ ├── conanfile.py │ │ └── test_package │ │ └── ... │ └── config.yml └── pkg2 ├── all │ ├── conandata.yml │ ├── conanfile.py │ └── test_package │ └── ... └── config.yml The directory structure is based on the Conan Center’s underlying GitHub project. In actuality only the config.yml and conanfile.py files are necessary. The former tells Conan where to find the package recipes for each version (and hence determines the set of available versions), the latter is the package recipe. In theory there could be many subdirectories for different versions, but in reality most if not all packages simply push all version differences into data files like conandata.yml and select the corresponding data in the recipe script. My idea in a nutshell was to set up a scheduled CI job that each day would run a script that takes Boost superproject’s latest commits from develop and master branches and generates a local-recipes-index directory hierarchy. Then to have recipes directories coming from different branches merged together, and the result be merged with the results of the previous run. Thus, after a while an index of Boost snapshots from each day would accumulate. Modular Boost The project would have been fairly simple if my goal was to just provide nightly packages for Boost. Simply take the recipe from the Conan Center project and replace getting sources from a release archive with getting sources from GitHub. But I also wanted to package every Boost library separately. This is generally known as modular Boost packages (not to be confused with Boost C++ modules). There is an apparent demand for such packages, and in fact this is exactly how vcpkg users consume Boost libraries. In addition to the direct results—the Conan packages for Boost libraries—such project is a great test of the modularity of Boost. Whether each library properly spells out all of its dependencies, whether there’s enough associated metadata that describes the library, whether the project’s build files are usable without the superproject, and so on. Conan Center (the default Conan remote) does not currently provide modular Boost packages, only packages for monolithic Boost (although it provides options to disable building of specific libraries). Due to that I decided to generate package recipes not only for nightly builds, but for tagged releases too. Given that, the core element of the project is the script that creates the index from a Boost superproject Git ref (branch name or tag). Each library is a git submodule of the superproject. Every superproject commit contains references to specific commits in submodules’ projects. The script checks out each such commit, determines the library’s dependencies and other properties important for Conan, and outputs config.yml, conanfile.py, conandata.yml, and test_package contents. Versions As previously mentioned, config.yml contains a list of supported versions. After one runs the generator script that file will contain exactly one version. You might ask, what exactly is that version? After some research I ended up with the scheme MAJOR.MINOR.0-a.B+YY.MM.DD.HH.mm, where: MAJOR.MINOR.0 is the next Boost release version; a implies an alpha-version pre-release; B is m for the master branch and d for the develop branch; YY.MM.DD.HH.mm is the authorship date and time of the source commit. For example, a commit authored at 12:15 on 15th of August 2025 taken from the master branch before Boost 1.90.0 was released would be represented by the version 1.90.0-a.m+25.08.15.12.15. The scheme is an example of semantic versioning. The part between the hyphen and the plus specifies a pre-release, and the part following the plus identifies a specific build. All parts of the version contribute to the versions order after sorting. Importantly, pre-releases are ordered before the release they predate, which makes sense, but isn’t obvious from the first glance. I originally did not plan to put commit time into the version scheme, as the scheduled CI job only runs once a day. But while working on the project, I also had the package index updated on pushes into the master branch, which overwrote previously indexed versions, and that was never the intention. Also, originally the pre-release part was just the name of the branch, which was good enough to sort master and develop. But with the scope of the project including actual Boost releases and betas, I needed beta versions to sort after master and develop versions, but before releases, hence I made them alpha versions explicitly. One may ask, why do I even care about betas? By having specific beta versions I want to encourage more people to check out Boost libraries in beta state and find the bugs early on. I hope that if obtaining a beta version is as easy as simply changing one string in a configuration file, more people will check them and that would reduce the amount of bugs shipped in Boost libraries. Conan Generators One of the most important Conan features in my opinion is its support for any build system rather than for a limited selection of them. This is done via generators—utilities that Convert platform description and dependency data into configuration files for build systems. In Conan 2.x the regular approach is to have a set of 2 generators for a given build system. The main one is a dependencies generator, which creates files that tell the build system how to find dependencies. For example, if you are familiar with CMake, the CMakeDependencies generator creates config modules for every dependency. The other one is a toolchain generator. Those convert platform information into build system configuration files which determine the compiler, computer architecture, OS, and so on. Using CMake as an example again, the CMakeToolchain generator creates a toolchain file. The reason for the split into 2 generators is that there are cases when you use only one of them. For example, if you don’t have any dependencies, you don’t need a dependencies generator. And when you are working on a project, you might already have the necessary build system configuration files, so you don’t need a toolchain generator. For my project I needed both for Boost’s main build system, b2. Boost can also be built with CMake, but that’s still not officially supported, and is tested less rigorously. Unfortunately, Conan 2.x doesn’t currently have in-built support for b2. It had it in Conan 1.x, but with the major version increase they’ve removed most of the old generators, and the PR to add it back did not go anywhere. So, I had to implement those 2 generators for b2. Luckily, Conan supports putting such Conan extensions into packages. So, now the package index generation script also creates a package with b2 generators. The Current State and Lessons Learned The work is still in its early stage, but the project is in a somewhat usable state already. It is currently located here (I plan to place it under boostorg GitHub organisation with the Boost community’s approval, or, failing that, under cppalliance organisation). You can clone the project and install and use some of the Boost libraries, but not all. I have tested that those libraries build and work on Windows, Linux, and macOS. The b2 generators are almost feature complete at this point. My future work will be mostly dedicated to discovering special requirements of the remaining libraries and working out ways to handle them. The most interesting problems are handling projects with special “options” (e.g. Boost.Context usually has to be told what the target platform ABI and binary format are), and handling the few external dependencies (e.g. zlib and ICU). Another interesting task is handling library projects with several binaries (e.g. Boost.Log) and dealing with the fact that libraries can change from being compiled to being header-only (yes, this does happen). There were also several interesting findings. At first I tried determining dependencies from the build scripts. But that turned out to be too brittle, so in the end I decided to use depinst, the tool Boost projects use in CI to install dependencies. This is still a bit too simplistic, as libraries can have optional and platform dependencies. But I will have to address this later. Switching to depinst uncovered that in Boost 1.89.0 a circular dependency appeared between Boost.Geometry and Boost.Graph. This is actually a big problem for package managers, as they have to build all dependencies for a project before building it, and before that do the same thing for each of the dependencies, and this creates a paradoxical situation where you need to build the project before you build that same project. To make such circular dependencies more apparent in the future, I’ve added a flag to depinst that makes it exit with an error if a cycle is discovered. Overall, I think Boost modularisation is going fairly well. Every library I’ve tried yet builds correctly without the superproject present. I hope to finish the project soon, preferably before the 1.90.0 release. After that there’s still an interesting possible addition. Christian’s vcpkg registry mentioned in the very beginning also had a package for a candidate library, so that people could easily install it and try it out during the review period. My package index could in the future also do that. Hopefully that will motivate more people to participate in Boost reviews." />
+<meta property="og:description" content="Back in April my former colleague Christian Mazakas has announced his work on registry of nightly Boost packages for vcpkg. That same month Conan developers have introduced a new feature that significantly simplified providing of an alternative Conan package source. These two events gave me an idea to create an index of nightly Boost packages for Conan. Conan Remotes Conan installs packages from a remote, which is usually a web server. When you request a package in a particular version range, the remote determines if it has a version that satisfies that range, and then sends you the package recipe and, if possible, compatible binaries for the package. Local-recipes-index is a new kind of Conan remote that is not actually a remote server and is just a local directory hierarchy of this kind: recipes ├── pkg1 │ ├── all │ │ ├── conandata.yml │ │ ├── conanfile.py │ │ └── test_package │ │ └── ... │ └── config.yml └── pkg2 ├── all │ ├── conandata.yml │ ├── conanfile.py │ └── test_package │ └── ... └── config.yml The directory structure is based on the Conan Center’s underlying GitHub project. In actuality only the config.yml and conanfile.py files are necessary. The former tells Conan where to find the package recipes for each version (and hence determines the set of available versions), the latter is the package recipe. In theory there could be many subdirectories for different versions, but in reality most if not all packages simply push all version differences into data files like conandata.yml and select the corresponding data in the recipe script. My idea in a nutshell was to set up a scheduled CI job that each day would run a script that takes Boost superproject’s latest commits from develop and master branches and generates a local-recipes-index directory hierarchy. Then to have recipes directories coming from different branches merged together, and the result be merged with the results of the previous run. Thus, after a while an index of Boost snapshots from each day would accumulate. Modular Boost The project would have been fairly simple if my goal was to just provide nightly packages for Boost. Simply take the recipe from the Conan Center project and replace getting sources from a release archive with getting sources from GitHub. But I also wanted to package every Boost library separately. This is generally known as modular Boost packages (not to be confused with Boost C++ modules). There is an apparent demand for such packages, and in fact this is exactly how vcpkg users consume Boost libraries. In addition to the direct results—the Conan packages for Boost libraries—such project is a great test of the modularity of Boost. Whether each library properly spells out all of its dependencies, whether there’s enough associated metadata that describes the library, whether the project’s build files are usable without the superproject, and so on. Conan Center (the default Conan remote) does not currently provide modular Boost packages, only packages for monolithic Boost (although it provides options to disable building of specific libraries). Due to that I decided to generate package recipes not only for nightly builds, but for tagged releases too. Given that, the core element of the project is the script that creates the index from a Boost superproject Git ref (branch name or tag). Each library is a git submodule of the superproject. Every superproject commit contains references to specific commits in submodules’ projects. The script checks out each such commit, determines the library’s dependencies and other properties important for Conan, and outputs config.yml, conanfile.py, conandata.yml, and test_package contents. Versions As previously mentioned, config.yml contains a list of supported versions. After one runs the generator script that file will contain exactly one version. You might ask, what exactly is that version? After some research I ended up with the scheme MAJOR.MINOR.0-a.B+YY.MM.DD.HH.mm, where: MAJOR.MINOR.0 is the next Boost release version; a implies an alpha-version pre-release; B is m for the master branch and d for the develop branch; YY.MM.DD.HH.mm is the authorship date and time of the source commit. For example, a commit authored at 12:15 on 15th of August 2025 taken from the master branch before Boost 1.90.0 was released would be represented by the version 1.90.0-a.m+25.08.15.12.15. The scheme is an example of semantic versioning. The part between the hyphen and the plus specifies a pre-release, and the part following the plus identifies a specific build. All parts of the version contribute to the versions order after sorting. Importantly, pre-releases are ordered before the release they predate, which makes sense, but isn’t obvious from the first glance. I originally did not plan to put commit time into the version scheme, as the scheduled CI job only runs once a day. But while working on the project, I also had the package index updated on pushes into the master branch, which overwrote previously indexed versions, and that was never the intention. Also, originally the pre-release part was just the name of the branch, which was good enough to sort master and develop. But with the scope of the project including actual Boost releases and betas, I needed beta versions to sort after master and develop versions, but before releases, hence I made them alpha versions explicitly. One may ask, why do I even care about betas? By having specific beta versions I want to encourage more people to check out Boost libraries in beta state and find the bugs early on. I hope that if obtaining a beta version is as easy as simply changing one string in a configuration file, more people will check them and that would reduce the amount of bugs shipped in Boost libraries. Conan Generators One of the most important Conan features in my opinion is its support for any build system rather than for a limited selection of them. This is done via generators—utilities that Convert platform description and dependency data into configuration files for build systems. In Conan 2.x the regular approach is to have a set of 2 generators for a given build system. The main one is a dependencies generator, which creates files that tell the build system how to find dependencies. For example, if you are familiar with CMake, the CMakeDependencies generator creates config modules for every dependency. The other one is a toolchain generator. Those convert platform information into build system configuration files which determine the compiler, computer architecture, OS, and so on. Using CMake as an example again, the CMakeToolchain generator creates a toolchain file. The reason for the split into 2 generators is that there are cases when you use only one of them. For example, if you don’t have any dependencies, you don’t need a dependencies generator. And when you are working on a project, you might already have the necessary build system configuration files, so you don’t need a toolchain generator. For my project I needed both for Boost’s main build system, b2. Boost can also be built with CMake, but that’s still not officially supported, and is tested less rigorously. Unfortunately, Conan 2.x doesn’t currently have in-built support for b2. It had it in Conan 1.x, but with the major version increase they’ve removed most of the old generators, and the PR to add it back did not go anywhere. So, I had to implement those 2 generators for b2. Luckily, Conan supports putting such Conan extensions into packages. So, now the package index generation script also creates a package with b2 generators. The Current State and Lessons Learned The work is still in its early stage, but the project is in a somewhat usable state already. It is currently located here (I plan to place it under boostorg GitHub organisation with the Boost community’s approval, or, failing that, under cppalliance organisation). You can clone the project and install and use some of the Boost libraries, but not all. I have tested that those libraries build and work on Windows, Linux, and macOS. The b2 generators are almost feature complete at this point. My future work will be mostly dedicated to discovering special requirements of the remaining libraries and working out ways to handle them. The most interesting problems are handling projects with special “options” (e.g. Boost.Context usually has to be told what the target platform ABI and binary format are), and handling the few external dependencies (e.g. zlib and ICU). Another interesting task is handling library projects with several binaries (e.g. Boost.Log) and dealing with the fact that libraries can change from being compiled to being header-only (yes, this does happen). There were also several interesting findings. At first I tried determining dependencies from the build scripts. But that turned out to be too brittle, so in the end I decided to use depinst, the tool Boost projects use in CI to install dependencies. This is still a bit too simplistic, as libraries can have optional and platform dependencies. But I will have to address this later. Switching to depinst uncovered that in Boost 1.89.0 a circular dependency appeared between Boost.Geometry and Boost.Graph. This is actually a big problem for package managers, as they have to build all dependencies for a project before building it, and before that do the same thing for each of the dependencies, and this creates a paradoxical situation where you need to build the project before you build that same project. To make such circular dependencies more apparent in the future, I’ve added a flag to depinst that makes it exit with an error if a cycle is discovered. Overall, I think Boost modularisation is going fairly well. Every library I’ve tried yet builds correctly without the superproject present. I hope to finish the project soon, preferably before the 1.90.0 release. After that there’s still an interesting possible addition. Christian’s vcpkg registry mentioned in the very beginning also had a package for a candidate library, so that people could easily install it and try it out during the review period. My package index could in the future also do that. Hopefully that will motivate more people to participate in Boost reviews." />
+<link rel="canonical" href="http://cppalliance.org/dmitry/2025/10/16/dmitrys-q3-update.html" />
+<meta property="og:url" content="http://cppalliance.org/dmitry/2025/10/16/dmitrys-q3-update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-16T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Conan Packages for Boost" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Back in April my former colleague Christian Mazakas has announced his work on registry of nightly Boost packages for vcpkg. That same month Conan developers have introduced a new feature that significantly simplified providing of an alternative Conan package source. These two events gave me an idea to create an index of nightly Boost packages for Conan. Conan Remotes Conan installs packages from a remote, which is usually a web server. When you request a package in a particular version range, the remote determines if it has a version that satisfies that range, and then sends you the package recipe and, if possible, compatible binaries for the package. Local-recipes-index is a new kind of Conan remote that is not actually a remote server and is just a local directory hierarchy of this kind: recipes ├── pkg1 │ ├── all │ │ ├── conandata.yml │ │ ├── conanfile.py │ │ └── test_package │ │ └── ... │ └── config.yml └── pkg2 ├── all │ ├── conandata.yml │ ├── conanfile.py │ └── test_package │ └── ... └── config.yml The directory structure is based on the Conan Center’s underlying GitHub project. In actuality only the config.yml and conanfile.py files are necessary. The former tells Conan where to find the package recipes for each version (and hence determines the set of available versions), the latter is the package recipe. In theory there could be many subdirectories for different versions, but in reality most if not all packages simply push all version differences into data files like conandata.yml and select the corresponding data in the recipe script. My idea in a nutshell was to set up a scheduled CI job that each day would run a script that takes Boost superproject’s latest commits from develop and master branches and generates a local-recipes-index directory hierarchy. Then to have recipes directories coming from different branches merged together, and the result be merged with the results of the previous run. Thus, after a while an index of Boost snapshots from each day would accumulate. Modular Boost The project would have been fairly simple if my goal was to just provide nightly packages for Boost. Simply take the recipe from the Conan Center project and replace getting sources from a release archive with getting sources from GitHub. But I also wanted to package every Boost library separately. This is generally known as modular Boost packages (not to be confused with Boost C++ modules). There is an apparent demand for such packages, and in fact this is exactly how vcpkg users consume Boost libraries. In addition to the direct results—the Conan packages for Boost libraries—such project is a great test of the modularity of Boost. Whether each library properly spells out all of its dependencies, whether there’s enough associated metadata that describes the library, whether the project’s build files are usable without the superproject, and so on. Conan Center (the default Conan remote) does not currently provide modular Boost packages, only packages for monolithic Boost (although it provides options to disable building of specific libraries). Due to that I decided to generate package recipes not only for nightly builds, but for tagged releases too. Given that, the core element of the project is the script that creates the index from a Boost superproject Git ref (branch name or tag). Each library is a git submodule of the superproject. Every superproject commit contains references to specific commits in submodules’ projects. The script checks out each such commit, determines the library’s dependencies and other properties important for Conan, and outputs config.yml, conanfile.py, conandata.yml, and test_package contents. Versions As previously mentioned, config.yml contains a list of supported versions. After one runs the generator script that file will contain exactly one version. You might ask, what exactly is that version? After some research I ended up with the scheme MAJOR.MINOR.0-a.B+YY.MM.DD.HH.mm, where: MAJOR.MINOR.0 is the next Boost release version; a implies an alpha-version pre-release; B is m for the master branch and d for the develop branch; YY.MM.DD.HH.mm is the authorship date and time of the source commit. For example, a commit authored at 12:15 on 15th of August 2025 taken from the master branch before Boost 1.90.0 was released would be represented by the version 1.90.0-a.m+25.08.15.12.15. The scheme is an example of semantic versioning. The part between the hyphen and the plus specifies a pre-release, and the part following the plus identifies a specific build. All parts of the version contribute to the versions order after sorting. Importantly, pre-releases are ordered before the release they predate, which makes sense, but isn’t obvious from the first glance. I originally did not plan to put commit time into the version scheme, as the scheduled CI job only runs once a day. But while working on the project, I also had the package index updated on pushes into the master branch, which overwrote previously indexed versions, and that was never the intention. Also, originally the pre-release part was just the name of the branch, which was good enough to sort master and develop. But with the scope of the project including actual Boost releases and betas, I needed beta versions to sort after master and develop versions, but before releases, hence I made them alpha versions explicitly. One may ask, why do I even care about betas? By having specific beta versions I want to encourage more people to check out Boost libraries in beta state and find the bugs early on. I hope that if obtaining a beta version is as easy as simply changing one string in a configuration file, more people will check them and that would reduce the amount of bugs shipped in Boost libraries. Conan Generators One of the most important Conan features in my opinion is its support for any build system rather than for a limited selection of them. This is done via generators—utilities that Convert platform description and dependency data into configuration files for build systems. In Conan 2.x the regular approach is to have a set of 2 generators for a given build system. The main one is a dependencies generator, which creates files that tell the build system how to find dependencies. For example, if you are familiar with CMake, the CMakeDependencies generator creates config modules for every dependency. The other one is a toolchain generator. Those convert platform information into build system configuration files which determine the compiler, computer architecture, OS, and so on. Using CMake as an example again, the CMakeToolchain generator creates a toolchain file. The reason for the split into 2 generators is that there are cases when you use only one of them. For example, if you don’t have any dependencies, you don’t need a dependencies generator. And when you are working on a project, you might already have the necessary build system configuration files, so you don’t need a toolchain generator. For my project I needed both for Boost’s main build system, b2. Boost can also be built with CMake, but that’s still not officially supported, and is tested less rigorously. Unfortunately, Conan 2.x doesn’t currently have in-built support for b2. It had it in Conan 1.x, but with the major version increase they’ve removed most of the old generators, and the PR to add it back did not go anywhere. So, I had to implement those 2 generators for b2. Luckily, Conan supports putting such Conan extensions into packages. So, now the package index generation script also creates a package with b2 generators. The Current State and Lessons Learned The work is still in its early stage, but the project is in a somewhat usable state already. It is currently located here (I plan to place it under boostorg GitHub organisation with the Boost community’s approval, or, failing that, under cppalliance organisation). You can clone the project and install and use some of the Boost libraries, but not all. I have tested that those libraries build and work on Windows, Linux, and macOS. The b2 generators are almost feature complete at this point. My future work will be mostly dedicated to discovering special requirements of the remaining libraries and working out ways to handle them. The most interesting problems are handling projects with special “options” (e.g. Boost.Context usually has to be told what the target platform ABI and binary format are), and handling the few external dependencies (e.g. zlib and ICU). Another interesting task is handling library projects with several binaries (e.g. Boost.Log) and dealing with the fact that libraries can change from being compiled to being header-only (yes, this does happen). There were also several interesting findings. At first I tried determining dependencies from the build scripts. But that turned out to be too brittle, so in the end I decided to use depinst, the tool Boost projects use in CI to install dependencies. This is still a bit too simplistic, as libraries can have optional and platform dependencies. But I will have to address this later. Switching to depinst uncovered that in Boost 1.89.0 a circular dependency appeared between Boost.Geometry and Boost.Graph. This is actually a big problem for package managers, as they have to build all dependencies for a project before building it, and before that do the same thing for each of the dependencies, and this creates a paradoxical situation where you need to build the project before you build that same project. To make such circular dependencies more apparent in the future, I’ve added a flag to depinst that makes it exit with an error if a cycle is discovered. Overall, I think Boost modularisation is going fairly well. Every library I’ve tried yet builds correctly without the superproject present. I hope to finish the project soon, preferably before the 1.90.0 release. After that there’s still an interesting possible addition. Christian’s vcpkg registry mentioned in the very beginning also had a package for a candidate library, so that people could easily install it and try it out during the review period. My package index could in the future also do that. Hopefully that will motivate more people to participate in Boost reviews.","@type":"BlogPosting","url":"http://cppalliance.org/dmitry/2025/10/16/dmitrys-q3-update.html","headline":"Conan Packages for Boost","dateModified":"2025-10-16T00:00:00+00:00","datePublished":"2025-10-16T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/dmitry/2025/10/16/dmitrys-q3-update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Conan Packages for Boost</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/dmitry">
+                  Dmitry Arkhipov
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Oct 16, 2025</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Back in April my former colleague Christian Mazakas <a href="https://lists.boost.org/archives/list/boost@lists.boost.org/message/SW4QNUPFHJPT46Y3OY2CFCR3F73QKLRW/">has
+announced</a>
+his work on <a href="https://github.com/cmazakas/vcpkg-registry-test">registry of nightly Boost packages for
+vcpkg</a>. That same month
+<a href="https://conan.io">Conan</a> developers have <a href="https://blog.conan.io/2024/04/23/Introducing-local-recipes-index-remote.html">introduced a new
+feature</a>
+that significantly simplified providing of an alternative Conan package source.
+These two events gave me an idea to create an index of nightly Boost packages
+for Conan.</p>
+
+<h2 id="conan-remotes">Conan Remotes</h2>
+
+<p>Conan installs packages from a <em>remote</em>, which is usually a web server. When
+you request a package in a particular version range, the remote determines if
+it has a version that satisfies that range, and then sends you the package
+recipe and, if possible, compatible binaries for the package.</p>
+
+<p>Local-recipes-index is a new kind of Conan remote that is not actually a
+remote server and is just a local directory hierarchy of this kind:</p>
+
+<pre><code>recipes
+├── pkg1
+│   ├── all
+│   │   ├── conandata.yml
+│   │   ├── conanfile.py
+│   │   └── test_package
+│   │       └── ...
+│   └── config.yml
+└── pkg2
+    ├── all
+    │   ├── conandata.yml
+    │   ├── conanfile.py
+    │   └── test_package
+    │       └── ...
+    └── config.yml
+</code></pre>
+
+<p>The directory structure is based on the Conan Center’s <a href="https://github.com/conan-io/conan-center-index">underlying GitHub
+project</a>. In actuality only
+the <code>config.yml</code> and <code>conanfile.py</code> files are necessary. The former tells Conan
+where to find the package recipes for each version (and hence determines the
+set of available versions), the latter is the package recipe. In theory there
+could be many subdirectories for different versions, but in reality most if not
+all packages simply push all version differences into data files like
+<code>conandata.yml</code> and select the corresponding data in the recipe script.</p>
+
+<p>My idea in a nutshell was to set up a scheduled CI job that each day would run
+a script that takes Boost superproject’s latest commits from <code>develop</code> and
+<code>master</code> branches and generates a local-recipes-index directory hierarchy. Then
+to have recipes directories coming from different branches merged together, and
+the result be merged with the results of the previous run. Thus, after a while
+an index of Boost snapshots from each day would accumulate.</p>
+
+<h2 id="modular-boost">Modular Boost</h2>
+
+<p>The project would have been fairly simple if my goal was to <em>just</em> provide
+nightly packages for Boost. Simply take the recipe from the Conan Center
+project and replace getting sources from a release archive with getting sources
+from GitHub. But I also wanted to package every Boost library separately. This
+is generally known as modular Boost packages (not to be confused with Boost C++
+modules). There is an apparent demand for such packages, and in fact this is
+exactly how vcpkg users consume Boost libraries.</p>
+
+<p>In addition to the direct results—the Conan packages for Boost
+libraries—such project is a great test of the <em>modularity</em> of Boost. Whether
+each library properly spells out all of its dependencies, whether there’s
+enough associated metadata that describes the library, whether the project’s
+build files are usable without the superproject, and so on. Conan Center (the
+default Conan remote) does not currently provide modular Boost packages, only
+packages for monolithic Boost (although it provides options to disable building
+of specific libraries). Due to that I decided to generate package recipes not
+only for nightly builds, but for tagged releases too.</p>
+
+<p>Given that, the core element of the project is the script that creates the
+index from a Boost superproject <em>Git ref</em> (branch name or tag). Each library is
+a git submodule of the superproject. Every superproject commit contains
+references to specific commits in submodules’ projects. The script checks out
+each such commit, determines the library’s dependencies and other properties
+important for Conan, and outputs <code>config.yml</code>, <code>conanfile.py</code>, <code>conandata.yml</code>,
+and <code>test_package</code> contents.</p>
+
+<h2 id="versions">Versions</h2>
+
+<p>As previously mentioned, <code>config.yml</code> contains a list of supported versions.
+After one runs the generator script that file will contain exactly one version.
+You might ask, what exactly is that version? After some research I ended up
+with the scheme <code>MAJOR.MINOR.0-a.B+YY.MM.DD.HH.mm</code>, where:</p>
+
+<ul>
+  <li><code>MAJOR.MINOR.0</code> is the <em>next</em> Boost release version;</li>
+  <li><code>a</code> implies an alpha-version pre-release;</li>
+  <li><code>B</code> is <code>m</code> for the <code>master</code> branch and <code>d</code> for the <code>develop</code> branch;</li>
+  <li><code>YY.MM.DD.HH.mm</code> is the authorship date and time of the source commit.</li>
+</ul>
+
+<p>For example, a commit authored at 12:15 on 15th of August 2025 taken from the
+<code>master</code> branch before Boost 1.90.0 was released would be represented by the
+version <code>1.90.0-a.m+25.08.15.12.15</code>. The scheme is an example of <a href="https://semver.org">semantic
+versioning</a>. The part between the hyphen and the plus
+specifies a pre-release, and the part following the plus identifies a specific
+build. All parts of the version contribute to the versions order after sorting.
+Importantly, pre-releases are ordered <em>before</em> the release they predate, which
+makes sense, but isn’t obvious from the first glance.</p>
+
+<p>I originally did not plan to put commit time into the version scheme, as the
+scheduled CI job only runs once a day. But while working on the project, I also
+had the package index updated on pushes into the <code>master</code> branch, which
+overwrote previously indexed versions, and that was never the intention. Also,
+originally the pre-release part was just the name of the branch, which was good
+enough to sort <code>master</code> and <code>develop</code>. But with the scope of the project
+including actual Boost releases and betas, I needed beta versions to sort
+after <code>master</code> and <code>develop</code> versions, but before releases, hence I made them
+alpha versions explicitly.</p>
+
+<p>One may ask, why do I even care about betas? By having specific beta versions
+I want to encourage more people to check out Boost libraries in beta state and
+find the bugs early on. I hope that if obtaining a beta version is as easy as
+simply changing one string in a configuration file, more people will check them
+and that would reduce the amount of bugs shipped in Boost libraries.</p>
+
+<h2 id="conan-generators">Conan Generators</h2>
+
+<p>One of the most important Conan features in my opinion is its support for any
+build system rather than for a limited selection of them. This is done via
+<em>generators</em>—utilities that Convert platform description and dependency data
+into configuration files for build systems. In Conan 2.x the regular approach
+is to have a set of 2 generators for a given build system.</p>
+
+<p>The main one is a dependencies generator, which creates files that tell the
+build system how to find dependencies. For example, if you are familiar with
+CMake, the <code>CMakeDependencies</code> generator creates <a href="https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html#package-configuration-file">config
+modules</a>
+for every dependency.</p>
+
+<p>The other one is a toolchain generator. Those convert platform information into
+build system configuration files which determine the compiler, computer
+architecture, OS, and so on. Using CMake as an example again, the
+<code>CMakeToolchain</code> generator creates a <a href="https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html">toolchain
+file</a>.</p>
+
+<p>The reason for the split into 2 generators is that there are cases when you
+use only one of them. For example, if you don’t have any dependencies, you
+don’t need a dependencies generator. And when you are working on a project,
+you might already have the necessary build system configuration files, so you
+don’t need a toolchain generator.</p>
+
+<p>For my project I needed both for Boost’s main build system,
+<a href="https://www.bfgroup.xyz/b2">b2</a>. Boost can also be built with CMake, but
+that’s still not officially supported, and is tested less rigorously.
+Unfortunately, Conan 2.x doesn’t currently have in-built support for b2. It had
+it in Conan 1.x, but with the major version increase they’ve removed most of
+the old generators, and the PR to add it back did not go anywhere. So, I had to
+implement those 2 generators for b2. Luckily, Conan supports putting such Conan
+extensions into packages. So, now the package index generation script also
+creates a package with b2 generators.</p>
+
+<h2 id="the-current-state-and-lessons-learned">The Current State and Lessons Learned</h2>
+
+<p>The work is still in its early stage, but the project is in a somewhat usable
+state already. It is currently located
+<a href="https://github.com/grisumbras/boost-conan-index">here</a> (I plan to place it
+under boostorg GitHub organisation with the Boost community’s approval, or,
+failing that, under cppalliance organisation). You can clone the project and
+install and use some of the Boost libraries, but not all. I have tested that
+those libraries build and work on Windows, Linux, and macOS. The b2 generators
+are almost feature complete at this point.</p>
+
+<p>My future work will be mostly dedicated to discovering special requirements of
+the remaining libraries and working out ways to handle them. The most
+interesting problems are handling projects with special “options” (e.g.
+Boost.Context usually has to be told what the target platform ABI and binary
+format are), and handling the few external dependencies (e.g. zlib and ICU).
+Another interesting task is handling library projects with several binaries
+(e.g. Boost.Log) and dealing with the fact that libraries can change from being
+compiled to being header-only (yes, this does happen).</p>
+
+<p>There were also several interesting findings. At first I tried determining
+dependencies from the build scripts. But that turned out to be too brittle, so
+in the end I decided to use
+<a href="https://github.com/boostorg/boostdep/blob/master/depinst/depinst.py"><code>depinst</code></a>,
+the tool Boost projects use in CI to install dependencies. This is still a bit
+too simplistic, as libraries can have optional and platform dependencies. But
+I will have to address this later.</p>
+
+<p>Switching to <code>depinst</code> uncovered that in Boost 1.89.0 a circular dependency
+appeared between Boost.Geometry and Boost.Graph. This is actually a big problem
+for package managers, as they have to build all dependencies for a project
+before building it, and before that do the same thing for each of the
+dependencies, and this creates a paradoxical situation where you need to build
+the project before you build that same project. To make such circular
+dependencies more apparent in the future, I’ve added a flag to <code>depinst</code> that
+makes it exit with an error if a cycle is discovered.</p>
+
+<p>Overall, I think Boost modularisation is going fairly well. Every library I’ve
+tried yet builds correctly without the superproject present. I hope to finish
+the project soon, preferably before the 1.90.0 release.</p>
+
+<p>After that there’s still an interesting possible addition. Christian’s vcpkg
+registry mentioned in the very beginning also had a package for a candidate
+library, so that people could easily install it and try it out during the
+review period. My package index could in the future also do that. Hopefully
+that will motivate more people to participate in Boost reviews.</p>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/16/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/10/16/dmitrys-q3-update.html">Conan Packages for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2025</span>
+          <a class='text-l news-title link' href="/dmitry/2025/04/22/dmitrys-q1-update.html">Some Thoughts on Documentation</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/10/25/dmitrys-q3-update.html">How to Get More Utility from the Debugger in CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/07/12/dmitrys-q2-update.html">Dmitry's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/29/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/04/29/dmitrys-q1-update.html">Dmitry's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/dmitry/2024/01/12/dmitrys-q4-update.html">Dmitry's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/30/2023</span>
+          <a class='text-l news-title link' href="/dmitry/2023/10/30/dmitrys-q3-update.html">Dmitry's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>02/15/2021</span>
+          <a class='text-l news-title link' href="/dmitry/2021/02/15/dmitrys-january-update.html">Dmitry's January Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

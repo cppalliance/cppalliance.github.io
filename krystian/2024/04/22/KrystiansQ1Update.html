@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krystian's Q1 2024 Update | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Krystian’s Q1 2024 Update | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Krystian’s Q1 2024 Update" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="My primary focus this quarter was on clang – in particular, C++ standards conformance (including implementing resolutions to defect reports I’ve submitted), bug fixes, and various refactoring of the AST. I was also granted write access to the LLVM project repository this quarter, which has allowed me to significantly increase my output. To that end, I submitted/merged a number of patches: #89618 [Clang][Sema] Remove unused function after #88731 #89605 [libc++][NFC] Fix unparenthesized comma expression in mem-initializer #89377 [libc++] Fix usage of ‘exclude_from_explicit_instantiation’ attribute on local class members #89300 [Clang][Sema] Diagnose explicit specializations with object parameters that do not match their primary template #88974 [Clang][Parse] Diagnose requires expressions with explicit object parameters #88963 [Clang][Sema] Improve support for explicit specializations of constrained member functions &amp; member function templates #88777 [Clang][Sema] Warn when ‘exclude_from_explicit_instantiation’ attribute is used on local classes and members thereof #88731 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541, #88311)” #88417 [lldb] Fix call to TemplateTemplateParmDecl::Create after #88139 #88311 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541)” #88264 Revert “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function” #88146 [Clang][AST][NFC] Fix printing of dependent PackIndexTypes #88139 [Clang][AST] Track whether template template parameters used the ‘typename’ keyword #88042 [Clang][Sema] Implement approved resolution for CWG2858 #87541 [Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function #86817 [Clang][Sema] Fix explicit specializations of member function templates with a deduced return type #86682 [Clang][AST][NFC] Move template argument dependence computations for MemberExpr to computeDependence #86678 [Clang][AST][NFC] MemberExpr stores NestedNameSpecifierLoc and DeclAccessPair separately #84457 Revert “[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments (#83842)” #84050 [Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes #83842 [Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments #83024 [Clang][Sema] Fix crash when MS dependent base class lookup occurs in an incomplete context #82417 [Clang][Sema] Defer instantiation of exception specification until after partial ordering when determining primary template #82277 [Clang][Sema] Convert warning for extraneous template parameter lists to an extension warning #81642 [Clang] Unify interface for accessing template arguments as written for class/variable template specializations #81171 [clang-tidy] Fix failing test after #80864 #80899 [Clang][Sema] Implement proposed resolution for CWG2847 #80864 [Clang][Sema] Abbreviated function templates do not append invented parameters to empty template parameter lists #80842 [Clang][Sema] Diagnose declarative nested-name-specifiers naming alias templates #80359 [Clang][Sema] Correctly look up primary template for variable template specializations #80171 [Clang][Sema] Diagnose friend declarations with enum elaborated-type-specifier in all language modes #79760 [Clang][NFC] Remove TemplateArgumentList::OnStack #79683 Reapply “[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters (#78274)” #78720 [Clang][Sema] Allow elaborated-type-specifiers that declare member class template explict specializations #78595 [Clang][Sema] Diagnose use of template keyword after declarative nested-name-specifiers #78325 [Clang][Sema][NFC] Remove unused Scope* parameter from Sema::GetTypeForDeclarator and Sema::ActOnTypeName #78274 [Clang][Sema] Diagnose function/variable templates that shadow their own template parameters #78243 [Clang][Parse] Diagnose member template declarations with multiple declarators" />
+<meta property="og:description" content="My primary focus this quarter was on clang – in particular, C++ standards conformance (including implementing resolutions to defect reports I’ve submitted), bug fixes, and various refactoring of the AST. I was also granted write access to the LLVM project repository this quarter, which has allowed me to significantly increase my output. To that end, I submitted/merged a number of patches: #89618 [Clang][Sema] Remove unused function after #88731 #89605 [libc++][NFC] Fix unparenthesized comma expression in mem-initializer #89377 [libc++] Fix usage of ‘exclude_from_explicit_instantiation’ attribute on local class members #89300 [Clang][Sema] Diagnose explicit specializations with object parameters that do not match their primary template #88974 [Clang][Parse] Diagnose requires expressions with explicit object parameters #88963 [Clang][Sema] Improve support for explicit specializations of constrained member functions &amp; member function templates #88777 [Clang][Sema] Warn when ‘exclude_from_explicit_instantiation’ attribute is used on local classes and members thereof #88731 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541, #88311)” #88417 [lldb] Fix call to TemplateTemplateParmDecl::Create after #88139 #88311 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541)” #88264 Revert “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function” #88146 [Clang][AST][NFC] Fix printing of dependent PackIndexTypes #88139 [Clang][AST] Track whether template template parameters used the ‘typename’ keyword #88042 [Clang][Sema] Implement approved resolution for CWG2858 #87541 [Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function #86817 [Clang][Sema] Fix explicit specializations of member function templates with a deduced return type #86682 [Clang][AST][NFC] Move template argument dependence computations for MemberExpr to computeDependence #86678 [Clang][AST][NFC] MemberExpr stores NestedNameSpecifierLoc and DeclAccessPair separately #84457 Revert “[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments (#83842)” #84050 [Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes #83842 [Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments #83024 [Clang][Sema] Fix crash when MS dependent base class lookup occurs in an incomplete context #82417 [Clang][Sema] Defer instantiation of exception specification until after partial ordering when determining primary template #82277 [Clang][Sema] Convert warning for extraneous template parameter lists to an extension warning #81642 [Clang] Unify interface for accessing template arguments as written for class/variable template specializations #81171 [clang-tidy] Fix failing test after #80864 #80899 [Clang][Sema] Implement proposed resolution for CWG2847 #80864 [Clang][Sema] Abbreviated function templates do not append invented parameters to empty template parameter lists #80842 [Clang][Sema] Diagnose declarative nested-name-specifiers naming alias templates #80359 [Clang][Sema] Correctly look up primary template for variable template specializations #80171 [Clang][Sema] Diagnose friend declarations with enum elaborated-type-specifier in all language modes #79760 [Clang][NFC] Remove TemplateArgumentList::OnStack #79683 Reapply “[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters (#78274)” #78720 [Clang][Sema] Allow elaborated-type-specifiers that declare member class template explict specializations #78595 [Clang][Sema] Diagnose use of template keyword after declarative nested-name-specifiers #78325 [Clang][Sema][NFC] Remove unused Scope* parameter from Sema::GetTypeForDeclarator and Sema::ActOnTypeName #78274 [Clang][Sema] Diagnose function/variable templates that shadow their own template parameters #78243 [Clang][Parse] Diagnose member template declarations with multiple declarators" />
+<link rel="canonical" href="http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-22T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Krystian’s Q1 2024 Update" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"My primary focus this quarter was on clang – in particular, C++ standards conformance (including implementing resolutions to defect reports I’ve submitted), bug fixes, and various refactoring of the AST. I was also granted write access to the LLVM project repository this quarter, which has allowed me to significantly increase my output. To that end, I submitted/merged a number of patches: #89618 [Clang][Sema] Remove unused function after #88731 #89605 [libc++][NFC] Fix unparenthesized comma expression in mem-initializer #89377 [libc++] Fix usage of ‘exclude_from_explicit_instantiation’ attribute on local class members #89300 [Clang][Sema] Diagnose explicit specializations with object parameters that do not match their primary template #88974 [Clang][Parse] Diagnose requires expressions with explicit object parameters #88963 [Clang][Sema] Improve support for explicit specializations of constrained member functions &amp; member function templates #88777 [Clang][Sema] Warn when ‘exclude_from_explicit_instantiation’ attribute is used on local classes and members thereof #88731 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541, #88311)” #88417 [lldb] Fix call to TemplateTemplateParmDecl::Create after #88139 #88311 Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541)” #88264 Revert “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function” #88146 [Clang][AST][NFC] Fix printing of dependent PackIndexTypes #88139 [Clang][AST] Track whether template template parameters used the ‘typename’ keyword #88042 [Clang][Sema] Implement approved resolution for CWG2858 #87541 [Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function #86817 [Clang][Sema] Fix explicit specializations of member function templates with a deduced return type #86682 [Clang][AST][NFC] Move template argument dependence computations for MemberExpr to computeDependence #86678 [Clang][AST][NFC] MemberExpr stores NestedNameSpecifierLoc and DeclAccessPair separately #84457 Revert “[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments (#83842)” #84050 [Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes #83842 [Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments #83024 [Clang][Sema] Fix crash when MS dependent base class lookup occurs in an incomplete context #82417 [Clang][Sema] Defer instantiation of exception specification until after partial ordering when determining primary template #82277 [Clang][Sema] Convert warning for extraneous template parameter lists to an extension warning #81642 [Clang] Unify interface for accessing template arguments as written for class/variable template specializations #81171 [clang-tidy] Fix failing test after #80864 #80899 [Clang][Sema] Implement proposed resolution for CWG2847 #80864 [Clang][Sema] Abbreviated function templates do not append invented parameters to empty template parameter lists #80842 [Clang][Sema] Diagnose declarative nested-name-specifiers naming alias templates #80359 [Clang][Sema] Correctly look up primary template for variable template specializations #80171 [Clang][Sema] Diagnose friend declarations with enum elaborated-type-specifier in all language modes #79760 [Clang][NFC] Remove TemplateArgumentList::OnStack #79683 Reapply “[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters (#78274)” #78720 [Clang][Sema] Allow elaborated-type-specifiers that declare member class template explict specializations #78595 [Clang][Sema] Diagnose use of template keyword after declarative nested-name-specifiers #78325 [Clang][Sema][NFC] Remove unused Scope* parameter from Sema::GetTypeForDeclarator and Sema::ActOnTypeName #78274 [Clang][Sema] Diagnose function/variable templates that shadow their own template parameters #78243 [Clang][Parse] Diagnose member template declarations with multiple declarators","@type":"BlogPosting","url":"http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update.html","headline":"Krystian’s Q1 2024 Update","dateModified":"2024-04-22T00:00:00+00:00","datePublished":"2024-04-22T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/krystian/2024/04/22/KrystiansQ1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://twitter.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='twitter-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>Twitter</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Krystian's Q1 2024 Update</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>By
+                <a class='link' href="/people/krystian">
+                  Krystian Stasiowski
+                </a> on
+            </span>
+          </div>
+        
+        <span class='center'>Apr 22, 2024</span>
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>My primary focus this quarter was on clang – in particular, C++ standards conformance (including implementing resolutions to defect reports I’ve submitted), bug fixes, and various refactoring of the AST. I was also granted write access to the LLVM project repository this quarter, which has allowed me to significantly increase my output. To that end, I submitted/merged a number of patches:</p>
+
+<ul>
+  <li>#89618 <a href="https://github.com/llvm/llvm-project/pull/89618">[Clang][Sema] Remove unused function after #88731</a></li>
+  <li>#89605 <a href="https://github.com/llvm/llvm-project/pull/89605">[libc++][NFC] Fix unparenthesized comma expression in mem-initializer</a></li>
+  <li>#89377 <a href="https://github.com/llvm/llvm-project/pull/89377">[libc++] Fix usage of ‘exclude_from_explicit_instantiation’ attribute on local class members</a></li>
+  <li>#89300 <a href="https://github.com/llvm/llvm-project/pull/89300">[Clang][Sema] Diagnose explicit specializations with object parameters that do not match their primary template</a></li>
+  <li>#88974 <a href="https://github.com/llvm/llvm-project/pull/88974">[Clang][Parse] Diagnose requires expressions with explicit object parameters</a></li>
+  <li>#88963 <a href="https://github.com/llvm/llvm-project/pull/88963">[Clang][Sema] Improve support for explicit specializations of constrained member functions &amp; member function templates</a></li>
+  <li>#88777 <a href="https://github.com/llvm/llvm-project/pull/88777">[Clang][Sema] Warn when ‘exclude_from_explicit_instantiation’ attribute is used on local classes and members thereof</a></li>
+  <li>#88731 <a href="https://github.com/llvm/llvm-project/pull/88731">Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541, #88311)”</a></li>
+  <li>#88417 <a href="https://github.com/llvm/llvm-project/pull/88417">[lldb] Fix call to TemplateTemplateParmDecl::Create after #88139</a></li>
+  <li>#88311 <a href="https://github.com/llvm/llvm-project/pull/88311">Reapply “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function (#87541)”</a></li>
+  <li>#88264 <a href="https://github.com/llvm/llvm-project/pull/88264">Revert “[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function”</a></li>
+  <li>#88146 <a href="https://github.com/llvm/llvm-project/pull/88146">[Clang][AST][NFC] Fix printing of dependent PackIndexTypes</a></li>
+  <li>#88139 <a href="https://github.com/llvm/llvm-project/pull/88139">[Clang][AST] Track whether template template parameters used the ‘typename’ keyword</a></li>
+  <li>#88042 <a href="https://github.com/llvm/llvm-project/pull/88042">[Clang][Sema] Implement approved resolution for CWG2858</a></li>
+  <li>#87541 <a href="https://github.com/llvm/llvm-project/pull/87541">[Clang][Sema] Fix crash when ‘this’ is used in a dependent class scope function template specialization that instantiates to a static member function</a></li>
+  <li>#86817 <a href="https://github.com/llvm/llvm-project/pull/86817">[Clang][Sema] Fix explicit specializations of member function templates with a deduced return type</a></li>
+  <li>#86682 <a href="https://github.com/llvm/llvm-project/pull/86682">[Clang][AST][NFC] Move template argument dependence computations for MemberExpr to computeDependence</a></li>
+  <li>#86678 <a href="https://github.com/llvm/llvm-project/pull/86678">[Clang][AST][NFC] MemberExpr stores NestedNameSpecifierLoc and DeclAccessPair separately</a></li>
+  <li>#84457 <a href="https://github.com/llvm/llvm-project/pull/84457">Revert “[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments (#83842)”</a></li>
+  <li>#84050 <a href="https://github.com/llvm/llvm-project/pull/84050">[Clang][Sema] Diagnose class member access expressions naming non-existent members of the current instantiation prior to instantiation in the absence of dependent base classes</a></li>
+  <li>#83842 <a href="https://github.com/llvm/llvm-project/pull/83842">[Clang][Sema] Fix crash when using name of UnresolvedUsingValueDecl with template arguments</a></li>
+  <li>#83024 <a href="https://github.com/llvm/llvm-project/pull/83024">[Clang][Sema] Fix crash when MS dependent base class lookup occurs in an incomplete context</a></li>
+  <li>#82417 <a href="https://github.com/llvm/llvm-project/pull/82417">[Clang][Sema] Defer instantiation of exception specification until after partial ordering when determining primary template</a></li>
+  <li>#82277 <a href="https://github.com/llvm/llvm-project/pull/82277">[Clang][Sema] Convert warning for extraneous template parameter lists to an extension warning</a></li>
+  <li>#81642 <a href="https://github.com/llvm/llvm-project/pull/81642">[Clang] Unify interface for accessing template arguments as written for class/variable template specializations</a></li>
+  <li>#81171 <a href="https://github.com/llvm/llvm-project/pull/81171">[clang-tidy] Fix failing test after #80864</a></li>
+  <li>#80899 <a href="https://github.com/llvm/llvm-project/pull/80899">[Clang][Sema] Implement proposed resolution for CWG2847</a></li>
+  <li>#80864 <a href="https://github.com/llvm/llvm-project/pull/80864">[Clang][Sema] Abbreviated function templates do not append invented parameters to empty template parameter lists</a></li>
+  <li>#80842 <a href="https://github.com/llvm/llvm-project/pull/80842">[Clang][Sema] Diagnose declarative nested-name-specifiers naming alias templates</a></li>
+  <li>#80359 <a href="https://github.com/llvm/llvm-project/pull/80359">[Clang][Sema] Correctly look up primary template for variable template specializations</a></li>
+  <li>#80171 <a href="https://github.com/llvm/llvm-project/pull/80171">[Clang][Sema] Diagnose friend declarations with enum elaborated-type-specifier in all language modes</a></li>
+  <li>#79760 <a href="https://github.com/llvm/llvm-project/pull/79760">[Clang][NFC] Remove TemplateArgumentList::OnStack</a></li>
+  <li>#79683 <a href="https://github.com/llvm/llvm-project/pull/79683">Reapply “[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters (#78274)”</a></li>
+  <li>#78720 <a href="https://github.com/llvm/llvm-project/pull/78720">[Clang][Sema] Allow elaborated-type-specifiers that declare member class template explict specializations</a></li>
+  <li>#78595 <a href="https://github.com/llvm/llvm-project/pull/78595">[Clang][Sema] Diagnose use of template keyword after declarative nested-name-specifiers</a></li>
+  <li>#78325 <a href="https://github.com/llvm/llvm-project/pull/78325">[Clang][Sema][NFC] Remove unused Scope* parameter from Sema::GetTypeForDeclarator and Sema::ActOnTypeName</a></li>
+  <li>#78274 <a href="https://github.com/llvm/llvm-project/pull/78274">[Clang][Sema] Diagnose function/variable templates that shadow their own template parameters</a></li>
+  <li>#78243 <a href="https://github.com/llvm/llvm-project/pull/78243">[Clang][Parse] Diagnose member template declarations with multiple declarators</a></li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/11/2025</span>
+          <a class='text-l news-title link' href="/krystian/2025/01/11/KrystiansQ4Update.html">Krystian's Q4 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/10/25/KrystiansQ3Update.html">Krystian's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/15/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/07/15/KrystiansQ2Update.html">Krystian's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/04/22/KrystiansQ1Update.html">Krystian's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/krystian/2024/01/12/KrystianQ4Update.html">Krystian's Q4 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/31/2023</span>
+          <a class='text-l news-title link' href="/krystian/2023/10/31/KrystianQ3Update.html">Krystian's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/29/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/29/KrystiansSeptemberUpdate.html">Krystian's September Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>09/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/09/06/KrystiansAugustUpdate.html">Krystian's August Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/08/01/KrystiansJulyUpdate.html">Krystian's July Update</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/07/01/KrystiansMayJuneUpdate.html">Krystian's May & June Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/08/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/05/08/KrystiansAprilUpdate.html">Krystian's April Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/07/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/04/07/KrystiansMarchUpdate.html">Krystian's March Update</a>
+        </li>
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/06/2020</span>
+          <a class='text-l news-title link' href="/krystian/2020/03/06/KrystiansFebruaryUpdate.html">Krystian's February Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>
