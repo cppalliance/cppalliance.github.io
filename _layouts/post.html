@@ -29,22 +29,28 @@ type: article
                 {% endfor %}
         {% endif %}
 
+        {% assign formatted_date = page.date | date: "%b %-d, %Y" %}
+
         {% if author_name %}
           <div class='author d-iblock'>
-            <span class='text-xxs author-name'>By
+            <a class='link author-img-link' href="{{ site.baseurl }}/people/{{page.author-id}}">
+              <img class='author-img' src='{{ site.baseurl }}/images/people/{{page.author-id}}.jpg' alt='Portrait of {{author_name}}' />
+            </a>
+            <span class='text-xxs author-name'>
                 <a class='link' href="{{ site.baseurl }}/people/{{page.author-id}}">
                   {{author_name}}
-                </a> on
+                </a> &middot; {{ formatted_date }}
             </span>
           </div>
         {% elsif page.author-name %}
           <div class='author d-iblock'>
-            <span class='text-xxs author-name'>By
-              {{page.author-name}} on
-            </span>
+            <span class='text-xxs author-name'>{{page.author-name}} &middot; {{ formatted_date }}</span>
+          </div>
+        {% else %}
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>{{ formatted_date }}</span>
           </div>
         {% endif %}
-        <span class='center'>{{ page.date | date: "%b %-d, %Y"}}</span>
       </div>
         <div class='text-xxs content-text generated-content'>
           {{ content }}
