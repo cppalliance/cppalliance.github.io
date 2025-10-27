@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: [ alan ]
-title: Alan's Q2 Update 2024
+title: "Operationalizing MrDocs Reference for the Boost Release Workflow"
 author-id: alan
 ---
 

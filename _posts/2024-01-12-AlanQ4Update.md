@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: alan
-title: Alan's Q4 Update 2023
+title: "Owning Handlebars: Custom Templates for Boost.URL"
 author-id: alan
 ---
 

@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: alan
-title: Alan's Q3 Update
+title: Building the MrDocs Reference Pipeline for Antora
 author-id: alan
 ---
 
