@@ -2,7 +2,7 @@
 layout: post
 nav-class: dark
 categories: [ alan ]
-title: Alan's Q4 Update 2024
+title: Scaling Documentation Pipelines Across Boost Projects
 author-id: alan
 ---
 
