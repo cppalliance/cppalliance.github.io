@@ -1,18 +1,17 @@
-<!-- Blog section-->
-{% assign n = site.categories[{{page.id}}] | size %}
-{% if n != 0 %}
-<section class="section news">
-  <div class='section-title'>
-    <h2 class='header text-xl'>Blog</h2>
-    <h2 class='header-shadow'>Blog</h2>
-  </div>
-  <ul>
-  {% for post in site.categories[{{page.id}}] %}
-    <li class='news-list-item'>
-      <span class='text-s news-date'>{{ post.date | date: "%m/%d/%Y"}}</span>
-      <a class='text-l news-title link' href="{{site.baseurl}}{{ post.url }}">{{ post.title }}</a>
-    </li class='news-list-item'>
-  {% endfor %}
+<!-- Blog posts authored by the current team member -->
+{% assign author_posts = site.categories[page.id] %}
+{% if author_posts and author_posts.size > 0 %}
+<div class="member-posts">
+  <p class="text-xxs member-posts-heading">Blog posts</p>
+  <ul class="member-posts-list">
+    {% for post in author_posts %}
+    <li class="member-posts-item">
+      <a class="member-posts-link" href="{{ site.baseurl }}{{ post.url }}">
+        <strong class="member-posts-date">{{ post.date | date: "%m/%d/%Y" }}</strong>
+        {{ post.title }}
+      </a>
+    </li>
+    {% endfor %}
   </ul>
-</section>
+</div>
 {% endif %}
