@@ -24,6 +24,7 @@ group :jekyll_plugins do
   gem 'jekyll-email-protect'
   gem 'jekyll-seo-tag'
   gem 'jekyll-paginate'
+  gem 'jekyll-mermaid', '~> 1.0'
 end
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
