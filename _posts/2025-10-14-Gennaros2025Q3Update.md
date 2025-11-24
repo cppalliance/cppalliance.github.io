@@ -123,8 +123,8 @@ maintainability:
   output.
 - Changed the stream extractor to rethrow any exceptions coming from the
   underlying container.
-- Reordered and cleaned up all #include sections to use the "" form for Boost
-  includes where appropriate and to keep include groups sorted.
+- Reordered and cleaned up all `#include` sections to use the `""` form for
+  Boost includes where appropriate and to keep include groups sorted.
 - Removed an example timing benchmark that was misleading and a number of
   unneeded comments and minor typos across code and docs.
 
