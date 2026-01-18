@@ -75,7 +75,7 @@ Results follow:
 ### Proof of concept of a semistable vector
 
 By "semistable vector" I mean that pointers to the elements may be invalidated
-upon isertion and erasure (just like a regular `std::vector`) but iterators
+upon insertion and erasure (just like a regular `std::vector`) but iterators
 to non-erased elements remain valid throughout.
 I've written a small [proof of concept](https://github.com/joaquintides/semistable_vector/)
 of this idea and measured its performance against non-stable `std::vector` and fully
