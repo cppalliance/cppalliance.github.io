@@ -104,4 +104,4 @@ my experiments in Q1 2026.
 catalog of Boost libraries (170+) and categorize them according to their
 maintainance status and relevance in light of additions to the C++
 standard library over the years.
-* Supporting the community as a member of the Fiscal Sponsorhip Committee (FSC).
+* Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).
