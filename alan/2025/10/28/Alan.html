@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Prototype to Product: MrDocs in 2025 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>From Prototype to Product: MrDocs in 2025 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="From Prototype to Product: MrDocs in 2025" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In 2024, the MrDocs project was a fragile prototype. It documented Boost.URL, but the CLI, configuration, and build process were unstable. Most users could not run it without direct help from the core group. That unstable baseline is the starting point for this report. In 2025, we moved the codebase to minimum-viable-product shape. I led the releases that stabilized the pipeline, aligned the configuration model, and documented the work in this report to support a smooth leadership transition. This post summarizes the 2024 gaps, the 2025 fixes, and the recommended directions for the next phase. System Overview 2024: Lessons from a Fragile Prototype 2025: From Prototype to MVP v0.0.3: Enforcing Consistency v0.0.4: Establishing the Foundation v0.0.5: Stabilization and Public Readiness 2026: Beyond the MVP Strategic Prioritization Reflection Metadata Extensions and Plugins Dependency Resilience Follow-up Issues for v0.0.6 Acknowledgments Conclusion System Overview MrDocs is a C++ documentation generator built on Clang. It parses source with full language fidelity, links declarations to their comments, and produces reference documentation that reflects real program structure—templates, constraints, and overloads included. Traditional tools often approximate the AST. MrDocs uses the AST directly, so documentation matches the code and modern C++ features render correctly. Unlike single-purpose generators, MrDocs separates the corpus (semantic data) from the presentation layer. Projects can choose among multiple output formats or extend the system entirely: supply custom Handlebars templates or script new generators using the plugin system. The corpus is represented in the generators as a rich JSON-like DOM. With schema files, MrDocs enables integration with build systems, documentation frameworks, or IDEs. From the user’s perspective, MrDocs behaves like a well-engineered CLI utility. It accepts configuration files, supports relative paths, accepts custom build options, and reports warnings in a controlled, compiler-like fashion. For C++ teams transitioning from Doxygen, the command structure is somewhat familiar, but the internal model is designed for reproducibility and correctness. Our goal is not just to render reference pages but to provide a reliable pipeline that any C++ project seeking modern documentation infrastructure can adopt. graph LR A[Source] --&gt; B[Clang] B --&gt; C[Corpus] C --&gt; D{Plugin Layer} subgraph Generator E[HTML] F[AsciiDoc] G[XML] G2[...] end D --&gt; E D --&gt; F D --&gt; G D --&gt; G2 E --&gt; H{Plugin Layer} H --&gt; H2[Published Docs] F --&gt; H G --&gt; H G2 --&gt; H C --&gt; I[Schema Export] I --&gt; J[IntegrationsIDEs &amp; Build Systems] 2024: Lessons from a Fragile Prototype MrDocs entered 2024 as a proof-of-concept built for Boost.URL. It could document one or two curated codebases and produce asciidoc pages for Antora, but the workflow stopped there. The CLI exposed only the scenarios we needed. Configuration options lived in internal notes. The only dependable build path was the script sequence we used inside the Alliance. External users hit errors and missing options almost immediately. Stability was just as fragile: We had no sanitizers, no warnings-as-errors, and inconsistent CI hardware. The binaries crashed as soon as they saw unfamiliar code. The pipeline worked only when the input looked like Boost.URL. Point it at slightly different code patterns and it would segfault. Each feature landed as a custom patch, so logic duplicated across generators, and fixing one path broke another. Early releases: Release v0.0.1 captured that prototype: the early Handlebars engine, the HTML generator, the DOM refactor, and a list of APIs that only the core team could drive. v0.0.2 added structured configuration, automatic compile_commands.json, and better SFINAE handling, but the tool was still insider-only. Leadership transition: Late in 2024 I became project lead with two initial priorities: document the gaps and describe the true limits of the system. That set the 2025 baseline—a functional prototype that needed coherence, reproducibility, and trust before it could call itself a product. What 2025 later fixed were the weaknesses we saw here: configuration coherence, generator unification, schema validation, and basic options were all missing. The CLI, configuration files, and code drifted apart. Generators evolved independently with duplicated code and inconsistent naming. Editors had no schema to lean on. Extraction rules were ad hoc, which made the output incomplete. CI ran on an improvised matrix with no caching, sanitizers, or coverage, so regressions slipped through. That was the starting point. Summary: 2024 produced a working demo, not a reproducible system. Each success exposed another weak link and clarified what had to change in 2025. In short: 2024 left us with a working prototype but no coherent architecture. The system could demonstrate the concept, but not sustain or reproduce it. Every improvement exposed another weak link, and every success demanded more structure than the system was built to handle. It was a year of learning by exhaustion—and setting the stage for everything that came next. Key 2024 checkpoints align with the timeline below: %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% timeline title Prototypes 2024 Q1 : Boost.URL showcase 2024 Q2 : CLI gaps 2024 Q3 : Config + SFINAE fixes 2024 Q4 : Leadership transition 2025: From Prototype to MVP I started the year with a gap analysis that compared MrDocs to other C++ documentation pipelines. From that review I defined the minimum viable product and three priority tracks. Usability covered workflows and surface area that make adoption simple. Stability covered deterministic behavior, proper data structures, and CI discipline. Foundation covered configuration and data models that keep code, flags, and documentation aligned. The 2025 releases followed those tracks and turned MrDocs from a proof of concept into a tool that other teams can adopt. v0.0.3 — Consistency. We replaced ad-hoc behavior with a coherent system: a single source of truth for configuration kept CLI, config files, and docs in sync; generators and templates were unified so changes propagate by design; core semantic extraction (e.g., concepts, constraints, SFINAE) became reliable; and CI hardened around reproducible, tested outputs across HTML and Antora. v0.0.4 — Foundation. We introduced precise warning controls and a family of extract-* options to match established tooling, added a JSON Schema for configuration (enabling editor validation/autocomplete), delivered a robust reference system for documentation comments, brought initial inline formatting to generators, and simplified onboarding with a cross-platform bootstrap script. CI gained sanitizers, coverage checks, and modern compilers. v0.0.5 — Stabilization. We redesigned documentation metadata to support recursive inline elements, enforced safer polymorphic types with optional references and non-nullable patterns, and added user-facing improvements (sorting, automatic compilation database detection, quick reference indices, improved namespace/overload grouping, LLDB formatters). The website and documentation UI were refreshed for accessibility and responsiveness, new demos (including self-documentation) were published, and CI was further tightened with stricter policies and cross-platform bootstrap enhancements. Together, these releases executed the roadmap derived from the initial gap analysis: they aligned the moving parts, closed the most important capability gaps, and delivered a stable foundation that future work can extend without re-litigating fundamentals. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: { &quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot; }}}%% mindmap root((MVP Evolution)) v0.0.3 Config sync Shared templates CI discipline v0.0.4 Warning controls Schema Bootstrap v0.0.5 Recursive docs Nav refresh Tooling polish v0.0.3: Enforcing Consistency v0.0.3 is where MrDocs stopped being a collection of one-off special cases and became a coherent system. Before this release, features landed in a single generator and drifted from the others; extraction handled only the narrowly requested pattern and crashed on nearby ones; and options were inconsistent—some hard-coded, some missing from CLI/config, with no mechanism to keep code, docs, and flags aligned. What changed: The v0.0.3 release fixes this foundation. We introduced a single source of truth for configuration options with TableGen-style metadata: docs, the config file, and the CLI always stay in sync. We added essential Doxygen-like options to make basic projects immediately usable and filled obvious gaps in symbols and doc comments. We implemented metadata extraction for core symbol types and their information—such as template constraints, concepts, and automatic SFINAE detection. We unified generators and templates so changes propagate by design, added tagfile support and “lightweight reflection” to documentation comments as lazy DOM objects and arrays, and extended Handlebars to power the new generators. These features allowed us to create the initial version of the website and ensure the documentation is always in sync. Build and testing discipline: CI, builds, and tests were hardened. All generators were now tested, LLVM caching systems improved, and we launched our first macOS release (important for teams working on Antora UI bundles). All of this long tail of performance, correctness, and safety work turned “works on my machine” into repeatable, adoptable output across HTML and Antora. v0.0.3 was the inflection point. For the first time, developers could depend on consistent configuration, shared templates, and predictable behavior across generators. It aligned internal tools, eliminated duplicated effort, and replaced trial-and-error debugging with reproducible builds. Every improvement in later versions built on this foundation. Categorized improvements for v0.0.3 Configuration Options: enforcing consistency, reproducible builds, and transparent reporting Enforce configuration options are in sync with the JSON source of truth (a1fb8ec6, 9daf71fe) File and symbol filters (1b67a847, b352ba22) Reference and symbol configuration (a3e4477f, 30eaabc9) Extraction options (41411db2, 1214d94b) Reporting options (f994e47e, 0dd9cb45) Configuration structure (c8662b35, dcf5beef, 4bd3ea42) CLI workflows (a2dc4c78, 3c0f90df) Warnings (4eab1933, 5e586f2b, 0e2dd713) SettingsDB (225b2d50, 51639e77) Deterministic configuration (b5449741) Global configuration documentation (ec3dbf5c) Generators: unification, new features, and early refactoring Antora/HTML generator consistency (e674182f, 82e86a6c, 9154b9c5) HTML generator improvements (a28cb2f7, 064ce55a, 5f6665d8) Documentation for generators (2382e8cf, 646a1e5b) Supporting new output formats (58a79f74, 271dde57, 9d9f6652) Handlebars improvements (ebf4dbeb, be76fc07) Generator tooling (00fc84cf, 6a69747d) Navigation helpers (fdccad42) DOM optimizations (9b41d2e4) Libraries and metadata: unification, fixes, and extraction enhancements Info node visitor and traversal improvements (be86a08d, 58ab5a5e) Metadata consistency (544ee37d, 62f8a2bd, bd9c704f) Template and concept support (4b0b4a71, 57cf74de, 92aa76a4) Symbol resolution and references (f64d4a06, aa9333d4) Documentation improvements (5d3f21c8) Website and Documentation: turning features into a showcase and simplifying workflows Create website (05400c3c, 8fba2020) Use the new features to create an HTML panel demos workflow (12ceadee, d38d3e1a, c46c4a91) Unify Antora author mode playbook (999ea4f3) Generator use cases and trade-offs (2307ca6a) Correctness and simplification (4d884f43, 55214d72, b078bead, d8b7fcf4, 96484836, 62f361fb) Build, Testing, and Releases: strengthening CI, improving LLVM caching workflow, and stabilizing releases Templates are tested with golden tests (2bc09e65, 9eece731) LLVM caches and runners improvements (4c14e875, bd54dc7c, 3d92071a, 8537d3db, f3b33a47, 5982cc7e, 93487669) Enable macOS workflow (390159e3) Stabilize artifacts (5e0f628e, d1c3566e, 62736e45) Tests support individual file inputs, which improved local tests considerably (75b1bc52) Performance, correctness, and safety (a820ad79, 43e5f252, a382820f, fbcb5b2d, 6a2290cb, 49f4125f) v0.0.4: Establishing the Foundation v0.0.4 completed the core capabilities we need for production. With the moving parts aligned in v0.0.3, this release focused on the fundamentals. It added consistent warning options, extraction controls that match established tools, schema support for IDE auto-completion, a complete reference system for doc comments, and initial inline formatting in the generators. The bootstrap script became a one-step path to a working build. We also hardened the pipeline with modern CI practices—sanitizers, coverage integration, and standardized presets. Categorized improvements for v0.0.4 Configuration and Extraction: structured configuration, extraction controls, and schema validation Configuration schema (d9517e1d, 5f846c1c, ffa0d1a6) Extraction filters (0a60bb98, a7d7714d) Reference configuration (d18a8ab3) Documentation metadata (6676c1e8) Warnings and Reporting: consistent governance with CLI parity Warning controls (2a29f0a0, 6d3c1f47) Extract options (extract-{public,protected,private,inline}) (aa5a6be3) CLI defaults (d85439c3) Generators: Javadoc, inline formatting, and reference improvements Documentation reference system (4b430f9b, 73489e2b) Javadoc metadata (8dd3af67, f7e59d4c) Inline formatting (5c7490a3, d1d80745) XML generator alignment (9867e0d2, 0f890f2c) Build and CI: sanitizers, coverage, and reproducible builds Sanitizer integration (6257c747, 88954d7f) Coverage reporting (bf195759) Relocatable build (std::format) (7b871032) Bootstrap modernization (3eec9a48, 71afb87b, 524e7923) v0.0.5: Stabilization and Public Readiness v0.0.5 marked the transition toward a sustained development model and prepared the project for handoff. This release focused on presentation, polish, and reliability—ensuring that MrDocs was ready not only for internal use but for public visibility. During this period, we expanded the set of public demos, refined the website and documentation, and stabilized the infrastructure to support a growing user base. The goal was to leave the project in a state where it could continue evolving smoothly, with a stable core, clear development practices, and a professional public face. Community and visibility: Beyond the commits, this release reflected broader activity around the project. We generated and published several new demos, many of which revealed integration issues that were subsequently fixed. As more external users began adopting MrDocs, the feedback loop accelerated: bug reports, feature requests, and real-world edge cases guided much of the work. New contributors joined the team, collaboration became more distributed, and visibility increased. Around the same time, I introduced MrDocs to developers at CppCon 2025, where it received strong feedback from library authors testing it on their own projects. The tool was beginning to gain recognition as a viable, modern alternative to Doxygen. Technical progress: This release focused on correctness. We redesigned the documentation comment data structures to support recursive inline elements and render Markdown and HTML-style formatting correctly. We moved to non-nullable polymorphic types and optional references so that invariants fail at compile time rather than at runtime. User-facing updates included new sorting options, automatic compilation database detection, a quick reference index, broader namespace and overload grouping, and LLDB formatters for Clang and MrDocs symbols. We refreshed the website and documentation UI for accessibility and responsiveness, added new demos (including the MrDocs self-reference), and tightened CI with more sanitizers, stricter warning policies, and cross-platform bootstrap improvements. Together, these improvements completed the transition from a developing prototype to a dependable product. v0.0.5 established a stable foundation for others to build on—polished, documented, and resilient—so future releases could focus on extending capabilities rather than consolidating them. With this release, the project reached a point where the handoff could occur naturally, closing one chapter and opening another. Categorized improvements for v0.0.5 Metadata: documentation inlines and safety improvements Recursive documentation inlines (51e2b655) Consistent sorting options for members and namespaces (sort-members-by, sort-namespace-members-by) (f0ba28dd, a0f694dc) Non-nullable polymorphic types and optional references (c9f9ba13, 8ef3ffaf, bd3e1217, afa558a6, 6ba8ef6b) Consistent metadata class family hierarchy pattern (6d495497) MrDocsSettings includes automatic compilation database support (9afededb, a1f289de) Quick reference index (68e029c1, 940c33f4) Namespace/using/overloads grouping includes using declarations and overloads as shadows (69e1c3bc, d722b7d0, 2b59269c) Conditional explicit clauses in templated methods (2bff4e2f) Destructor overloads supported in class templates (336ad319) Using declarations include all shadow variants (88a1cebf, 9253fd8f, a7d5cf6a) show-enum-constants option (07b69e1c) Custom LLDB formatters for Clang and MrDocs symbols (069bd8f4, f83eca17, 1b39fdd7, aefc53c7) Performance, correctness, and safety (d1788049, 3bd94cff, 8a811560, 3ff37448, ad1e7baa, b10b8aa3, 482c0be8, d66da796, ec8daa11, 5234b67c, 5e879b10, 35e14c93, d5a28a89, 6878c199, 21ce3e74, 2da2081b, b528ae11) Website and Documentation: new demos and a new website New demos (cfa9eb7d, 1b930b86, c18be83e, 177fae4a, 33275050) Website and documentation refresh (35e14c93, a6437742) Self-documentation (f2a5f77e) Antora enhancements (5ed0f48f) Build, Testing, and Releases: improvements and hardening CI Toolchain and CI hardening (6257c747, 88954d7f, bf195759, ba0dcfd3) Bootstrap improvements (3eec9a48, 71afb87b, 524e7923, 4b79ef41, 7d27204e, 988e9ebc, 94a5b799, be7332cf, 4d705c96, f48bbd2f, f9363461) Performance, correctness, and safety (5aa714b2, 469f41ee, 629f1848, 2f0dd8c1, acf7c107) 2026: Beyond the MVP MrDocs now ships a working MVP, but significant foundational work remains. The priority framework is the same: start with gap analysis, shape an MVP (or now just a viable product), and rank follow-on work against that baseline. In 2025 we invested in presentation earlier than infrastructure. That inversion still raises costs: each foundational change forces rework across user-facing pieces. I do not know how the leadership model will evolve in 2026. The team might keep a single coordinator or move to shared stewardship. Regardless, the project only succeeds if we continue investing in foundational capabilities. The steps below outline the recommendations I believe will help keep MrDocs sustainable over the long term. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: { &quot;primaryColor&quot;: &quot;#f2eadf&quot;, &quot;primaryBorderColor&quot;: &quot;#ffe8c6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#ffe8c8&quot;, &quot;secondaryColor&quot;: &quot;#e8ebf3&quot;, &quot;tertiaryColor&quot;: &quot;#eceaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot; }}}%% mindmap root((2026 Priorities)) Reflection Describe symbols Shared walkers Metadata Recursive docs Stable names Typed expressions Extensions Script helpers Plugin ABI Dependencies Curated toolchain Opt-in stubs Community Integration demos Outreach cadence Strategic Prioritization Aligning priorities is itself the highest priority. At the start of my tenure as project lead we followed a strict sequence—gap analysis, then an MVP, then a set of priorities—but that model exposed limitations once work began to land. The issue tracker does not reflect how priorities relate to each other, and as individual tickets close the priority stack does not adjust automatically. The project’s complexity now amplifies the risk: without a clear view of dependencies we can assign a high-value engineer to a task that drags several teammates into the same bottleneck, resulting in net-negative progress. Defining priorities therefore includes understanding the team’s skills, mapping how they collaborate, and making sure no one becomes a sink that blocks everyone else. Alignment across roles remains essential so the plan reflects the people who actually execute it. The tooling already exists to put this into practice. GitHub now lets us mark issues as blocked by or blocking others and to model parent/child relationships. We can use those relationships to reorganize the priorities programmatically. Once the relationships are encoded, priorities gain semantic meaning because we can explain why a small ticket matters in the larger story. Priorities become the byproduct of higher-level goals— narratives about the product—rather than a short-term static wish list of individual features. We also need to strengthen the operational tools that keep the team coordinated. Coverage in CI is still far below our other C++ Alliance projects, and the gap shows up as crashes whenever a new library explores an untested path in the codebase. Improving coverage is a priority in its own right. We can pair that effort with automation and analysis tools like ReviewDog to accelerate code-review feedback, Danger.js to enforce pull-request policies, CodeClimate or similar services for static analysis, and clang-tidy checks to catch issues earlier. Finally, we can invite other collaborators to revisit the gap analysis and MVP, including C++Alliance colleagues who specialize in marketing. Their perspective will help us assign priorities that reflect both technical dependencies and the project’s broader positioning. Reflection The corpus keeps drifting out of sync because every important path in MrDocs duplicates representation by hand. Almost every subsystem reflects data from one format to another, and almost every internal operation traverses those structures. Each time we adjust a field we have to edit dozens of call sites, and even small mistakes create inconsistent state—different copies of the “truth” that evolve independently. Reflection eliminates this churn. If we can describe the corpus once and let the code iterate over those descriptions, the boilerplate disappears, the traversals remain correct, and we stop fighting the same battle. A lightweight option would be to enforce the corpus from JSON the way we treat configuration, but the volume of metadata in AST makes that impractical. Instead, we lean on compile-time reflection utilities such as Boost.Describe and Boost.mp11. With those libraries we can convert the corpus to any representation, and each generator—including future binary or JSON targets—sees the same schema automatically. MrDocs can even emit the schema that powers each generator, keeping the schema, DOM, and documentation in sync. This approach also fixes the long-standing lag in the XML generator, where updates have historically been manual and error-prone. The following sequence diagram illustrates how reflection consolidates data flow without duplicating logic: sequenceDiagram participant AST as Clang AST participant Corpus as Typed Corpus participant Traits as Reflect Traits participant DOM as Corpus DOM participant Generators as Generators participant Clients as Integrations AST-&gt;&gt;Corpus: Extract symbols Corpus-&gt;&gt;Traits: Publish descriptors Traits-&gt;&gt;DOM: Build type-erased nodes DOM-&gt;&gt;Generators: Supply normalized schema Generators-&gt;&gt;Clients: Deliver outputs Clients-&gt;&gt;Generators: Provide feedback Generators-&gt;&gt;Traits: Request updates Process: We can start by describing the Symbols, Javadoc, and related classes, shipping each refactor as a dedicated PR so reviews stay contained. Each description removes custom specializations, reverts to = default where possible, and replaces old logic with static asserts that enforce invariants. We generalize the main merge logic first, then update callers such as the AST visitor that walks RecordTranche, ensuring the comments data structure matches the new descriptions. A MRDOCS_DESCRIBE_DERIVED helper can enumerate derived classes so every visit routine becomes generic. Once the C++ side is described, we rebuild the lazy DOM objects on top of Describe so their types mirror the DOM layout directly. Use cases: Redundant non-member functions like tag_invoke, operator⇔, toString, and merge collapse into shared implementations that use traits unless real customization is required. New generators—binary, JSON, or otherwise—drop in with minimal code because the schema and traversal logic already exist. The XML generator stops maintaining a private representation and simply reads the described elements. We can finally standardize naming conventions (kebab-case or camelCase) because the schema enforces them. Generating the Relax NG Compact file becomes just another output produced from the same description. A metadata walker can then discover auxiliary objects and emit DOM documentation automatically. As a side effect of integrating Boost.mp11, we can extend the tag_invoke context protocol with tuple-based helpers for mrdocs::FromValue, further narrowing the gap between concrete and DOM objects. Metadata MrDocs still carries metadata gaps that are too large to ignore. The subsections below highlight the three extraction areas that demand sustained effort; each of them blocks the rest of the system from staying consistent. Recursive blocks and inlines. Release 0.0.5 introduced the data structures for recursive Javadoc elements, but we still do not parse all of those structures. The fix is straightforward in concept—extend the CommonMark-based parser so every block and inline variant becomes a first-class node—but the implementation is long because there are many element types. We can ship this incrementally by opening issues and sub-issues, tackling one structure per PR, and starting with block elements before moving to inlines. The existing post-process documentation finalizer already contains the mechanics; we just need to wire each rule into the new documentation nodes. Legible names. The current name generator appends hash fragments to differentiate symbols lazily, which makes references unstable and awkward. We need a stable allocator that remembers which symbols claimed which names. The highest-priority symbol should receive the base name, and suffixes should cascade to less critical overloads so the visible entries stay predictable. Moving the generator into the extraction phase and storing the assignments there ensures anchors remain stable, lets us update artifacts such as the Boost.URL tagfile, and produces names that actually read well. Populate expressions. Whenever the extractor fails to recognize an expression, it falls back to the raw source string. That shortcut prevents us from applying the usual transformations, especially inside requires-expressions where implementation-defined symbols appear. We should introduce typed representations for the constructs we already understand and continue to store strings for the expressions we have not modeled yet. As coverage grows, more expressions flow through the structured pipeline, and the remaining string-based nodes shrink to the truly unknown cases. Extensions and Plugins Extensions and plugins aim at the same outcome—letting projects customize MrDocs—but they operate at different layers. Extensions run inside the application, usually through interpreters we bundle. We already ship Lua and Duktape, yet today they only power a handful of Handlebars helpers. The plan is to widen that surface: add more interpreters where it makes sense, extend helper support so extensions can participate in escaping and formatting, and give extensions the ability to consume the entire corpus. With that access, an extension can list every symbol, emit metadata in formats we do not yet support, or transform the corpus before it reaches a native generator. The same mechanism enables quality-of-life utilities, such as a generator extension that checks whether a library’s public API changed according to a policy defined in code. Plugins, by contrast, are compiled artifacts. They unlock similar customization goals, but their ABI must stay stable, and platform differences mean a plugin built on one system will not run on another. To keep the surface manageable we should expose a narrow wrapper: pass plugins a set of DOM proxies so they never depend on the underlying Info classes, use traits or versioned interfaces to handle incompatibilities, and plan the API carefully before release. Dependency Resilience Working with dependent libraries is still the most fragile part of the MrDocs workflow. Environments drift, transitive dependencies change without notice, and heavyweight projects force us to install toolchains we do not actually need. In Boost.URL alone we watch upstream Boost libraries evolve every few weeks; sometimes the code truly breaks, but just as often a new release exercises an untested path in MrDocs and triggers a crash because our coverage is still thin. Other ecosystems push the cost even higher: documenting a library that depends on LLVM can turn a three-second render into an hours-long process because the transitive LLVM headers MrDocs needs are generated at build time, so we must compile and install LLVM merely to obtain include files. CI environments regularly fail for the same reason. We already experimented with mitigation strategies and should refine them rather than abandon the ideas. Shipping a curated standard library with MrDocs removes one entire category of instability. The option will soon be disabled by default, but users can still enable it or even combine it with the system library when reproducibility matters more than access to system libraries. This mirrors how Clang ships libc++; it does not allow invalid code, it simply guarantees a known baseline. On top of that, we have preliminary support for user-defined stubs. Configuration files can provide short descriptions of expected symbols from hard-to-build dependencies, and MrDocs can inject those during extraction. For predictable patterns we can auto-generate stubs when the user opts in, synthesizing symbols rather than failing immediately. None of this accepts invalid code—the compiler still diagnoses real errors—but it shields projects from breakage when a transitive dependency tweaks implementation details or when generated headers are unavailable. The features remain optional, so teams can disable synthesis to debug the underlying issue and still benefit from the faster path when schedules are tight. Even if the project moves in another direction we should document the proposal and remove the existing stub hooks deliberately rather than letting them linger undocumented. The payoffs are clear. Boost libraries could generate documentation without cloning the entire super-project, relying on SettingsDB to produce a compilation database and skipping CMake entirely. MrDocs itself could publish reference docs without building LLVM because the required symbols would come from stubs. Releases would stop breaking every time a transitive dependency changes, and developers would regain hours currently spent firefighting. These are the stability and reproducibility gains we need if we want MrDocs to be the default tooling for large C++ ecosystems. Follow-up Issues for v0.0.6 To keep this post focused on the big-picture transition, I spun the tactical tasks into GitHub issues for the 0.0.6 milestone. They’re queued up and ready for execution whenever the team circles back to implementation. List of follow-up issues for v0.0.6 #1081 Support custom stylesheets in the HTML generator #1082 Format-agnostic Handlebars generator extension #1083 Allow SettingsDB to describe a single source file #1084 Guard against invalid source links #1085 Complete tests for all using declaration forms #1086 Explore a recursive project layout #1087 Convert ConfigOptions.json into a schema file #1088 Separate parent context and parent page #1089 List deduction guides on the record page #1090 Expand coverage for Friends #1091 Remove dependency symbols after finalization #1092 Review Bash Commands Parser #1093 Review NameInfoVisitor #1094 Improve overload-set documentation #1095 CI uses the bootstrap script #1096 Connect Antora extensions #1097 Handlebars: optimize render state #1098 Handlebars: explore template compilation #1099 Handlebars: investigate incremental rendering Acknowledgments Matheus Izvekov and Krystian Stasiowski kept the Clang integration moving. Their expertise cleared issues that would have stalled us. Gennaro Prota and Fernando Pelliccioni handled the maintenance load that kept the project on schedule. They took on the long tasks and followed them through. Robert Beeston and Julio Estrada delivered the public face of MrDocs. The site we ship today exists because they turned open-ended goals into a complete experience. Vinnie Falco, Louis Tatta, and Sam Darwin formed the backbone of my daily support. Vinnie trusted the direction and backed the plan when decisions were difficult. Louis made sure I had space to return after setbacks. Sam kept the Alliance infrastructure running so the team always had what it needed. Ruben Perez, Klemens Morgenstern, Peter Dimov, and Peter Turcan offered honest feedback whenever we needed another perspective. Their observations sharpened the product and kept collaboration positive. Joaquín M López Muñoz and Arnaud Bachelier guided me through the people side of leadership. Their advice turned complex situations into workable plans. Working alongside everyone listed here has been a privilege. Their contributions made this year possible. Conclusion The 2025 releases unified the generators, locked the configuration model, added sanitizers and coverage to CI, and introduced features that make the tool usable outside Boost.URL. The project is ready for new contributors because they can extend the code without rebuilding the basics, and downstream teams can run the CLI on large codebases and expect predictable output. While we delivered those releases, I learned that engineering progress depends on steady communication. Remote discussions often sound negative even when people agree on the goals, so I schedule short check-ins, add light signals like emojis, and keep space for conversations that are not task-driven. I also protect time to listen and ask for help when the workload gets heavy; if I lose that time, every deadline slips anyway. Final Reflections Technical conversations start negative by default, so add clear signals when you agree or appreciate the work. Assume terse feedback comes from the medium, not the person, and respond with patience. Keep informal connection habits—buddy calls, breaks, or quick chats—to maintain trust. Look after your own health and use outside support when needed. Never allow the schedule to block real listening time; reset your calendar when that happens." />
+<meta property="og:description" content="In 2024, the MrDocs project was a fragile prototype. It documented Boost.URL, but the CLI, configuration, and build process were unstable. Most users could not run it without direct help from the core group. That unstable baseline is the starting point for this report. In 2025, we moved the codebase to minimum-viable-product shape. I led the releases that stabilized the pipeline, aligned the configuration model, and documented the work in this report to support a smooth leadership transition. This post summarizes the 2024 gaps, the 2025 fixes, and the recommended directions for the next phase. System Overview 2024: Lessons from a Fragile Prototype 2025: From Prototype to MVP v0.0.3: Enforcing Consistency v0.0.4: Establishing the Foundation v0.0.5: Stabilization and Public Readiness 2026: Beyond the MVP Strategic Prioritization Reflection Metadata Extensions and Plugins Dependency Resilience Follow-up Issues for v0.0.6 Acknowledgments Conclusion System Overview MrDocs is a C++ documentation generator built on Clang. It parses source with full language fidelity, links declarations to their comments, and produces reference documentation that reflects real program structure—templates, constraints, and overloads included. Traditional tools often approximate the AST. MrDocs uses the AST directly, so documentation matches the code and modern C++ features render correctly. Unlike single-purpose generators, MrDocs separates the corpus (semantic data) from the presentation layer. Projects can choose among multiple output formats or extend the system entirely: supply custom Handlebars templates or script new generators using the plugin system. The corpus is represented in the generators as a rich JSON-like DOM. With schema files, MrDocs enables integration with build systems, documentation frameworks, or IDEs. From the user’s perspective, MrDocs behaves like a well-engineered CLI utility. It accepts configuration files, supports relative paths, accepts custom build options, and reports warnings in a controlled, compiler-like fashion. For C++ teams transitioning from Doxygen, the command structure is somewhat familiar, but the internal model is designed for reproducibility and correctness. Our goal is not just to render reference pages but to provide a reliable pipeline that any C++ project seeking modern documentation infrastructure can adopt. graph LR A[Source] --&gt; B[Clang] B --&gt; C[Corpus] C --&gt; D{Plugin Layer} subgraph Generator E[HTML] F[AsciiDoc] G[XML] G2[...] end D --&gt; E D --&gt; F D --&gt; G D --&gt; G2 E --&gt; H{Plugin Layer} H --&gt; H2[Published Docs] F --&gt; H G --&gt; H G2 --&gt; H C --&gt; I[Schema Export] I --&gt; J[IntegrationsIDEs &amp; Build Systems] 2024: Lessons from a Fragile Prototype MrDocs entered 2024 as a proof-of-concept built for Boost.URL. It could document one or two curated codebases and produce asciidoc pages for Antora, but the workflow stopped there. The CLI exposed only the scenarios we needed. Configuration options lived in internal notes. The only dependable build path was the script sequence we used inside the Alliance. External users hit errors and missing options almost immediately. Stability was just as fragile: We had no sanitizers, no warnings-as-errors, and inconsistent CI hardware. The binaries crashed as soon as they saw unfamiliar code. The pipeline worked only when the input looked like Boost.URL. Point it at slightly different code patterns and it would segfault. Each feature landed as a custom patch, so logic duplicated across generators, and fixing one path broke another. Early releases: Release v0.0.1 captured that prototype: the early Handlebars engine, the HTML generator, the DOM refactor, and a list of APIs that only the core team could drive. v0.0.2 added structured configuration, automatic compile_commands.json, and better SFINAE handling, but the tool was still insider-only. Leadership transition: Late in 2024 I became project lead with two initial priorities: document the gaps and describe the true limits of the system. That set the 2025 baseline—a functional prototype that needed coherence, reproducibility, and trust before it could call itself a product. What 2025 later fixed were the weaknesses we saw here: configuration coherence, generator unification, schema validation, and basic options were all missing. The CLI, configuration files, and code drifted apart. Generators evolved independently with duplicated code and inconsistent naming. Editors had no schema to lean on. Extraction rules were ad hoc, which made the output incomplete. CI ran on an improvised matrix with no caching, sanitizers, or coverage, so regressions slipped through. That was the starting point. Summary: 2024 produced a working demo, not a reproducible system. Each success exposed another weak link and clarified what had to change in 2025. In short: 2024 left us with a working prototype but no coherent architecture. The system could demonstrate the concept, but not sustain or reproduce it. Every improvement exposed another weak link, and every success demanded more structure than the system was built to handle. It was a year of learning by exhaustion—and setting the stage for everything that came next. Key 2024 checkpoints align with the timeline below: %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% timeline title Prototypes 2024 Q1 : Boost.URL showcase 2024 Q2 : CLI gaps 2024 Q3 : Config + SFINAE fixes 2024 Q4 : Leadership transition 2025: From Prototype to MVP I started the year with a gap analysis that compared MrDocs to other C++ documentation pipelines. From that review I defined the minimum viable product and three priority tracks. Usability covered workflows and surface area that make adoption simple. Stability covered deterministic behavior, proper data structures, and CI discipline. Foundation covered configuration and data models that keep code, flags, and documentation aligned. The 2025 releases followed those tracks and turned MrDocs from a proof of concept into a tool that other teams can adopt. v0.0.3 — Consistency. We replaced ad-hoc behavior with a coherent system: a single source of truth for configuration kept CLI, config files, and docs in sync; generators and templates were unified so changes propagate by design; core semantic extraction (e.g., concepts, constraints, SFINAE) became reliable; and CI hardened around reproducible, tested outputs across HTML and Antora. v0.0.4 — Foundation. We introduced precise warning controls and a family of extract-* options to match established tooling, added a JSON Schema for configuration (enabling editor validation/autocomplete), delivered a robust reference system for documentation comments, brought initial inline formatting to generators, and simplified onboarding with a cross-platform bootstrap script. CI gained sanitizers, coverage checks, and modern compilers. v0.0.5 — Stabilization. We redesigned documentation metadata to support recursive inline elements, enforced safer polymorphic types with optional references and non-nullable patterns, and added user-facing improvements (sorting, automatic compilation database detection, quick reference indices, improved namespace/overload grouping, LLDB formatters). The website and documentation UI were refreshed for accessibility and responsiveness, new demos (including self-documentation) were published, and CI was further tightened with stricter policies and cross-platform bootstrap enhancements. Together, these releases executed the roadmap derived from the initial gap analysis: they aligned the moving parts, closed the most important capability gaps, and delivered a stable foundation that future work can extend without re-litigating fundamentals. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: { &quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot; }}}%% mindmap root((MVP Evolution)) v0.0.3 Config sync Shared templates CI discipline v0.0.4 Warning controls Schema Bootstrap v0.0.5 Recursive docs Nav refresh Tooling polish v0.0.3: Enforcing Consistency v0.0.3 is where MrDocs stopped being a collection of one-off special cases and became a coherent system. Before this release, features landed in a single generator and drifted from the others; extraction handled only the narrowly requested pattern and crashed on nearby ones; and options were inconsistent—some hard-coded, some missing from CLI/config, with no mechanism to keep code, docs, and flags aligned. What changed: The v0.0.3 release fixes this foundation. We introduced a single source of truth for configuration options with TableGen-style metadata: docs, the config file, and the CLI always stay in sync. We added essential Doxygen-like options to make basic projects immediately usable and filled obvious gaps in symbols and doc comments. We implemented metadata extraction for core symbol types and their information—such as template constraints, concepts, and automatic SFINAE detection. We unified generators and templates so changes propagate by design, added tagfile support and “lightweight reflection” to documentation comments as lazy DOM objects and arrays, and extended Handlebars to power the new generators. These features allowed us to create the initial version of the website and ensure the documentation is always in sync. Build and testing discipline: CI, builds, and tests were hardened. All generators were now tested, LLVM caching systems improved, and we launched our first macOS release (important for teams working on Antora UI bundles). All of this long tail of performance, correctness, and safety work turned “works on my machine” into repeatable, adoptable output across HTML and Antora. v0.0.3 was the inflection point. For the first time, developers could depend on consistent configuration, shared templates, and predictable behavior across generators. It aligned internal tools, eliminated duplicated effort, and replaced trial-and-error debugging with reproducible builds. Every improvement in later versions built on this foundation. Categorized improvements for v0.0.3 Configuration Options: enforcing consistency, reproducible builds, and transparent reporting Enforce configuration options are in sync with the JSON source of truth (a1fb8ec6, 9daf71fe) File and symbol filters (1b67a847, b352ba22) Reference and symbol configuration (a3e4477f, 30eaabc9) Extraction options (41411db2, 1214d94b) Reporting options (f994e47e, 0dd9cb45) Configuration structure (c8662b35, dcf5beef, 4bd3ea42) CLI workflows (a2dc4c78, 3c0f90df) Warnings (4eab1933, 5e586f2b, 0e2dd713) SettingsDB (225b2d50, 51639e77) Deterministic configuration (b5449741) Global configuration documentation (ec3dbf5c) Generators: unification, new features, and early refactoring Antora/HTML generator consistency (e674182f, 82e86a6c, 9154b9c5) HTML generator improvements (a28cb2f7, 064ce55a, 5f6665d8) Documentation for generators (2382e8cf, 646a1e5b) Supporting new output formats (58a79f74, 271dde57, 9d9f6652) Handlebars improvements (ebf4dbeb, be76fc07) Generator tooling (00fc84cf, 6a69747d) Navigation helpers (fdccad42) DOM optimizations (9b41d2e4) Libraries and metadata: unification, fixes, and extraction enhancements Info node visitor and traversal improvements (be86a08d, 58ab5a5e) Metadata consistency (544ee37d, 62f8a2bd, bd9c704f) Template and concept support (4b0b4a71, 57cf74de, 92aa76a4) Symbol resolution and references (f64d4a06, aa9333d4) Documentation improvements (5d3f21c8) Website and Documentation: turning features into a showcase and simplifying workflows Create website (05400c3c, 8fba2020) Use the new features to create an HTML panel demos workflow (12ceadee, d38d3e1a, c46c4a91) Unify Antora author mode playbook (999ea4f3) Generator use cases and trade-offs (2307ca6a) Correctness and simplification (4d884f43, 55214d72, b078bead, d8b7fcf4, 96484836, 62f361fb) Build, Testing, and Releases: strengthening CI, improving LLVM caching workflow, and stabilizing releases Templates are tested with golden tests (2bc09e65, 9eece731) LLVM caches and runners improvements (4c14e875, bd54dc7c, 3d92071a, 8537d3db, f3b33a47, 5982cc7e, 93487669) Enable macOS workflow (390159e3) Stabilize artifacts (5e0f628e, d1c3566e, 62736e45) Tests support individual file inputs, which improved local tests considerably (75b1bc52) Performance, correctness, and safety (a820ad79, 43e5f252, a382820f, fbcb5b2d, 6a2290cb, 49f4125f) v0.0.4: Establishing the Foundation v0.0.4 completed the core capabilities we need for production. With the moving parts aligned in v0.0.3, this release focused on the fundamentals. It added consistent warning options, extraction controls that match established tools, schema support for IDE auto-completion, a complete reference system for doc comments, and initial inline formatting in the generators. The bootstrap script became a one-step path to a working build. We also hardened the pipeline with modern CI practices—sanitizers, coverage integration, and standardized presets. Categorized improvements for v0.0.4 Configuration and Extraction: structured configuration, extraction controls, and schema validation Configuration schema (d9517e1d, 5f846c1c, ffa0d1a6) Extraction filters (0a60bb98, a7d7714d) Reference configuration (d18a8ab3) Documentation metadata (6676c1e8) Warnings and Reporting: consistent governance with CLI parity Warning controls (2a29f0a0, 6d3c1f47) Extract options (extract-{public,protected,private,inline}) (aa5a6be3) CLI defaults (d85439c3) Generators: Javadoc, inline formatting, and reference improvements Documentation reference system (4b430f9b, 73489e2b) Javadoc metadata (8dd3af67, f7e59d4c) Inline formatting (5c7490a3, d1d80745) XML generator alignment (9867e0d2, 0f890f2c) Build and CI: sanitizers, coverage, and reproducible builds Sanitizer integration (6257c747, 88954d7f) Coverage reporting (bf195759) Relocatable build (std::format) (7b871032) Bootstrap modernization (3eec9a48, 71afb87b, 524e7923) v0.0.5: Stabilization and Public Readiness v0.0.5 marked the transition toward a sustained development model and prepared the project for handoff. This release focused on presentation, polish, and reliability—ensuring that MrDocs was ready not only for internal use but for public visibility. During this period, we expanded the set of public demos, refined the website and documentation, and stabilized the infrastructure to support a growing user base. The goal was to leave the project in a state where it could continue evolving smoothly, with a stable core, clear development practices, and a professional public face. Community and visibility: Beyond the commits, this release reflected broader activity around the project. We generated and published several new demos, many of which revealed integration issues that were subsequently fixed. As more external users began adopting MrDocs, the feedback loop accelerated: bug reports, feature requests, and real-world edge cases guided much of the work. New contributors joined the team, collaboration became more distributed, and visibility increased. Around the same time, I introduced MrDocs to developers at CppCon 2025, where it received strong feedback from library authors testing it on their own projects. The tool was beginning to gain recognition as a viable, modern alternative to Doxygen. Technical progress: This release focused on correctness. We redesigned the documentation comment data structures to support recursive inline elements and render Markdown and HTML-style formatting correctly. We moved to non-nullable polymorphic types and optional references so that invariants fail at compile time rather than at runtime. User-facing updates included new sorting options, automatic compilation database detection, a quick reference index, broader namespace and overload grouping, and LLDB formatters for Clang and MrDocs symbols. We refreshed the website and documentation UI for accessibility and responsiveness, added new demos (including the MrDocs self-reference), and tightened CI with more sanitizers, stricter warning policies, and cross-platform bootstrap improvements. Together, these improvements completed the transition from a developing prototype to a dependable product. v0.0.5 established a stable foundation for others to build on—polished, documented, and resilient—so future releases could focus on extending capabilities rather than consolidating them. With this release, the project reached a point where the handoff could occur naturally, closing one chapter and opening another. Categorized improvements for v0.0.5 Metadata: documentation inlines and safety improvements Recursive documentation inlines (51e2b655) Consistent sorting options for members and namespaces (sort-members-by, sort-namespace-members-by) (f0ba28dd, a0f694dc) Non-nullable polymorphic types and optional references (c9f9ba13, 8ef3ffaf, bd3e1217, afa558a6, 6ba8ef6b) Consistent metadata class family hierarchy pattern (6d495497) MrDocsSettings includes automatic compilation database support (9afededb, a1f289de) Quick reference index (68e029c1, 940c33f4) Namespace/using/overloads grouping includes using declarations and overloads as shadows (69e1c3bc, d722b7d0, 2b59269c) Conditional explicit clauses in templated methods (2bff4e2f) Destructor overloads supported in class templates (336ad319) Using declarations include all shadow variants (88a1cebf, 9253fd8f, a7d5cf6a) show-enum-constants option (07b69e1c) Custom LLDB formatters for Clang and MrDocs symbols (069bd8f4, f83eca17, 1b39fdd7, aefc53c7) Performance, correctness, and safety (d1788049, 3bd94cff, 8a811560, 3ff37448, ad1e7baa, b10b8aa3, 482c0be8, d66da796, ec8daa11, 5234b67c, 5e879b10, 35e14c93, d5a28a89, 6878c199, 21ce3e74, 2da2081b, b528ae11) Website and Documentation: new demos and a new website New demos (cfa9eb7d, 1b930b86, c18be83e, 177fae4a, 33275050) Website and documentation refresh (35e14c93, a6437742) Self-documentation (f2a5f77e) Antora enhancements (5ed0f48f) Build, Testing, and Releases: improvements and hardening CI Toolchain and CI hardening (6257c747, 88954d7f, bf195759, ba0dcfd3) Bootstrap improvements (3eec9a48, 71afb87b, 524e7923, 4b79ef41, 7d27204e, 988e9ebc, 94a5b799, be7332cf, 4d705c96, f48bbd2f, f9363461) Performance, correctness, and safety (5aa714b2, 469f41ee, 629f1848, 2f0dd8c1, acf7c107) 2026: Beyond the MVP MrDocs now ships a working MVP, but significant foundational work remains. The priority framework is the same: start with gap analysis, shape an MVP (or now just a viable product), and rank follow-on work against that baseline. In 2025 we invested in presentation earlier than infrastructure. That inversion still raises costs: each foundational change forces rework across user-facing pieces. I do not know how the leadership model will evolve in 2026. The team might keep a single coordinator or move to shared stewardship. Regardless, the project only succeeds if we continue investing in foundational capabilities. The steps below outline the recommendations I believe will help keep MrDocs sustainable over the long term. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: { &quot;primaryColor&quot;: &quot;#f2eadf&quot;, &quot;primaryBorderColor&quot;: &quot;#ffe8c6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#ffe8c8&quot;, &quot;secondaryColor&quot;: &quot;#e8ebf3&quot;, &quot;tertiaryColor&quot;: &quot;#eceaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot; }}}%% mindmap root((2026 Priorities)) Reflection Describe symbols Shared walkers Metadata Recursive docs Stable names Typed expressions Extensions Script helpers Plugin ABI Dependencies Curated toolchain Opt-in stubs Community Integration demos Outreach cadence Strategic Prioritization Aligning priorities is itself the highest priority. At the start of my tenure as project lead we followed a strict sequence—gap analysis, then an MVP, then a set of priorities—but that model exposed limitations once work began to land. The issue tracker does not reflect how priorities relate to each other, and as individual tickets close the priority stack does not adjust automatically. The project’s complexity now amplifies the risk: without a clear view of dependencies we can assign a high-value engineer to a task that drags several teammates into the same bottleneck, resulting in net-negative progress. Defining priorities therefore includes understanding the team’s skills, mapping how they collaborate, and making sure no one becomes a sink that blocks everyone else. Alignment across roles remains essential so the plan reflects the people who actually execute it. The tooling already exists to put this into practice. GitHub now lets us mark issues as blocked by or blocking others and to model parent/child relationships. We can use those relationships to reorganize the priorities programmatically. Once the relationships are encoded, priorities gain semantic meaning because we can explain why a small ticket matters in the larger story. Priorities become the byproduct of higher-level goals— narratives about the product—rather than a short-term static wish list of individual features. We also need to strengthen the operational tools that keep the team coordinated. Coverage in CI is still far below our other C++ Alliance projects, and the gap shows up as crashes whenever a new library explores an untested path in the codebase. Improving coverage is a priority in its own right. We can pair that effort with automation and analysis tools like ReviewDog to accelerate code-review feedback, Danger.js to enforce pull-request policies, CodeClimate or similar services for static analysis, and clang-tidy checks to catch issues earlier. Finally, we can invite other collaborators to revisit the gap analysis and MVP, including C++Alliance colleagues who specialize in marketing. Their perspective will help us assign priorities that reflect both technical dependencies and the project’s broader positioning. Reflection The corpus keeps drifting out of sync because every important path in MrDocs duplicates representation by hand. Almost every subsystem reflects data from one format to another, and almost every internal operation traverses those structures. Each time we adjust a field we have to edit dozens of call sites, and even small mistakes create inconsistent state—different copies of the “truth” that evolve independently. Reflection eliminates this churn. If we can describe the corpus once and let the code iterate over those descriptions, the boilerplate disappears, the traversals remain correct, and we stop fighting the same battle. A lightweight option would be to enforce the corpus from JSON the way we treat configuration, but the volume of metadata in AST makes that impractical. Instead, we lean on compile-time reflection utilities such as Boost.Describe and Boost.mp11. With those libraries we can convert the corpus to any representation, and each generator—including future binary or JSON targets—sees the same schema automatically. MrDocs can even emit the schema that powers each generator, keeping the schema, DOM, and documentation in sync. This approach also fixes the long-standing lag in the XML generator, where updates have historically been manual and error-prone. The following sequence diagram illustrates how reflection consolidates data flow without duplicating logic: sequenceDiagram participant AST as Clang AST participant Corpus as Typed Corpus participant Traits as Reflect Traits participant DOM as Corpus DOM participant Generators as Generators participant Clients as Integrations AST-&gt;&gt;Corpus: Extract symbols Corpus-&gt;&gt;Traits: Publish descriptors Traits-&gt;&gt;DOM: Build type-erased nodes DOM-&gt;&gt;Generators: Supply normalized schema Generators-&gt;&gt;Clients: Deliver outputs Clients-&gt;&gt;Generators: Provide feedback Generators-&gt;&gt;Traits: Request updates Process: We can start by describing the Symbols, Javadoc, and related classes, shipping each refactor as a dedicated PR so reviews stay contained. Each description removes custom specializations, reverts to = default where possible, and replaces old logic with static asserts that enforce invariants. We generalize the main merge logic first, then update callers such as the AST visitor that walks RecordTranche, ensuring the comments data structure matches the new descriptions. A MRDOCS_DESCRIBE_DERIVED helper can enumerate derived classes so every visit routine becomes generic. Once the C++ side is described, we rebuild the lazy DOM objects on top of Describe so their types mirror the DOM layout directly. Use cases: Redundant non-member functions like tag_invoke, operator⇔, toString, and merge collapse into shared implementations that use traits unless real customization is required. New generators—binary, JSON, or otherwise—drop in with minimal code because the schema and traversal logic already exist. The XML generator stops maintaining a private representation and simply reads the described elements. We can finally standardize naming conventions (kebab-case or camelCase) because the schema enforces them. Generating the Relax NG Compact file becomes just another output produced from the same description. A metadata walker can then discover auxiliary objects and emit DOM documentation automatically. As a side effect of integrating Boost.mp11, we can extend the tag_invoke context protocol with tuple-based helpers for mrdocs::FromValue, further narrowing the gap between concrete and DOM objects. Metadata MrDocs still carries metadata gaps that are too large to ignore. The subsections below highlight the three extraction areas that demand sustained effort; each of them blocks the rest of the system from staying consistent. Recursive blocks and inlines. Release 0.0.5 introduced the data structures for recursive Javadoc elements, but we still do not parse all of those structures. The fix is straightforward in concept—extend the CommonMark-based parser so every block and inline variant becomes a first-class node—but the implementation is long because there are many element types. We can ship this incrementally by opening issues and sub-issues, tackling one structure per PR, and starting with block elements before moving to inlines. The existing post-process documentation finalizer already contains the mechanics; we just need to wire each rule into the new documentation nodes. Legible names. The current name generator appends hash fragments to differentiate symbols lazily, which makes references unstable and awkward. We need a stable allocator that remembers which symbols claimed which names. The highest-priority symbol should receive the base name, and suffixes should cascade to less critical overloads so the visible entries stay predictable. Moving the generator into the extraction phase and storing the assignments there ensures anchors remain stable, lets us update artifacts such as the Boost.URL tagfile, and produces names that actually read well. Populate expressions. Whenever the extractor fails to recognize an expression, it falls back to the raw source string. That shortcut prevents us from applying the usual transformations, especially inside requires-expressions where implementation-defined symbols appear. We should introduce typed representations for the constructs we already understand and continue to store strings for the expressions we have not modeled yet. As coverage grows, more expressions flow through the structured pipeline, and the remaining string-based nodes shrink to the truly unknown cases. Extensions and Plugins Extensions and plugins aim at the same outcome—letting projects customize MrDocs—but they operate at different layers. Extensions run inside the application, usually through interpreters we bundle. We already ship Lua and Duktape, yet today they only power a handful of Handlebars helpers. The plan is to widen that surface: add more interpreters where it makes sense, extend helper support so extensions can participate in escaping and formatting, and give extensions the ability to consume the entire corpus. With that access, an extension can list every symbol, emit metadata in formats we do not yet support, or transform the corpus before it reaches a native generator. The same mechanism enables quality-of-life utilities, such as a generator extension that checks whether a library’s public API changed according to a policy defined in code. Plugins, by contrast, are compiled artifacts. They unlock similar customization goals, but their ABI must stay stable, and platform differences mean a plugin built on one system will not run on another. To keep the surface manageable we should expose a narrow wrapper: pass plugins a set of DOM proxies so they never depend on the underlying Info classes, use traits or versioned interfaces to handle incompatibilities, and plan the API carefully before release. Dependency Resilience Working with dependent libraries is still the most fragile part of the MrDocs workflow. Environments drift, transitive dependencies change without notice, and heavyweight projects force us to install toolchains we do not actually need. In Boost.URL alone we watch upstream Boost libraries evolve every few weeks; sometimes the code truly breaks, but just as often a new release exercises an untested path in MrDocs and triggers a crash because our coverage is still thin. Other ecosystems push the cost even higher: documenting a library that depends on LLVM can turn a three-second render into an hours-long process because the transitive LLVM headers MrDocs needs are generated at build time, so we must compile and install LLVM merely to obtain include files. CI environments regularly fail for the same reason. We already experimented with mitigation strategies and should refine them rather than abandon the ideas. Shipping a curated standard library with MrDocs removes one entire category of instability. The option will soon be disabled by default, but users can still enable it or even combine it with the system library when reproducibility matters more than access to system libraries. This mirrors how Clang ships libc++; it does not allow invalid code, it simply guarantees a known baseline. On top of that, we have preliminary support for user-defined stubs. Configuration files can provide short descriptions of expected symbols from hard-to-build dependencies, and MrDocs can inject those during extraction. For predictable patterns we can auto-generate stubs when the user opts in, synthesizing symbols rather than failing immediately. None of this accepts invalid code—the compiler still diagnoses real errors—but it shields projects from breakage when a transitive dependency tweaks implementation details or when generated headers are unavailable. The features remain optional, so teams can disable synthesis to debug the underlying issue and still benefit from the faster path when schedules are tight. Even if the project moves in another direction we should document the proposal and remove the existing stub hooks deliberately rather than letting them linger undocumented. The payoffs are clear. Boost libraries could generate documentation without cloning the entire super-project, relying on SettingsDB to produce a compilation database and skipping CMake entirely. MrDocs itself could publish reference docs without building LLVM because the required symbols would come from stubs. Releases would stop breaking every time a transitive dependency changes, and developers would regain hours currently spent firefighting. These are the stability and reproducibility gains we need if we want MrDocs to be the default tooling for large C++ ecosystems. Follow-up Issues for v0.0.6 To keep this post focused on the big-picture transition, I spun the tactical tasks into GitHub issues for the 0.0.6 milestone. They’re queued up and ready for execution whenever the team circles back to implementation. List of follow-up issues for v0.0.6 #1081 Support custom stylesheets in the HTML generator #1082 Format-agnostic Handlebars generator extension #1083 Allow SettingsDB to describe a single source file #1084 Guard against invalid source links #1085 Complete tests for all using declaration forms #1086 Explore a recursive project layout #1087 Convert ConfigOptions.json into a schema file #1088 Separate parent context and parent page #1089 List deduction guides on the record page #1090 Expand coverage for Friends #1091 Remove dependency symbols after finalization #1092 Review Bash Commands Parser #1093 Review NameInfoVisitor #1094 Improve overload-set documentation #1095 CI uses the bootstrap script #1096 Connect Antora extensions #1097 Handlebars: optimize render state #1098 Handlebars: explore template compilation #1099 Handlebars: investigate incremental rendering Acknowledgments Matheus Izvekov and Krystian Stasiowski kept the Clang integration moving. Their expertise cleared issues that would have stalled us. Gennaro Prota and Fernando Pelliccioni handled the maintenance load that kept the project on schedule. They took on the long tasks and followed them through. Robert Beeston and Julio Estrada delivered the public face of MrDocs. The site we ship today exists because they turned open-ended goals into a complete experience. Vinnie Falco, Louis Tatta, and Sam Darwin formed the backbone of my daily support. Vinnie trusted the direction and backed the plan when decisions were difficult. Louis made sure I had space to return after setbacks. Sam kept the Alliance infrastructure running so the team always had what it needed. Ruben Perez, Klemens Morgenstern, Peter Dimov, and Peter Turcan offered honest feedback whenever we needed another perspective. Their observations sharpened the product and kept collaboration positive. Joaquín M López Muñoz and Arnaud Bachelier guided me through the people side of leadership. Their advice turned complex situations into workable plans. Working alongside everyone listed here has been a privilege. Their contributions made this year possible. Conclusion The 2025 releases unified the generators, locked the configuration model, added sanitizers and coverage to CI, and introduced features that make the tool usable outside Boost.URL. The project is ready for new contributors because they can extend the code without rebuilding the basics, and downstream teams can run the CLI on large codebases and expect predictable output. While we delivered those releases, I learned that engineering progress depends on steady communication. Remote discussions often sound negative even when people agree on the goals, so I schedule short check-ins, add light signals like emojis, and keep space for conversations that are not task-driven. I also protect time to listen and ask for help when the workload gets heavy; if I lose that time, every deadline slips anyway. Final Reflections Technical conversations start negative by default, so add clear signals when you agree or appreciate the work. Assume terse feedback comes from the medium, not the person, and respond with patience. Keep informal connection habits—buddy calls, breaks, or quick chats—to maintain trust. Look after your own health and use outside support when needed. Never allow the schedule to block real listening time; reset your calendar when that happens." />
+<link rel="canonical" href="http://cppalliance.org/alan/2025/10/28/Alan.html" />
+<meta property="og:url" content="http://cppalliance.org/alan/2025/10/28/Alan.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-10-28T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="From Prototype to Product: MrDocs in 2025" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In 2024, the MrDocs project was a fragile prototype. It documented Boost.URL, but the CLI, configuration, and build process were unstable. Most users could not run it without direct help from the core group. That unstable baseline is the starting point for this report. In 2025, we moved the codebase to minimum-viable-product shape. I led the releases that stabilized the pipeline, aligned the configuration model, and documented the work in this report to support a smooth leadership transition. This post summarizes the 2024 gaps, the 2025 fixes, and the recommended directions for the next phase. System Overview 2024: Lessons from a Fragile Prototype 2025: From Prototype to MVP v0.0.3: Enforcing Consistency v0.0.4: Establishing the Foundation v0.0.5: Stabilization and Public Readiness 2026: Beyond the MVP Strategic Prioritization Reflection Metadata Extensions and Plugins Dependency Resilience Follow-up Issues for v0.0.6 Acknowledgments Conclusion System Overview MrDocs is a C++ documentation generator built on Clang. It parses source with full language fidelity, links declarations to their comments, and produces reference documentation that reflects real program structure—templates, constraints, and overloads included. Traditional tools often approximate the AST. MrDocs uses the AST directly, so documentation matches the code and modern C++ features render correctly. Unlike single-purpose generators, MrDocs separates the corpus (semantic data) from the presentation layer. Projects can choose among multiple output formats or extend the system entirely: supply custom Handlebars templates or script new generators using the plugin system. The corpus is represented in the generators as a rich JSON-like DOM. With schema files, MrDocs enables integration with build systems, documentation frameworks, or IDEs. From the user’s perspective, MrDocs behaves like a well-engineered CLI utility. It accepts configuration files, supports relative paths, accepts custom build options, and reports warnings in a controlled, compiler-like fashion. For C++ teams transitioning from Doxygen, the command structure is somewhat familiar, but the internal model is designed for reproducibility and correctness. Our goal is not just to render reference pages but to provide a reliable pipeline that any C++ project seeking modern documentation infrastructure can adopt. graph LR A[Source] --&gt; B[Clang] B --&gt; C[Corpus] C --&gt; D{Plugin Layer} subgraph Generator E[HTML] F[AsciiDoc] G[XML] G2[...] end D --&gt; E D --&gt; F D --&gt; G D --&gt; G2 E --&gt; H{Plugin Layer} H --&gt; H2[Published Docs] F --&gt; H G --&gt; H G2 --&gt; H C --&gt; I[Schema Export] I --&gt; J[IntegrationsIDEs &amp; Build Systems] 2024: Lessons from a Fragile Prototype MrDocs entered 2024 as a proof-of-concept built for Boost.URL. It could document one or two curated codebases and produce asciidoc pages for Antora, but the workflow stopped there. The CLI exposed only the scenarios we needed. Configuration options lived in internal notes. The only dependable build path was the script sequence we used inside the Alliance. External users hit errors and missing options almost immediately. Stability was just as fragile: We had no sanitizers, no warnings-as-errors, and inconsistent CI hardware. The binaries crashed as soon as they saw unfamiliar code. The pipeline worked only when the input looked like Boost.URL. Point it at slightly different code patterns and it would segfault. Each feature landed as a custom patch, so logic duplicated across generators, and fixing one path broke another. Early releases: Release v0.0.1 captured that prototype: the early Handlebars engine, the HTML generator, the DOM refactor, and a list of APIs that only the core team could drive. v0.0.2 added structured configuration, automatic compile_commands.json, and better SFINAE handling, but the tool was still insider-only. Leadership transition: Late in 2024 I became project lead with two initial priorities: document the gaps and describe the true limits of the system. That set the 2025 baseline—a functional prototype that needed coherence, reproducibility, and trust before it could call itself a product. What 2025 later fixed were the weaknesses we saw here: configuration coherence, generator unification, schema validation, and basic options were all missing. The CLI, configuration files, and code drifted apart. Generators evolved independently with duplicated code and inconsistent naming. Editors had no schema to lean on. Extraction rules were ad hoc, which made the output incomplete. CI ran on an improvised matrix with no caching, sanitizers, or coverage, so regressions slipped through. That was the starting point. Summary: 2024 produced a working demo, not a reproducible system. Each success exposed another weak link and clarified what had to change in 2025. In short: 2024 left us with a working prototype but no coherent architecture. The system could demonstrate the concept, but not sustain or reproduce it. Every improvement exposed another weak link, and every success demanded more structure than the system was built to handle. It was a year of learning by exhaustion—and setting the stage for everything that came next. Key 2024 checkpoints align with the timeline below: %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% timeline title Prototypes 2024 Q1 : Boost.URL showcase 2024 Q2 : CLI gaps 2024 Q3 : Config + SFINAE fixes 2024 Q4 : Leadership transition 2025: From Prototype to MVP I started the year with a gap analysis that compared MrDocs to other C++ documentation pipelines. From that review I defined the minimum viable product and three priority tracks. Usability covered workflows and surface area that make adoption simple. Stability covered deterministic behavior, proper data structures, and CI discipline. Foundation covered configuration and data models that keep code, flags, and documentation aligned. The 2025 releases followed those tracks and turned MrDocs from a proof of concept into a tool that other teams can adopt. v0.0.3 — Consistency. We replaced ad-hoc behavior with a coherent system: a single source of truth for configuration kept CLI, config files, and docs in sync; generators and templates were unified so changes propagate by design; core semantic extraction (e.g., concepts, constraints, SFINAE) became reliable; and CI hardened around reproducible, tested outputs across HTML and Antora. v0.0.4 — Foundation. We introduced precise warning controls and a family of extract-* options to match established tooling, added a JSON Schema for configuration (enabling editor validation/autocomplete), delivered a robust reference system for documentation comments, brought initial inline formatting to generators, and simplified onboarding with a cross-platform bootstrap script. CI gained sanitizers, coverage checks, and modern compilers. v0.0.5 — Stabilization. We redesigned documentation metadata to support recursive inline elements, enforced safer polymorphic types with optional references and non-nullable patterns, and added user-facing improvements (sorting, automatic compilation database detection, quick reference indices, improved namespace/overload grouping, LLDB formatters). The website and documentation UI were refreshed for accessibility and responsiveness, new demos (including self-documentation) were published, and CI was further tightened with stricter policies and cross-platform bootstrap enhancements. Together, these releases executed the roadmap derived from the initial gap analysis: they aligned the moving parts, closed the most important capability gaps, and delivered a stable foundation that future work can extend without re-litigating fundamentals. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: { &quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot; }}}%% mindmap root((MVP Evolution)) v0.0.3 Config sync Shared templates CI discipline v0.0.4 Warning controls Schema Bootstrap v0.0.5 Recursive docs Nav refresh Tooling polish v0.0.3: Enforcing Consistency v0.0.3 is where MrDocs stopped being a collection of one-off special cases and became a coherent system. Before this release, features landed in a single generator and drifted from the others; extraction handled only the narrowly requested pattern and crashed on nearby ones; and options were inconsistent—some hard-coded, some missing from CLI/config, with no mechanism to keep code, docs, and flags aligned. What changed: The v0.0.3 release fixes this foundation. We introduced a single source of truth for configuration options with TableGen-style metadata: docs, the config file, and the CLI always stay in sync. We added essential Doxygen-like options to make basic projects immediately usable and filled obvious gaps in symbols and doc comments. We implemented metadata extraction for core symbol types and their information—such as template constraints, concepts, and automatic SFINAE detection. We unified generators and templates so changes propagate by design, added tagfile support and “lightweight reflection” to documentation comments as lazy DOM objects and arrays, and extended Handlebars to power the new generators. These features allowed us to create the initial version of the website and ensure the documentation is always in sync. Build and testing discipline: CI, builds, and tests were hardened. All generators were now tested, LLVM caching systems improved, and we launched our first macOS release (important for teams working on Antora UI bundles). All of this long tail of performance, correctness, and safety work turned “works on my machine” into repeatable, adoptable output across HTML and Antora. v0.0.3 was the inflection point. For the first time, developers could depend on consistent configuration, shared templates, and predictable behavior across generators. It aligned internal tools, eliminated duplicated effort, and replaced trial-and-error debugging with reproducible builds. Every improvement in later versions built on this foundation. Categorized improvements for v0.0.3 Configuration Options: enforcing consistency, reproducible builds, and transparent reporting Enforce configuration options are in sync with the JSON source of truth (a1fb8ec6, 9daf71fe) File and symbol filters (1b67a847, b352ba22) Reference and symbol configuration (a3e4477f, 30eaabc9) Extraction options (41411db2, 1214d94b) Reporting options (f994e47e, 0dd9cb45) Configuration structure (c8662b35, dcf5beef, 4bd3ea42) CLI workflows (a2dc4c78, 3c0f90df) Warnings (4eab1933, 5e586f2b, 0e2dd713) SettingsDB (225b2d50, 51639e77) Deterministic configuration (b5449741) Global configuration documentation (ec3dbf5c) Generators: unification, new features, and early refactoring Antora/HTML generator consistency (e674182f, 82e86a6c, 9154b9c5) HTML generator improvements (a28cb2f7, 064ce55a, 5f6665d8) Documentation for generators (2382e8cf, 646a1e5b) Supporting new output formats (58a79f74, 271dde57, 9d9f6652) Handlebars improvements (ebf4dbeb, be76fc07) Generator tooling (00fc84cf, 6a69747d) Navigation helpers (fdccad42) DOM optimizations (9b41d2e4) Libraries and metadata: unification, fixes, and extraction enhancements Info node visitor and traversal improvements (be86a08d, 58ab5a5e) Metadata consistency (544ee37d, 62f8a2bd, bd9c704f) Template and concept support (4b0b4a71, 57cf74de, 92aa76a4) Symbol resolution and references (f64d4a06, aa9333d4) Documentation improvements (5d3f21c8) Website and Documentation: turning features into a showcase and simplifying workflows Create website (05400c3c, 8fba2020) Use the new features to create an HTML panel demos workflow (12ceadee, d38d3e1a, c46c4a91) Unify Antora author mode playbook (999ea4f3) Generator use cases and trade-offs (2307ca6a) Correctness and simplification (4d884f43, 55214d72, b078bead, d8b7fcf4, 96484836, 62f361fb) Build, Testing, and Releases: strengthening CI, improving LLVM caching workflow, and stabilizing releases Templates are tested with golden tests (2bc09e65, 9eece731) LLVM caches and runners improvements (4c14e875, bd54dc7c, 3d92071a, 8537d3db, f3b33a47, 5982cc7e, 93487669) Enable macOS workflow (390159e3) Stabilize artifacts (5e0f628e, d1c3566e, 62736e45) Tests support individual file inputs, which improved local tests considerably (75b1bc52) Performance, correctness, and safety (a820ad79, 43e5f252, a382820f, fbcb5b2d, 6a2290cb, 49f4125f) v0.0.4: Establishing the Foundation v0.0.4 completed the core capabilities we need for production. With the moving parts aligned in v0.0.3, this release focused on the fundamentals. It added consistent warning options, extraction controls that match established tools, schema support for IDE auto-completion, a complete reference system for doc comments, and initial inline formatting in the generators. The bootstrap script became a one-step path to a working build. We also hardened the pipeline with modern CI practices—sanitizers, coverage integration, and standardized presets. Categorized improvements for v0.0.4 Configuration and Extraction: structured configuration, extraction controls, and schema validation Configuration schema (d9517e1d, 5f846c1c, ffa0d1a6) Extraction filters (0a60bb98, a7d7714d) Reference configuration (d18a8ab3) Documentation metadata (6676c1e8) Warnings and Reporting: consistent governance with CLI parity Warning controls (2a29f0a0, 6d3c1f47) Extract options (extract-{public,protected,private,inline}) (aa5a6be3) CLI defaults (d85439c3) Generators: Javadoc, inline formatting, and reference improvements Documentation reference system (4b430f9b, 73489e2b) Javadoc metadata (8dd3af67, f7e59d4c) Inline formatting (5c7490a3, d1d80745) XML generator alignment (9867e0d2, 0f890f2c) Build and CI: sanitizers, coverage, and reproducible builds Sanitizer integration (6257c747, 88954d7f) Coverage reporting (bf195759) Relocatable build (std::format) (7b871032) Bootstrap modernization (3eec9a48, 71afb87b, 524e7923) v0.0.5: Stabilization and Public Readiness v0.0.5 marked the transition toward a sustained development model and prepared the project for handoff. This release focused on presentation, polish, and reliability—ensuring that MrDocs was ready not only for internal use but for public visibility. During this period, we expanded the set of public demos, refined the website and documentation, and stabilized the infrastructure to support a growing user base. The goal was to leave the project in a state where it could continue evolving smoothly, with a stable core, clear development practices, and a professional public face. Community and visibility: Beyond the commits, this release reflected broader activity around the project. We generated and published several new demos, many of which revealed integration issues that were subsequently fixed. As more external users began adopting MrDocs, the feedback loop accelerated: bug reports, feature requests, and real-world edge cases guided much of the work. New contributors joined the team, collaboration became more distributed, and visibility increased. Around the same time, I introduced MrDocs to developers at CppCon 2025, where it received strong feedback from library authors testing it on their own projects. The tool was beginning to gain recognition as a viable, modern alternative to Doxygen. Technical progress: This release focused on correctness. We redesigned the documentation comment data structures to support recursive inline elements and render Markdown and HTML-style formatting correctly. We moved to non-nullable polymorphic types and optional references so that invariants fail at compile time rather than at runtime. User-facing updates included new sorting options, automatic compilation database detection, a quick reference index, broader namespace and overload grouping, and LLDB formatters for Clang and MrDocs symbols. We refreshed the website and documentation UI for accessibility and responsiveness, added new demos (including the MrDocs self-reference), and tightened CI with more sanitizers, stricter warning policies, and cross-platform bootstrap improvements. Together, these improvements completed the transition from a developing prototype to a dependable product. v0.0.5 established a stable foundation for others to build on—polished, documented, and resilient—so future releases could focus on extending capabilities rather than consolidating them. With this release, the project reached a point where the handoff could occur naturally, closing one chapter and opening another. Categorized improvements for v0.0.5 Metadata: documentation inlines and safety improvements Recursive documentation inlines (51e2b655) Consistent sorting options for members and namespaces (sort-members-by, sort-namespace-members-by) (f0ba28dd, a0f694dc) Non-nullable polymorphic types and optional references (c9f9ba13, 8ef3ffaf, bd3e1217, afa558a6, 6ba8ef6b) Consistent metadata class family hierarchy pattern (6d495497) MrDocsSettings includes automatic compilation database support (9afededb, a1f289de) Quick reference index (68e029c1, 940c33f4) Namespace/using/overloads grouping includes using declarations and overloads as shadows (69e1c3bc, d722b7d0, 2b59269c) Conditional explicit clauses in templated methods (2bff4e2f) Destructor overloads supported in class templates (336ad319) Using declarations include all shadow variants (88a1cebf, 9253fd8f, a7d5cf6a) show-enum-constants option (07b69e1c) Custom LLDB formatters for Clang and MrDocs symbols (069bd8f4, f83eca17, 1b39fdd7, aefc53c7) Performance, correctness, and safety (d1788049, 3bd94cff, 8a811560, 3ff37448, ad1e7baa, b10b8aa3, 482c0be8, d66da796, ec8daa11, 5234b67c, 5e879b10, 35e14c93, d5a28a89, 6878c199, 21ce3e74, 2da2081b, b528ae11) Website and Documentation: new demos and a new website New demos (cfa9eb7d, 1b930b86, c18be83e, 177fae4a, 33275050) Website and documentation refresh (35e14c93, a6437742) Self-documentation (f2a5f77e) Antora enhancements (5ed0f48f) Build, Testing, and Releases: improvements and hardening CI Toolchain and CI hardening (6257c747, 88954d7f, bf195759, ba0dcfd3) Bootstrap improvements (3eec9a48, 71afb87b, 524e7923, 4b79ef41, 7d27204e, 988e9ebc, 94a5b799, be7332cf, 4d705c96, f48bbd2f, f9363461) Performance, correctness, and safety (5aa714b2, 469f41ee, 629f1848, 2f0dd8c1, acf7c107) 2026: Beyond the MVP MrDocs now ships a working MVP, but significant foundational work remains. The priority framework is the same: start with gap analysis, shape an MVP (or now just a viable product), and rank follow-on work against that baseline. In 2025 we invested in presentation earlier than infrastructure. That inversion still raises costs: each foundational change forces rework across user-facing pieces. I do not know how the leadership model will evolve in 2026. The team might keep a single coordinator or move to shared stewardship. Regardless, the project only succeeds if we continue investing in foundational capabilities. The steps below outline the recommendations I believe will help keep MrDocs sustainable over the long term. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: { &quot;primaryColor&quot;: &quot;#f2eadf&quot;, &quot;primaryBorderColor&quot;: &quot;#ffe8c6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#ffe8c8&quot;, &quot;secondaryColor&quot;: &quot;#e8ebf3&quot;, &quot;tertiaryColor&quot;: &quot;#eceaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot; }}}%% mindmap root((2026 Priorities)) Reflection Describe symbols Shared walkers Metadata Recursive docs Stable names Typed expressions Extensions Script helpers Plugin ABI Dependencies Curated toolchain Opt-in stubs Community Integration demos Outreach cadence Strategic Prioritization Aligning priorities is itself the highest priority. At the start of my tenure as project lead we followed a strict sequence—gap analysis, then an MVP, then a set of priorities—but that model exposed limitations once work began to land. The issue tracker does not reflect how priorities relate to each other, and as individual tickets close the priority stack does not adjust automatically. The project’s complexity now amplifies the risk: without a clear view of dependencies we can assign a high-value engineer to a task that drags several teammates into the same bottleneck, resulting in net-negative progress. Defining priorities therefore includes understanding the team’s skills, mapping how they collaborate, and making sure no one becomes a sink that blocks everyone else. Alignment across roles remains essential so the plan reflects the people who actually execute it. The tooling already exists to put this into practice. GitHub now lets us mark issues as blocked by or blocking others and to model parent/child relationships. We can use those relationships to reorganize the priorities programmatically. Once the relationships are encoded, priorities gain semantic meaning because we can explain why a small ticket matters in the larger story. Priorities become the byproduct of higher-level goals— narratives about the product—rather than a short-term static wish list of individual features. We also need to strengthen the operational tools that keep the team coordinated. Coverage in CI is still far below our other C++ Alliance projects, and the gap shows up as crashes whenever a new library explores an untested path in the codebase. Improving coverage is a priority in its own right. We can pair that effort with automation and analysis tools like ReviewDog to accelerate code-review feedback, Danger.js to enforce pull-request policies, CodeClimate or similar services for static analysis, and clang-tidy checks to catch issues earlier. Finally, we can invite other collaborators to revisit the gap analysis and MVP, including C++Alliance colleagues who specialize in marketing. Their perspective will help us assign priorities that reflect both technical dependencies and the project’s broader positioning. Reflection The corpus keeps drifting out of sync because every important path in MrDocs duplicates representation by hand. Almost every subsystem reflects data from one format to another, and almost every internal operation traverses those structures. Each time we adjust a field we have to edit dozens of call sites, and even small mistakes create inconsistent state—different copies of the “truth” that evolve independently. Reflection eliminates this churn. If we can describe the corpus once and let the code iterate over those descriptions, the boilerplate disappears, the traversals remain correct, and we stop fighting the same battle. A lightweight option would be to enforce the corpus from JSON the way we treat configuration, but the volume of metadata in AST makes that impractical. Instead, we lean on compile-time reflection utilities such as Boost.Describe and Boost.mp11. With those libraries we can convert the corpus to any representation, and each generator—including future binary or JSON targets—sees the same schema automatically. MrDocs can even emit the schema that powers each generator, keeping the schema, DOM, and documentation in sync. This approach also fixes the long-standing lag in the XML generator, where updates have historically been manual and error-prone. The following sequence diagram illustrates how reflection consolidates data flow without duplicating logic: sequenceDiagram participant AST as Clang AST participant Corpus as Typed Corpus participant Traits as Reflect Traits participant DOM as Corpus DOM participant Generators as Generators participant Clients as Integrations AST-&gt;&gt;Corpus: Extract symbols Corpus-&gt;&gt;Traits: Publish descriptors Traits-&gt;&gt;DOM: Build type-erased nodes DOM-&gt;&gt;Generators: Supply normalized schema Generators-&gt;&gt;Clients: Deliver outputs Clients-&gt;&gt;Generators: Provide feedback Generators-&gt;&gt;Traits: Request updates Process: We can start by describing the Symbols, Javadoc, and related classes, shipping each refactor as a dedicated PR so reviews stay contained. Each description removes custom specializations, reverts to = default where possible, and replaces old logic with static asserts that enforce invariants. We generalize the main merge logic first, then update callers such as the AST visitor that walks RecordTranche, ensuring the comments data structure matches the new descriptions. A MRDOCS_DESCRIBE_DERIVED helper can enumerate derived classes so every visit routine becomes generic. Once the C++ side is described, we rebuild the lazy DOM objects on top of Describe so their types mirror the DOM layout directly. Use cases: Redundant non-member functions like tag_invoke, operator⇔, toString, and merge collapse into shared implementations that use traits unless real customization is required. New generators—binary, JSON, or otherwise—drop in with minimal code because the schema and traversal logic already exist. The XML generator stops maintaining a private representation and simply reads the described elements. We can finally standardize naming conventions (kebab-case or camelCase) because the schema enforces them. Generating the Relax NG Compact file becomes just another output produced from the same description. A metadata walker can then discover auxiliary objects and emit DOM documentation automatically. As a side effect of integrating Boost.mp11, we can extend the tag_invoke context protocol with tuple-based helpers for mrdocs::FromValue, further narrowing the gap between concrete and DOM objects. Metadata MrDocs still carries metadata gaps that are too large to ignore. The subsections below highlight the three extraction areas that demand sustained effort; each of them blocks the rest of the system from staying consistent. Recursive blocks and inlines. Release 0.0.5 introduced the data structures for recursive Javadoc elements, but we still do not parse all of those structures. The fix is straightforward in concept—extend the CommonMark-based parser so every block and inline variant becomes a first-class node—but the implementation is long because there are many element types. We can ship this incrementally by opening issues and sub-issues, tackling one structure per PR, and starting with block elements before moving to inlines. The existing post-process documentation finalizer already contains the mechanics; we just need to wire each rule into the new documentation nodes. Legible names. The current name generator appends hash fragments to differentiate symbols lazily, which makes references unstable and awkward. We need a stable allocator that remembers which symbols claimed which names. The highest-priority symbol should receive the base name, and suffixes should cascade to less critical overloads so the visible entries stay predictable. Moving the generator into the extraction phase and storing the assignments there ensures anchors remain stable, lets us update artifacts such as the Boost.URL tagfile, and produces names that actually read well. Populate expressions. Whenever the extractor fails to recognize an expression, it falls back to the raw source string. That shortcut prevents us from applying the usual transformations, especially inside requires-expressions where implementation-defined symbols appear. We should introduce typed representations for the constructs we already understand and continue to store strings for the expressions we have not modeled yet. As coverage grows, more expressions flow through the structured pipeline, and the remaining string-based nodes shrink to the truly unknown cases. Extensions and Plugins Extensions and plugins aim at the same outcome—letting projects customize MrDocs—but they operate at different layers. Extensions run inside the application, usually through interpreters we bundle. We already ship Lua and Duktape, yet today they only power a handful of Handlebars helpers. The plan is to widen that surface: add more interpreters where it makes sense, extend helper support so extensions can participate in escaping and formatting, and give extensions the ability to consume the entire corpus. With that access, an extension can list every symbol, emit metadata in formats we do not yet support, or transform the corpus before it reaches a native generator. The same mechanism enables quality-of-life utilities, such as a generator extension that checks whether a library’s public API changed according to a policy defined in code. Plugins, by contrast, are compiled artifacts. They unlock similar customization goals, but their ABI must stay stable, and platform differences mean a plugin built on one system will not run on another. To keep the surface manageable we should expose a narrow wrapper: pass plugins a set of DOM proxies so they never depend on the underlying Info classes, use traits or versioned interfaces to handle incompatibilities, and plan the API carefully before release. Dependency Resilience Working with dependent libraries is still the most fragile part of the MrDocs workflow. Environments drift, transitive dependencies change without notice, and heavyweight projects force us to install toolchains we do not actually need. In Boost.URL alone we watch upstream Boost libraries evolve every few weeks; sometimes the code truly breaks, but just as often a new release exercises an untested path in MrDocs and triggers a crash because our coverage is still thin. Other ecosystems push the cost even higher: documenting a library that depends on LLVM can turn a three-second render into an hours-long process because the transitive LLVM headers MrDocs needs are generated at build time, so we must compile and install LLVM merely to obtain include files. CI environments regularly fail for the same reason. We already experimented with mitigation strategies and should refine them rather than abandon the ideas. Shipping a curated standard library with MrDocs removes one entire category of instability. The option will soon be disabled by default, but users can still enable it or even combine it with the system library when reproducibility matters more than access to system libraries. This mirrors how Clang ships libc++; it does not allow invalid code, it simply guarantees a known baseline. On top of that, we have preliminary support for user-defined stubs. Configuration files can provide short descriptions of expected symbols from hard-to-build dependencies, and MrDocs can inject those during extraction. For predictable patterns we can auto-generate stubs when the user opts in, synthesizing symbols rather than failing immediately. None of this accepts invalid code—the compiler still diagnoses real errors—but it shields projects from breakage when a transitive dependency tweaks implementation details or when generated headers are unavailable. The features remain optional, so teams can disable synthesis to debug the underlying issue and still benefit from the faster path when schedules are tight. Even if the project moves in another direction we should document the proposal and remove the existing stub hooks deliberately rather than letting them linger undocumented. The payoffs are clear. Boost libraries could generate documentation without cloning the entire super-project, relying on SettingsDB to produce a compilation database and skipping CMake entirely. MrDocs itself could publish reference docs without building LLVM because the required symbols would come from stubs. Releases would stop breaking every time a transitive dependency changes, and developers would regain hours currently spent firefighting. These are the stability and reproducibility gains we need if we want MrDocs to be the default tooling for large C++ ecosystems. Follow-up Issues for v0.0.6 To keep this post focused on the big-picture transition, I spun the tactical tasks into GitHub issues for the 0.0.6 milestone. They’re queued up and ready for execution whenever the team circles back to implementation. List of follow-up issues for v0.0.6 #1081 Support custom stylesheets in the HTML generator #1082 Format-agnostic Handlebars generator extension #1083 Allow SettingsDB to describe a single source file #1084 Guard against invalid source links #1085 Complete tests for all using declaration forms #1086 Explore a recursive project layout #1087 Convert ConfigOptions.json into a schema file #1088 Separate parent context and parent page #1089 List deduction guides on the record page #1090 Expand coverage for Friends #1091 Remove dependency symbols after finalization #1092 Review Bash Commands Parser #1093 Review NameInfoVisitor #1094 Improve overload-set documentation #1095 CI uses the bootstrap script #1096 Connect Antora extensions #1097 Handlebars: optimize render state #1098 Handlebars: explore template compilation #1099 Handlebars: investigate incremental rendering Acknowledgments Matheus Izvekov and Krystian Stasiowski kept the Clang integration moving. Their expertise cleared issues that would have stalled us. Gennaro Prota and Fernando Pelliccioni handled the maintenance load that kept the project on schedule. They took on the long tasks and followed them through. Robert Beeston and Julio Estrada delivered the public face of MrDocs. The site we ship today exists because they turned open-ended goals into a complete experience. Vinnie Falco, Louis Tatta, and Sam Darwin formed the backbone of my daily support. Vinnie trusted the direction and backed the plan when decisions were difficult. Louis made sure I had space to return after setbacks. Sam kept the Alliance infrastructure running so the team always had what it needed. Ruben Perez, Klemens Morgenstern, Peter Dimov, and Peter Turcan offered honest feedback whenever we needed another perspective. Their observations sharpened the product and kept collaboration positive. Joaquín M López Muñoz and Arnaud Bachelier guided me through the people side of leadership. Their advice turned complex situations into workable plans. Working alongside everyone listed here has been a privilege. Their contributions made this year possible. Conclusion The 2025 releases unified the generators, locked the configuration model, added sanitizers and coverage to CI, and introduced features that make the tool usable outside Boost.URL. The project is ready for new contributors because they can extend the code without rebuilding the basics, and downstream teams can run the CLI on large codebases and expect predictable output. While we delivered those releases, I learned that engineering progress depends on steady communication. Remote discussions often sound negative even when people agree on the goals, so I schedule short check-ins, add light signals like emojis, and keep space for conversations that are not task-driven. I also protect time to listen and ask for help when the workload gets heavy; if I lose that time, every deadline slips anyway. Final Reflections Technical conversations start negative by default, so add clear signals when you agree or appreciate the work. Assume terse feedback comes from the medium, not the person, and respond with patience. Keep informal connection habits—buddy calls, breaks, or quick chats—to maintain trust. Look after your own health and use outside support when needed. Never allow the schedule to block real listening time; reset your calendar when that happens.","@type":"BlogPosting","url":"http://cppalliance.org/alan/2025/10/28/Alan.html","headline":"From Prototype to Product: MrDocs in 2025","dateModified":"2025-10-28T00:00:00+00:00","datePublished":"2025-10-28T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/alan/2025/10/28/Alan.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>From Prototype to Product: MrDocs in 2025</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/alan">
+              <img class='author-img' src='/images/people/alan.jpg' alt='Portrait of Alan de Freitas' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/alan">
+                  Alan de Freitas
+                </a> &middot; Oct 28, 2025
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In 2024, the <a href="https://www.mrdocs.com">MrDocs</a> project was a <strong>fragile prototype</strong>. It documented Boost.URL, but the <strong>CLI</strong>, <strong>configuration</strong>, and <strong>build process</strong> were unstable. Most users could not run it without direct help from the core group. That unstable baseline is the starting point for this report.</p>
+
+<p>In 2025, we moved the codebase to <strong>minimum-viable-product</strong> shape. I led the releases that stabilized the pipeline, aligned the <strong>configuration model</strong>, and documented the work in this report to support a smooth <strong>leadership transition</strong>. This post summarizes the <strong>2024 gaps</strong>, the <strong>2025 fixes</strong>, and the <strong>recommended directions</strong> for the next phase.</p>
+
+<!-- prettier-ignore -->
+<ul id="markdown-toc">
+  <li><a href="#system-overview" id="markdown-toc-system-overview">System Overview</a></li>
+  <li><a href="#2024-lessons-from-a-fragile-prototype" id="markdown-toc-2024-lessons-from-a-fragile-prototype">2024: Lessons from a Fragile Prototype</a></li>
+  <li><a href="#2025-from-prototype-to-mvp" id="markdown-toc-2025-from-prototype-to-mvp">2025: From Prototype to MVP</a>    <ul>
+      <li><a href="#v003-enforcing-consistency" id="markdown-toc-v003-enforcing-consistency">v0.0.3: Enforcing Consistency</a></li>
+      <li><a href="#v004-establishing-the-foundation" id="markdown-toc-v004-establishing-the-foundation">v0.0.4: Establishing the Foundation</a></li>
+      <li><a href="#v005-stabilization-and-public-readiness" id="markdown-toc-v005-stabilization-and-public-readiness">v0.0.5: Stabilization and Public Readiness</a></li>
+    </ul>
+  </li>
+  <li><a href="#2026-beyond-the-mvp" id="markdown-toc-2026-beyond-the-mvp">2026: Beyond the MVP</a>    <ul>
+      <li><a href="#strategic-prioritization" id="markdown-toc-strategic-prioritization">Strategic Prioritization</a></li>
+      <li><a href="#reflection" id="markdown-toc-reflection">Reflection</a></li>
+      <li><a href="#metadata" id="markdown-toc-metadata">Metadata</a></li>
+      <li><a href="#extensions-and-plugins" id="markdown-toc-extensions-and-plugins">Extensions and Plugins</a></li>
+      <li><a href="#dependency-resilience" id="markdown-toc-dependency-resilience">Dependency Resilience</a></li>
+      <li><a href="#follow-up-issues-for-v006" id="markdown-toc-follow-up-issues-for-v006">Follow-up Issues for v0.0.6</a></li>
+    </ul>
+  </li>
+  <li><a href="#acknowledgments" id="markdown-toc-acknowledgments">Acknowledgments</a></li>
+  <li><a href="#conclusion" id="markdown-toc-conclusion">Conclusion</a></li>
+</ul>
+
+<h2 id="system-overview">System Overview</h2>
+
+<p><a href="https://www.mrdocs.com">MrDocs</a> is a C++ documentation generator built on <strong>Clang</strong>. It parses source with full language fidelity, links declarations to their comments, and produces reference documentation that reflects real program structure—<strong>templates</strong>, <strong>constraints</strong>, and <strong>overloads</strong> included.</p>
+
+<blockquote>
+  <p>Traditional tools often approximate the AST. MrDocs uses the AST directly, so documentation matches the code and modern C++ features render correctly.</p>
+</blockquote>
+
+<p>Unlike single-purpose generators, MrDocs separates the <strong>corpus</strong> (semantic data) from the <strong>presentation layer</strong>. Projects can choose among multiple <strong>output formats</strong> or extend the system entirely: supply <strong>custom Handlebars templates</strong> or script new generators using the <strong>plugin system</strong>. The corpus is represented in the generators as a <strong>rich JSON-like DOM</strong>. With schema files, MrDocs enables integration with <strong>build systems</strong>, <strong>documentation frameworks</strong>, or <strong>IDEs</strong>.</p>
+
+<p>From the user’s perspective, MrDocs behaves like a <strong>well-engineered CLI utility</strong>. It accepts <strong>configuration files</strong>, supports <strong>relative paths</strong>, accepts custom <strong>build options</strong>, and reports <strong>warnings</strong> in a controlled, <strong>compiler-like</strong> fashion. For C++ teams transitioning from <strong>Doxygen</strong>, the <strong>command structure</strong> is somewhat familiar, but the <strong>internal model</strong> is designed for <strong>reproducibility</strong> and <strong>correctness</strong>. Our goal is not just to render <strong>reference pages</strong> but to provide a <strong>reliable pipeline</strong> that any C++ project seeking <strong>modern documentation infrastructure</strong> can adopt.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+<div class="mermaid">
+graph LR
+  A[Source] --&gt; B[Clang]
+  B --&gt; C[Corpus]
+  C --&gt; D{Plugin Layer}
+  subgraph Generator
+    E[HTML]
+    F[AsciiDoc]
+    G[XML]
+    G2[...]
+  end
+  D --&gt; E
+  D --&gt; F
+  D --&gt; G
+  D --&gt; G2
+  E --&gt; H{Plugin Layer}
+  H --&gt; H2[Published Docs]
+  F --&gt; H
+  G --&gt; H
+  G2 --&gt; H
+  C --&gt; I[Schema Export]
+  I --&gt; J[Integrations<br />IDEs &amp; Build Systems]
+</div>
+
+<h2 id="2024-lessons-from-a-fragile-prototype">2024: Lessons from a Fragile Prototype</h2>
+
+<p>MrDocs entered 2024 as a proof-of-concept built for Boost.URL. It could document one or two curated codebases and produce asciidoc pages for Antora, but the workflow stopped there. The CLI exposed only the scenarios we needed. Configuration options lived in internal notes. The only dependable build path was the script sequence we used inside the Alliance. External users hit errors and missing options almost immediately.</p>
+
+<p><strong>Stability was just as fragile:</strong> We had no <strong>sanitizers</strong>, no <strong>warnings-as-errors</strong>, and inconsistent <strong>CI hardware</strong>. The binaries crashed as soon as they saw unfamiliar code. The pipeline worked only when the input looked like Boost.URL. Point it at slightly different code patterns and it would segfault. Each feature landed as a custom patch, so logic duplicated across generators, and fixing one path broke another.</p>
+
+<p><strong>Early releases:</strong> Release <code>v0.0.1</code> captured that prototype: the early Handlebars engine, the HTML generator, the DOM refactor, and a list of APIs that only the core team could drive. <code>v0.0.2</code> added structured configuration, automatic <code>compile_commands.json</code>, and better SFINAE handling, but the tool was still insider-only.</p>
+
+<p><strong>Leadership transition:</strong> Late in 2024 I became project lead with two initial priorities: <strong>document the gaps</strong> and describe the <strong>true limits</strong> of the system. That set the 2025 baseline—a functional prototype that needed <strong>coherence</strong>, <strong>reproducibility</strong>, and <strong>trust</strong> before it could call itself a product.</p>
+
+<p>What 2025 later fixed were the weaknesses we saw here: configuration coherence, generator unification, schema validation, and basic options were all missing. The CLI, configuration files, and code drifted apart. Generators evolved independently with duplicated code and inconsistent naming. Editors had no schema to lean on. Extraction rules were ad hoc, which made the output incomplete. CI ran on an improvised matrix with no caching, sanitizers, or coverage, so regressions slipped through. That was the starting point.</p>
+
+<blockquote>
+  <p>Summary: 2024 produced a working demo, not a reproducible system. Each success exposed another weak link and clarified what had to change in 2025.</p>
+</blockquote>
+
+<p>In short:</p>
+
+<ul>
+  <li>2024 left us with a working prototype but no coherent architecture.</li>
+  <li>The system could demonstrate the concept, but not sustain or reproduce it.</li>
+  <li>Every improvement exposed another weak link, and every success demanded more structure than the system was built to handle.</li>
+  <li>It was a year of learning by exhaustion—and setting the stage for everything that came next.</li>
+</ul>
+
+<p>Key 2024 checkpoints align with the timeline below:</p>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#f7f9ff", "primaryBorderColor": "#9aa7e8", "primaryTextColor": "#1f2a44", "lineColor": "#b4bef2", "secondaryColor": "#fbf8ff", "tertiaryColor": "#ffffff", "fontSize": "14px"}}}%%
+timeline
+  title Prototypes
+  2024 Q1 : Boost.URL showcase
+  2024 Q2 : CLI gaps
+  2024 Q3 : Config + SFINAE fixes
+  2024 Q4 : Leadership transition
+</div>
+
+<h1 id="2025-from-prototype-to-mvp">2025: From Prototype to MVP</h1>
+
+<p>I started the year with a gap analysis that compared MrDocs to other C++ documentation pipelines. From that review I defined the minimum viable product and three priority tracks. <strong>Usability</strong> covered workflows and surface area that make adoption simple. <strong>Stability</strong> covered deterministic behavior, proper data structures, and CI discipline. <strong>Foundation</strong> covered configuration and data models that keep code, flags, and documentation aligned. The 2025 releases followed those tracks and turned MrDocs from a proof of concept into a tool that other teams can adopt.</p>
+
+<ul>
+  <li><strong>v0.0.3 — Consistency.</strong> We replaced ad-hoc behavior with a coherent system: a single source of truth for configuration kept CLI, config files, and docs in sync; generators and templates were unified so changes propagate by design; core semantic extraction (e.g., concepts, constraints, SFINAE) became reliable; and CI hardened around reproducible, tested outputs across HTML and Antora.</li>
+  <li><strong>v0.0.4 — Foundation.</strong> We introduced precise warning controls and a family of <code>extract-*</code> options to match established tooling, added a JSON Schema for configuration (enabling editor validation/autocomplete), delivered a robust reference system for documentation comments, brought initial inline formatting to generators, and simplified onboarding with a cross-platform bootstrap script. CI gained sanitizers, coverage checks, and modern compilers.</li>
+  <li><strong>v0.0.5 — Stabilization.</strong> We redesigned documentation metadata to support recursive inline elements, enforced safer polymorphic types with optional references and non-nullable patterns, and added user-facing improvements (sorting, automatic compilation database detection, quick reference indices, improved namespace/overload grouping, LLDB formatters). The website and documentation UI were refreshed for accessibility and responsiveness, new demos (including self-documentation) were published, and CI was further tightened with stricter policies and cross-platform bootstrap enhancements.</li>
+</ul>
+
+<p>Together, these releases executed the roadmap derived from the initial gap analysis: they <strong>aligned</strong> the moving parts, <strong>closed</strong> the most important capability gaps, and delivered a <strong>stable foundation</strong> that future work can extend without re-litigating fundamentals.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#e4eee8",
+  "primaryBorderColor": "#affbd6",
+  "primaryTextColor": "#000000",
+  "lineColor": "#baf9d9",
+  "secondaryColor": "#f0eae4",
+  "tertiaryColor": "#ebeaf4",
+  "fontSize": "14px"
+}}}%%
+mindmap
+  root((MVP Evolution))
+    v0.0.3
+      Config sync
+      Shared templates
+      CI discipline
+    v0.0.4
+      Warning controls
+      Schema
+      Bootstrap
+    v0.0.5
+      Recursive docs
+      Nav refresh
+      Tooling polish
+</div>
+
+<h2 id="v003-enforcing-consistency">v0.0.3: Enforcing Consistency</h2>
+
+<p><code>v0.0.3</code> is where MrDocs stopped being a collection of one-off special cases and became a coherent system. Before this release, features landed in a single generator and drifted from the others; extraction handled only the narrowly requested pattern and crashed on nearby ones; and options were inconsistent—some hard-coded, some missing from CLI/config, with no mechanism to keep code, docs, and flags aligned.</p>
+
+<p><strong>What changed:</strong> The <code>v0.0.3</code> release fixes this foundation. We introduced a single source of truth for <strong>configuration options</strong> with TableGen-style metadata: docs, the config file, and the CLI always stay in sync. We added essential Doxygen-like options to make basic projects immediately usable and filled obvious gaps in symbols and doc comments.</p>
+
+<p>We implemented metadata extraction for <strong>core symbol types</strong> and their information—such as template constraints, <strong>concepts</strong>, and <strong>automatic SFINAE</strong> detection. We <strong>unified generators</strong> and templates so changes propagate by design, added <strong>tagfile support</strong> and “lightweight reflection” to documentation comments as <strong>lazy DOM objects</strong> and arrays, and <strong>extended Handlebars</strong> to power the new generators. These features allowed us to create the initial version of the <strong>website</strong> and ensure the documentation is always in sync.</p>
+
+<p><strong>Build and testing discipline:</strong> CI, builds, and tests were hardened. All generators were now tested, <strong>LLVM caching</strong> systems improved, and we launched our first <strong>macOS release</strong> (important for teams working on Antora UI bundles). All of this long tail of performance, correctness, and safety work turned “works on my machine” into repeatable, adoptable output across HTML and Antora.</p>
+
+<p><code>v0.0.3</code> was the inflection point. For the first time, developers could depend on consistent configuration, <strong>shared templates</strong>, and predictable behavior across generators. It aligned internal tools, eliminated duplicated effort, and replaced trial-and-error debugging with <strong>reproducible builds</strong>. Every improvement in later versions built on this foundation.</p>
+
+<details>
+  <summary>Categorized improvements for v0.0.3</summary>
+
+  <ul>
+    <li><strong>Configuration Options</strong>: enforcing consistency, reproducible builds, and transparent reporting
+      <ul>
+        <li>Enforce configuration options are in sync with the JSON source of truth (<a href="https://github.com/cppalliance/mrdocs/commit/a1fb8ec6f23ef0802626329d7ab1e5c4635c52a7" title="refactor(generate-config-info): normalization via visitor">a1fb8ec6</a>, <a href="https://github.com/cppalliance/mrdocs/commit/9daf71fe0539a3a6b926560a15e65fdbd6343356" title="refactor: info nodes configuration file">9daf71fe</a>)</li>
+        <li>File and symbol filters (<a href="https://github.com/cppalliance/mrdocs/commit/1b67a847db83f329af6cb9f059da7fa071939593" title="feat: file and symbol filters">1b67a847</a>, <a href="https://github.com/cppalliance/mrdocs/commit/b352ba223db0ad0b3d5f7283072b5dffb95eab1e" title="feat: symbol filters listed on docs">b352ba22</a>)</li>
+        <li>Reference and symbol configuration (<a href="https://github.com/cppalliance/mrdocs/commit/a3e4477f699e1c5c4d489239ad559f9d51823272" title="feat: reference, symbol options">a3e4477f</a>, <a href="https://github.com/cppalliance/mrdocs/commit/30eaabc9a28aa3282bbe9e5b0c8b0e4a2c2c817f" title="docs: reference, symbol options">30eaabc9</a>)</li>
+        <li>Extraction options (<a href="https://github.com/cppalliance/mrdocs/commit/41411db2848e1fab628dc62ee2e1831628b5d4c7" title="feat: extraction options">41411db2</a>, <a href="https://github.com/cppalliance/mrdocs/commit/1214d94bcf3597bd69caacd5b2648f677d4d197d" title="docs: extraction options">1214d94b</a>)</li>
+        <li>Reporting options (<a href="https://github.com/cppalliance/mrdocs/commit/f994e47e318d852cc17cd026f7d7cdbcf3df0c5f" title="feat: reporting options">f994e47e</a>, <a href="https://github.com/cppalliance/mrdocs/commit/0dd9cb45cf0168dec028aeb276bd03a419ba3a12" title="docs: reporting options">0dd9cb45</a>)</li>
+        <li>Configuration structure (<a href="https://github.com/cppalliance/mrdocs/commit/c8662b35fc85dc142f0694f299bb000a0f8899be" title="feat: use structured information for configuration">c8662b35</a>, <a href="https://github.com/cppalliance/mrdocs/commit/dcf5beef5a4b8ea75b24364b9c8a8f2f56d5e6c8" title="feat: generate config documentation">dcf5beef</a>, <a href="https://github.com/cppalliance/mrdocs/commit/4bd3ea42420f20b6a45c545e7b61396567c3201f" title="docs: configuration schema">4bd3ea42</a>)</li>
+        <li>CLI workflows (<a href="https://github.com/cppalliance/mrdocs/commit/a2dc4c7883917025f0b63b227be7476f3986fd1d" title="feat: CLI orchestrator improvements">a2dc4c78</a>, <a href="https://github.com/cppalliance/mrdocs/commit/3c0f90df53794a02d3c53d25aa4fa5c8a69fbaad" title="docs: CLI quick reference">3c0f90df</a>)</li>
+        <li>Warnings (<a href="https://github.com/cppalliance/mrdocs/commit/4eab1933ff58330fb2c6753a648a26fba3038118" title="docs: warnings">4eab1933</a>, <a href="https://github.com/cppalliance/mrdocs/commit/5e586f2b03dd7b1eb5a45e51c904d8cbf4f63661" title="feat: warnings">5e586f2b</a>, <a href="https://github.com/cppalliance/mrdocs/commit/0e2dd713ebde919bf0ebc231d9a5795eb99b0d25" title="feat: warning when configuration references missing include directories">0e2dd713</a>)</li>
+        <li>SettingsDB (<a href="https://github.com/cppalliance/mrdocs/commit/225b2d50835485b746c766df8993e1bb66938d17" title="feat: settings DB">225b2d50</a>, <a href="https://github.com/cppalliance/mrdocs/commit/51639e77b629f00c02aa11afe41a01e12804ef63" title="feat: settings db generator">51639e77</a>)</li>
+        <li>Deterministic configuration (<a href="https://github.com/cppalliance/mrdocs/commit/b544974105efc225af0af7f9952ef96338fe4c44" title="feat: deterministic configuration order">b5449741</a>)</li>
+        <li>Global configuration documentation (<a href="https://github.com/cppalliance/mrdocs/commit/ec3dbf5c3d72b6a3cee6bea66f3002c59b398b80" title="docs: global configuration reference">ec3dbf5c</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Generators</strong>: unification, new features, and early refactoring
+      <ul>
+        <li>Antora/HTML generator consistency (<a href="https://github.com/cppalliance/mrdocs/commit/e674182fd5b72a91f7acd74d2f93df13d1d604b3" title="refactor: antora/HTML generator consistency">e674182f</a>, <a href="https://github.com/cppalliance/mrdocs/commit/82e86a6cb1ced9c8aca8024f6314d1b4089f7cbd" title="feat: unify Antora and HTML generation">82e86a6c</a>, <a href="https://github.com/cppalliance/mrdocs/commit/9154b9c5957e4fa8aa4ad918b6d9e9cb61a2a08d" title="feat: Antora generator templates">9154b9c5</a>)</li>
+        <li>HTML generator improvements (<a href="https://github.com/cppalliance/mrdocs/commit/a28cb2f7e2df935295b041b30c89ea2f0f7316a3" title="feat: HTML generator improvements">a28cb2f7</a>, <a href="https://github.com/cppalliance/mrdocs/commit/064ce55a568bf8adca76a56c16b918836147cee0" title="feat(Handlebars): html generators">064ce55a</a>, <a href="https://github.com/cppalliance/mrdocs/commit/5f6665d8f8c0c54f1a77a4a6d9447bb7a8c9e968" title="feat: html nav helper">5f6665d8</a>)</li>
+        <li>Documentation for generators (<a href="https://github.com/cppalliance/mrdocs/commit/2382e8cf095d8241d745e381042ec9cdb15f347d" title="docs(generators): HTML and Antora">2382e8cf</a>, <a href="https://github.com/cppalliance/mrdocs/commit/646a1e5bae94b295ffdbbe07d0a7de618f2ab422" title="docs: Antora generator docs">646a1e5b</a>)</li>
+        <li>Supporting new output formats (<a href="https://github.com/cppalliance/mrdocs/commit/58a79f748dcefc4a6d561755a60f012f921985fe" title="feat: generator registry">58a79f74</a>, <a href="https://github.com/cppalliance/mrdocs/commit/271dde577da0c48f19c6d7dce39ed7e827642850" title="feat: xml generator">271dde57</a>, <a href="https://github.com/cppalliance/mrdocs/commit/9d9f6652c8f247512c605bec097c1fd1f79afb57" title="feat: xml generator docs">9d9f6652</a>)</li>
+        <li>Handlebars improvements (<a href="https://github.com/cppalliance/mrdocs/commit/ebf4dbebc4b550321d0119b3372d856e56f5e41f" title="feat: Handlebars improvements">ebf4dbeb</a>, <a href="https://github.com/cppalliance/mrdocs/commit/be76fc073a95fdd2b4f69d0d68d03355e5caa0d1" title="feat: handlebars helpers documentation">be76fc07</a>)</li>
+        <li>Generator tooling (<a href="https://github.com/cppalliance/mrdocs/commit/00fc84cff9390743ecc1ff87f4d49d68e19698d7" title="feat: generator tests">00fc84cf</a>, <a href="https://github.com/cppalliance/mrdocs/commit/6a69747d86ea7117de64a559211a96d792f8f83a" title="feat: generator harness">6a69747d</a>)</li>
+        <li>Navigation helpers (<a href="https://github.com/cppalliance/mrdocs/commit/fdccad42c85358aed91c318ed3daa9d1113facde" title="feat: navigation helpers">fdccad42</a>)</li>
+        <li>DOM optimizations (<a href="https://github.com/cppalliance/mrdocs/commit/9b41d2e44fcb17d383c8d926c9988ccc381315d7" title="feat: DOM optimizations">9b41d2e4</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Libraries and metadata</strong>: unification, fixes, and extraction enhancements
+      <ul>
+        <li>Info node visitor and traversal improvements (<a href="https://github.com/cppalliance/mrdocs/commit/be86a08d4df00800004337b52844af1f8d76f9fb" title="feat: info node visitor improvements">be86a08d</a>, <a href="https://github.com/cppalliance/mrdocs/commit/58ab5a5ea28200bf26be8314ebb677cb5b87f106" title="feat: traversal improvements">58ab5a5e</a>)</li>
+        <li>Metadata consistency (<a href="https://github.com/cppalliance/mrdocs/commit/544ee37d11fa30537642abff3cf39e4beab8a7e2" title="feat: metadata consistency">544ee37d</a>, <a href="https://github.com/cppalliance/mrdocs/commit/62f8a2bd3f52eef902bb47e8106d3b8cf886fbac" title="feat: metadata refactor">62f8a2bd</a>, <a href="https://github.com/cppalliance/mrdocs/commit/bd9c704f87f40812d2b176143e7f24cc786ca7f0" title="feat: metadata extraction">bd9c704f</a>)</li>
+        <li>Template and concept support (<a href="https://github.com/cppalliance/mrdocs/commit/4b0b4a7198a270e21d73f6c024d0d3c6cf6f8bbf" title="feat: concept extraction">4b0b4a71</a>, <a href="https://github.com/cppalliance/mrdocs/commit/57cf74de0a87fd29496b8aa00f9b355a51443ed6" title="feat: SFINAE detection improvements">57cf74de</a>, <a href="https://github.com/cppalliance/mrdocs/commit/92aa76a4529919831e3e2b8802e9b47b68d5d447" title="feat: template constraints extraction">92aa76a4</a>)</li>
+        <li>Symbol resolution and references (<a href="https://github.com/cppalliance/mrdocs/commit/f64d4a06c17782fb8f75309cba3138ff9aa12f7d" title="feat: symbol resolution improvements">f64d4a06</a>, <a href="https://github.com/cppalliance/mrdocs/commit/aa9333d4c2eab4cc02c33ad4c7a0f8fb2c7cee25" title="feat: reference handling improvements">aa9333d4</a>)</li>
+        <li>Documentation improvements (<a href="https://github.com/cppalliance/mrdocs/commit/5d3f21c8c8d8235f57deeef78d9e4eab4607c6f9" title="docs: metadata documentation">5d3f21c8</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Website and Documentation</strong>: turning features into a showcase and simplifying workflows
+      <ul>
+        <li>Create website (<a href="https://github.com/cppalliance/mrdocs/commit/05400c3c42c85c31a892d763cddcb2b562205c10" title="docs: website landing page">05400c3c</a>, <a href="https://github.com/cppalliance/mrdocs/commit/8fba2020cb971722fcb4c7942d11cd8f1cfcd866" title="docs: landing page download link">8fba2020</a>)</li>
+        <li>Use the new features to create an HTML panel demos workflow (<a href="https://github.com/cppalliance/mrdocs/commit/12ceadee834e3dbb133f6e5ed24f6d2aafacbdc3" title="docs: website panels use embedded HTML">12ceadee</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d38d3e1a59983b09405b9accb47abb0f7d40a9d7" title="docs(demos): enable HTML demos">d38d3e1a</a>, <a href="https://github.com/cppalliance/mrdocs/commit/c46c4a9179abb7701a2f1c6f9446f29caae64350" title="ci: enable html demos">c46c4a91</a>)</li>
+        <li>Unify Antora author mode playbook (<a href="https://github.com/cppalliance/mrdocs/commit/999ea4f3468ba3ad920b0cb91b56b5227c48d5a2" title="docs: unify author mode playbook">999ea4f3</a>)</li>
+        <li>Generator use cases and trade-offs (<a href="https://github.com/cppalliance/mrdocs/commit/2307ca6aba463bc67417e929563d63fb037fe3b4" title="docs(generators): use cases and trade-offs">2307ca6a</a>)</li>
+        <li>Correctness and simplification (<a href="https://github.com/cppalliance/mrdocs/commit/4d884f43470596c69e500fe3ba55a2f504412056" title="docs: simplify demos table">4d884f43</a>, <a href="https://github.com/cppalliance/mrdocs/commit/55214d7242eaf4a5a8c5746d6b8779e82dbaeaf7" title="docs: releases extension allows CI authentication and retries">55214d72</a>, <a href="https://github.com/cppalliance/mrdocs/commit/b078beadd046bed6806604b96196f91a234e1140" title="docs(Scope): include lookups in documentation">b078bead</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d8b7fcf4245e98d5935ebbb05c02d0aba62e3faa" title="docs(usage): cmake example uses TMP_CPP_FILE">d8b7fcf4</a>, <a href="https://github.com/cppalliance/mrdocs/commit/96484836ef67bba4b54df5f780c5caac3a255f68" title="docs: libc++ compiler requirements">96484836</a>, <a href="https://github.com/cppalliance/mrdocs/commit/62f361fb50ebb5c09e901b8a16b4cfa992bffcb1" title="ci: remove info node support warnings">62f361fb</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Build, Testing, and Releases</strong>: strengthening CI, improving LLVM caching workflow, and stabilizing releases
+      <ul>
+        <li>Templates are tested with golden tests (<a href="https://github.com/cppalliance/mrdocs/commit/2bc09e65c916a0701ed3bf09ef11a7fb15d0abf1" title="test: asciidoc golden tests">2bc09e65</a>, <a href="https://github.com/cppalliance/mrdocs/commit/9eece731f3865f2ed50faf3ee36c8c३०8b1ff90" title="test: html golden tests">9eece731</a>)</li>
+        <li>LLVM caches and runners improvements (<a href="https://github.com/cppalliance/mrdocs/commit/4c14e875b06ad995ed3206cd2979dea13f004bd6" title="ci: no fallback for GHA LLVM cache">4c14e875</a>, <a href="https://github.com/cppalliance/mrdocs/commit/bd54dc7c2562ec751e42fb161116468a4838cb6d" title="ci: unify llvm parameters">bd54dc7c</a>, <a href="https://github.com/cppalliance/mrdocs/commit/3d92071a351fb1ee59011d55ca90147762c62bb8" title="ci: intermediary steps use actions">3d92071a</a>, <a href="https://github.com/cppalliance/mrdocs/commit/8537d3dbc71878a3ea6e176b0d25af8d0d51e799" title="ci: resolve llvm-root for cache@v4">8537d3db</a>, <a href="https://github.com/cppalliance/mrdocs/commit/f3b33a473eb9b4d3abf6591e8aa49401efae7ba9" title="ci(llvm-matrix): filter uses Node.js 20">f3b33a47</a>, <a href="https://github.com/cppalliance/mrdocs/commit/5982cc7e8bcaeb67fe5287c507636302416a7613" title="ci(llvm-releases): handle empty llvm releases matrix">5982cc7e</a>, <a href="https://github.com/cppalliance/mrdocs/commit/93487669932e940115f9c6d827e301d41d2e9616" title="ci(releases): test all releases">93487669</a>)</li>
+        <li>Enable macOS workflow (<a href="https://github.com/cppalliance/mrdocs/commit/390159e34a91074627c333b6f0d09a25bf9d5452" title="ci: enable macos">390159e3</a>)</li>
+        <li>Stabilize artifacts (<a href="https://github.com/cppalliance/mrdocs/commit/5e0f628e5b1cdb06a3dd260e0e42069f12733353" title="ci(releases): antora includes stacktraces">5e0f628e</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d1c3566ed55f0dfc2225d3f67224291367aa00f3" title="ci: fix package asset uploads">d1c3566e</a>, <a href="https://github.com/cppalliance/mrdocs/commit/62736e456f1e9e089822930e10a322ebadc89730" title="ci: demos artifact path is relative">62736e45</a>)</li>
+        <li>Tests support individual file inputs, which improved local tests considerably (<a href="https://github.com/cppalliance/mrdocs/commit/75b1bc52d35648890f21c397fcfbcfb570d43d97" title="Support file inputs">75b1bc52</a>)</li>
+        <li>Performance, correctness, and safety (<a href="https://github.com/cppalliance/mrdocs/commit/a820ad790d4fb943516d9f676bf8d96e9d7fd374" title="ci(llvm-releases): ssh uses relative user paths">a820ad79</a>, <a href="https://github.com/cppalliance/mrdocs/commit/43e5f2520462b9ab2fd5c9d6558d3c299c1a4b1a" title="ci: prevent redundant builds">43e5f252</a>, <a href="https://github.com/cppalliance/mrdocs/commit/a382820f3adba34ca9b6d6c48924ee72fb6291b0" title="ci: release packaging improvements">a382820f</a>, <a href="https://github.com/cppalliance/mrdocs/commit/fbcb5b2d445df1fa746aac1d4735d10d5451d70f" title="ci: move sanitizer workflows">fbcb5b2d</a>, <a href="https://github.com/cppalliance/mrdocs/commit/6a2290cbde99556ac06f94c0c1e1cd2ea9f29a44" title="ci: enforce formatting on generators">6a2290cb</a>, <a href="https://github.com/cppalliance/mrdocs/commit/49f4125ff42e0e1d80a55df6d49c6940700ebab7" title="ci: disable failing llvm tests temporarily">49f4125f</a>)</li>
+      </ul>
+    </li>
+  </ul>
+
+</details>
+
+<h2 id="v004-establishing-the-foundation">v0.0.4: Establishing the Foundation</h2>
+
+<p><code>v0.0.4</code> completed the core capabilities we need for production. With the moving parts aligned in <code>v0.0.3</code>, this release focused on the fundamentals. It added consistent <strong>warning options</strong>, <strong>extraction controls</strong> that match established tools, <strong>schema support</strong> for IDE auto-completion, a complete <strong>reference system</strong> for doc comments, and initial <strong>inline formatting</strong> in the generators. The <strong>bootstrap script</strong> became a one-step path to a working build. We also hardened the pipeline with modern <strong>CI</strong> practices—sanitizers, coverage integration, and standardized presets.</p>
+
+<details>
+  <summary>Categorized improvements for v0.0.4</summary>
+
+  <ul>
+    <li><strong>Configuration and Extraction</strong>: structured configuration, extraction controls, and schema validation
+      <ul>
+        <li>Configuration schema (<a href="https://github.com/cppalliance/mrdocs/commit/d9517e1d37c61b45a8df89d647abb12ca0582788" title="feat: generate JSON schema for config">d9517e1d</a>, <a href="https://github.com/cppalliance/mrdocs/commit/5f846c1c1d4be0aa18862b08d4f39b8a1c398058" title="feat: config schema docs">5f846c1c</a>, <a href="https://github.com/cppalliance/mrdocs/commit/ffa0d1a661cbf7ef6b49666f598d33490af65f05" title="feat: schema validation">ffa0d1a6</a>)</li>
+        <li>Extraction filters (<a href="https://github.com/cppalliance/mrdocs/commit/0a60bb989b1e60292b4e6fc8b5517fcd9e237ebd" title="feat: extraction filter improvements">0a60bb98</a>, <a href="https://github.com/cppalliance/mrdocs/commit/a7d7714db8268c6e1df4032ff889473f6d429847" title="feat: extraction filters doc updates">a7d7714d</a>)</li>
+        <li>Reference configuration (<a href="https://github.com/cppalliance/mrdocs/commit/d18a8ab3b0eeabac8d0a2ed880c1c1f196fedfbd" title="feat: reference configuration updates">d18a8ab3</a>)</li>
+        <li>Documentation metadata (<a href="https://github.com/cppalliance/mrdocs/commit/6676c1e8ed7d1f6d3828bcaf8b28577c88eb02e5" title="feat: documentation metadata improvements">6676c1e8</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Warnings and Reporting</strong>: consistent governance with CLI parity
+      <ul>
+        <li>Warning controls (<a href="https://github.com/cppalliance/mrdocs/commit/2a29f0a04824c5b3d70755029766b1d19b8c5bcd" title="feat: warning controls">2a29f0a0</a>, <a href="https://github.com/cppalliance/mrdocs/commit/6d3c1f47d662d0ed9264f10dd3d9cc3229a48bc3" title="docs: warning controls">6d3c1f47</a>)</li>
+        <li>Extract options (<code>extract-{public,protected,private,inline}</code>) (<a href="https://github.com/cppalliance/mrdocs/commit/aa5a6be3d1f9a87d2fd1941f0904ffa52c57d205" title="feat: extract options align with Doxygen defaults">aa5a6be3</a>)</li>
+        <li>CLI defaults (<a href="https://github.com/cppalliance/mrdocs/commit/d85439c399c88113a69e01358fd9a63a64c6af38" title="feat: CLI defaults and reporting updates">d85439c3</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Generators</strong>: Javadoc, inline formatting, and reference improvements
+      <ul>
+        <li>Documentation reference system (<a href="https://github.com/cppalliance/mrdocs/commit/4b430f9b1bd1c6b7df49bb004bb7961c6f215047" title="feat: documentation reference system">4b430f9b</a>, <a href="https://github.com/cppalliance/mrdocs/commit/73489e2b4be42d2b2c26cb013fe532d3fb4e9ff4" title="docs: reference system docs">73489e2b</a>)</li>
+        <li>Javadoc metadata (<a href="https://github.com/cppalliance/mrdocs/commit/8dd3af67bbbf0a0f1e57d9f351d10d160dfde0f4" title="feat: Javadoc metadata extraction">8dd3af67</a>, <a href="https://github.com/cppalliance/mrdocs/commit/f7e59d4c61d77c2587da9ba0fa808c5b1e366f3b" title="docs: Javadoc metadata reference">f7e59d4c</a>)</li>
+        <li>Inline formatting (<a href="https://github.com/cppalliance/mrdocs/commit/5c7490a3d5388551e68f6f021caa6e741d0f2f86" title="feat: inline formatting support">5c7490a3</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d1d807456573e9350a13e01da27a8e8fc3d317fc" title="fix: inline formatting edge cases">d1d80745</a>)</li>
+        <li>XML generator alignment (<a href="https://github.com/cppalliance/mrdocs/commit/9867e0d25fb16973109fec922dd068991de3d5af" title="feat: XML generator schema alignment">9867e0d2</a>, <a href="https://github.com/cppalliance/mrdocs/commit/0f890f2c1d2d471ffe9343d7b15b731afc93e8e2" title="fix: XML generator synchronizes metadata">0f890f2c</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Build and CI</strong>: sanitizers, coverage, and reproducible builds
+      <ul>
+        <li>Sanitizer integration (<a href="https://github.com/cppalliance/mrdocs/commit/6257c74758f0f382d7c4d6cd430144bd7e7a1740" title="ci: add asan clang Linux job">6257c747</a>, <a href="https://github.com/cppalliance/mrdocs/commit/88954d7f00b1d7fb8de8824e422ddc8fd7081f39" title="ci: add msan Linux job">88954d7f</a>)</li>
+        <li>Coverage reporting (<a href="https://github.com/cppalliance/mrdocs/commit/bf195759192109cee82097cce91440d0155616b5" title="ci: enable coverage validation for PRs">bf195759</a>)</li>
+        <li>Relocatable build (<code>std::format</code>) (<a href="https://github.com/cppalliance/mrdocs/commit/7b871032ae0fd34e69370e0ab45e910255f8f1c9" title="feat: switch to std::format for relocatable build">7b871032</a>)</li>
+        <li>Bootstrap modernization (<a href="https://github.com/cppalliance/mrdocs/commit/3eec9a48e7df379a43c2abaea65a74acc9bd733f" title="build(bootstrap): find_tool also looks at prefixes">3eec9a48</a>, <a href="https://github.com/cppalliance/mrdocs/commit/71afb87b3e3c397d0681da961f754cdfb50d4aad" title="build(bootstrap): run configurations create paths with path.join">71afb87b</a>, <a href="https://github.com/cppalliance/mrdocs/commit/524e7923750f2dd8e8e19d11cc468fa8dd49f70a" title="build(bootstrap): visual studio run configurations and tasks">524e7923</a>)</li>
+      </ul>
+    </li>
+  </ul>
+
+</details>
+
+<h2 id="v005-stabilization-and-public-readiness">v0.0.5: Stabilization and Public Readiness</h2>
+
+<p><code>v0.0.5</code> marked the transition toward a <strong>sustained development model</strong> and prepared the project for <strong>handoff</strong>. This release focused on <strong>presentation</strong>, <strong>polish</strong>, and <strong>reliability</strong>—ensuring that MrDocs was ready not only for internal use but for public visibility. During this period, we expanded the set of <strong>public demos</strong>, refined the <strong>website and documentation</strong>, and stabilized the <strong>infrastructure</strong> to support a growing user base. The goal was to leave the project in a state where it could continue evolving smoothly, with a stable core, clear development practices, and a professional public face.</p>
+
+<p><strong>Community and visibility</strong>: Beyond the commits, this release reflected broader <strong>activity around the project</strong>. We generated and published several <strong>new demos</strong>, many of which revealed <strong>integration issues</strong> that were subsequently fixed. As more external users began adopting MrDocs, the <strong>feedback loop accelerated</strong>: bug reports, feature requests, and real-world <strong>edge cases</strong> guided much of the work. New contributors joined the team, collaboration became more distributed, and visibility increased. Around the same time, I introduced MrDocs to developers at <strong>CppCon 2025</strong>, where it received strong feedback from library authors testing it on their own projects. The tool was beginning to gain recognition as a <strong>viable, modern alternative to Doxygen</strong>.</p>
+
+<p><strong>Technical progress</strong>: This release focused on correctness. We redesigned the documentation comment data structures to support <strong>recursive inline elements</strong> and render <strong>Markdown and HTML-style formatting</strong> correctly. We moved to <strong>non-nullable polymorphic types</strong> and <strong>optional references</strong> so that invariants fail at compile time rather than at runtime. User-facing updates included new <strong>sorting options</strong>, <strong>automatic compilation database detection</strong>, a <strong>quick reference index</strong>, broader namespace and overload grouping, and <strong>LLDB formatters</strong> for Clang and MrDocs symbols. We <strong>refreshed the website and documentation UI</strong> for accessibility and responsiveness, added new <strong>demos</strong> (including the MrDocs self-reference), and tightened CI with more sanitizers, stricter warning policies, and cross-platform bootstrap improvements.</p>
+
+<p>Together, these improvements completed the transition from a <strong>developing prototype</strong> to a <strong>dependable product</strong>. <code>v0.0.5</code> established a <strong>stable foundation</strong> for others to build on—<strong>polished</strong>, <strong>documented</strong>, and <strong>resilient</strong>—so future releases could focus on extending capabilities rather than consolidating them. With this release, the project reached a point where the <strong>handoff could occur naturally</strong>, closing one chapter and opening another.</p>
+
+<details>
+  <summary>Categorized improvements for v0.0.5</summary>
+
+  <ul>
+    <li><strong>Metadata</strong>: documentation inlines and safety improvements
+      <ul>
+        <li>Recursive documentation inlines (<a href="https://github.com/cppalliance/mrdocs/commit/51e2b655af43f36bc2fd3e9c369dbd48046d2de6" title="feat(metadata): support recursive inline elements in documentation">51e2b655</a>)</li>
+        <li>Consistent sorting options for members and namespaces (<code>sort-members-by</code>, <code>sort-namespace-members-by</code>) (<a href="https://github.com/cppalliance/mrdocs/commit/f0ba28dd3526144e8053aa01eb1bbe5e90b7a4f3" title="feat: `sort-members-by` option">f0ba28dd</a>, <a href="https://github.com/cppalliance/mrdocs/commit/a0f694dcf6c7d4fd0249f42f91592f65a5d78afd" title="feat: `sort-namespace-members-by` option">a0f694dc</a>)</li>
+        <li>Non-nullable polymorphic types and optional references (<a href="https://github.com/cppalliance/mrdocs/commit/c9f9ba132627696b2140a62e078ed128edb2ea31" title="feat(lib): optional nullable traits">c9f9ba13</a>, <a href="https://github.com/cppalliance/mrdocs/commit/8ef3ffaf8628f6c1c4109f2600061c7fb3778577" title="feat(lib): optional references">8ef3ffaf</a>, <a href="https://github.com/cppalliance/mrdocs/commit/bd3e1217e60f949c2bbf692917750fac3d9fad11" title="refactor(lib): use mrdocs::Optional in public API">bd3e1217</a>, <a href="https://github.com/cppalliance/mrdocs/commit/afa558a6dd834c10ba4153828d16340304d75c2c" title="refactor(Corpus): enforce non-optional polymorphic types">afa558a6</a>, <a href="https://github.com/cppalliance/mrdocs/commit/6ba8ef6bdc5dcbb60c7b09344d3839bd39e49325" title="refactor(Corpus): valueless_after_move is asserted">6ba8ef6b</a>)</li>
+        <li>Consistent metadata class family hierarchy pattern (<a href="https://github.com/cppalliance/mrdocs/commit/6d4954975bba75c184393b5d93f3f9f040311ed0">6d495497</a>)</li>
+        <li>MrDocsSettings includes automatic compilation database support (<a href="https://github.com/cppalliance/mrdocs/commit/9afededbfe293f2e47fa2d7266b80772b0d0cb04" title="feat: MrDocsSettings compilation database">9afededb</a>, <a href="https://github.com/cppalliance/mrdocs/commit/a1f289de6719d8004e11ebd066c3d2a49c4d28d4" title="fix: use a distinct include guard in MrDocsSettingsDB.hpp">a1f289de</a>)</li>
+        <li>Quick reference index (<a href="https://github.com/cppalliance/mrdocs/commit/68e029c17c51711c982c6e049510c8e47f5e4f66" title="feat: quick reference index page">68e029c1</a>, <a href="https://github.com/cppalliance/mrdocs/commit/940c33f47062b6d8f915bd5e92a3ce6f6e60d774" title="feat: add close button to docs nav (#1033)">940c33f4</a>)</li>
+        <li>Namespace/using/overloads grouping includes using declarations and overloads as shadows (<a href="https://github.com/cppalliance/mrdocs/commit/69e1c3bcd9607bc2037a50f865ecea976a72f5a6" title="feat: namespace tranches include using declarations">69e1c3bc</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d722b7d09ee20479fcd06726f95376589c39cc85" title="feat(handlebars): using declaration page includes shadows and briefs">d722b7d0</a>, <a href="https://github.com/cppalliance/mrdocs/commit/2b59269cbe74bce8ee261552dd35a72cfb240b20" title="feat: overload sets as shadow declarations">2b59269c</a>)</li>
+        <li>Conditional <code>explicit</code> clauses in templated methods (<a href="https://github.com/cppalliance/mrdocs/commit/2bff4e2fbf93e35a5eeb31e0505c0bde9bcf7c6d" title="feat: conditionally explicit clauses in templated methods">2bff4e2f</a>)</li>
+        <li>Destructor overloads supported in class templates (<a href="https://github.com/cppalliance/mrdocs/commit/336ad3190fac18a69481b166d72b2d647db129c9" title="feat: destructor overloads in class templates">336ad319</a>)</li>
+        <li>Using declarations include all shadow variants (<a href="https://github.com/cppalliance/mrdocs/commit/88a1cebf1e62b87551cf2fd6ec5e1705d3a4e34a" title="test: test cases for all using declaration variants">88a1cebf</a>, <a href="https://github.com/cppalliance/mrdocs/commit/9253fd8f228208d17d94a5dc34a75c8c6c5c542d" title="test: using declaration shadows only include previous declarations">9253fd8f</a>, <a href="https://github.com/cppalliance/mrdocs/commit/a7d5cf6a00874addd313f74b7e833e0df6df1aaa" title="test: using declaration with mixed shadows">a7d5cf6a</a>)</li>
+        <li><code>show-enum-constants</code> option (<a href="https://github.com/cppalliance/mrdocs/commit/07b69e1c92eee1b8d4176a4076161c10759d8aaf" title="feat: show-enum-constants option">07b69e1c</a>)</li>
+        <li>Custom LLDB formatters for Clang and MrDocs symbols (<a href="https://github.com/cppalliance/mrdocs/commit/069bd8f4f6aa85f24c5d938542e42791ee91c46a" title="feat(lldb): LLDB data formatters">069bd8f4</a>, <a href="https://github.com/cppalliance/mrdocs/commit/f83eca17b1ca0ef593fd55373d48f48d101ec2cd" title="fix(lldb): only handle Info types directly in mrdocs namespace">f83eca17</a>, <a href="https://github.com/cppalliance/mrdocs/commit/1b39fdd76abb2d531ab28f46ee086571dd745e44" title="fix(lldb): clang ast formatters">1b39fdd7</a>, <a href="https://github.com/cppalliance/mrdocs/commit/aefc53c7b016d43a46c75b150d41fec2f82f00b4" title="fix(lldb): consistent &lt;unnamed&gt; clang summary">aefc53c7</a>)</li>
+        <li>Performance, correctness, and safety (<a href="https://github.com/cppalliance/mrdocs/commit/d1788049ffa6b8412869af319820328a05a24536" title="feat: templates receive config via reflection">d1788049</a>, <a href="https://github.com/cppalliance/mrdocs/commit/3bd94cff54039b60217ec14767f359bc54f168d1" title="refactor(Config): config dom object update function">3bd94cff</a>, <a href="https://github.com/cppalliance/mrdocs/commit/8a8115602137641f5dab378f292843bc9ad56f37" title="fix: overloads finalizer preemptively emplaces members">8a811560</a>, <a href="https://github.com/cppalliance/mrdocs/commit/3ff37448d207b89e83a27e3ff58e6401a76eaee3" title="fix: legible names handle using declarations as shadow">3ff37448</a>, <a href="https://github.com/cppalliance/mrdocs/commit/ad1e7baa611ba05f02759347d114b4cdb464a3c4" title="Remove duplicate template argument list for excluded class template specialization">ad1e7baa</a>, <a href="https://github.com/cppalliance/mrdocs/commit/b10b8aa3bd2917e35e480390e2ce47d5b8dc9d48" title="fix: symbol shadows table has a single column">b10b8aa3</a>, <a href="https://github.com/cppalliance/mrdocs/commit/482c0be836921577afa08e62a7ed1d1829fafc9a" title="refactor: xml generator use config values directly">482c0be8</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d66da796fe9877bbece0bec7983b8c25bc16d1f5" title="fix(handlebars): html code blocks start on the first line">d66da796</a>, <a href="https://github.com/cppalliance/mrdocs/commit/ec8daa11085ba58b52628c468f5591ffc0340208" title="fix(handlebars): starts_with helper validates arguments">ec8daa11</a>, <a href="https://github.com/cppalliance/mrdocs/commit/5234b67cd0745048408705c50b2108cf4f09aedd" title="fix(handlebars): recursively traversed namespaces do not include description">5234b67c</a>, <a href="https://github.com/cppalliance/mrdocs/commit/5e879b102c76f416d0a40cae87ef16226ddc1431" title="fix(handlebars): records include protected base classes">5e879b10</a>, <a href="https://github.com/cppalliance/mrdocs/commit/35e14c93f27d323dea675bb83eb78d7077c8ad9d" title="fix(ci,style): improve asset copying and enhance UI contrast for docs site (#979)">35e14c93</a>, <a href="https://github.com/cppalliance/mrdocs/commit/d5a28a8973ef3b6d01f2d48b229c9e666e093d7d" title="feat(handlebars): final specifier">d5a28a89</a>, <a href="https://github.com/cppalliance/mrdocs/commit/6878c199920260f6ccca2f9be0f933bf08318398" title="fix: `using` synopsis uses the nameinfo only">6878c199</a>, <a href="https://github.com/cppalliance/mrdocs/commit/21ce3e74db3ff5fa9f7b0180530b95a3ef32a1d3" title="fix: std::formatter for clang::mrdocs::SymbolID">21ce3e74</a>, <a href="https://github.com/cppalliance/mrdocs/commit/2da2081b0b0724309fc7a68c071e830e7faa2da9" title="fix: remove an unused `else if` in record.hbs">2da2081b</a>, <a href="https://github.com/cppalliance/mrdocs/commit/b528ae11a46f6b8fda4e47a30e32bc8868cc9555" title="fix: simplify the logic about base classes in record.hbs">b528ae11</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Website and Documentation</strong>: new demos and a new website
+      <ul>
+        <li>New demos (<a href="https://github.com/cppalliance/mrdocs/commit/cfa9eb7d1c7770ba6e1b6d12bf7322cb81afa4d2" title="docs: fmt demo">cfa9eb7d</a>, <a href="https://github.com/cppalliance/mrdocs/commit/1b930b863a7a7a763ef1349f51a1813769a84e41" title="docs: fmt demo">1b930b86</a>, <a href="https://github.com/cppalliance/mrdocs/commit/c18be83e355a1a6bdea95f21f911080869267a07" title="docs: nlohmann.json demo">c18be83e</a>, <a href="https://github.com/cppalliance/mrdocs/commit/177fae4a79f6d8d4665026f25aa2ce2482c59a09" title="docs: extension sorts demos by release">177fae4a</a>, <a href="https://github.com/cppalliance/mrdocs/commit/33275050025921c6aa6c241268899920f456e652" title="docs: add range-v3 demo">33275050</a>)</li>
+        <li>Website and documentation refresh (<a href="https://github.com/cppalliance/mrdocs/commit/35e14c93f27d323dea675bb83eb78d7077c8ad9d" title="fix(ci,style): improve asset copying and enhance UI contrast for docs site (#979)">35e14c93</a>, <a href="https://github.com/cppalliance/mrdocs/commit/a643774216d553b7f0f16c3e9b7380c17da7f0c1" title="docs: redesign landing page">a6437742</a>)</li>
+        <li>Self-documentation (<a href="https://github.com/cppalliance/mrdocs/commit/f2a5f77eb9d2273a15329f3d5c9963c1f48d9952" title="docs: MrDocs documents itself">f2a5f77e</a>)</li>
+        <li>Antora enhancements (<a href="https://github.com/cppalliance/mrdocs/commit/5ed0f48fda415df1d3f67bff4c8072921bffeb29" title="docs: Antora enhancements">5ed0f48f</a>)</li>
+      </ul>
+    </li>
+    <li><strong>Build, Testing, and Releases</strong>: improvements and hardening CI
+      <ul>
+        <li>Toolchain and CI hardening (<a href="https://github.com/cppalliance/mrdocs/commit/6257c74758f0f382d7c4d6cd430144bd7e7a1740" title="ci: add asan clang Linux job">6257c747</a>, <a href="https://github.com/cppalliance/mrdocs/commit/88954d7f00b1d7fb8de8824e422ddc8fd7081f39" title="ci: add msan Linux job">88954d7f</a>, <a href="https://github.com/cppalliance/mrdocs/commit/bf195759192109cee82097cce91440d0155616b5" title="ci: enable coverage validation for PRs">bf195759</a>, <a href="https://github.com/cppalliance/mrdocs/commit/ba0dcfd37dee134f363cd0365d435b39fd6b766b" title="ci: treat warnings as errors">ba0dcfd3</a>)</li>
+        <li>Bootstrap improvements (<a href="https://github.com/cppalliance/mrdocs/commit/3eec9a48e7df379a43c2abaea65a74acc9bd733f" title="build(bootstrap): find_tool also looks at prefixes">3eec9a48</a>, <a href="https://github.com/cppalliance/mrdocs/commit/71afb87b3e3c397d0681da961f754cdfb50d4aad" title="build(bootstrap): run configurations create paths with path.join">71afb87b</a>, <a href="https://github.com/cppalliance/mrdocs/commit/524e7923750f2dd8e8e19d11cc468fa8dd49f70a" title="build(bootstrap): visual studio run configurations and tasks">524e7923</a>, <a href="https://github.com/cppalliance/mrdocs/commit/4b79ef4136fabd8673d63361a0ba0412ed94330f" title="build(bootstrap): probe vcvarsall environment">4b79ef41</a>, <a href="https://github.com/cppalliance/mrdocs/commit/7d27204ee78255d557a384e4031688fe51a58779" title="build(bootstrap): Boost documentation run configuration folder">7d27204e</a>, <a href="https://github.com/cppalliance/mrdocs/commit/988e9ebc576690c8885def76ee8ec4796764703" title="build(bootstrap): config info for docs">988e9ebc</a>, <a href="https://github.com/cppalliance/mrdocs/commit/94a5b799543e7b62802c8a18ca26ec156086ad24" title="build(bootstrap): remove dependency build directories after installation">94a5b799</a>, <a href="https://github.com/cppalliance/mrdocs/commit/be7332cf2a9b727fc8b4913c8b4303842505caa2" title="build: presets use optimizeddebug to match bootstrap">be7332cf</a>, <a href="https://github.com/cppalliance/mrdocs/commit/4d705c96be5daa974f0fc3417383b86eb3a9608d" title="build(bootstrap): ensure git symlinks">4d705c96</a>, <a href="https://github.com/cppalliance/mrdocs/commit/f48bbd2fc9ee9e77120ed374997ba3ded4a6963d" title="build: bootstrap enables libcxx hardening mode">f48bbd2f</a>, <a href="https://github.com/cppalliance/mrdocs/commit/f93634610e131c0ab9ec6c45d4644eed4a16186d" title="fix: bootstrap uses latest clang include directory">f9363461</a>)</li>
+        <li>Performance, correctness, and safety (<a href="https://github.com/cppalliance/mrdocs/commit/5aa714b21e11dbc64e51f81d7097adda59cd7cb4" title="build: custom target to test all generators">5aa714b2</a>, <a href="https://github.com/cppalliance/mrdocs/commit/469f41ee79957525e5fd52e1e3838624d03458f1" title="remove_bad_files script does not rely on mapfile">469f41ee</a>, <a href="https://github.com/cppalliance/mrdocs/commit/629f184895a04117b057602df9785cd23661f139" title="build: quote genexp for target_include_directories">629f1848</a>, <a href="https://github.com/cppalliance/mrdocs/commit/2f0dd8c1c4dfd1a01e9543049ad00ca2bc9df984" title="ci: antora workflow uses full clone">2f0dd8c1</a>, <a href="https://github.com/cppalliance/mrdocs/commit/acf7c10709a1f3a4436101522d799718415ebad8" title="ci: debug level for antora generation and copy">acf7c107</a>)</li>
+      </ul>
+    </li>
+  </ul>
+
+</details>
+
+<h1 id="2026-beyond-the-mvp">2026: Beyond the MVP</h1>
+
+<p>MrDocs now ships a working MVP, but significant <strong>foundational work</strong> remains. The priority framework is the same: start with <strong>gap analysis</strong>, shape an <strong>MVP</strong> (or now just a viable product), and rank follow-on work against that baseline. In 2025 we invested in <strong>presentation</strong> earlier than <strong>infrastructure</strong>. That inversion still raises costs: each foundational change forces rework across user-facing pieces.</p>
+
+<p>I do not know how the leadership model will evolve in 2026. The team might keep a single coordinator or move to shared stewardship. Regardless, the project only succeeds if we continue investing in <strong>foundational capabilities</strong>. The steps below outline the <strong>recommendations</strong> I believe will help keep MrDocs <strong>sustainable over the long term</strong>.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#f2eadf",
+  "primaryBorderColor": "#ffe8c6",
+  "primaryTextColor": "#000000",
+  "lineColor": "#ffe8c8",
+  "secondaryColor": "#e8ebf3",
+  "tertiaryColor": "#eceaf4",
+  "fontSize": "14px"
+}}}%%
+mindmap
+  root((2026 Priorities))
+    Reflection
+      Describe symbols
+      Shared walkers
+    Metadata
+      Recursive docs
+      Stable names
+      Typed expressions
+    Extensions
+      Script helpers
+      Plugin ABI
+    Dependencies
+      Curated toolchain
+      Opt-in stubs
+    Community
+      Integration demos
+      Outreach cadence
+</div>
+
+<h2 id="strategic-prioritization">Strategic Prioritization</h2>
+
+<p>Aligning <strong>priorities</strong> is itself the highest priority. At the start of my tenure as project lead we followed a strict sequence—<strong>gap analysis</strong>, then an <strong>MVP</strong>, then a set of <strong>priorities</strong>—but that model exposed limitations once work began to land. The <strong>issue tracker</strong> does not reflect how priorities relate to each other, and as individual tickets close the priority stack does not adjust automatically. The project’s <strong>complexity</strong> now amplifies the risk: without a clear view of <strong>dependencies</strong> we can assign a high-value engineer to a task that drags several teammates into the same bottleneck, resulting in net-negative progress. Defining priorities therefore includes understanding the team’s <strong>skills</strong>, mapping how they <strong>collaborate</strong>, and making sure no one becomes a <strong>sink</strong> that blocks everyone else. <strong>Alignment</strong> across roles remains essential so the plan reflects the people who actually execute it.</p>
+
+<p>The <strong>tooling</strong> already exists to put this into practice. <strong>GitHub</strong> now lets us mark issues as <strong>blocked by</strong> or <strong>blocking</strong> others and to model <strong>parent/child relationships</strong>. We can use those relationships to <strong>reorganize the priorities programmatically</strong>. Once the relationships are encoded, <strong>priorities gain semantic meaning</strong> because we can explain why a small ticket matters in the larger story. Priorities become the <strong>byproduct of higher-level goals</strong>— narratives  about the product—rather than a short-term <strong>static wish list</strong> of individual features.</p>
+
+<p>We also need to strengthen the <strong>operational tools</strong> that keep the team coordinated. <strong>Coverage</strong> in CI is still far below our other C++ Alliance projects, and the gap shows up as crashes whenever a new library explores an untested path in the codebase. Improving coverage is a priority in its own right. We can pair that effort with <strong>automation</strong> and <strong>analysis tools</strong> like <strong>ReviewDog</strong> to accelerate code-review feedback, <strong>Danger.js</strong> to enforce pull-request policies, <strong>CodeClimate</strong> or similar services for <strong>static analysis</strong>, and <strong>clang-tidy</strong> checks to catch issues earlier. Finally, we can invite other collaborators to revisit the <strong>gap analysis</strong> and <strong>MVP</strong>, including C++Alliance colleagues who specialize in <strong>marketing</strong>. Their perspective will help us assign priorities that reflect both <strong>technical dependencies</strong> and the project’s <strong>broader positioning</strong>.</p>
+
+<h2 id="reflection">Reflection</h2>
+
+<p>The corpus keeps drifting out of sync because every important path in MrDocs duplicates representation by hand. Almost every subsystem reflects data from one format to another, and almost every internal operation traverses those structures. Each time we adjust a field we have to edit dozens of call sites, and even small mistakes create inconsistent state—different copies of the “truth” that evolve independently. Reflection eliminates this churn. If we can describe the corpus once and let the code iterate over those descriptions, the boilerplate disappears, the traversals remain correct, and we stop fighting the same battle.</p>
+
+<p>A lightweight option would be to enforce the corpus from JSON the way we treat configuration, but the volume of metadata in AST makes that impractical. Instead, we lean on <strong>compile-time reflection utilities</strong> such as <strong>Boost.Describe</strong> and <strong>Boost.mp11</strong>. With those libraries we can convert the corpus to any representation, and each generator—including future <strong>binary</strong> or <strong>JSON</strong> targets—sees the same schema automatically. MrDocs can even emit the schema that powers each generator, keeping the schema, DOM, and documentation in sync. This approach also fixes the long-standing lag in the <strong>XML generator</strong>, where updates have historically been manual and error-prone.</p>
+
+<p>The following sequence diagram illustrates how reflection consolidates data flow without duplicating logic:</p>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+<div class="mermaid">
+sequenceDiagram
+  participant AST as Clang AST
+  participant Corpus as Typed Corpus
+  participant Traits as Reflect Traits
+  participant DOM as Corpus DOM
+  participant Generators as Generators
+  participant Clients as Integrations
+  AST-&gt;&gt;Corpus: Extract symbols
+  Corpus-&gt;&gt;Traits: Publish descriptors
+  Traits-&gt;&gt;DOM: Build type-erased nodes
+  DOM-&gt;&gt;Generators: Supply normalized schema
+  Generators-&gt;&gt;Clients: Deliver outputs
+  Clients-&gt;&gt;Generators: Provide feedback
+  Generators-&gt;&gt;Traits: Request updates
+</div>
+
+<p><strong>Process:</strong> We can start by describing the <strong>Symbols</strong>, <strong>Javadoc</strong>, and related classes, shipping each refactor as a dedicated PR so reviews stay contained. Each description removes custom specializations, reverts to <code>= default</code> where possible, and replaces old logic with <strong>static asserts</strong> that enforce invariants. We generalize the main merge logic first, then update callers such as the <strong>AST visitor</strong> that walks <code>RecordTranche</code>, ensuring the <strong>comments data structure</strong> matches the new descriptions. A <code>MRDOCS_DESCRIBE_DERIVED</code> helper can enumerate derived classes so every visit routine becomes generic. Once the C++ side is described, we rebuild the lazy DOM objects on top of Describe so their types mirror the DOM layout directly.</p>
+
+<p><strong>Use cases:</strong> Redundant non-member functions like <code>tag_invoke</code>, <code>operator⇔</code>, <code>toString</code>, and <code>merge</code> collapse into <strong>shared implementations</strong> that use traits unless real customization is required. New generators—binary, JSON, or otherwise—drop in with minimal code because the schema and traversal logic already exist. The XML generator stops maintaining a private representation and simply reads the described elements. We can finally standardize <strong>naming conventions</strong> (kebab-case or camelCase) because the schema enforces them. Generating the <strong>Relax NG Compact</strong> file becomes just another output produced from the same description. A metadata walker can then discover auxiliary objects and emit <strong>DOM documentation automatically</strong>. As a side effect of integrating Boost.mp11, we can extend the <code>tag_invoke</code> context protocol with tuple-based helpers for <code>mrdocs::FromValue</code>, further narrowing the gap between concrete and DOM objects.</p>
+
+<h2 id="metadata">Metadata</h2>
+
+<p>MrDocs still carries metadata gaps that are too large to ignore. The subsections below highlight the three extraction areas that demand sustained effort; each of them blocks the rest of the system from staying consistent.</p>
+
+<p><strong>Recursive blocks and inlines.</strong> Release 0.0.5 introduced the data structures for recursive Javadoc elements, but we still do not parse all of those structures. The fix is straightforward in concept—extend the CommonMark-based parser so every block and inline variant becomes a first-class node—but the implementation is long because there are many element types. We can ship this incrementally by opening issues and sub-issues, tackling one structure per PR, and starting with block elements before moving to inlines. The existing post-process documentation finalizer already contains the mechanics; we just need to wire each rule into the new documentation nodes.</p>
+
+<p><strong>Legible names.</strong> The current name generator appends hash fragments to differentiate symbols lazily, which makes references unstable and awkward. We need a stable allocator that remembers which symbols claimed which names. The highest-priority symbol should receive the base name, and suffixes should cascade to less critical overloads so the visible entries stay predictable. Moving the generator into the extraction phase and storing the assignments there ensures anchors remain stable, lets us update artifacts such as the Boost.URL tagfile, and produces names that actually read well.</p>
+
+<p><strong>Populate expressions.</strong> Whenever the extractor fails to recognize an expression, it falls back to the raw source string. That shortcut prevents us from applying the usual transformations, especially inside requires-expressions where implementation-defined symbols appear. We should introduce typed representations for the constructs we already understand and continue to store strings for the expressions we have not modeled yet. As coverage grows, more expressions flow through the structured pipeline, and the remaining string-based nodes shrink to the truly unknown cases.</p>
+
+<h2 id="extensions-and-plugins">Extensions and Plugins</h2>
+
+<p><strong>Extensions</strong> and <strong>plugins</strong> aim at the same outcome—letting projects <strong>customize MrDocs</strong>—but they operate at different layers. Extensions run <strong>inside the application</strong>, usually through <strong>interpreters</strong> we bundle. We already ship <strong>Lua</strong> and <strong>Duktape</strong>, yet today they only power a handful of <strong>Handlebars helpers</strong>. The plan is to widen that surface: add more interpreters where it makes sense, extend helper support so extensions can participate in <strong>escaping</strong> and <strong>formatting</strong>, and give extensions the ability to <strong>consume the entire corpus</strong>. With that access, an extension can list every symbol, emit metadata in formats we do not yet support, or transform the corpus before it reaches a native generator. The same mechanism enables <strong>quality-of-life utilities</strong>, such as a generator extension that checks whether a library’s public API changed according to a policy defined in code.</p>
+
+<p><strong>Plugins</strong>, by contrast, are <strong>compiled artifacts</strong>. They unlock similar customization goals, but their <strong>ABI must stay stable</strong>, and platform differences mean a plugin built on one system will not run on another. To keep the surface manageable we should expose a <strong>narrow wrapper</strong>: pass plugins a set of <strong>DOM proxies</strong> so they never depend on the underlying <strong>Info classes</strong>, use <strong>traits</strong> or <strong>versioned interfaces</strong> to handle incompatibilities, and <strong>plan the API carefully</strong> before release.</p>
+
+<h2 id="dependency-resilience">Dependency Resilience</h2>
+
+<p>Working with <strong>dependent libraries</strong> is still the most fragile part of the MrDocs workflow. <strong>Environments drift</strong>, <strong>transitive dependencies change</strong> without notice, and heavyweight projects force us to install <strong>toolchains</strong> we do not actually need. In <strong>Boost.URL</strong> alone we watch upstream Boost libraries evolve every few weeks; sometimes the code truly breaks, but just as often a new release exercises an untested path in MrDocs and triggers a crash because our <strong>coverage</strong> is still thin. Other ecosystems push the cost even higher: documenting a library that depends on <strong>LLVM</strong> can turn a three-second render into an hours-long process because the transitive LLVM <strong>headers</strong> MrDocs needs are generated at build time, so we must compile and install LLVM merely to obtain include files. <strong>CI environments</strong> regularly fail for the same reason.</p>
+
+<p>We already experimented with <strong>mitigation strategies</strong> and should refine them rather than abandon the ideas. Shipping a <strong>curated standard library</strong> with MrDocs removes one entire category of instability. The option will soon be disabled by default, but users can still enable it or even combine it with the system library when <strong>reproducibility</strong> matters more than access to system libraries. This mirrors how <strong>Clang</strong> ships <strong>libc++</strong>; it does not allow invalid code, it simply guarantees a known baseline.</p>
+
+<p>On top of that, we have preliminary support for <strong>user-defined stubs</strong>. <strong>Configuration files</strong> can provide short descriptions of expected symbols from hard-to-build dependencies, and MrDocs can <strong>inject those during extraction</strong>. For predictable patterns we can <strong>auto-generate stubs</strong> when the user opts in, synthesizing symbols rather than failing immediately. None of this accepts invalid code—the compiler still diagnoses real errors—but it shields projects from breakage when a <strong>transitive dependency</strong> tweaks implementation details or when generated headers are unavailable. The features remain <strong>optional</strong>, so teams can disable synthesis to debug the underlying issue and still benefit from the faster path when schedules are tight. Even if the project moves in another direction we should <strong>document the proposal</strong> and remove the existing stub hooks deliberately rather than letting them linger undocumented.</p>
+
+<p>The payoffs are clear. <strong>Boost libraries</strong> could generate documentation without cloning the entire super-project, relying on <strong>SettingsDB</strong> to produce a <strong>compilation database</strong> and skipping <strong>CMake</strong> entirely. MrDocs itself could publish reference docs without building <strong>LLVM</strong> because the required symbols would come from stubs. <strong>Releases</strong> would stop breaking every time a transitive dependency changes, and developers would regain hours currently spent firefighting. These are the <strong>stability</strong> and <strong>reproducibility</strong> gains we need if we want MrDocs to be the <strong>default tooling</strong> for large C++ ecosystems.</p>
+
+<h2 id="follow-up-issues-for-v006">Follow-up Issues for v0.0.6</h2>
+
+<p>To keep this post focused on the big-picture transition, I spun the tactical tasks into GitHub issues for the 0.0.6 milestone. They’re queued up and ready for execution whenever the team circles back to implementation.</p>
+
+<details>
+  <summary>List of follow-up issues for v0.0.6</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1081">#1081</a> Support custom stylesheets in the HTML generator</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1082">#1082</a> Format-agnostic Handlebars generator extension</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1083">#1083</a> Allow SettingsDB to describe a single source file</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1084">#1084</a> Guard against invalid source links</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1085">#1085</a> Complete tests for all using declaration forms</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1086">#1086</a> Explore a recursive project layout</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1087">#1087</a> Convert ConfigOptions.json into a schema file</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1088">#1088</a> Separate parent context and parent page</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1089">#1089</a> List deduction guides on the record page</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1090">#1090</a> Expand coverage for Friends</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1091">#1091</a> Remove dependency symbols after finalization</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1092">#1092</a> Review Bash Commands Parser</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1093">#1093</a> Review NameInfoVisitor</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1094">#1094</a> Improve overload-set documentation</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1095">#1095</a> CI uses the bootstrap script</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1096">#1096</a> Connect Antora extensions</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1097">#1097</a> Handlebars: optimize render state</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1098">#1098</a> Handlebars: explore template compilation</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/issues/1099">#1099</a> Handlebars: investigate incremental rendering</li>
+  </ul>
+
+</details>
+
+<h1 id="acknowledgments">Acknowledgments</h1>
+
+<p><strong>Matheus Izvekov</strong> and <strong>Krystian Stasiowski</strong> kept the Clang integration moving. Their expertise cleared issues that would have stalled us. <strong>Gennaro Prota</strong> and <strong>Fernando Pelliccioni</strong> handled the maintenance load that kept the project on schedule. They took on the long tasks and followed them through.</p>
+
+<p><strong>Robert Beeston</strong> and <strong>Julio Estrada</strong> delivered the public face of MrDocs. The site we ship today exists because they turned open-ended goals into a complete experience.</p>
+
+<p><strong>Vinnie Falco</strong>, <strong>Louis Tatta</strong>, and <strong>Sam Darwin</strong> formed the backbone of my daily support. <strong>Vinnie</strong> trusted the direction and backed the plan when decisions were difficult. <strong>Louis</strong> made sure I had space to return after setbacks. <strong>Sam</strong> kept the Alliance infrastructure running so the team always had what it needed.</p>
+
+<p><strong>Ruben Perez</strong>, <strong>Klemens Morgenstern</strong>, <strong>Peter Dimov</strong>, and <strong>Peter Turcan</strong> offered honest feedback whenever we needed another perspective. Their observations sharpened the product and kept collaboration positive.</p>
+
+<p><strong>Joaquín M López Muñoz</strong> and <strong>Arnaud Bachelier</strong> guided me through the people side of leadership. Their advice turned complex situations into workable plans.</p>
+
+<p>Working alongside everyone listed here has been a privilege. Their contributions made this year possible.</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>The 2025 releases unified the generators, locked the configuration model, added sanitizers and coverage to CI, and introduced features that make the tool usable outside Boost.URL. The project is ready for new contributors because they can extend the code without rebuilding the basics, and downstream teams can run the CLI on large codebases and expect predictable output.</p>
+
+<p>While we delivered those releases, I learned that engineering progress depends on steady communication. Remote discussions often sound negative even when people agree on the goals, so I schedule short check-ins, add light signals like emojis, and keep space for conversations that are not task-driven. I also protect time to listen and ask for help when the workload gets heavy; if I lose that time, every deadline slips anyway.</p>
+
+<p><strong>Final Reflections</strong></p>
+
+<ul>
+  <li>Technical conversations start negative by default, so add clear signals when you agree or appreciate the work.</li>
+  <li>Assume terse feedback comes from the medium, not the person, and respond with patience.</li>
+  <li>Keep informal connection habits—buddy calls, breaks, or quick chats—to maintain trust.</li>
+  <li>Look after your own health and use outside support when needed.</li>
+  <li>Never allow the schedule to block real listening time; reset your calendar when that happens.</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/28/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/10/28/Alan.html">From Prototype to Product: MrDocs in 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/07/10/Alan.html">Bringing B2-Style Test Granularity to CMake</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/01/10/AlanQ4Update.html">Scaling Documentation Pipelines Across Boost Projects</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/13/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/07/13/AlanQ2Update.html">Operationalizing MrDocs Reference for the Boost Release Workflow</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/07/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/05/07/AlanQ1Update.html">Making MrDocs Portable for Every Toolchain</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/01/12/AlanQ4Update.html">Owning Handlebars: Custom Templates for Boost.URL</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/alan/2023/10/27/AlanQ3Update.html">Building the MrDocs Reference Pipeline for Antora</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>

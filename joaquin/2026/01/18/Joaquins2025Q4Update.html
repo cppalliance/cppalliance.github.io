@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Containers galore | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Containers galore | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Containers galore" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q4 2025, I’ve been working in the following areas: Boost.Bloom Written an article explaining the usage and implementation of the recently introduced bulk operations. Boost.Unordered Written maintenance fixes PR#320, PR#321, PR#326, PR#327, PR#328, PR#335. Boost.MultiIndex Refactored the library to use Boost.Mp11 instead of Boost.MPL (PR#87), remove pre-C++11 variadic argument emulation (PR#88) and remove all sorts of pre-C++11 polyfills (PR#90). These changes are explained in an article and will be shipped in Boost 1.91. Transition is expected to be mostly backwards compatible, though two Boost libraries needed adjustments as they use MultiIndex in rather advanced ways (see below). Boost.Flyweight Adapted the library to work with Boost.MultiIndex 1.91 (PR#25). Boost.Bimap Adapted the library to work with Boost.MultiIndex 1.91 (PR#50). Other Boost libraries Helped set up the Antora-based doc build chain for DynamicBitset (PR#96, PR#97, PR#98). Same with OpenMethod (PR#40). Fixed concept compliance of iterators provided by Spirit (PR#840, PR#841). Experiments with Fil-C Fil-C is a C and C++ compiler built on top of LLVM that adds run-time memory-safety mechanisms preventing out-of-bounds and use-after-free accesses. I’ve been experimenting with compiling Boost.Unordered test suite with Fil-C and running some benchmarks to measure the resulting degradation in execution times and memory usage. Results follow: Articles Some experiments with Boost.Unordered on Fil-C Comparing the run-time performance of Fil-C and ASAN Repos Compiling Boost.Unordered test suite with Fil-C Benchmarks of Fil-C and ASAN against baseline Memory consumption of Fil-C and ASAN with respect to baseline Proof of concept of a semistable vector By “semistable vector” I mean that pointers to the elements may be invalidated upon insertion and erasure (just like a regular std::vector) but iterators to non-erased elements remain valid throughout. I’ve written a small proof of concept of this idea and measured its performance against non-stable std::vector and fully stable std::list. It is dubious that such container could be of interest for production use, but the techniques explored are mildly interesting and could be adapted, for instance, to write powerful safe iterator facilities. Teaser: exploring the std::hive space In short, std::hive (coming in C++26) is a container with stable references/iterators and fast insertion and erasure. The reference implementation for this container relies on a rather convoluted data structure, and I started to wonder if something simpler could deliver superior performance. Expect to see the results of my experiments in Q1 2026. Website Filed issues #1936, #1937, #1984. Support to the community I’ve been part of a task force with the C++ Alliance to review the entire catalog of Boost libraries (170+) and categorize them according to their maintainance status and relevance in light of additions to the C++ standard library over the years. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC)." />
+<meta property="og:description" content="During Q4 2025, I’ve been working in the following areas: Boost.Bloom Written an article explaining the usage and implementation of the recently introduced bulk operations. Boost.Unordered Written maintenance fixes PR#320, PR#321, PR#326, PR#327, PR#328, PR#335. Boost.MultiIndex Refactored the library to use Boost.Mp11 instead of Boost.MPL (PR#87), remove pre-C++11 variadic argument emulation (PR#88) and remove all sorts of pre-C++11 polyfills (PR#90). These changes are explained in an article and will be shipped in Boost 1.91. Transition is expected to be mostly backwards compatible, though two Boost libraries needed adjustments as they use MultiIndex in rather advanced ways (see below). Boost.Flyweight Adapted the library to work with Boost.MultiIndex 1.91 (PR#25). Boost.Bimap Adapted the library to work with Boost.MultiIndex 1.91 (PR#50). Other Boost libraries Helped set up the Antora-based doc build chain for DynamicBitset (PR#96, PR#97, PR#98). Same with OpenMethod (PR#40). Fixed concept compliance of iterators provided by Spirit (PR#840, PR#841). Experiments with Fil-C Fil-C is a C and C++ compiler built on top of LLVM that adds run-time memory-safety mechanisms preventing out-of-bounds and use-after-free accesses. I’ve been experimenting with compiling Boost.Unordered test suite with Fil-C and running some benchmarks to measure the resulting degradation in execution times and memory usage. Results follow: Articles Some experiments with Boost.Unordered on Fil-C Comparing the run-time performance of Fil-C and ASAN Repos Compiling Boost.Unordered test suite with Fil-C Benchmarks of Fil-C and ASAN against baseline Memory consumption of Fil-C and ASAN with respect to baseline Proof of concept of a semistable vector By “semistable vector” I mean that pointers to the elements may be invalidated upon insertion and erasure (just like a regular std::vector) but iterators to non-erased elements remain valid throughout. I’ve written a small proof of concept of this idea and measured its performance against non-stable std::vector and fully stable std::list. It is dubious that such container could be of interest for production use, but the techniques explored are mildly interesting and could be adapted, for instance, to write powerful safe iterator facilities. Teaser: exploring the std::hive space In short, std::hive (coming in C++26) is a container with stable references/iterators and fast insertion and erasure. The reference implementation for this container relies on a rather convoluted data structure, and I started to wonder if something simpler could deliver superior performance. Expect to see the results of my experiments in Q1 2026. Website Filed issues #1936, #1937, #1984. Support to the community I’ve been part of a task force with the C++ Alliance to review the entire catalog of Boost libraries (170+) and categorize them according to their maintainance status and relevance in light of additions to the C++ standard library over the years. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC)." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2026/01/18/Joaquins2025Q4Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2026/01/18/Joaquins2025Q4Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-01-18T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Containers galore" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q4 2025, I’ve been working in the following areas: Boost.Bloom Written an article explaining the usage and implementation of the recently introduced bulk operations. Boost.Unordered Written maintenance fixes PR#320, PR#321, PR#326, PR#327, PR#328, PR#335. Boost.MultiIndex Refactored the library to use Boost.Mp11 instead of Boost.MPL (PR#87), remove pre-C++11 variadic argument emulation (PR#88) and remove all sorts of pre-C++11 polyfills (PR#90). These changes are explained in an article and will be shipped in Boost 1.91. Transition is expected to be mostly backwards compatible, though two Boost libraries needed adjustments as they use MultiIndex in rather advanced ways (see below). Boost.Flyweight Adapted the library to work with Boost.MultiIndex 1.91 (PR#25). Boost.Bimap Adapted the library to work with Boost.MultiIndex 1.91 (PR#50). Other Boost libraries Helped set up the Antora-based doc build chain for DynamicBitset (PR#96, PR#97, PR#98). Same with OpenMethod (PR#40). Fixed concept compliance of iterators provided by Spirit (PR#840, PR#841). Experiments with Fil-C Fil-C is a C and C++ compiler built on top of LLVM that adds run-time memory-safety mechanisms preventing out-of-bounds and use-after-free accesses. I’ve been experimenting with compiling Boost.Unordered test suite with Fil-C and running some benchmarks to measure the resulting degradation in execution times and memory usage. Results follow: Articles Some experiments with Boost.Unordered on Fil-C Comparing the run-time performance of Fil-C and ASAN Repos Compiling Boost.Unordered test suite with Fil-C Benchmarks of Fil-C and ASAN against baseline Memory consumption of Fil-C and ASAN with respect to baseline Proof of concept of a semistable vector By “semistable vector” I mean that pointers to the elements may be invalidated upon insertion and erasure (just like a regular std::vector) but iterators to non-erased elements remain valid throughout. I’ve written a small proof of concept of this idea and measured its performance against non-stable std::vector and fully stable std::list. It is dubious that such container could be of interest for production use, but the techniques explored are mildly interesting and could be adapted, for instance, to write powerful safe iterator facilities. Teaser: exploring the std::hive space In short, std::hive (coming in C++26) is a container with stable references/iterators and fast insertion and erasure. The reference implementation for this container relies on a rather convoluted data structure, and I started to wonder if something simpler could deliver superior performance. Expect to see the results of my experiments in Q1 2026. Website Filed issues #1936, #1937, #1984. Support to the community I’ve been part of a task force with the C++ Alliance to review the entire catalog of Boost libraries (170+) and categorize them according to their maintainance status and relevance in light of additions to the C++ standard library over the years. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2026/01/18/Joaquins2025Q4Update.html","headline":"Containers galore","dateModified":"2026-01-18T00:00:00+00:00","datePublished":"2026-01-18T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2026/01/18/Joaquins2025Q4Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Containers galore</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/joaquin">
+              <img class='author-img' src='/images/people/joaquin.jpg' alt='Portrait of Joaquín M López Muñoz' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> &middot; Jan 18, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q4 2025, I’ve been working in the following areas:</p>
+
+<h3 id="boostbloom">Boost.Bloom</h3>
+
+<ul>
+  <li>Written <a href="https://bannalia.blogspot.com/2025/10/bulk-operations-in-boostbloom.html">an article</a> explaining
+the usage and implementation of the recently introduced bulk operations.</li>
+</ul>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Written maintenance fixes
+<a href="https://github.com/boostorg/unordered/pull/320">PR#320</a>,
+<a href="https://github.com/boostorg/unordered/pull/321">PR#321</a>,
+<a href="https://github.com/boostorg/unordered/pull/326">PR#326</a>,
+<a href="https://github.com/boostorg/unordered/pull/327">PR#327</a>,
+<a href="https://github.com/boostorg/unordered/pull/328">PR#328</a>,
+<a href="https://github.com/boostorg/unordered/pull/335">PR#335</a>.</li>
+</ul>
+
+<h3 id="boostmultiindex">Boost.MultiIndex</h3>
+
+<ul>
+  <li>Refactored the library to use Boost.Mp11 instead of Boost.MPL (<a href="https://github.com/boostorg/multi_index/pull/87">PR#87</a>),
+remove pre-C++11 variadic argument emulation (<a href="https://github.com/boostorg/multi_index/pull/88">PR#88</a>)
+and remove all sorts of pre-C++11 polyfills (<a href="https://github.com/boostorg/multi_index/pull/90">PR#90</a>).
+These changes are explained in <a href="https://bannalia.blogspot.com/2025/12/boostmultiindex-refactored.html">an article</a>
+and will be shipped in Boost 1.91. Transition is expected to be mostly backwards
+compatible, though two Boost libraries needed adjustments as they use MultiIndex
+in rather advanced ways (see below).</li>
+</ul>
+
+<h3 id="boostflyweight">Boost.Flyweight</h3>
+
+<ul>
+  <li>Adapted the library to work with Boost.MultiIndex 1.91
+(<a href="https://github.com/boostorg/flyweight/pull/25">PR#25</a>).</li>
+</ul>
+
+<h3 id="boostbimap">Boost.Bimap</h3>
+
+<ul>
+  <li>Adapted the library to work with Boost.MultiIndex 1.91
+(<a href="https://github.com/boostorg/bimap/pull/50">PR#50</a>).</li>
+</ul>
+
+<h3 id="other-boost-libraries">Other Boost libraries</h3>
+
+<ul>
+  <li>Helped set up the Antora-based doc build chain for DynamicBitset
+(<a href="https://github.com/boostorg/dynamic_bitset/pull/96">PR#96</a>,
+<a href="https://github.com/boostorg/dynamic_bitset/pull/97">PR#97</a>,
+<a href="https://github.com/boostorg/dynamic_bitset/pull/98">PR#98</a>).</li>
+  <li>Same with OpenMethod
+(<a href="https://github.com/boostorg/openmethod/pull/40">PR#40</a>).</li>
+  <li>Fixed concept compliance of iterators provided by Spirit
+(<a href="https://github.com/boostorg/spirit/pull/840">PR#840</a>,
+<a href="https://github.com/boostorg/spirit/pull/841">PR#841</a>).</li>
+</ul>
+
+<h3 id="experiments-with-fil-c">Experiments with Fil-C</h3>
+
+<p><a href="https://fil-c.org/">Fil-C</a> is a C and C++ compiler built on top of LLVM that adds run-time
+memory-safety mechanisms preventing out-of-bounds and use-after-free accesses. 
+I’ve been experimenting with compiling Boost.Unordered test suite with Fil-C and running
+some benchmarks to measure the resulting degradation in execution times and memory usage.
+Results follow:</p>
+
+<ul>
+  <li>Articles
+    <ul>
+      <li><a href="https://bannalia.blogspot.com/2025/11/some-experiments-with-boostunordered-on.html">Some experiments with Boost.Unordered on Fil-C</a></li>
+      <li><a href="https://bannalia.blogspot.com/2025/11/comparing-run-time-performance-of-fil-c.html">Comparing the run-time performance of Fil-C and ASAN</a></li>
+    </ul>
+  </li>
+  <li>Repos
+    <ul>
+      <li><a href="https://github.com/joaquintides/fil-c_boost_unordered">Compiling Boost.Unordered test suite with Fil-C</a></li>
+      <li><a href="https://github.com/boostorg/boost_unordered_benchmarks/tree/boost_unordered_flat_map_fil-c">Benchmarks of Fil-C and ASAN against baseline</a></li>
+      <li><a href="https://github.com/boostorg/boost_unordered_benchmarks/tree/boost_unordered_flat_map_fil-c_memory">Memory consumption of Fil-C and ASAN with respect to baseline</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="proof-of-concept-of-a-semistable-vector">Proof of concept of a semistable vector</h3>
+
+<p>By “semistable vector” I mean that pointers to the elements may be invalidated
+upon insertion and erasure (just like a regular <code>std::vector</code>) but iterators
+to non-erased elements remain valid throughout.
+I’ve written a small <a href="https://github.com/joaquintides/semistable_vector/">proof of concept</a>
+of this idea and measured its performance against non-stable <code>std::vector</code> and fully
+stable <code>std::list</code>. It is dubious that such container could be of interest for production
+use, but the techniques explored are mildly interesting and could be adapted, for
+instance, to write powerful safe iterator facilities.</p>
+
+<h3 id="teaser-exploring-the-stdhive-space">Teaser: exploring the <code>std::hive</code> space</h3>
+
+<p>In short, <code>std::hive</code> (coming in C++26) is a container with stable references/iterators
+and fast insertion and erasure. The <a href="https://github.com/mattreecebentley/plf_hive">reference implementation</a>
+for this container relies on a rather convoluted data structure, and I started to wonder
+if something simpler could deliver superior performance. Expect to see the results of
+my experiments in Q1 2026.</p>
+
+<h3 id="website">Website</h3>
+
+<ul>
+  <li>Filed issues
+<a href="https://github.com/boostorg/website-v2/issues/1936">#1936</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1937">#1937</a>,
+<a href="https://github.com/boostorg/website-v2/issues/1984">#1984</a>.</li>
+</ul>
+
+<h3 id="support-to-the-community">Support to the community</h3>
+
+<ul>
+  <li>I’ve been part of a task force with the C++ Alliance to review the entire
+catalog of Boost libraries (170+) and categorize them according to their
+maintainance status and relevance in light of additions to the C++
+standard library over the years.</li>
+  <li>Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).</li>
+</ul>
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/18/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/01/18/Joaquins2025Q4Update.html">Containers galore</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>
