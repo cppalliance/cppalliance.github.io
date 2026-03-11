@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corosio Beta: Coroutine-Native Networking for C++20 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Corosio Beta: Coroutine-Native Networking for C++20 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Corosio Beta: Coroutine-Native Networking for C++20" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Corosio Beta: Coroutine-Native Networking for C++20 The C++ Alliance is releasing the Corosio beta, a networking library designed from the ground up for C++20 coroutines. We are inviting serious C++ developers to use it, break it, and tell us what needs to change before it goes to Boost formal review. The Gap C++20 Left Open C++20 gave us coroutines. It did not give us networking to go with them. Boost.Asio has added coroutine support over the years, but its foundations were laid for a world of callbacks and completion handlers. Retrofitting coroutines onto that model produces code that works, but never quite feels like the language you are writing in. We decided to find out what networking looks like when you start over. What Corosio Is Corosio is a coroutine-only networking library for C++20. It provides TCP sockets, acceptors, TLS streams, timers, and DNS resolution. Every operation is an awaitable. You write co_await and the library handles executor affinity, cancellation, and frame allocation. No callbacks. No futures. No sender/receiver. auto [socket] = co_await acceptor.async_accept(); auto n = co_await socket.async_read_some(buffer); co_await socket.async_write(response); Corosio runs on Windows (IOCP), Linux (epoll), and macOS (kqueue). It targets GCC 12+, Clang 17+, and MSVC 14.34+, with no dependencies outside the standard library. Capy, its I/O foundation, is fetched automatically by CMake. Built on Capy Corosio is built on Capy, a coroutine I/O foundation library that ships alongside it. The core insight driving Capy’s design comes from Peter Dimov: an API designed from the ground up to use C++20 coroutines can achieve performance and ergonomics which cannot otherwise be obtained. Capy’s IoAwaitable protocol ensures coroutines resume on the correct executor after I/O completes, without thread-local globals, implicit context, or manual dispatch. Cancellation follows the same forward-propagation model: stop tokens flow from the top of a coroutine chain to the platform API boundary, giving you uniform cancellation across all operations. Frame allocation uses thread-local recycling pools to achieve zero steady-state heap allocations after warmup. What We Are Asking For We are looking for feedback on correctness, ergonomics, platform behavior, documentation, and performance under real workloads. Specifically: Does the executor affinity model hold up under production conditions? Does cancellation behave correctly across complex coroutine chains? Are there platform-specific edge cases in the IOCP, epoll, or kqueue backends? Does the zero-allocation model hold in your deployment scenarios? We are inviting serious C++ developers, especially if you have shipped networking code, to use it, break it, and tell us what your experience was. The Boost review process rewards libraries that arrive having already faced serious scrutiny. Get It git clone https://github.com/cppalliance/corosio.git cd corosio cmake -S . -B build -G Ninja cmake --build build Or with CMake FetchContent: include(FetchContent) FetchContent_Declare(corosio GIT_REPOSITORY https://github.com/cppalliance/corosio.git GIT_TAG develop GIT_SHALLOW TRUE) FetchContent_MakeAvailable(corosio) target_link_libraries(my_app Boost::corosio) Requires: CMake 3.25+, GCC 12+ / Clang 17+ / MSVC 14.34+ Resources Corosio on GitHub – https://github.com/cppalliance/corosio Corosio Docs – https://develop.corosio.cpp.al/ Capy on GitHub – https://github.com/cppalliance/capy Capy Docs – https://develop.capy.cpp.al/ File an Issue – https://github.com/cppalliance/corosio/issues" />
+<meta property="og:description" content="Corosio Beta: Coroutine-Native Networking for C++20 The C++ Alliance is releasing the Corosio beta, a networking library designed from the ground up for C++20 coroutines. We are inviting serious C++ developers to use it, break it, and tell us what needs to change before it goes to Boost formal review. The Gap C++20 Left Open C++20 gave us coroutines. It did not give us networking to go with them. Boost.Asio has added coroutine support over the years, but its foundations were laid for a world of callbacks and completion handlers. Retrofitting coroutines onto that model produces code that works, but never quite feels like the language you are writing in. We decided to find out what networking looks like when you start over. What Corosio Is Corosio is a coroutine-only networking library for C++20. It provides TCP sockets, acceptors, TLS streams, timers, and DNS resolution. Every operation is an awaitable. You write co_await and the library handles executor affinity, cancellation, and frame allocation. No callbacks. No futures. No sender/receiver. auto [socket] = co_await acceptor.async_accept(); auto n = co_await socket.async_read_some(buffer); co_await socket.async_write(response); Corosio runs on Windows (IOCP), Linux (epoll), and macOS (kqueue). It targets GCC 12+, Clang 17+, and MSVC 14.34+, with no dependencies outside the standard library. Capy, its I/O foundation, is fetched automatically by CMake. Built on Capy Corosio is built on Capy, a coroutine I/O foundation library that ships alongside it. The core insight driving Capy’s design comes from Peter Dimov: an API designed from the ground up to use C++20 coroutines can achieve performance and ergonomics which cannot otherwise be obtained. Capy’s IoAwaitable protocol ensures coroutines resume on the correct executor after I/O completes, without thread-local globals, implicit context, or manual dispatch. Cancellation follows the same forward-propagation model: stop tokens flow from the top of a coroutine chain to the platform API boundary, giving you uniform cancellation across all operations. Frame allocation uses thread-local recycling pools to achieve zero steady-state heap allocations after warmup. What We Are Asking For We are looking for feedback on correctness, ergonomics, platform behavior, documentation, and performance under real workloads. Specifically: Does the executor affinity model hold up under production conditions? Does cancellation behave correctly across complex coroutine chains? Are there platform-specific edge cases in the IOCP, epoll, or kqueue backends? Does the zero-allocation model hold in your deployment scenarios? We are inviting serious C++ developers, especially if you have shipped networking code, to use it, break it, and tell us what your experience was. The Boost review process rewards libraries that arrive having already faced serious scrutiny. Get It git clone https://github.com/cppalliance/corosio.git cd corosio cmake -S . -B build -G Ninja cmake --build build Or with CMake FetchContent: include(FetchContent) FetchContent_Declare(corosio GIT_REPOSITORY https://github.com/cppalliance/corosio.git GIT_TAG develop GIT_SHALLOW TRUE) FetchContent_MakeAvailable(corosio) target_link_libraries(my_app Boost::corosio) Requires: CMake 3.25+, GCC 12+ / Clang 17+ / MSVC 14.34+ Resources Corosio on GitHub – https://github.com/cppalliance/corosio Corosio Docs – https://develop.corosio.cpp.al/ Capy on GitHub – https://github.com/cppalliance/capy Capy Docs – https://develop.capy.cpp.al/ File an Issue – https://github.com/cppalliance/corosio/issues" />
+<link rel="canonical" href="http://cppalliance.org/ruben/2026/03/11/Corosio-Beta-Coroutine-Native-Networking.html" />
+<meta property="og:url" content="http://cppalliance.org/ruben/2026/03/11/Corosio-Beta-Coroutine-Native-Networking.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-03-11T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Corosio Beta: Coroutine-Native Networking for C++20" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Corosio Beta: Coroutine-Native Networking for C++20 The C++ Alliance is releasing the Corosio beta, a networking library designed from the ground up for C++20 coroutines. We are inviting serious C++ developers to use it, break it, and tell us what needs to change before it goes to Boost formal review. The Gap C++20 Left Open C++20 gave us coroutines. It did not give us networking to go with them. Boost.Asio has added coroutine support over the years, but its foundations were laid for a world of callbacks and completion handlers. Retrofitting coroutines onto that model produces code that works, but never quite feels like the language you are writing in. We decided to find out what networking looks like when you start over. What Corosio Is Corosio is a coroutine-only networking library for C++20. It provides TCP sockets, acceptors, TLS streams, timers, and DNS resolution. Every operation is an awaitable. You write co_await and the library handles executor affinity, cancellation, and frame allocation. No callbacks. No futures. No sender/receiver. auto [socket] = co_await acceptor.async_accept(); auto n = co_await socket.async_read_some(buffer); co_await socket.async_write(response); Corosio runs on Windows (IOCP), Linux (epoll), and macOS (kqueue). It targets GCC 12+, Clang 17+, and MSVC 14.34+, with no dependencies outside the standard library. Capy, its I/O foundation, is fetched automatically by CMake. Built on Capy Corosio is built on Capy, a coroutine I/O foundation library that ships alongside it. The core insight driving Capy’s design comes from Peter Dimov: an API designed from the ground up to use C++20 coroutines can achieve performance and ergonomics which cannot otherwise be obtained. Capy’s IoAwaitable protocol ensures coroutines resume on the correct executor after I/O completes, without thread-local globals, implicit context, or manual dispatch. Cancellation follows the same forward-propagation model: stop tokens flow from the top of a coroutine chain to the platform API boundary, giving you uniform cancellation across all operations. Frame allocation uses thread-local recycling pools to achieve zero steady-state heap allocations after warmup. What We Are Asking For We are looking for feedback on correctness, ergonomics, platform behavior, documentation, and performance under real workloads. Specifically: Does the executor affinity model hold up under production conditions? Does cancellation behave correctly across complex coroutine chains? Are there platform-specific edge cases in the IOCP, epoll, or kqueue backends? Does the zero-allocation model hold in your deployment scenarios? We are inviting serious C++ developers, especially if you have shipped networking code, to use it, break it, and tell us what your experience was. The Boost review process rewards libraries that arrive having already faced serious scrutiny. Get It git clone https://github.com/cppalliance/corosio.git cd corosio cmake -S . -B build -G Ninja cmake --build build Or with CMake FetchContent: include(FetchContent) FetchContent_Declare(corosio GIT_REPOSITORY https://github.com/cppalliance/corosio.git GIT_TAG develop GIT_SHALLOW TRUE) FetchContent_MakeAvailable(corosio) target_link_libraries(my_app Boost::corosio) Requires: CMake 3.25+, GCC 12+ / Clang 17+ / MSVC 14.34+ Resources Corosio on GitHub – https://github.com/cppalliance/corosio Corosio Docs – https://develop.corosio.cpp.al/ Capy on GitHub – https://github.com/cppalliance/capy Capy Docs – https://develop.capy.cpp.al/ File an Issue – https://github.com/cppalliance/corosio/issues","@type":"BlogPosting","url":"http://cppalliance.org/ruben/2026/03/11/Corosio-Beta-Coroutine-Native-Networking.html","headline":"Corosio Beta: Coroutine-Native Networking for C++20","dateModified":"2026-03-11T00:00:00+00:00","datePublished":"2026-03-11T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/ruben/2026/03/11/Corosio-Beta-Coroutine-Native-Networking.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Corosio Beta: Coroutine-Native Networking for C++20</h2>
+        
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <span class='text-xxs author-name'>Mark Cooper &middot; Mar 11, 2026</span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h1 id="corosio-beta-coroutine-native-networking-for-c20">Corosio Beta: Coroutine-Native Networking for C++20</h1>
+
+<p><em>The C++ Alliance is releasing the Corosio beta, a networking library designed from the ground up for C++20 coroutines. We are inviting serious C++ developers to use it, break it, and tell us what needs to change before it goes to Boost formal review.</em></p>
+
+<hr />
+
+<h2 id="the-gap-c20-left-open">The Gap C++20 Left Open</h2>
+
+<p>C++20 gave us coroutines. It did not give us networking to go with them. Boost.Asio has added coroutine support over the years, but its foundations were laid for a world of callbacks and completion handlers. Retrofitting coroutines onto that model produces code that works, but never quite feels like the language you are writing in. We decided to find out what networking looks like when you start over.</p>
+
+<hr />
+
+<h2 id="what-corosio-is">What Corosio Is</h2>
+
+<p>Corosio is a coroutine-only networking library for C++20. It provides TCP sockets, acceptors, TLS streams, timers, and DNS resolution. Every operation is an awaitable. You write <code>co_await</code> and the library handles executor affinity, cancellation, and frame allocation. No callbacks. No futures. No sender/receiver.</p>
+
+<pre><code class="language-c">auto [socket] = co_await acceptor.async_accept();
+auto n = co_await socket.async_read_some(buffer);
+co_await socket.async_write(response);
+</code></pre>
+
+<p>Corosio runs on Windows (IOCP), Linux (epoll), and macOS (kqueue). It targets GCC 12+, Clang 17+, and MSVC 14.34+, with no dependencies outside the standard library. Capy, its I/O foundation, is fetched automatically by CMake.</p>
+
+<hr />
+
+<h2 id="built-on-capy">Built on Capy</h2>
+
+<p>Corosio is built on Capy, a coroutine I/O foundation library that ships alongside it. The core insight driving Capy’s design comes from Peter Dimov: <em>an API designed from the ground up to use C++20 coroutines can achieve performance and ergonomics which cannot otherwise be obtained.</em></p>
+
+<p>Capy’s <em>IoAwaitable</em> protocol ensures coroutines resume on the correct executor after I/O completes, without thread-local globals, implicit context, or manual dispatch. Cancellation follows the same forward-propagation model: stop tokens flow from the top of a coroutine chain to the platform API boundary, giving you uniform cancellation across all operations. Frame allocation uses thread-local recycling pools to achieve zero steady-state heap allocations after warmup.</p>
+
+<hr />
+
+<h2 id="what-we-are-asking-for">What We Are Asking For</h2>
+
+<p>We are looking for feedback on correctness, ergonomics, platform behavior, documentation, and performance under real workloads. Specifically:</p>
+
+<ul>
+  <li>Does the executor affinity model hold up under production conditions?</li>
+  <li>Does cancellation behave correctly across complex coroutine chains?</li>
+  <li>Are there platform-specific edge cases in the IOCP, epoll, or kqueue backends?</li>
+  <li>Does the zero-allocation model hold in your deployment scenarios?</li>
+</ul>
+
+<p>We are inviting serious C++ developers, especially if you have shipped networking code, to use it, break it, and tell us what your experience was. The Boost review process rewards libraries that arrive having already faced serious scrutiny.</p>
+
+<hr />
+
+<h2 id="get-it">Get It</h2>
+
+<pre><code class="language-shell">git clone https://github.com/cppalliance/corosio.git
+cd corosio
+cmake -S . -B build -G Ninja
+cmake --build build
+
+</code></pre>
+
+<p>Or with CMake FetchContent:</p>
+
+<pre><code>include(FetchContent)
+FetchContent_Declare(corosio
+  GIT_REPOSITORY https://github.com/cppalliance/corosio.git
+  GIT_TAG        develop
+  GIT_SHALLOW    TRUE)
+FetchContent_MakeAvailable(corosio)
+target_link_libraries(my_app Boost::corosio)
+</code></pre>
+
+<p><strong>Requires:</strong> CMake 3.25+, GCC 12+ / Clang 17+ / MSVC 14.34+</p>
+
+<hr />
+
+<h2 id="resources">Resources</h2>
+
+<p><a href="https://github.com/cppalliance/corosio">Corosio on GitHub</a> – https://github.com/cppalliance/corosio</p>
+
+<p><a href="https://master.corosio.cpp.al/">Corosio Docs</a> – https://develop.corosio.cpp.al/</p>
+
+<p><a href="https://github.com/cppalliance/capy">Capy on GitHub</a> – https://github.com/cppalliance/capy</p>
+
+<p><a href="https://master.capy.cpp.al/">Capy Docs</a> – https://develop.capy.cpp.al/</p>
+
+<p><a href="https://github.com/cppalliance/corosio/issues">File an Issue</a> – https://github.com/cppalliance/corosio/issues</p>
+
+
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/11/2026</span>
+          <a class='text-l news-title link' href="/ruben/2026/03/11/Corosio-Beta-Coroutine-Native-Networking.html">Corosio Beta: Coroutine-Native Networking for C++20</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/23/2026</span>
+          <a class='text-l news-title link' href="/ruben/2026/01/23/Ruben2025Q4Update.html">A postgres library for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/07/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/10/07/Ruben2025Q3Update.html">Levelling up Boost.Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/07/10/Ruben2025Q2Update.html">Ready, Set, Redis!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/04/10/Ruben2025Q1Update.html">Moving Boost forward: Asio, coroutines, and maybe even modules</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/06/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/01/06/Ruben2024Q4Update.html">Boost.MySQL 1.87 and the new Boost citizens</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/ruben/2024/10/20/Ruben2024Q3Update.html">Boost.MySQL 1.87 features: with_params and with_diagnostics</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/ruben/2023/10/27/Rubens2023Q3Update.html">Ruben's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+</body>
+</html>
