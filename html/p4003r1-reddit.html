@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/cpp - P4003R1 - Ask: IoAwaitable for Coroutine-Native Byte-Oriented I/O</title>
+  <style>
+:root {
+  --bg-canvas: #030303;
+  --bg-body: #1a1a1b;
+  --bg-card: #272729;
+  --bg-hover: #2d2d2f;
+  --bg-promoted: #1a1a1b;
+  --border-default: #343536;
+  --border-comment: #343536;
+  --text-primary: #d7dadc;
+  --text-secondary: #818384;
+  --text-muted: #6a6b6d;
+  --text-link: #4fbcff;
+  --text-visited: #a98bdb;
+  --text-username: #4fbcff;
+  --text-op: #4fbcff;
+  --text-mod: #5af078;
+  --text-admin: #ff4500;
+  --upvote: #ff4500;
+  --downvote: #7193ff;
+  --upvote-bg: rgba(255,69,0,0.1);
+  --downvote-bg: rgba(113,147,255,0.1);
+  --award-gold: #ffd635;
+  --flair-bg: #272729;
+  --flair-text: #d7dadc;
+  --promoted-bg: #1e1e1f;
+  --promoted-border: #3a3a3c;
+  --font-body: 'Reddit Sans', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Source Code Pro', 'Fira Code', 'Consolas', monospace;
+  --content-width: 740px;
+  --comment-indent: 22px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.thread {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.subreddit-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 12px;
+}
+
+.submission {
+  background: var(--bg-body);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.submission .title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.submission .meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.submission .body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.submission .body p { margin-bottom: 10px; }
+.submission .body a { color: var(--text-link); text-decoration: none; }
+.submission .body a:hover { text-decoration: underline; }
+.submission .body a:visited { color: var(--text-visited); }
+
+.submission .vote-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  border-top: 1px solid var(--border-default);
+  margin-top: 12px;
+}
+
+.submission .flair {
+  display: inline-block;
+  background: var(--flair-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--flair-text);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.sort-bar {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.comment {
+  display: flex;
+  padding: 4px 0 4px 0;
+}
+
+.comment .votebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  min-width: 24px;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.comment .arrow { cursor: pointer; line-height: 1; }
+.comment .arrow.up { color: var(--text-muted); }
+.comment .arrow.down { color: var(--text-muted); margin-top: 2px; }
+
+.comment-body {
+  flex: 1;
+  min-width: 0;
+  border-left: 2px solid var(--border-comment);
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.comment[data-depth="0"] > .comment-body { border-left-color: #545454; }
+.comment[data-depth="1"] > .comment-body { border-left-color: #4a6fa5; }
+.comment[data-depth="2"] > .comment-body { border-left-color: #6b8e5e; }
+.comment[data-depth="3"] > .comment-body { border-left-color: #b8860b; }
+.comment[data-depth="4"] > .comment-body { border-left-color: #8b5e8b; }
+.comment[data-depth="5"] > .comment-body { border-left-color: #5e8b8b; }
+
+.comment-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.comment-header .username {
+  font-weight: 700;
+  color: var(--text-username);
+  text-decoration: none;
+}
+
+.comment-header .username.op { color: var(--text-op); }
+.comment-header .username.op::after {
+  content: "OP";
+  font-size: 10px;
+  background: var(--text-op);
+  color: var(--bg-body);
+  padding: 0 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.comment-header .username.mod { color: var(--text-mod); }
+.comment-header .username.mod::after {
+  content: "[M]";
+  font-size: 10px;
+  color: var(--text-mod);
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.comment-header .flair {
+  background: var(--flair-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.comment-header .score { color: var(--text-secondary); }
+.comment-header .score.negative { color: var(--downvote); }
+.comment-header .dagger { color: var(--text-muted); font-size: 10px; }
+.comment-header .time { color: var(--text-muted); }
+.comment-header .awards { font-size: 14px; }
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  overflow-wrap: break-word;
+}
+
+.comment-text p { margin-bottom: 8px; }
+.comment-text a { color: var(--text-link); text-decoration: none; }
+.comment-text a:hover { text-decoration: underline; }
+
+.comment-text blockquote {
+  border-left: 3px solid var(--border-comment);
+  padding: 2px 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+.comment-text code {
+  background: var(--bg-card);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.comment-text pre {
+  background: var(--bg-card);
+  padding: 10px 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.comment-text pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.comment-text .edit {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 6px;
+}
+
+.comment-footer {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+  padding: 2px 0 4px 0;
+}
+
+.comment-footer .action { cursor: pointer; font-weight: 700; }
+.comment-footer .action:hover { color: var(--text-secondary); }
+
+.comment.deleted .comment-text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.comment.deleted .username { color: var(--text-muted); }
+
+.comment.collapsed {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.comment.collapsed .comment-text,
+.comment.collapsed .comment-footer,
+.comment.collapsed .replies { display: none; }
+
+.comment.collapsed .comment-header::before {
+  content: "[+] ";
+  color: var(--text-muted);
+}
+
+.replies {
+  padding-left: var(--comment-indent);
+}
+
+.promoted {
+  background: var(--promoted-bg);
+  border: 1px solid var(--promoted-border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.promoted .promoted-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.promoted .promoted-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.promoted .promoted-body {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.locked-notice {
+  background: rgba(255, 69, 0, 0.08);
+  border: 1px solid rgba(255, 69, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0;
+}
+
+.mod-pin {
+  background: rgba(90, 240, 120, 0.06);
+  border: 1px solid rgba(90, 240, 120, 0.15);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.submission-actions {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+  padding-top: 8px;
+  font-weight: 700;
+}
+
+.submission-actions span { cursor: pointer; }
+.submission-actions span:hover { color: var(--text-secondary); }
+
+@media (max-width: 800px) {
+  .thread { padding: 8px; }
+  :root { --content-width: 100%; --comment-indent: 14px; }
+  .submission .title { font-size: 17px; }
+}
+  </style>
+</head>
+<body>
+  <div class="thread">
+
+    <div class="subreddit-header">
+      <span style="font-weight:700;color:var(--text-primary)">r/cpp</span>
+      &middot; Posted by
+      <span style="color:var(--text-username)">u/modern_cpp_news</span>
+      &middot; 8 hr. ago
+    </div>
+
+    <div class="submission">
+      <div class="title">
+        P4003R1 - Ask: IoAwaitable for Coroutine-Native Byte-Oriented I/O
+        <span class="flair">WG21</span>
+      </div>
+      <div class="meta">
+        <span style="color:var(--upvote)">&#9650;</span> 327 &middot; 89% Upvoted
+      </div>
+      <div class="body">
+        <p><strong>Document:</strong> P4003R1<br>
+        <strong>Authors:</strong> Vinnie Falco, Steve Gerbino, Mungo Gill<br>
+        <strong>Date:</strong> 2026-03-31<br>
+        <strong>Audience:</strong> LEWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p4003r1">wg21.link/p4003r1</a></p>
+
+        <p>New paper from Vinnie Falco (of Boost.Beast fame) proposing the IoAwaitable protocol as the standard vocabulary for coroutine-native byte-oriented I/O. The pitch is basically: <code>auto [ec, n] = co_await socket.read_some(buf);</code> - and then only enough infrastructure to make that line work.</p>
+
+        <p>The paper positions this as a "third way" - distinct from both the Networking TS executor model and sender/receiver (<a href="https://wg21.link/p2300r10">P2300</a>). It proposes an <code>io_env</code> struct (executor, stop token, frame allocator), a two-argument <code>await_suspend</code> as the core protocol, and a type-erased <code>executor_ref</code>. Claims to complement std::execution rather than compete with it.</p>
+
+        <p>Notable: SG14 has formally recommended this direction in <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4029r0.pdf">P4029R0</a>, saying networking should not be built on P2300. There's also a companion design rationale paper (<a href="https://wg21.link/p4172r0">P4172R0</a>), shipping implementations on three platforms (<a href="https://github.com/cppalliance/capy">Capy</a> + <a href="https://github.com/cppalliance/corosio">Corosio</a>), and a field experience report from a derivatives exchange (<a href="https://wg21.link/p4125r1">P4125R1</a>).</p>
+
+        <p>The paper asks for floor time in LEWG and proposes five straw polls, starting with "is this a distinct approach" and ending with "advance IoAwaitable."</p>
+      </div>
+      <div class="vote-count">
+        44 comments &middot; share &middot; save &middot; hide &middot; report
+      </div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- ==================== MOD PIN ==================== -->
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body" style="border-left-color: var(--text-mod);">
+            <div class="comment-header">
+              <span class="username mod">u/r_cpp_janitor</span>
+              <span class="score">&#128204; stickied comment</span>
+              <span class="time">8 hr. ago</span>
+            </div>
+            <div class="comment-text">
+              <p>Reminder: be civil. Paper authors sometimes read these threads. Argue the technical merits, not the people.</p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 1: compiles_first_try (noise, 423pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score">423 points</span>
+            <span class="time">3 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>can we please just get networking in the standard before I retire</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/yet_another_cpp_dev</span>
+                  <span class="score">187 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>bold of you to assume C++ developers ever retire. we just move to management and stop writing code, which is basically the same as dying</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/segfault_enjoyer</span>
+                  <span class="score">89 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>my grandchildren will inherit my half-finished networking proposal along with my student loans</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/mass_pointer_deref</span>
+                  <span class="score">42 points</span>
+                  <span class="time">47 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>i've been hearing "networking next cycle" since I was an intern. I have grey hair now.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 2: mass_pointer_deref timeline (noise, 201pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/mass_pointer_deref</span>
+            <span class="score">201 points</span>
+            <span class="time">7 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>the absolute state of C++ async:</p>
+            <p>
+              2005: "we need networking"<br>
+              2012: "we need executors first"<br>
+              2017: "we need sender/receiver first"<br>
+              2021: "sender/receiver covers networking"<br>
+              2023: "actually only sender/receiver for networking"<br>
+              2026: "actually there's a third way"<br>
+              2029: "we need to unify the three ways first"<br>
+              2032: networking
+            </p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/definitely_not_a_compiler_dev</span>
+                  <span class="score">56 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>to be fair the timeline is more like:</p>
+                  <p>
+                    2005: "we need networking"<br>
+                    2024: "we have std::execution"<br>
+                    2026: "we still need networking"
+                  </p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_first_try</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>the <code>connect</code>/<code>start</code> dance in P2300 makes me feel like I'm writing Java with extra template instantiations</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 3: async_skeptic MONEY COMMENT (signal, 156pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_skeptic</span>
+            <span class="flair">concurrency nerd</span>
+            <span class="score">156 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Ok, I actually read the paper. Twice. Here's where I landed.</p>
+
+            <p>The comparison table in Section 6 is the strongest argument in the paper and I'm surprised it's buried that deep. The key row is <code>await_ready can return true</code> - for awaitables yes, for senders "structurally impossible." That's not a minor difference. If your I/O completes synchronously (data already in the kernel buffer, say), the awaitable path can skip the suspension entirely. The sender path through <code>connect</code>/<code>start</code> cannot. For high-throughput byte streams where you're reading small chunks in a loop, that adds up.</p>
+
+            <p>The executor concept is basically Asio with <code>coroutine_handle&lt;&gt;</code> replacing completion handlers. That's... not a bad thing? The Networking TS executors were rejected partly because the completion handler model was clunky for coroutines. This strips it down to <code>dispatch(continuation&amp;)</code> which returns a handle for symmetric transfer. Clean.</p>
+
+            <p>What I'm less convinced by:</p>
+
+            <p>1. The "structurally impossible" claim. It's true under P2300R10's current architecture, but the paper presents it as a fundamental limitation rather than an implementation choice. A sender could potentially define an <code>await_ready</code>-like fast path if the design cared to. The paper is right that P2300 doesn't, but "impossible" is doing a lot of heavy lifting.</p>
+
+            <p>2. The frame allocator via <code>get_current_frame_allocator()</code> / <code>set_current_frame_allocator()</code>. The paper doesn't say thread-local but that's the obvious implementation. What happens when you have work-stealing schedulers moving coroutines between threads? The "safe_resume" protocol is mentioned but deferred to <a href="https://wg21.link/p4172r0">P4172R0</a>.</p>
+
+            <p>3. "The two belong in the standard together." This is the hard part. Not technically - conceptually. How does a user know when to reach for <code>co_await socket.read_some(buf)</code> vs <code>execution::then(async_read(socket, buf), ...)</code>? The paper says byte I/O is sequential and execution is DAG-shaped. Real programs aren't that clean.</p>
+
+            <p>That said - the code speaks for itself. Three platforms, a <a href="https://godbolt.org/z/Wzrb7McrT">Compiler Explorer demo</a>, and a derivatives exchange using it. That's more implementation experience than most papers bring to LEWG.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- coroutine_mechanic agrees -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/coroutine_mechanic</span>
+                  <span class="flair">compiler adjacent</span>
+                  <span class="score">67 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <blockquote>The key row is <code>await_ready can return true</code></blockquote>
+                  <p>This. I've measured this in production. With io_uring, you get synchronous completions on ~40% of reads when the buffer is warm. Skipping the suspend/resume round trip on 40% of operations is material.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ENCOUNTER: not_on_the_committee pushes back -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_on_the_committee</span>
+                  <span class="score">43 points</span>
+                  <span class="dagger">&dagger;</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Let me push back on the "implementation experience" framing.</p>
+
+                  <p>The Kona 2023 SG4 poll was consensus: networking should support only a sender/receiver model. 5-5-1-0-1. This paper's Section 7 acknowledges this and then says "coroutine-native I/O wasn't among the alternatives considered." That's technically true but politically naive.</p>
+
+                  <p>You can't keep showing up with a third option every time the committee makes a directional decision. At some point the answer has to stick or the committee can't make progress on anything.</p>
+
+                  <p>Poll 1 asks "is this a distinct approach." Obviously yes. That doesn't mean the committee is obligated to re-open the question.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- async_skeptic responds -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/async_skeptic</span>
+                        <span class="score">28 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I hear you on process stability. But the Kona poll was between the Networking TS executor model and sender/receiver. If a genuinely new option with shipping code shows up, "we already decided between two different things" isn't a great reason to refuse to look at it.</p>
+
+                        <p>The question isn't whether P4003 is distinct - that's a tautology. The question is whether the coroutine model is <em>better enough for byte I/O specifically</em> to justify the cost of reconsidering. The Section 6 table is that argument.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- not_on_the_committee final -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/not_on_the_committee</span>
+                              <span class="score">15 points</span>
+                              <span class="time">1 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>"Better enough" is a judgment call that depends on how much you value committee bandwidth. There's a reason the direction group exists. But fine, I'll concede that if LEWG gives it floor time and the polls in Section 7 pass, that IS the process working. I just don't want to pretend this is costless.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- daily_reactor_loop adds networking perspective -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_reactor_loop</span>
+                  <span class="flair">epoll was a mistake</span>
+                  <span class="score">38 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>From the networking side - the <code>continuation</code> struct with the intrusive <code>next</code> pointer is a nice touch. Anyone who's done epoll-level work knows that per-operation allocation kills you under load. The fact that <code>dispatch</code> returns a <code>coroutine_handle&lt;&gt;</code> for symmetric transfer means you can chain operations without touching the allocator at all. That's the kind of detail that says "someone actually wrote a reactor."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 4: embedded_for_20_years (signal, 134pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="flair">bare metal or bust</span>
+            <span class="score">134 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Firmware dev here. I opened this paper because of the frame allocator section and it didn't disappoint.</p>
+
+            <p>Section 3.5 numbers: MSVC with a recycling allocator hits 1265ms vs 3926ms with <code>std::allocator</code>. That's 3.1x. Not a micro-benchmark curiosity. That's the difference between "coroutines are too expensive" and "coroutines are fine actually."</p>
+
+            <p>The protocol propagates the allocator to every frame in the chain automatically. No <code>allocator_arg_t</code> in every signature. That's the right call.</p>
+
+            <p>We can't use coroutines right now because the frame allocation cost is unpredictable. If this protocol standardizes a way to plug in a pool allocator at launch and have it propagate silently, that changes the calculation. Not every embedded target can afford <code>new</code>/<code>delete</code> per coroutine frame, but a pre-allocated pool? That works.</p>
+
+            <p>I'll be watching what happens with <code>get_current_frame_allocator()</code> though. The paper is cagey about storage mechanism. Thread-local is fine for our use case (single-threaded event loop) but I know the multi-threaded crowd will have opinions.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything</span>
+                  <span class="score">22 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>have you considered that coroutine frames could be constexpr allocated in C++29</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_reactor_loop</span>
+                  <span class="flair">epoll was a mistake</span>
+                  <span class="score">45 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The networking story is similar. Our production server does ~50k connections with coroutine-per-connection. Without a frame recycler, we were hemorrhaging memory from fragmentation. With one, steady state dropped 60%. The 3.1x figure tracks.</p>
+
+                  <p>The key insight in the paper is that frame allocators are a first-class concern, not an afterthought you bolt on. Most coroutine tutorials pretend <code>operator new</code> doesn't exist.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/throwaway_84729</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what exactly is a "recycling" frame allocator? like it reuses the same memory?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/embedded_for_20_years</span>
+                        <span class="flair">bare metal or bust</span>
+                        <span class="score">25 points</span>
+                        <span class="time">1 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Exactly that. When a coroutine completes and its frame is freed, the allocator holds onto that memory instead of returning it to the OS. Next coroutine of a similar size gets the same block. Zero fragmentation in the steady state. Works like a freelist.</p>
+                        <p class="edit">Edit: the Capy implementation is in the repo if you want to look at concrete code. <a href="https://github.com/cppalliance/capy">github.com/cppalliance/capy</a></p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 5: template_instantiation_limit (signal, 89pts, edits) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_instantiation_limit</span>
+            <span class="score">89 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Let me push on the "structurally impossible" claim in Section 6.</p>
+
+            <blockquote><code>await_ready</code> can return <code>true</code> - Yes (awaitable) / No - structurally impossible (sender)</blockquote>
+
+            <p>The paper says this is because <code>connect(sndr, rcvr)</code> creates an operation state that must be <code>start()</code>-ed. But there's nothing stopping a sender-based wrapper from checking whether the operation has already completed before suspending. You could have an <code>as_awaitable</code> that calls <code>connect</code> + <code>start</code>, and if the receiver is synchronously signaled, sets a flag that makes <code>await_ready</code> return true.</p>
+
+            <p>That's not "structurally impossible." It's "not how P2300R10 is currently specified" and "would require implementation effort." Those are different.</p>
+
+            <p class="edit">Edit: Actually, re-reading more carefully - the paper's point might be that <code>start()</code> is a void-returning function that signals completion through the receiver, not as a return value. So you'd need the receiver to set a thread-local flag or something. Which... is exactly what the paper is doing with frame allocators. Hmm.</p>
+
+            <p class="edit">Edit2: OK I think the accurate statement is "structurally more expensive, not structurally impossible." The synchronous path exists but costs you the <code>connect</code> + <code>start</code> overhead plus a flag check. For byte I/O in a tight loop that matters. Conceding the point partially.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_reactor_loop</span>
+                  <span class="flair">epoll was a mistake</span>
+                  <span class="score">52 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Your Edit2 is right. Here's what the hot path actually looks like:</p>
+<pre><code>// Awaitable path (sync complete):
+await_ready() -&gt; true
+await_resume() -&gt; result
+// 0 extra allocations, 0 suspensions
+
+// Sender path (sync complete):
+connect(sndr, rcvr) -&gt; op_state
+start(op_state) -&gt; signals rcvr synchronously
+// still paid for op_state construction</code></pre>
+                  <p>When you're doing 100k reads/sec on a hot TCP connection, the op_state construction on every operation is the overhead.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">44 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"Edit2: OK I think the accurate statement is..."</p>
+                  <p>character development</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/coroutine_mechanic</span>
+                  <span class="flair">compiler adjacent</span>
+                  <span class="score">31 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It's about the steady state. Individual operations are nanoseconds either way. But coroutine byte I/O in a loop - read, process, write, repeat - the awaitable path eliminates the per-operation ceremony. Over millions of operations that's your budget.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== AD: CppCon 2026 ==================== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - Early bird ends May 15</div>
+        <div class="promoted-body">The conference for the C++ community. 5 days of talks, workshops, and hallway conversations. cppcon.org</div>
+      </div>
+
+      <!-- ==================== COMMENT 6: coroutine_mechanic code example (signal, 78pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_mechanic</span>
+            <span class="flair">compiler adjacent</span>
+            <span class="score">78 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For anyone who wants to see the actual protocol without reading the full paper, here's the minimum viable IoAwaitable:</p>
+<pre><code>struct my_read_awaitable {
+    bool await_ready() noexcept { return has_data_; }
+
+    void await_suspend(
+        std::coroutine_handle&lt;&gt; h,
+        io_env const* env) {
+        // submit to OS, executor resumes us
+        env-&gt;executor.post(cont_);
+    }
+
+    std::pair&lt;error_code, size_t&gt;
+    await_resume() noexcept { return {ec_, n_}; }
+};</code></pre>
+            <p>The two-argument <code>await_suspend</code> is the whole protocol. The <code>io_env*</code> gives you executor, stop token, and frame allocator. That's it. Everything else in the paper is infrastructure around this one signature.</p>
+            <p>Godbolt demo from the paper: <a href="https://godbolt.org/z/Wzrb7McrT">godbolt.org/z/Wzrb7McrT</a></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/throwaway_84729</span>
+                  <span class="score">35 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>wait this actually looks... nice? like, significantly nicer than the sender equivalent? what's the catch?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_on_the_committee</span>
+                  <span class="score">12 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>A godbolt link is not a proposal. The catch is that getting from "look at this cool code" to standardized wording takes years of committee work. The paper itself acknowledges this by asking for floor time rather than proposing wording.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 7: not_on_the_committee process analysis (signal, 72pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_on_the_committee</span>
+            <span class="score">72 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Process analysis of the straw polls in Section 7:</p>
+
+            <p>Polls 1-2 are the gates. If the committee doesn't agree that this is a distinct approach AND that new research warrants consideration, polls 3-5 never happen.</p>
+
+            <p>Poll 1 is straightforward - yes, coroutine-native I/O is distinct from both the Networking TS executor model and S/R. Nobody's disputing that.</p>
+
+            <p>Poll 2 is the real fight. "New research... warrants consideration" is polite for "please re-open a question you thought was settled." The <a href="https://wiki.isocpp.org/2023-11_Kona:SG4">Kona SG4 poll</a> was consensus. Some committee members will view this as relitigating. Others will say three platforms + production deployment + <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4029r0.pdf">SG14 backing</a> is exactly the kind of new information that justifies revisiting.</p>
+
+            <p>Polls 3-5 are technical. Frame allocator propagation, separate compilation, advancing the protocol. These are the easy votes IF polls 1-2 pass.</p>
+
+            <p>My prediction: polls 1-2 get rough consensus but with real SA votes. The old guard who drove the Kona decision aren't going to be happy. This will be a contentious session.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/async_skeptic</span>
+                  <span class="flair">concurrency nerd</span>
+                  <span class="score">29 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Accurate read. The SG14 backing (<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/p4029r0.pdf">P4029R0</a>) will carry weight though. When your low-latency constituency formally says "don't build networking on P2300," that changes the calculus.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 8: senior_build_system_victim tangent (noise, 67pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/senior_build_system_victim</span>
+            <span class="score">67 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I just want to point out that we are in year 21 of the C++ networking saga and the current state of the art is five competing proposals, three history papers explaining why we have five competing proposals, and a companion paper explaining the companion paper to the paper explaining the proposal.</p>
+
+            <p>The paper itself says <a href="https://wg21.link/p0592r0">P0592R0</a> listed networking as a C++20 priority. C++20 shipped five years ago. We're talking about C++29 now.</p>
+
+            <p>I'm going to go write a Python script that does what this paper does in 3 lines and then cry into my CMakeLists.txt.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/move_semantics_were_enough</span>
+                  <span class="score">23 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>remember when the biggest controversy was whether <code>auto</code> should be allowed in function signatures? simpler times.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_mass_assign</span>
+                  <span class="score">11 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>at this rate the heat death of the universe will arrive before <code>std::socket</code></p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 9: former_boost_contributor (signal, 45pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor</span>
+            <span class="flair">retired from template metaprogramming</span>
+            <span class="score">45 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>As someone who used Beast heavily before switching shops - Falco knows the networking space. Beast is battle-tested in production at scale. The <code>execution_context</code> + service model in Section 4 is clearly descended from Asio, which is both a strength (proven design) and a weakness (some committee members have Asio fatigue).</p>
+
+            <p>The real question is whether the committee can evaluate this on technical merit or whether it'll get caught in the political crossfire between the P2300 camp and the "just ship the Networking TS already" camp. This paper tries to position itself as a "third way" but the executor model is close enough to Asio that opponents will call it Asio-with-coroutines.</p>
+
+            <p>Which... it kind of is? And that might be fine?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_reactor_loop</span>
+                  <span class="flair">epoll was a mistake</span>
+                  <span class="score">19 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Asio-with-coroutines minus completion handlers minus strand complexity minus the io_context-executor coupling. The executor concept in Section 4.3 is dramatically simpler than Asio's. But yeah, the lineage is obvious and the committee has history with Asio.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 10: rust tangent (noise, 12pts, dagger) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/rust_evangelist_strike_force</span>
+            <span class="score">12 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile in Rust:</p>
+<pre><code>let mut buf = [0u8; 1024];
+let n = socket.read(&amp;mut buf).await?;</code></pre>
+            <p>One line. No concepts. No frame allocators. No executor model. No companion paper. No twenty-year standards process.</p>
+            <p>I'm not saying "just use Rust" but I am gesturing in its general direction.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_boost_contributor</span>
+                  <span class="score negative">-2 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>We get it. Rust exists. Every single thread.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/definitely_not_a_compiler_dev</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The Rust comparison is actually interesting here though. Rust's async is essentially the same model - <code>.await</code> suspends the future, the executor decides when to poll it. The difference is Rust baked the executor abstraction into the ecosystem early (tokio won) instead of standardizing it. C++ is trying to standardize first and that's why we're in year 21.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment deleted" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">[removed by moderator]</span>
+                </div>
+                <div class="comment-text">
+                  <p>[removed]</p>
+                </div>
+                <div class="comment-footer"></div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/turbo_llama_9000</span>
+                        <span class="score">8 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>what did they say?</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/segfault_enjoyer</span>
+                        <span class="score">15 points</span>
+                        <span class="time">3 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>something about how C++ should just adopt Rust's borrow checker. you know, the usual.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== AD: JetBrains CLion ==================== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CLion - The C++ IDE That Understands Your Templates</div>
+        <div class="promoted-body">Refactor with confidence. Debug with precision. Free 30-day trial. jetbrains.com/clion</div>
+      </div>
+
+      <!-- ==================== COMMENT 11: deleted collapsed (-47pts) ==================== -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username" style="color:var(--text-muted)">[deleted]</span>
+            <span class="score negative">-47 points</span>
+            <span class="time">6 hr. ago</span>
+            <span style="color:var(--text-muted); font-size:12px">3 children</span>
+          </div>
+          <div class="comment-text">
+            <p>[deleted]</p>
+          </div>
+          <div class="comment-footer"></div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 12: spam collapsed ==================== -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/crypto_yield_farming_2026</span>
+            <span class="score negative">-14 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>&#128640; 10x Your C++ Skills! Advanced coroutine masterclass - only $499! Use code NETWORKING for 20% off! www.definitely-not-a-scam.io/cpp-masterclass &#128640;</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /comments -->
+  </div><!-- /thread -->
+</body>
+</html>

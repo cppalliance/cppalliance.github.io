@@ -1,0 +1,2411 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/cpp - P2900R14 - Contracts for C++</title>
+  <style>
+:root {
+  --bg-canvas: #030303;
+  --bg-body: #1a1a1b;
+  --bg-card: #272729;
+  --bg-hover: #2d2d2f;
+  --bg-promoted: #1a1a1b;
+  --border-default: #343536;
+  --border-comment: #343536;
+  --text-primary: #d7dadc;
+  --text-secondary: #818384;
+  --text-muted: #6a6b6d;
+  --text-link: #4fbcff;
+  --text-visited: #a98bdb;
+  --text-username: #4fbcff;
+  --text-op: #4fbcff;
+  --text-mod: #5af078;
+  --text-admin: #ff4500;
+  --upvote: #ff4500;
+  --downvote: #7193ff;
+  --upvote-bg: rgba(255,69,0,0.1);
+  --downvote-bg: rgba(113,147,255,0.1);
+  --award-gold: #ffd635;
+  --flair-bg: #272729;
+  --flair-text: #d7dadc;
+  --promoted-bg: #1e1e1f;
+  --promoted-border: #3a3a3c;
+  --font-body: 'Reddit Sans', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Source Code Pro', 'Fira Code', 'Consolas', monospace;
+  --content-width: 740px;
+  --comment-indent: 22px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.thread {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.subreddit-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 12px;
+}
+
+.submission {
+  background: var(--bg-body);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.submission .title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.submission .meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.submission .body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.submission .body p { margin-bottom: 10px; }
+.submission .body a { color: var(--text-link); text-decoration: none; }
+.submission .body a:hover { text-decoration: underline; }
+.submission .body a:visited { color: var(--text-visited); }
+
+.submission .vote-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  border-top: 1px solid var(--border-default);
+  margin-top: 12px;
+}
+
+.submission .flair {
+  display: inline-block;
+  background: var(--flair-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--flair-text);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.sort-bar {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.comment {
+  display: flex;
+  padding: 4px 0 4px 0;
+}
+
+.comment .votebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  min-width: 24px;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.comment .arrow { cursor: pointer; line-height: 1; }
+.comment .arrow.up { color: var(--text-muted); }
+.comment .arrow.down { color: var(--text-muted); margin-top: 2px; }
+
+.comment-body {
+  flex: 1;
+  min-width: 0;
+  border-left: 2px solid var(--border-comment);
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.comment[data-depth="0"] > .comment-body { border-left-color: #545454; }
+.comment[data-depth="1"] > .comment-body { border-left-color: #4a6fa5; }
+.comment[data-depth="2"] > .comment-body { border-left-color: #6b8e5e; }
+.comment[data-depth="3"] > .comment-body { border-left-color: #b8860b; }
+.comment[data-depth="4"] > .comment-body { border-left-color: #8b5e8b; }
+.comment[data-depth="5"] > .comment-body { border-left-color: #5e8b8b; }
+
+.comment-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.comment-header .username {
+  font-weight: 700;
+  color: var(--text-username);
+  text-decoration: none;
+}
+
+.comment-header .username.op { color: var(--text-op); }
+.comment-header .username.op::after {
+  content: "OP";
+  font-size: 10px;
+  background: var(--text-op);
+  color: var(--bg-body);
+  padding: 0 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.comment-header .username.mod { color: var(--text-mod); }
+.comment-header .username.mod::after {
+  content: "[M]";
+  font-size: 10px;
+  color: var(--text-mod);
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.comment-header .flair {
+  background: var(--flair-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.comment-header .score { color: var(--text-secondary); }
+.comment-header .score.negative { color: var(--downvote); }
+.comment-header .dagger { color: var(--text-muted); font-size: 10px; }
+.comment-header .time { color: var(--text-muted); }
+.comment-header .awards { font-size: 14px; }
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  overflow-wrap: break-word;
+}
+
+.comment-text p { margin-bottom: 8px; }
+.comment-text a { color: var(--text-link); text-decoration: none; }
+.comment-text a:hover { text-decoration: underline; }
+
+.comment-text blockquote {
+  border-left: 3px solid var(--border-comment);
+  padding: 2px 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+.comment-text code {
+  background: var(--bg-card);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.comment-text pre {
+  background: var(--bg-card);
+  padding: 10px 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.comment-text pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.comment-text .edit {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 6px;
+}
+
+.comment-footer {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+  padding: 2px 0 4px 0;
+}
+
+.comment-footer .action { cursor: pointer; font-weight: 700; }
+.comment-footer .action:hover { color: var(--text-secondary); }
+
+.comment.deleted .comment-text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.comment.deleted .username { color: var(--text-muted); }
+
+.comment.collapsed {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.comment.collapsed .comment-text,
+.comment.collapsed .comment-footer,
+.comment.collapsed .replies { display: none; }
+
+.comment.collapsed .comment-header::before {
+  content: "[+] ";
+  color: var(--text-muted);
+}
+
+.replies {
+  padding-left: var(--comment-indent);
+}
+
+.promoted {
+  background: var(--promoted-bg);
+  border: 1px solid var(--promoted-border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.promoted .promoted-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.promoted .promoted-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.promoted .promoted-body {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.locked-notice {
+  background: rgba(255, 69, 0, 0.08);
+  border: 1px solid rgba(255, 69, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0;
+}
+
+.mod-pin {
+  background: rgba(90, 240, 120, 0.06);
+  border: 1px solid rgba(90, 240, 120, 0.15);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.submission-actions {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+  padding-top: 8px;
+  font-weight: 700;
+}
+
+.submission-actions span { cursor: pointer; }
+.submission-actions span:hover { color: var(--text-secondary); }
+
+@media (max-width: 800px) {
+  .thread { padding: 8px; }
+  :root { --content-width: 100%; --comment-indent: 14px; }
+  .submission .title { font-size: 17px; }
+}
+  </style>
+</head>
+<body>
+  <div class="thread">
+
+    <div class="subreddit-header">
+      <span style="font-weight:700;color:var(--text-primary)">r/cpp</span>
+      &middot; Posted by
+      <span style="color:var(--text-username)">u/standards_watcher_2024</span>
+      &middot; 16 hr. ago
+    </div>
+
+    <div class="submission">
+      <div class="title">
+        P2900R14 - Contracts for C++
+        <span class="flair">WG21</span>
+      </div>
+      <div class="meta">
+        <span style="color:var(--upvote)">&#9650;</span> 847 &middot; 87% Upvoted
+      </div>
+      <div class="body">
+        <p><strong>Document:</strong> P2900R14<br>
+        <strong>Authors:</strong> Joshua Berne, Timur Doumler, Andrzej Krzemie&#324;ski<br>
+        <strong>Date:</strong> 2025-02-13<br>
+        <strong>Audience:</strong> CWG, LWG (plenary-approved)<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p2900r14">wg21.link/p2900r14</a></p>
+
+        <p>It happened. Contracts are in C++26. After the infamous removal from C++20, five years of work in SG21, fourteen revisions, and a Wroclaw EWG vote that had <em>twelve</em> Strongly Against, the committee approved P2900R14 at the Hagenberg plenary today.</p>
+
+        <p>The paper gives you three kinds of contract assertions: preconditions (<code>pre(expr)</code>), postconditions (<code>post(r: expr)</code>), and assertion statements (<code>contract_assert(expr)</code>). There are four evaluation semantics - <code>ignore</code>, <code>observe</code>, <code>enforce</code>, and <code>quick_enforce</code> - and which one your compiler uses is implementation-defined. A new <code>&lt;contracts&gt;</code> header provides <code>std::contracts::contract_violation</code> and lets you install a custom violation handler.</p>
+
+        <p>Notable design decisions in R14: predicates implicitly see locals and <code>*this</code> as <code>const</code>, virtual functions are excluded entirely (stripped at Hagenberg), and UB in contract predicates is... just UB. The committee voted against reducing it. There are related papers worth reading: <a href="https://wg21.link/p2899r1">P2899R1</a> (rationale), <a href="https://wg21.link/p3506r0">P3506R0</a> ("P2900 Is Still Not Ready"), <a href="https://wg21.link/p3265r3">P3265R3</a> ("Ship Contracts in a TS"), and <a href="https://wg21.link/p3573r0">P3573R0</a> ("Contract Concerns").</p>
+      </div>
+      <div class="vote-count">
+        87 comments &middot; share &middot; save &middot; hide &middot; report
+      </div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- ==================== MOD PIN ==================== -->
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body" style="border-left-color: var(--text-mod);">
+            <div class="comment-header">
+              <span class="username mod">u/r_cpp_janitor</span>
+              <span class="score">&#128204; stickied comment</span>
+              <span class="time">16 hr. ago</span>
+            </div>
+            <div class="comment-text">
+              <p>Reminder: the paper authors read this subreddit. Argue the design, not the people. Thread is being watched.</p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 1: just_ship_it_already (noise, 527pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_it_already</span>
+            <span class="score">527 points</span>
+            <span class="time">15 hr. ago</span>
+            <span class="awards">&#127942;&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>Contracts in the C++ standard. In my lifetime. I genuinely did not think I would see this day. What's next, networking?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/waiting_for_networking</span>
+                  <span class="score">340 points</span>
+                  <span class="time">15 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Don't.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compile_time_is_my_enemy</span>
+                  <span class="score">89 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>give it another 14 revisions and a couple more removals from the working draft</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_ship_it_already</span>
+                  <span class="score">67 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Fourteen revisions. The paper went through more iterations than my company's product roadmap and unlike our product roadmap it actually shipped something.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 2: daily_standards_reader (noise, 412pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_standards_reader</span>
+            <span class="score">412 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">15 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>12 SA votes in EWG. <em>Twelve.</em> And they shipped it anyway. Committee gonna committee.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_sg21_lurker</span>
+                  <span class="flair">SG21 observer</span>
+                  <span class="score">78 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>WG21 consensus doesn't mean unanimity. The Wroclaw vote was 25 SF, 17 F, 0 N, 3 A, 12 SA. That's 42 in favor vs 15 against. By WG21 rules, that's consensus - and the bar for "consensus against" on a removal poll at Hagenberg was not met either (9|8|3|19|41 against removing it).</p>
+                  <p>You can disagree with the model but the 12 SA is not some procedural scandal. Those people filed their objections, the chair noted them, the direction stood. That's how it works.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/contracts_skeptic_throwaway</span>
+                  <span class="score">156 points</span>
+                  <span class="dagger">&dagger;</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>12 SA out of 57 is 21%. One in five people in the room thought this was bad enough to register the strongest possible objection. That's not "consensus." That's a hostage situation where 42 people want to leave the building and 12 people are chained to the radiator.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/former_sg21_lurker</span>
+                        <span class="flair">SG21 observer</span>
+                        <span class="score">42 points</span>
+                        <span class="time">13 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>For context, C++20 modules had comparable SA counts at various stages. Ranges had SA votes. Coroutines had SA votes. The bar is not zero dissent - it's whether dissent rises to the level where the chair determines no consensus. It didn't.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/move_semantics_fan_2020</span>
+                  <span class="score">189 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>at least it's not sender/receiver</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/waiting_for_networking</span>
+                        <span class="score">97 points</span>
+                        <span class="time">13 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I said don't.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 3: MONEY COMMENT - strictly_conforming (signal, 347pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/strictly_conforming</span>
+            <span class="flair">correctness &gt; performance</span>
+            <span class="score">347 points</span>
+            <span class="time">14 hr. ago</span>
+            <span class="awards">&#127942;&#127942;&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The fundamental tension in this paper is one nobody in this thread is going to talk about because the sarcasm-to-signal ratio is approximately 15:1, so let me be the signal.</p>
+            <p>P2900 standardizes contract predicates that are evaluated at runtime. The predicate in <code>pre(ptr != nullptr)</code> is a C++ expression evaluated in the caller's context. Here's the thing: if <code>ptr</code> is a dangling pointer, evaluating <code>ptr != nullptr</code> is undefined behavior. The contract predicate - the thing you wrote to detect the bug - triggers UB before it can catch anything.</p>
+            <p>The committee voted at Hagenberg (9|7|9|22|19) <em>against</em> reducing UB in contract predicates. The safety feature has undefined behavior and the committee voted to keep it that way.</p>
+            <p>The argument is coherent if you accept the premise: contract predicates are C++ expressions, C++ expressions can have UB, and special-casing contracts would require defining a "safe subset" of expressions that nobody agrees on. Fair enough.</p>
+            <p>But the consequence is that contracts don't improve the worst case. They improve the average case - you catch the nulls and the out-of-ranges and the precondition violations that are straightforward to check. The lurking UB - the dangling pointers, the data races, the type-punning - remains invisible to the contract system because evaluating the check for those conditions is itself UB.</p>
+            <p>This is probably the right tradeoff. But the marketing of "contracts improve safety" needs an asterisk the size of section 6.8.4.</p>
+            <p class="edit">Edit: some people are reading this as "contracts are bad." I'm not saying that. I'm saying the gap between what contracts promise and what they deliver is larger than the abstract suggests, and the committee made a deliberate choice to keep that gap.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">201 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>the contract checking your null pointer triggers UB on the null pointer. peak C++. you genuinely cannot parody this language.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/pedantic_about_predicates</span>
+                  <span class="score">124 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is the best comment in the thread so thank you. To make the point even more concrete:</p>
+<pre><code>void process(std::span&lt;int&gt; data)
+    pre(!data.empty())
+    pre(data.data() != nullptr)
+{
+    // ...
+}</code></pre>
+                  <p>If someone passes a <code>span</code> constructed from a dangling pointer, the second precondition dereferences invalid memory to compare against nullptr. The contract doesn't catch the bug - it joins the bug.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ENCOUNTER 1: strictly_conforming vs embedded_for_20_years -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="flair">STM32 &amp; friends</span>
+                  <span class="score">67 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The UB argument is a category error. In my world - STM32, no heap, deterministic timing - the predicates I write are things like <code>pre(len &lt;= BUFFER_SIZE)</code> and <code>pre(state == State::READY)</code>. Integer comparisons. Enum comparisons. No pointers to dangle. No allocations to corrupt. The UB surface in a well-written embedded precondition is zero.</p>
+                  <p>The people worried about UB in predicates are the people who would write predicates with UB. Don't do that.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/strictly_conforming</span>
+                        <span class="flair">correctness &gt; performance</span>
+                        <span class="score">52 points</span>
+                        <span class="time">11 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>You're right for your domain and wrong about the general case. The standard doesn't ship to your domain. It ships to everyone. And "don't write UB in your predicates" is the "don't write bugs" school of software engineering - correct, useless.</p>
+                        <p>The real cost isn't your STM32. It's the team at a large company that refactors a data structure, invalidates a pointer that a postcondition dereferences, and gets a heisenbug that reproduces only in <code>observe</code> mode because predicate evaluation order differs from <code>enforce</code>.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/embedded_for_20_years</span>
+                              <span class="flair">STM32 &amp; friends</span>
+                              <span class="score">38 points</span>
+                              <span class="time">10 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>I hear you. But the alternative was (a) no contracts in C++26, (b) a "safe predicate" sublanguage that would have taken three more cycles, or (c) enforce-only, which the committee rejected 6|1|3|15|24 in Tokyo. Sometimes you ship the pragmatic thing.</p>
+                              <p>The heisenbug you describe is real. But we already have that class of bugs with <code>assert()</code> and <code>NDEBUG</code>. Contracts don't make the situation worse - they formalize what people are already doing.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/strictly_conforming</span>
+                                    <span class="flair">correctness &gt; performance</span>
+                                    <span class="score">29 points</span>
+                                    <span class="time">9 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>We agree on the tradeoff. We disagree on whether the paper is honest about it. The introduction says contracts "help programmers express and check function interfaces." It doesn't say "help programmers express and check function interfaces, unless the check itself has UB, in which case you get what you deserve."</p>
+                                    <p>An informative note in the standard would cost nothing and might save someone a day of debugging.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies">
+
+                                    <div class="comment" data-depth="5">
+                                      <div class="votebar">
+                                        <span class="arrow up">&#9650;</span>
+                                        <span class="arrow down">&#9660;</span>
+                                      </div>
+                                      <div class="comment-body">
+                                        <div class="comment-header">
+                                          <span class="username">u/embedded_for_20_years</span>
+                                          <span class="flair">STM32 &amp; friends</span>
+                                          <span class="score">22 points</span>
+                                          <span class="time">8 hr. ago</span>
+                                        </div>
+                                        <div class="comment-text">
+                                          <p>Fair. I'd support that note.</p>
+                                        </div>
+                                        <div class="comment-footer">
+                                          <span class="action">Reply</span>
+                                          <span class="action">Share</span>
+                                          <span class="action">Report</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 4: constexpr_everything_42 (noise, 289pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_everything_42</span>
+            <span class="score">289 points</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I give it two standards cycles before someone proposes P3900 "Contracts for Contracts" - a mechanism for asserting preconditions on your preconditions</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_standards_reader</span>
+                  <span class="score">167 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>P3901: Meta-Contracts: Preconditions for Your Preconditions</p>
+                  <p>P3902: Pre-Meta-Contracts: Asserting That Your Meta-Contract Predicates Are Well-Formed</p>
+                  <p>P3903: Revised Revised Contracts Revision Revision (R47)</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_ship_it_already</span>
+                  <span class="score">45 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>P3904: Removing Contracts From C++29 Due To Insufficient Implementation Experience Of Meta-Contracts</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== AD: CppCon 2026 ==================== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - September 14-19</div>
+        <div class="promoted-body">Early bird registration ends May 15. The conference for the C++ community. cppcon.org</div>
+      </div>
+
+      <!-- ==================== COMMENT 5: intern_at_FAANG (noise, 175pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/intern_at_FAANG</span>
+            <span class="score">175 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Can someone ELI5 what this actually does? I started learning C++ eight months ago and this paper is like 200 pages and everyone here seems either furious or ecstatic and I can't tell which reaction is correct</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_trauma_survivor</span>
+                  <span class="flair">library design nerd</span>
+                  <span class="score">98 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Short version: you can now write rules about what a function expects and what it promises, and the compiler can check those rules at runtime.</p>
+<pre><code>int divide(int a, int b)
+    pre(b != 0)          // "b must not be zero"
+    post(r: r * b == a)  // "result times b equals a"
+{
+    return a / b;
+}</code></pre>
+                  <p>If someone calls <code>divide(10, 0)</code>, the precondition fails and you get told about it instead of just getting a divide-by-zero. The controversy is over the details - when the checks run, what happens when they fail, what they're allowed to see.</p>
+                  <p>Both reactions are correct. It's a genuinely useful feature with genuinely contentious design decisions.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_on_my_machine</span>
+                  <span class="score">134 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>it lets you write "this should never be null" and then the compiler goes "lol maybe I'll check that, maybe I won't, depends on how I'm feeling today (implementation-defined)"</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/intern_at_FAANG</span>
+                  <span class="score">23 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>so it's like assert() but fancier?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/template_trauma_survivor</span>
+                        <span class="flair">library design nerd</span>
+                        <span class="score">56 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Genuinely yes. But the "fancier" part includes: it's part of the function declaration (so tools can see it), it has four different checking modes, it has a customizable handler, and the compiler knows what it is rather than it being a macro. The "fancier" is doing real work.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 6: cargo_build_works_tho - RUST TANGENT (noise, 167pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/cargo_build_works_tho</span>
+            <span class="score">167 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile in Rust, the type system prevents most of these bugs at compile time. No runtime checks needed. No "implementation-defined evaluation semantics." No UB in your safety checks. Just... types.</p>
+            <p>I know this gets said every thread but maybe the fact that it gets said every thread is trying to tell you something.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="flair">STM32 &amp; friends</span>
+                  <span class="score">142 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust's type system doesn't express "the input buffer must contain at most 64 bytes." It doesn't express "the motor RPM must be between 0 and 12000." It doesn't express "this function must only be called after init() has been called." These are <em>semantic</em> constraints. They live in the domain, not in the type system. Contracts address exactly this class of bug.</p>
+                  <p>Also, Rust has <code>debug_assert!</code> which is literally the same concept. So.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">78 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>there it is. nine comments deep. right on schedule</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/senior_cpp_dev_2015</span>
+                  <span class="score">45 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>every thread. every single thread. we could post "P9999R0: Adding Semicolons To C++" and someone would show up to explain how Rust's borrow checker makes semicolons unnecessary</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 7: not_a_compiler_dev (signal, 86pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_compiler_dev</span>
+            <span class="flair">definitely not a compiler dev</span>
+            <span class="score">86 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Let me list what is <em>not</em> in the MVP:</p>
+            <p>1. No contracts on virtual functions (removed at Hagenberg, vote: 20|24|13|14|2)<br>
+            2. No contracts on function pointers<br>
+            3. No contracts on coroutines<br>
+            4. No <code>assume</code> semantic (consensus against at St. Louis, 0|0|3|18|11)<br>
+            5. No ODR for contract-bearing entities<br>
+            6. No contracts in the standard library itself</p>
+            <p>What's left: free functions, non-virtual member functions, and templates. Which is genuinely useful! But people expecting to slap <code>pre()</code> on their virtual interface hierarchies are going to have a bad time.</p>
+            <p>The phasing argument - ship the core, iterate on the extensions - is reasonable. The risk is that "iterate later" in WG21 means "revisit in 2031."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/senior_cpp_dev_2015</span>
+                  <span class="score">134 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>no virtual functions? in an object-oriented language? in 2025? outstanding move</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/postcondition_enjoyer</span>
+                  <span class="score">52 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The virtual function question is genuinely hard. Do the derived class contracts have to be at least as loose as the base? Stricter? Checked by the compiler? At runtime? Liskov substitution is a can of worms when you try to specify it precisely. Cutting it from MVP was the right call - getting the core semantics stable matters more than coverage.</p>
+                  <p>See <a href="https://wg21.link/p2899r1">P2899R1</a> for the rationale on what made it into the MVP and what didn't.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/turbo_llama_9000</span>
+                        <span class="score">38 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>ah yes, the "we'll add it later" approach, famously reliable in C++ standardization. see also: modules (2020), still broken in 2025</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_compiler_dev</span>
+                  <span class="flair">definitely not a compiler dev</span>
+                  <span class="score">34 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>One thing people miss: even without contracts in the standard library, nothing stops implementations from adding them as QoI. GCC and libstdc++ could absolutely add <code>pre(!empty())</code> to <code>std::vector::front()</code> as a non-normative extension. The mechanism is there.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 8: former_boost_contributor (signal, 72pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor</span>
+            <span class="score">72 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For those wondering "didn't we already have this?" - a comparison:</p>
+            <p><strong><a href="https://www.boost.org/doc/libs/release/libs/contract/">Boost.Contract</a></strong> - library-based, uses RAII tricks and macros, supports class invariants, old values, subcontracting (virtual function Liskov checks). Works today. Verbose. Significant compile-time cost. Nobody uses it.</p>
+            <p><strong>GSL <code>Expects()</code>/<code>Ensures()</code></strong> - macros. Configurable behavior (terminate, throw, nothing). Widely used in codebases that follow the Core Guidelines. Dead simple. No compiler integration.</p>
+            <p><strong><code>assert()</code></strong> - the OG. Binary: on or off via <code>NDEBUG</code>. No postconditions. No customization. Everyone uses it.</p>
+            <p><strong>P2900 contracts</strong> - language feature. Four evaluation semantics. Compiler sees the annotations. Part of the function declaration. Customizable violation handler. No class invariants yet. No old values yet. No subcontracting.</p>
+            <p>So P2900 is roughly "GSL Expects/Ensures but in the language, with more modes, and the compiler knows about it." The things Boost.Contract does that P2900 doesn't (invariants, subcontracting, old values) are explicitly deferred to future papers.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/postcondition_enjoyer</span>
+                  <span class="score">29 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The killer feature isn't any of the runtime behavior - it's that the contracts are visible in the declaration. Static analysis tools, IDEs, documentation generators, and eventually optimizers can read <code>pre(x &gt; 0)</code> and do something with it. A macro is invisible to everything except the preprocessor.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 9: codegen_inspector (signal, 68pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/codegen_inspector</span>
+            <span class="flair">clang contributor</span>
+            <span class="score">68 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From the implementation side: <a href="https://github.com/llvm/llvm-project/issues/127870">LLVM #127870</a> tracks the Clang P2900 work. GCC has experimental patches. The core feature is straightforward to lower - preconditions become checks at function entry, postconditions at exit, with a call to the violation handler on failure.</p>
+            <p>The interesting codegen question is what happens with <code>quick_enforce</code>. In theory, the compiler terminates immediately without calling the handler, which means it can be lowered to something like a conditional trap instruction on architectures that have one (ARM <code>brk</code>, x86 <code>ud2</code>). Zero function-call overhead. That's the "we measured this at Bloomberg and the overhead was acceptable in production" story.</p>
+            <p>The complicated part is <code>observe</code> - the handler runs, and then <em>execution continues</em>. The compiler has to emit a call, handle potential exceptions from the handler, and then keep going as if nothing happened. This has real implications for optimization - the compiler can't assume the precondition is true after an <code>observe</code>-mode check.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">34 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"the handler runs, execution continues" is a wild sentence. the precondition failed. the function's invariant is violated. and we just... keep going. what could go wrong.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== AD: JetBrains CLion ==================== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CLion - The C++ IDE That Understands Your Templates</div>
+        <div class="promoted-body">Now with C++26 Contracts support in EAP. Free 30-day trial. jetbrains.com/clion</div>
+      </div>
+
+      <!-- ==================== COMMENT 10: template_trauma_survivor (signal, 62pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_trauma_survivor</span>
+            <span class="flair">library design nerd</span>
+            <span class="score">62 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Something that's going to surprise people. In P2900, postcondition predicates see <code>*this</code> as <code>const</code>:</p>
+<pre><code>class widget {
+    std::vector&lt;int&gt; data_;
+public:
+    void sort()
+        post(std::is_sorted(data_.begin(),
+                            data_.end()))
+    {
+        std::sort(data_.begin(), data_.end());
+    }
+};</code></pre>
+            <p>This compiles because <code>begin()</code> and <code>end()</code> have const overloads. But:</p>
+<pre><code>    void process()
+        post(this-&gt;is_valid())
+    {
+        // ...
+    }</code></pre>
+            <p>If <code>is_valid()</code> is not const-qualified, this is ill-formed. The Hagenberg vote on removing constification was 9|7|6|37|14 - overwhelmingly against removing it. The rationale: predicates should be side-effect-free.</p>
+            <p>Reasonable. But it means you need const-correct APIs to use postconditions effectively. Which is... not the state of most C++ codebases I've worked in.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/intern_at_FAANG</span>
+                  <span class="score">89 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>wait <code>this</code> is const in a postcondition? I just finished learning about const correctness and now you're telling me the <em>safety feature</em> requires it?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/pedantic_about_predicates</span>
+                  <span class="score">34 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The point is that a predicate that mutates state would mean your program behaves differently depending on whether contracts are checked. Imagine a postcondition that increments a counter - in <code>enforce</code> mode the counter goes up, in <code>ignore</code> mode it doesn't. That's an ODR-style nightmare. Constification kills this entire class of bugs.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/template_trauma_survivor</span>
+                        <span class="flair">library design nerd</span>
+                        <span class="score">28 points</span>
+                        <span class="time">9 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I understand the rationale. I just think it's going to be a papercut for 80% of codebases that aren't religiously const-correct, which is most of them. The feature that requires you to fix your const-correctness before you can use it is the feature that won't get used.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 11: lifetimes_and_lies (signal, 48pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lifetimes_and_lies</span>
+            <span class="score">48 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The violation handler story is more complex than most people realize. The handler can throw. This was explicitly preserved - St. Louis voted 0|5|4|9|16 against banning exceptions from the handler.</p>
+            <p>So consider: you have a <code>noexcept</code> function with a precondition. The precondition fails. The handler throws. Now what? You're throwing out of a <code>noexcept</code> function. That's <code>std::terminate</code>. Which is maybe what you wanted, but it means the handler's "recovery" path is silently killed.</p>
+            <p>The interaction matrix between evaluation semantics, <code>noexcept</code>, and handler behavior is something I expect to generate a lot of Stack Overflow questions in 2027.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/async_skeptic</span>
+                  <span class="score">35 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>And it gets worse with coroutines (if contracts were allowed on them, which they aren't in the MVP). A coroutine's precondition would need to be checked before the first suspension point, in the caller's frame. But the coroutine might have already allocated its frame. Cleanup on precondition failure in that context is a whole separate design problem.</p>
+                  <p>I suspect this is one of the real reasons coroutines were deferred, not just the Liskov concerns.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 12: pedantic_about_predicates (signal, 45pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/pedantic_about_predicates</span>
+            <span class="score">45 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Let me make sure I understand this correctly. P2900 lets me write:</p>
+<pre><code>int safe_divide(int a, int b)
+    pre(b != 0)
+{
+    return a / b;
+}</code></pre>
+            <p>And then the compiler is allowed to... not check it. At all. The <code>pre(b != 0)</code> is in the source. The compiler sees it. And it goes "nah." Because the evaluation semantic is <code>ignore</code>.</p>
+            <p>I understand <em>why</em>. Performance. Same argument as <code>NDEBUG</code> for <code>assert</code>. Fine. But <code>assert</code> is a macro - it's obviously conditional, you can see <code>#ifdef NDEBUG</code> in the header. With P2900, the syntax looks unconditional. You wrote a precondition. It looks like it's part of the function's interface. A new team member reads that code and thinks the division is protected.</p>
+            <blockquote><p>The selection of a contract evaluation semantic for a given contract assertion is implementation-defined.</p></blockquote>
+            <p>That sentence is doing a LOT of work.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_on_my_machine</span>
+                  <span class="score">67 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"implementation-defined" is the C++ standard's version of "it depends on the deployment"</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_boost_contributor</span>
+                  <span class="score">31 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>To be fair, the alternative - mandating enforcement - was polled and decisively rejected (6|1|3|15|24 in Tokyo). The embedded and HFT people cannot afford unconditional runtime checks on every function call. Making enforcement optional is the only way to get both camps to agree.</p>
+                  <p>The syntax question is real though. A precondition <em>looks</em> like it does something. That's a teachability issue worth solving, maybe in compiler warnings.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 13: ENCOUNTER 2 - nanosecond_trader vs frame_budget_anxiety ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/nanosecond_trader</span>
+            <span class="flair">HFT infrastructure</span>
+            <span class="score">41 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>quick_enforce</code> is the semantic that justifies this entire paper for us. We run contract checks in production. Not debug builds, production. On the hot path. When we detect a violated precondition, we want the process dead immediately - no handler, no stack unwinding, no logging. Just trap. Reboot. Failover handles it.</p>
+            <p>Our current mechanism is a custom <code>FATAL_CHECK</code> macro that compiles to <code>__builtin_trap()</code>. It works but the compiler doesn't know it's a precondition, so it can't optimize around it. With <code>quick_enforce</code>, the compiler knows the predicate is expected to be true, and if it's false, the process is gone. That's exactly our model.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/frame_budget_anxiety</span>
+                  <span class="flair">game engine dev</span>
+                  <span class="score">38 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>We can't use <code>quick_enforce</code> in a game engine. Process death is not an option when 500,000 players are in a session. We need <code>observe</code> - log the violation, continue running, fix it in the next patch. But <code>observe</code> means the compiler can't assume the precondition holds, so we lose the optimization benefit you're talking about.</p>
+                  <p>It feels like contracts were designed for your use case (fail fast, restart) and awkwardly stretched to cover ours (fail gracefully, keep running).</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/nanosecond_trader</span>
+                        <span class="flair">HFT infrastructure</span>
+                        <span class="score">25 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>You're thinking about it as one semantic for the whole binary. That's not the intent. You use <code>quick_enforce</code> on the hot path where you can't afford a handler call. You use <code>observe</code> on the non-critical path where you want logging. Different functions, different semantics. The paper doesn't force one mode per translation unit.</p>
+                        <p>The real question for your case is whether your violation handler can be fast enough for frame budgets. If you're calling into a logging system on every violation that's a different conversation than if you're incrementing an atomic counter.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/frame_budget_anxiety</span>
+                              <span class="flair">game engine dev</span>
+                              <span class="score">19 points</span>
+                              <span class="time">6 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>That's fair. I was assuming per-TU semantics. If we can mix per-function, the story is much better. I'll need to read the paper more carefully on how semantic selection actually works in practice - whether it's a compiler flag or something more granular.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 14: former_sg21_lurker (signal, 35pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_sg21_lurker</span>
+            <span class="flair">SG21 observer</span>
+            <span class="score">35 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The thing that doesn't get enough discussion: should this have been a TS?</p>
+            <p><a href="https://wg21.link/p3265r3">P3265R3</a> argued for a Contracts TS. The SG21 chairs responded with <a href="https://wg21.link/p3269r0">P3269R0</a> arguing against. The committee sided with shipping in the IS.</p>
+            <p>The TS argument: implementation experience is thin. Only experimental compiler branches exist. No production deployments at scale. The C++20 contracts failure should have taught us that shipping early leads to pulling features.</p>
+            <p>The IS argument: a TS delays adoption by 3-6 years. The design has been iterated for five years in SG21 with more committee review than most features. A TS for contracts would have been the first TS for a language feature since Concepts TS, and the Concepts TS showed that TS-based design exploration creates more churn, not less.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_compiler_dev</span>
+                  <span class="flair">definitely not a compiler dev</span>
+                  <span class="score">54 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Concepts went through a TS. The design changed substantially. Terse syntax was removed. <code>bool</code> concepts became a thing. The TS arguably saved C++ from shipping a worse version of concepts.</p>
+                  <p>Contracts went straight to IS. We'll find out in 2028 whether that was wisdom or hubris.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/just_ship_it_already</span>
+                        <span class="score">78 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>and concepts took 10 extra years. if contracts went through a TS we'd be looking at C++35 delivery. I'll be dead. My codebase will be dead. We'd all be writing Rust by then anyway.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 15: BUILD SYSTEMS TANGENT ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/flag_dash_everything</span>
+            <span class="flair">cmake trauma support group</span>
+            <span class="score">28 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Real question: how are evaluation semantics going to work in practice? Is this a compiler flag? Per-TU? Per-function? Does my CMakeLists.txt need a <code>target_contract_semantics()</code>? Does <code>-fcontracts=enforce</code> apply to everything including third-party headers?</p>
+            <p>Because I can already see the bug report: "my release build crashes because some library was compiled with <code>quick_enforce</code> and my code passes bad inputs that were fine when the library was compiled with <code>ignore</code>."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/cmake_ptsd</span>
+                  <span class="score">45 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>this is going to be <code>-fmodules</code> all over again isn't it</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/codegen_inspector</span>
+                  <span class="flair">clang contributor</span>
+                  <span class="score">23 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>P2900 deliberately leaves this implementation-defined. GCC and Clang will presumably have <code>-fcontract-*</code> flags. Whether it's per-TU or more granular depends on the implementation. The standard intentionally doesn't constrain this because different vendors have different models.</p>
+                  <p>The mixed-semantics-across-TUs scenario is a real operational concern, yes. The paper includes a discussion of it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 16: REMOVED BY MODERATOR ==================== -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compile_time_is_my_enemy</span>
+                  <span class="score">12 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/turbo_llama_9000</span>
+                  <span class="score">34 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>something about the C++20 removal being a conspiracy and naming names. you know the usual.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body" style="border-left-color: var(--text-mod);">
+                <div class="comment-header">
+                  <span class="username mod">u/r_cpp_janitor</span>
+                  <span class="score">1 point</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rule 3. Naming committee members to blame them personally is not civil discourse.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 17: COMPILE TIMES TANGENT ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compile_time_is_my_enemy</span>
+            <span class="score">15 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>real talk: what's the compile time impact? every contract annotation is an additional expression the compiler has to parse, type-check, and potentially instantiate (in templates). Our codebase has ~40k source files. If contracts add even 2% to compile times I'm going to hear about it from management.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/codegen_inspector</span>
+                  <span class="flair">clang contributor</span>
+                  <span class="score">19 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>In <code>ignore</code> mode the predicate still has to be parsed and type-checked (it's not a macro that disappears), but no codegen happens. Expect something comparable to the cost of a <code>static_assert</code> expression that's never evaluated. For templates, the predicate is instantiated with the template arguments, so yes, there's a cost proportional to how complex your predicates are.</p>
+                  <p>2% is probably pessimistic for most code. But if you put contracts on every function in a heavily-templated header-only library, you'll feel it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_42</span>
+                  <span class="score">42 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><em>laughs in compile times</em></p>
+                  <p>friend, if 2% compile time increase is what makes management notice, you've got bigger problems than contracts</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 18: COLLAPSED BAD TAKE ==================== -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_herb</span>
+            <span class="score negative">-47 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This is entirely redundant. <code>[[assume(expr)]]</code> already exists in C++23 and does the same thing. Why do we need a second mechanism? The committee is just reinventing wheels at this point.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/strictly_conforming</span>
+                  <span class="flair">correctness &gt; performance</span>
+                  <span class="score">12 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>[[assume]]</code> tells the optimizer the expression is true, period. If it's false, you get UB. It's an optimization hint with zero safety value. Contracts are the <em>opposite</em> - they exist to <em>check</em> the expression. One enables optimizations, the other catches bugs. They are complementary, not redundant.</p>
+                  <p>The committee explicitly voted (0|0|3|18|11 at St. Louis) that the MVP should <em>not</em> leave the door open for an <code>assume</code> evaluation semantic. They're deliberately keeping contracts and assumptions separate.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 19: historical perspective (signal, 32pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/process_archaeologist</span>
+            <span class="score">32 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For the new people: C++ has tried to standardize contracts before. <a href="https://wg21.link/p0542r5">P0542R5</a> was voted into the C++20 working draft at Rapperswil in 2018. Then the design started unraveling - disagreements over assume semantics, checking levels, interaction with optimization. By Cologne 2019 the design was so contested that it was pulled entirely from C++20.</p>
+            <p>SG21 was formed specifically to fix this. Five years of design iteration later, P2900 is a fundamentally different paper with different authors, different semantics, and different design philosophy. The only thing it shares with the C++20 attempt is the word "contracts."</p>
+            <p>Whether the committee learned the right lessons from 2019 depends on who you ask. The 12 SA voters would say no. The 42 in favor would say yes. We'll know for sure in about three years when implementations mature.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 20: P3506 discussion ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/reads_the_counter_papers</span>
+            <span class="score">26 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Has anyone read <a href="https://wg21.link/p3506r0">P3506R0</a>? "P2900 Is Still Not Ready for C++26." The list of concerns is not crankery - it's from people who implement compilers:</p>
+            <blockquote>
+              <p>UB in predicates, unresolved virtual function semantics, deferred function-pointer story, exception-to-false mapping, constification, and thin standard library "experience."</p>
+            </blockquote>
+            <p>And <a href="https://wg21.link/p3573r0">P3573R0</a> raised similar concerns. These aren't fringe positions. These are the people who have to make this work.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_sg21_lurker</span>
+                  <span class="flair">SG21 observer</span>
+                  <span class="score">18 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Read P3573R0 and then read P3591R0 which is the response. Most of the concerns were already addressed in committee. The TS/readiness debate was thoroughly litigated - the committee voted and the result was clear. At some point "I disagree with the result" needs to be distinguished from "the process was flawed."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 21: the Eiffel guy ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/meyer_was_right</span>
+            <span class="score">18 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Eiffel had this in 1986. Design by Contract with full class invariants, old-value capture, and Liskov-compliant subcontracting. Thirty-nine years later, C++ gets preconditions and postconditions without invariants, without old values, and without subcontracting. The "MVP" is a feature that was complete in another language before most of this subreddit was born.</p>
+            <p>I'm glad it's happening. I'm just... not going to pretend it's groundbreaking.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_standards_reader</span>
+                  <span class="score">56 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>C++ speedrunning features from 1986 any%</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 22: SPAM ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/cpp_mastery_academy</span>
+            <span class="score negative">-8 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Master C++26 Contracts in just 30 days! Our exclusive course covers everything from pre/post to violation handlers. Use code REDDIT20 for 20% off. Link in bio.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/move_semantics_fan_2020</span>
+                  <span class="score">5 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>report and move on</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 23: safety_narrative (signal, 24pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/safety_is_a_spectrum</span>
+            <span class="score">24 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The elephant in the room is the safety narrative. The White House told everyone to stop using memory-unsafe languages. The NSA published guidance. Google and Microsoft publish annual CVE counts showing C++ memory bugs. And the committee's response for C++26 is... a feature that lets you write <code>pre(ptr != nullptr)</code> and then the compiler might not check it, and if it does check it and the pointer is dangling, the check itself is UB.</p>
+            <p>I'm a contracts supporter. I think this is net positive. But let's not pretend this is the answer to the safety question. <a href="https://wg21.link/p3500r1">P3500R1</a> ("Are Contracts Safe?") asked exactly this and the answer is: contracts are orthogonal to memory safety. They don't prevent use-after-free. They don't prevent buffer overflows. They catch logic errors in the domain layer, which is valuable but different.</p>
+            <p>If someone tries to market C++26 contracts as "C++ is now safe," push back.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/cargo_build_works_tho</span>
+                  <span class="score">15 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div name="comment-text">
+                  <p>this is the most honest thing anyone has said in this thread</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 24: production_experience ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/bloomberg_adjacent</span>
+            <span class="score">19 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>FWIW, Bloomberg has been using contract-like annotations internally for years. Their internal <code>BSLS_ASSERT</code> facility is essentially what P2900 standardizes, minus the postconditions. They have data on the overhead, the debugging value, and the false-positive rate across millions of lines of production code. This isn't a theoretical proposal - it's a standardization of established practice from multiple organizations.</p>
+            <p>The authors know what they're doing. Joshua Berne is Bloomberg. The design reflects production experience. Whether the committee added the right amount of generality on top of that experience is the question.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 25: late_arrival ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/late_to_the_thread_2024</span>
+            <span class="score">8 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>scrolled through 87 comments expecting a consensus on whether this is good or bad. got sarcasm, a Rust tangent, a deleted conspiracy theory, two compiler devs disagreeing about trap instructions, and a spam bot. classic r/cpp.</p>
+            <p>anyway I'm cautiously optimistic. it's not perfect but it's something. better than writing <code>assert(false &amp;&amp; "unreachable")</code> for another decade.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
