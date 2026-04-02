@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/cpp - P3655R3 - std::cstring_view</title>
+  <style>
+:root {
+  --bg-canvas: #030303;
+  --bg-body: #1a1a1b;
+  --bg-card: #272729;
+  --bg-hover: #2d2d2f;
+  --bg-promoted: #1a1a1b;
+  --border-default: #343536;
+  --border-comment: #343536;
+  --text-primary: #d7dadc;
+  --text-secondary: #818384;
+  --text-muted: #6a6b6d;
+  --text-link: #4fbcff;
+  --text-visited: #a98bdb;
+  --text-username: #4fbcff;
+  --text-op: #4fbcff;
+  --text-mod: #5af078;
+  --text-admin: #ff4500;
+  --upvote: #ff4500;
+  --downvote: #7193ff;
+  --upvote-bg: rgba(255,69,0,0.1);
+  --downvote-bg: rgba(113,147,255,0.1);
+  --award-gold: #ffd635;
+  --flair-bg: #272729;
+  --flair-text: #d7dadc;
+  --promoted-bg: #1e1e1f;
+  --promoted-border: #3a3a3c;
+  --font-body: 'Reddit Sans', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Source Code Pro', 'Fira Code', 'Consolas', monospace;
+  --content-width: 740px;
+  --comment-indent: 22px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.thread {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.subreddit-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 12px;
+}
+
+.subreddit-header .sub-name { font-weight: 700; color: var(--text-primary); }
+.subreddit-header .poster { color: var(--text-secondary); }
+.subreddit-header .poster a { color: var(--text-username); text-decoration: none; }
+
+.submission {
+  background: var(--bg-body);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.submission .title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.submission .meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.submission .body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.submission .body p { margin-bottom: 10px; }
+.submission .body a { color: var(--text-link); text-decoration: none; }
+.submission .body a:hover { text-decoration: underline; }
+.submission .body a:visited { color: var(--text-visited); }
+.submission .body strong { font-weight: 600; }
+
+.submission .vote-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  border-top: 1px solid var(--border-default);
+  margin-top: 12px;
+}
+
+.submission .flair {
+  display: inline-block;
+  background: var(--flair-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--flair-text);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.sort-bar {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.comment {
+  display: flex;
+  padding: 4px 0 4px 0;
+}
+
+.comment .votebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  min-width: 24px;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.comment .arrow { cursor: pointer; line-height: 1; }
+.comment .arrow.up { color: var(--text-muted); }
+.comment .arrow.down { color: var(--text-muted); margin-top: 2px; }
+
+.comment-body {
+  flex: 1;
+  min-width: 0;
+  border-left: 2px solid var(--border-comment);
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.comment[data-depth="0"] > .comment-body { border-left-color: #545454; }
+.comment[data-depth="1"] > .comment-body { border-left-color: #4a6fa5; }
+.comment[data-depth="2"] > .comment-body { border-left-color: #6b8e5e; }
+.comment[data-depth="3"] > .comment-body { border-left-color: #b8860b; }
+.comment[data-depth="4"] > .comment-body { border-left-color: #8b5e8b; }
+.comment[data-depth="5"] > .comment-body { border-left-color: #5e8b8b; }
+
+.comment-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.comment-header .username {
+  font-weight: 700;
+  color: var(--text-username);
+  text-decoration: none;
+}
+
+.comment-header .username.op { color: var(--text-op); }
+.comment-header .username.op::after {
+  content: "OP";
+  font-size: 10px;
+  background: var(--text-op);
+  color: var(--bg-body);
+  padding: 0 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.comment-header .username.mod { color: var(--text-mod); }
+.comment-header .username.mod::after {
+  content: "[M]";
+  font-size: 10px;
+  color: var(--text-mod);
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.comment-header .flair {
+  background: var(--flair-bg);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.comment-header .score { color: var(--text-secondary); }
+.comment-header .score.negative { color: var(--downvote); }
+.comment-header .dagger { color: var(--text-muted); font-size: 10px; }
+.comment-header .time { color: var(--text-muted); }
+.comment-header .awards { font-size: 14px; }
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  overflow-wrap: break-word;
+}
+
+.comment-text p { margin-bottom: 8px; }
+.comment-text a { color: var(--text-link); text-decoration: none; }
+.comment-text a:hover { text-decoration: underline; }
+
+.comment-text blockquote {
+  border-left: 3px solid var(--border-comment);
+  padding: 2px 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+.comment-text code {
+  background: var(--bg-card);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.comment-text pre {
+  background: var(--bg-card);
+  padding: 10px 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.comment-text pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.comment-text .edit {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 6px;
+}
+
+.comment-text table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.comment-text table th,
+.comment-text table td {
+  border: 1px solid var(--border-default);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.comment-text table th {
+  background: var(--bg-card);
+  font-weight: 600;
+}
+
+.comment-footer {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+  padding: 2px 0 4px 0;
+}
+
+.comment-footer .action { cursor: pointer; font-weight: 700; }
+.comment-footer .action:hover { color: var(--text-secondary); }
+
+.comment.deleted .comment-text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.comment.deleted .username { color: var(--text-muted); }
+
+.comment.collapsed {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.comment.collapsed .comment-text,
+.comment.collapsed .comment-footer,
+.comment.collapsed .replies { display: none; }
+
+.comment.collapsed .comment-header::before {
+  content: "[+] ";
+  color: var(--text-muted);
+}
+
+.replies {
+  padding-left: var(--comment-indent);
+}
+
+.promoted {
+  background: var(--promoted-bg);
+  border: 1px solid var(--promoted-border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.promoted .promoted-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.promoted .promoted-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.promoted .promoted-body {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.locked-notice {
+  background: rgba(255, 69, 0, 0.08);
+  border: 1px solid rgba(255, 69, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0;
+}
+
+.mod-pin {
+  background: rgba(90, 240, 120, 0.06);
+  border: 1px solid rgba(90, 240, 120, 0.15);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.stickied-label {
+  font-size: 10px;
+  color: var(--text-mod);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 800px) {
+  .thread { padding: 8px; }
+  :root { --content-width: 100%; --comment-indent: 14px; }
+  .submission .title { font-size: 17px; }
+}
+  </style>
+</head>
+<body>
+  <div class="thread">
+
+    <!-- Subreddit header -->
+    <div class="subreddit-header">
+      <span class="sub-name">r/cpp</span>
+      <span class="poster"> &middot; Posted by <a href="#">u/standard_committee_watcher</a> &middot; 8 hr. ago</span>
+    </div>
+
+    <!-- Submission post -->
+    <div class="submission">
+      <div class="title">P3655R3 - std::cstring_view <span class="flair">WG21</span></div>
+      <div class="meta">42 comments &middot; 93% upvoted</div>
+      <div class="body">
+        <p><strong>Paper:</strong> <a href="https://wg21.link/p3655r3">P3655R3 - std::cstring_view</a><br>
+        <strong>Authors:</strong> Peter Bindels, Hana Dus&iacute;kov&aacute;, Jeremy Rifkin, Marco Foco, Alexey Shevlyakov<br>
+        <strong>Target:</strong> LEWG, LWG<br>
+        <strong>Ship vehicle:</strong> C++29</p>
+
+        <p>This paper proposes <code>std::cstring_view</code>, a non-owning view of a null-terminated string. Think <code>string_view</code> but with the guarantee that there's a <code>'\0'</code> at the end, so you can safely pass <code>.c_str()</code> to C APIs without first copying into a <code>std::string</code>.</p>
+
+        <p>The idea has been floating around since the original <code>string_view</code> paper in 2012. An earlier attempt (<a href="https://wg21.link/p1402">P1402</a>) was rejected at Kona 2019 with "we will not pursue this problem space," but the paper argues that widespread adoption of custom implementations (2.1k+ on GitHub from Microsoft, Google, NVIDIA, and others) and the reflection paper <a href="https://wg21.link/p2996">P2996</a> essentially needing the type have changed the calculus. R3 incorporates NVIDIA's experience from their own <code>zstring_view</code> (formerly <a href="https://wg21.link/p3710">P3710</a>) and feedback from SG16, SG23, and LEWG at Sofia.</p>
+
+        <p>Notable design decisions: the type eagerly computes <code>size()</code> at construction (no lazy evaluation), allows embedded NUL bytes, deletes <code>remove_suffix()</code> with a reason string, and provides a <code>csv</code> literal suffix. The naming was <code>zstring_view</code> through R2 but was changed to <code>cstring_view</code> in R3 to match <code>c_str()</code> naming.</p>
+      </div>
+      <div class="vote-count">&#9650; 289 points</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- ============================================ -->
+      <!-- MOD PIN                                      -->
+      <!-- ============================================ -->
+      <div class="mod-pin">
+        <div class="stickied-label">Stickied comment</div>
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body" style="border-left-color: var(--text-mod);">
+            <div class="comment-header">
+              <span class="username mod">u/r_cpp_janitor</span>
+              <span class="time">8 hr. ago</span>
+            </div>
+            <div class="comment-text">
+              <p>Reminder: be civil. The paper authors sometimes read these threads.</p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #1 NOISE: iconic duo                         -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/UB_enjoyer_69</span>
+            <span class="score">341 points</span>
+            <span class="awards">&#127942;</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>C++ and adding new string types. Name a more iconic duo.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #1.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_real_cpp_dev</span>
+                  <span class="score">198 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>string</code>, <code>string_view</code>, <code>const char*</code>, <code>char[]</code>, <code>cstring_view</code>, <code>u8string_view</code>, <code>u8cstring_view</code>, <code>wstring_view</code>, <code>wcstring_view</code>...</p>
+                  <p>And people wonder why beginners take one look at C++ and choose Go.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #1.1.1 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/senior_nullptr</span>
+                        <span class="score">89 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>You forgot <code>std::filesystem::path::string()</code> which returns a <code>std::string</code> by value because of course it does.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- #1.1.1.1 -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/daily_segfault</span>
+                              <span class="score">45 points</span>
+                              <span class="time">6 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>please stop</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- #1.2 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/yet_another_cpp_dev</span>
+                  <span class="score">34 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>committee gonna committee</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #2 SIGNAL: money comment                     -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/string_view_enjoyer</span>
+            <span class="score">187 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The framing most people will miss: this isn't "yet another string type." It's filling in the last cell of a 2x2 matrix that's existed since C++11:</p>
+            <table>
+              <tr><th></th><th>Owning</th><th>Non-owning</th></tr>
+              <tr><td>Null-terminated</td><td><code>std::string</code></td><td><strong><code>cstring_view</code></strong></td></tr>
+              <tr><td>Not null-terminated</td><td><em>(nobody needs this)</em></td><td><code>string_view</code></td></tr>
+            </table>
+            <p>The interesting design tension is in section 6.5. The paper chose eager <code>size()</code> calculation at construction. For a type whose primary purpose is C interop - where you're eventually calling <code>c_str()</code> and passing it to <code>open()</code> or <code>sqlite3_open()</code> or whatever - that means you're paying for a <code>strlen</code> you might not need. The paper argues this enables hardened preconditions and bounds-checking, which is the C++ answer, not the C answer.</p>
+            <p>The real value isn't in the API surface. <code>c_str()</code> and <code>data()</code> return the same pointer. The value is entirely in the type system: if your function takes a <code>cstring_view</code>, the compiler guarantees the caller provided something null-terminated. That's it. That's the whole paper. Everything else is implementation details.</p>
+            <p>The part that will generate the most heat: <code>remove_suffix</code> is <code>= delete</code> with a reason string. Which is correct - you can't chop the end off a null-terminated string without invalidating the guarantee. But I can already hear the complaints.</p>
+            <p class="edit">Edit: I should add - the <code>csv</code> literal suffix is going to be a problem. Every programmer on earth reads <code>csv</code> as "comma-separated values." They went with it to parallel <code>sv</code> for <code>string_view</code>, but the collision is real.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- ============================================ -->
+            <!-- ENCOUNTER: embedded NULs                     -->
+            <!-- ============================================ -->
+
+            <!-- #2.1 encounter opener -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/const_correct_or_die</span>
+                  <span class="score">67 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The elephant in the room is section 6.4. The type allows embedded NUL bytes.</p>
+                  <p>Let me reframe the question: what is <code>cstring_view</code> for? It exists so you can pass a string to C APIs that expect null-terminated input. A C function receiving <code>csv.c_str()</code> will see a string truncated at the first embedded NUL. The C side has no way to know there's more data after it.</p>
+                  <p>If the type's entire purpose is to model "something safe to pass to C," then embedded NULs violate the invariant the type is supposed to represent. The precondition of <code>strlen(csv.c_str()) == csv.size()</code> is the actual contract with C. The paper chose not to enforce it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #2.1.1 encounter response -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/legacy_api_survivor</span>
+                        <span class="score">54 points</span>
+                        <span class="dagger">&dagger;</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>We migrated ~300k lines from <code>const char*</code> to a custom <code>zstring_view</code> at work. If the type rejected embedded NULs, the conversion from <code>std::string</code> to <code>cstring_view</code> becomes partial - it works for 99.99% of strings and throws for the rest. That's worse than the current situation.</p>
+                        <p>In practice, if you have a string with embedded NULs and you're passing it to a C API, the bug is in how you got the string, not in the view type. Making <code>cstring_view</code> reject it doesn't fix the bug - it just moves the error from the C API call to the conversion.</p>
+                        <p>Also, LEWG already polled this in Sofia: 2/6/10/4/11 against forbidding them. The no-consensus was pretty decisive.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- #2.1.1.1 encounter sharpens -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/const_correct_or_die</span>
+                              <span class="score">38 points</span>
+                              <span class="time">3 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>The migration argument is exactly backwards. If you're converting <code>std::string</code> to <code>cstring_view</code> and it throws because of an embedded NUL, you've <em>found a bug</em>. That string was never safe to pass to C. The type is doing its job.</p>
+                              <p>The "partial conversion" framing assumes all strings <em>should</em> be convertible to <code>cstring_view</code>. They shouldn't. Only null-terminated strings without embedded NULs are valid C strings. That's the domain the type models.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <!-- #2.1.1.1.1 encounter resolves -->
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/legacy_api_survivor</span>
+                                    <span class="score">29 points</span>
+                                    <span class="time">2 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Philosophically you're right. Practically, adding an O(n) scan to every constructor for a problem that affects 0.01% of strings - and making <code>string</code> &rarr; <code>cstring_view</code> &rarr; <code>string_view</code> lose data that <code>string</code> &rarr; <code>string_view</code> preserves - is the kind of principled decision that makes library adoption fail.</p>
+                                    <p>I'd rather have the type exist and be useful than be theoretically perfect and avoided because the conversion is scary.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies">
+
+                                    <!-- #2.1.1.1.1.1 encounter closer -->
+                                    <div class="comment" data-depth="5">
+                                      <div class="votebar">
+                                        <span class="arrow up">&#9650;</span>
+                                        <span class="arrow down">&#9660;</span>
+                                      </div>
+                                      <div class="comment-body">
+                                        <div class="comment-header">
+                                          <span class="username">u/const_correct_or_die</span>
+                                          <span class="score">15 points</span>
+                                          <span class="time">47 min. ago</span>
+                                        </div>
+                                        <div class="comment-text">
+                                          <p>Fair. I'll take the type as-is and hope someone writes the follow-up paper for an embedded-NUL-free variant. The paper itself hints at this in section 6.4.</p>
+                                        </div>
+                                        <div class="comment-footer">
+                                          <span class="action">Reply</span>
+                                          <span class="action">Share</span>
+                                          <span class="action">Report</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- #2.2 noise reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_java_dev</span>
+                  <span class="score">12 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Wait so this is basically Java's String but worse? At least Java strings just work without needing six different types to pass a piece of text around.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #2.2.1 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/xX_template_wizard_Xx</span>
+                        <span class="score">45 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Tell me you've never shipped production C++ without telling me you've never shipped production C++.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #3 NOISE: csv literal                        -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/turbo_llama_9000</span>
+            <span class="score">256 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>csv</code> literal suffix? I got excited for a second thinking we finally got CSV parsing in the standard.</p>
+            <p>Then I remembered what committee I was dealing with.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #3.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_2025</span>
+                  <span class="score">89 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>using namespace csv_literals;</code></p>
+                  <p><em>coworker sees this in code review</em></p>
+                  <p>"Oh cool, when did the standard add CSV support?"</p>
+                  <p>"No it's for null-terminated string views"</p>
+                  <p>"...why"</p>
+                  <p>"Because <code>sv</code> was taken"</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- #3.2 recurring user -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/string_view_enjoyer</span>
+                  <span class="score">34 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Yeah the <code>csv</code> naming is unfortunate. It parallels <code>sv</code> for <code>string_view</code> (<code>c</code> + <code>sv</code> = <code>csv</code>) which makes sense if you squint, but <code>csv</code> is one of the most overloaded abbreviations in computing. I'd bet money this comes up again in LEWG.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #4 SIGNAL: embedded perspective               -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="flair">STM32 apologist</span>
+            <span class="score">89 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Embedded developer here. Section 6.5 is where this paper loses me.</p>
+            <p>The whole pitch is: "your function takes a C string, use <code>cstring_view</code> instead of <code>const char*</code> to get bounds safety." Great. But the type eagerly computes <code>size()</code> via <code>strlen</code> in the <code>const char*</code> constructor. For us that's a non-trivial cost - we're passing paths to <code>open()</code> and config keys to C libraries, and we already know they're null-terminated string literals. We don't need the length. The C API doesn't need the length. Nobody needs the length.</p>
+            <p>The paper acknowledges this in 6.5 and says "users that really cannot afford that are still able to use <code>const char*</code>." Which is honest, but also means the type doesn't solve the problem for the people who have the problem the most.</p>
+            <p>I'll probably still use it where it matters, but the O(1)-from-literal constructor that skips the <code>strlen</code> would have been nice.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #4.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_on_first_try</span>
+                  <span class="score">56 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The eager size is what enables the hardened precondition on <code>operator[]</code> though. Without it you can't bounds-check. The paper is choosing safety over zero-cost, which is... actually the right call for a standard library type in 2025?</p>
+                  <p>If you really need zero overhead, the <code>(const char*, size_t)</code> constructor is O(1) and just asserts the null terminator. For string literals, the length is a compile-time constant anyway.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #4.1.1 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/embedded_for_20_years</span>
+                        <span class="flair">STM32 apologist</span>
+                        <span class="score">23 points</span>
+                        <span class="time">3 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The <code>(const char*, size_t)</code> constructor is fine for literals if you use the <code>csv</code> suffix. For runtime C strings coming back from C libraries... you're back to <code>const char*</code>. Which is where we started.</p>
+                        <p>Not a dealbreaker. Just a gap.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #5 NOISE: Rust tangent                       -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/cargo_cult_cpp</span>
+            <span class="score negative">-12 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Rust solved this years ago with <code>CStr</code> and <code>CString</code>. One is borrowed, one is owned. Clean, simple, no embedded NUL ambiguity because <code>CStr</code> rejects them. Meanwhile C++ is on its third attempt at a null-terminated string view and still can't decide on the name.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #5.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">67 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Every. Single. Thread.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #5.1.1 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/cargo_cult_cpp</span>
+                        <span class="score negative">-3 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I mean it's a valid comparison? Both languages have the exact same FFI problem. One solved it. One is writing papers about it.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- #5.1.1.1 mod warning -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body" style="border-left-color: var(--text-mod);">
+                            <div class="comment-header">
+                              <span class="username mod">u/r_cpp_janitor</span>
+                              <span class="time">6 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Rule 3. Take a breath.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #6 SIGNAL: committee process                 -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_a_committee_member</span>
+            <span class="score">134 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Some context that might help people who weren't following in 2019:</p>
+            <p><a href="https://wg21.link/p1402">P1402</a> proposed this exact type at Kona and was killed with "CONSENSUS: We will not pursue P1402R0 or this problem space." That was six years ago.</p>
+            <p>What changed:</p>
+            <p>&bull; The Reflection paper (<a href="https://wg21.link/p2996">P2996</a>) has APIs that return <code>string_view</code> but then specify that <code>data()[size()] == '\0'</code>. They literally needed the type and didn't have it.<br>
+            &bull; Herb's safety profiles paper (<a href="https://wg21.link/p3081">P3081</a>) independently called out that a null-terminated view was one of the most commonly requested <a href="https://github.com/microsoft/GSL">GSL</a> features without a <code>std::</code> equivalent.<br>
+            &bull; NVIDIA built their own (<a href="https://wg21.link/p3710">P3710</a>), discovered the same design decisions independently, and merged into this paper.<br>
+            &bull; GitHub usage grew from ~1.9k to ~2.1k implementations. People are writing this type themselves and getting it wrong.</p>
+            <p>The committee killed it in 2019 because contracts were supposed to solve the problem. Contracts didn't ship. The problem is still there. This is the pragmatic fix.</p>
+            <p>The naming debate (<code>cstring_view</code> vs <code>zstring_view</code>) got polled in Sofia and hit no-consensus (8/6/13/4/2). The paper went with <code>cstring_view</code> anyway in R3, which is going to come up again.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #6.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/the_real_stroustrup</span>
+                  <span class="score">23 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>So they rejected it in 2019 and now it's back? C++ standardization is just a zombie apocalypse with better catering.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #7 DELETED: removed by moderator             -->
+      <!-- ============================================ -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+          </div>
+          <div class="replies">
+
+            <!-- #7.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_segfault</span>
+                  <span class="score">8 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #7.1.1 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/not_a_real_cpp_dev</span>
+                        <span class="score">14 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Something about how the committee is a waste of time and we should just fork clang, you know the usual.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #8 SIGNAL: code example                      -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/legacy_api_survivor</span>
+            <span class="score">97 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For people who don't read papers, here's the concrete problem this solves:</p>
+<pre><code>// Today: bug-prone
+void open_file(std::string_view path) {
+    int fd = open(path.data(), O_RDONLY);
+    // BUG if path came from substr()
+}
+
+// Today: works but allocates
+void open_file(std::string_view path) {
+    std::string owned(path);
+    int fd = open(owned.c_str(), O_RDONLY);
+}
+
+// With cstring_view: safe and zero-copy
+void open_file(std::cstring_view path) {
+    int fd = open(path.c_str(), O_RDONLY);
+    // guaranteed null-terminated
+}</code></pre>
+            <p>The first version is the bug the paper is trying to prevent. The second version works but allocates for no reason when the caller already had a null-terminated string. The third version is what you actually want.</p>
+            <p>I've found this exact bug pattern in production three times this year. The paper's GitHub examples aren't cherry-picked - this is everywhere.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #8.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/xX_template_wizard_Xx</span>
+                  <span class="score">28 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Skill issue. Just <code>static_assert</code> that your <code>string_view</code> is null-terminated. /s</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- PROMOTED: JetBrains CLion                    -->
+      <!-- ============================================ -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CLion - the C++ IDE that understands your templates.</div>
+        <div class="promoted-body">Deep code analysis for C++20 and beyond. Free 30-day trial. jetbrains.com/clion</div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #10 NOISE: networking                        -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_hater_2024</span>
+            <span class="score">78 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Can we please get networking into the standard before we add yet another string type? I've been waiting since C++11 and at this rate my grandchildren will be the ones writing <code>std::net::tcp::socket</code>.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #10.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_2025</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Networking will ship in C++38, right after we standardize a build system and achieve world peace.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #11 SIGNAL: teaching perspective              -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/professor_templates</span>
+            <span class="flair">CS instructor</span>
+            <span class="score">45 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I teach intro C++ at a university. My students already struggle with when to use <code>std::string</code> vs <code>const char*</code> vs <code>std::string_view</code>. Now I need to add <code>cstring_view</code> to the decision tree.</p>
+            <p>That said - if it means I can stop explaining why <code>string_view::data()</code> isn't safe to pass to <code>printf</code>, I'll take the complexity tradeoff. The number of students who write <code>printf("%s", sv.data())</code> where <code>sv</code> came from <code>substr()</code> is... non-zero.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #11.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_real_cpp_dev</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Honest question - when <code>cstring_view</code> ships, what's the actual decision tree? I genuinely don't know when to use what anymore.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- #11.1.1 recurring user -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/string_view_enjoyer</span>
+                        <span class="score">42 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>It's simpler than it looks:</p>
+                        <p>&bull; Need to own the string? <code>std::string</code><br>
+                        &bull; Passing a string you don't own, don't need null termination? <code>string_view</code><br>
+                        &bull; Passing a string you don't own, need null termination (C API, <code>fopen</code>, etc.)? <code>cstring_view</code><br>
+                        &bull; C code calling you? <code>const char*</code></p>
+                        <p>That covers 99% of cases. The complexity is in the edge cases, not the common path.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #12 NOISE: 10 years in LEWG                  -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/build_system_victim_42</span>
+            <span class="score">63 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><em>laughs in compile times</em></p>
+            <p>Great, another type that will take 10 years to get through LEWG and then 5 more years before any codebase can actually use it because they're stuck on C++17.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- PROMOTED: CppCon 2026                        -->
+      <!-- ============================================ -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - Early bird ends May 15.</div>
+        <div class="promoted-body">The conference for the C++ community. 5 days of talks, workshops, and hallway conversations. cppcon.org</div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #13 SIGNAL: csv + overload ambiguity         -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_skeptic</span>
+            <span class="score">112 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Two things that jumped out:</p>
+            <p>1. The <code>csv</code> literal suffix is going to cause real confusion. Not just "haha funny acronym" confusion - I mean <code>using namespace std::literals;</code> will bring in <code>csv</code> as a suffix that has nothing to do with comma-separated values. IDE autocomplete, code search, onboarding - this will be a friction point for years.</p>
+            <p>2. The overload ambiguity (section 6.1) is more nuanced than the paper lets on. Yes, <code>string</code> vs <code>string_view</code> already has this problem with <a href="https://godbolt.org/z/c31e31fKW">the godbolt example</a>. But in practice most codebases don't overload on both. Adding <code>cstring_view</code> means any function currently taking <code>string_view</code> that wants null-termination now has to deal with three-way ambiguity. The <code>requires true</code> deprioritization trick works but it's not obvious and won't be discovered by most users.</p>
+            <blockquote><p>The user should be clear about which properties of string it's expecting.</p></blockquote>
+            <p>This is correct in theory and wishful thinking in practice. Most library authors will just pick one and hope for the best.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- #13.1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_on_first_try</span>
+                  <span class="score">45 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The <code>requires true</code> trick is galaxy-brain but ugly. I've used it in production and nobody on my team understood it until I explained it three times. If this is the official guidance for managing overload sets with <code>cstring_view</code>, it needs to be in a best-practices paper, not buried in section 6.1.1.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- #13.2 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/yet_another_cpp_dev</span>
+                  <span class="score">19 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Can't wait for the <code>csv</code> literal to break every project that has a <code>csv</code> namespace for their actual CSV parsing code.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #14 SIGNAL: reference implementation          -->
+      <!-- ============================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/beman_contributor_42</span>
+            <span class="score">37 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For anyone who wants to try this today rather than wait for C++29: the <a href="https://github.com/bemanproject/cstring_view">Beman Project reference implementation</a> is on GitHub. Header-only, works with C++20 and up.</p>
+            <p>It's also useful for seeing the design decisions in action. The <code>remove_suffix = delete</code> with the reason string is a nice touch - gives you an actual error message instead of a wall of template noise.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- #15 NOISE: collapsed spam                    -->
+      <!-- ============================================ -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/throwaway_84729</span>
+            <span class="score negative">-8 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The C++ job market is changing fast. Learn modern C++ in 30 days with our bootcamp. 10x your career. Link in bio.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
