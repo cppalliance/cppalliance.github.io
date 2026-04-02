@@ -3,6 +3,7 @@ layout: post
 nav-class: dark
 categories: mark
 title: "Corosio Beta: Coroutine-Native Networking for C++20"
+author-id: mark
 author-name: Mark Cooper
 ---
 
