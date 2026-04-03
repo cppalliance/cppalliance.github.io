@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - N5036 - Extensions to C++ for Transactional Memory Version 2</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "N5036",
+  "revision": 0,
+  "document": "N5036",
+  "title": "Extensions to C++ for Transactional Memory Version 2",
+  "authors": "Michael Wong",
+  "audience": "SG5",
+  "date": "2026-02-22",
+  "comments": 24,
+  "upvotes": 89,
+  "upvote_pct": "83%",
+  "poster": "weekly_paper_drop",
+  "heat": "warm",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+    <div class="submission">
+      <div class="title">N5036 - Extensions to C++ for Transactional Memory Version 2 <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/weekly_paper_drop</span> &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Michael Wong<br>
+        <strong>Document:</strong> N5036<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Target:</strong> SG5<br>
+        <strong>Link:</strong> <a href="https://wg21.link/n5036">https://wg21.link/n5036</a></p>
+
+        <p>The Transactional Memory TS is back with a version 2. N5036 replaces the original TM TS (ISO/IEC TS 19841:2015) with a slimmed-down design centered on <code>atomic do { ... }</code> blocks - compound statements that execute atomically with respect to other transactions. No more <code>transaction_safe</code> annotations on every function in the call tree.</p>
+
+        <p>The trade-off for simplicity is a long list of things you can't do inside an atomic block. No I/O, no thread operations, no <code>std::atomic</code>, no <code>shared_ptr</code>, no virtual calls (implementation-defined), no coroutines, and throwing an exception is UB. The paper is non-normative - it's meant to build existing practice, not ship in C++26.</p>
+
+        <p>Michael Wong and the SG5 group have been at this for over a decade. The hardware landscape has shifted since the effort started - Intel TSX is disabled on most consumer CPUs and GCC's <code>libitm</code> falls back to a global lock.</p>
+      </div>
+      <div class="vote-count">&#9650; 89 points (83% upvoted) &middot; 24 comments</div>
+    </div>
+    <div class="sort-bar">sorted by: best</div>
+    <div class="comments">
+
+      <!-- AutoModerator pinned -->
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">7 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>N5036 - Extensions to C++ for Transactional Memory Version 2</strong></p>
+              <p>Author: Michael Wong &middot; Date: 2026-02-22 &middot; Target: SG5</p>
+              <p><a href="https://wg21.link/n5036">Paper link</a> &middot; <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/n5036.pdf">PDF</a></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- mutex_appreciator - noise, 127 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/mutex_appreciator</span>
+            <span class="score">127 points</span>
+            <span class="time">6 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>So let me get this straight: you can't use I/O, you can't use threads, you can't use atomics, you can't call virtual functions, you can't use <code>shared_ptr</code>, you can't throw exceptions, and you can't use coroutines.</p>
+            <p>But other than that, how was the play, Mrs. Lincoln?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+            <span class="action">Save</span>
+          </div>
+          <div class="replies">
+
+            <!-- template_crimes_unit reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_crimes_unit</span>
+                  <span class="score">43 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>You forgot: calling a non-inline function is implementation-defined. So basically you can do arithmetic in a loop. Transactionally.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- daily_constexpr reply -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/daily_constexpr</span>
+                        <span class="score">11 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p><code>constexpr</code> but at runtime</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- compiles_first_try - noise, 76 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score">76 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Transactional memory: the fusion power of computer science. Always ten years away. Every decade.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- process_archeologist reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/process_archeologist</span>
+                  <span class="score">14 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>SG5 has been working on this since at least 2013. The original TM TS shipped in 2015. We're on version 2. The hardware that was supposed to make it fast (Intel TSX) got disabled for security reasons. And the paper is still non-normative.</p>
+                  <p>We're past ten years.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- UB_enjoyer_420 - noise, 41 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/UB_enjoyer_420</span>
+            <span class="score">41 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Wait, is <code>atomic</code> becoming a keyword now? What happens to all my <code>std::atomic</code> code?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- actually_reads_papers reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_reads_papers</span>
+                  <span class="score">23 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>atomic</code> is already in the table of identifiers with special meaning (Table 4). It's not a keyword - same bucket as <code>override</code> and <code>final</code>. The syntax is <code>atomic do { ... }</code>, so it only triggers when followed by <code>do</code>.</p>
+                  <p>And no, it has nothing to do with <code>std::atomic</code>. In fact you explicitly <em>cannot</em> use <code>std::atomic</code> operations inside an <code>atomic do</code> block. Section 16.4.6.17, exclusion item (1.17): "atomic operations (Clause 31)."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad 1: Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - because you need to see the assembly.</div>
+        <div class="promoted-body">Compiler Explorer. 60+ compilers. C++, Rust, Go, and more. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- formerly_sg5 - TEASER signal, 34 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/formerly_sg5</span>
+            <span class="score">34 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Everyone focusing on the restriction list is missing why TM matters.</p>
+            <p>The real problem TM solves is <strong>composability</strong>. You have two correct critical sections protected by their own mutexes. You need to compose them into one atomic operation. With mutexes, you either take both locks (hello deadlock if anyone does it in a different order) or you refactor everything into one big lock (hello contention). There is no correct composition of two correct mutex-protected operations without imposing a global lock ordering - which doesn't scale and breaks modularity.</p>
+            <p><code>atomic do</code> gives you that. The restrictions exist because rollback semantics require it - you can't un-do I/O, you can't un-do a thread creation, you can't un-do an atomic store that another thread already observed. The restriction list is the list of things that aren't reversible. That's not a limitation of the design. That's the definition of what "atomic" means when you need rollback.</p>
+            <p>Whether this particular TS is the right vehicle is debatable. Whether the problem exists is not.</p>
+            <p class="edit">Edit: to be clear, I'm not advocating for TM over other concurrency primitives in general. I'm saying the composability problem is real and the restriction list follows logically from the atomicity guarantee.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+            <span class="action">Save</span>
+          </div>
+          <div class="replies">
+
+            <!-- just_ship_it_already reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_ship_it_already</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I keep hearing the composability argument but I've genuinely never hit a case in 15 years of C++ where I needed to atomically compose two independently-locked critical sections and couldn't restructure the code to use a single lock or a lock hierarchy. The textbook examples are always bank transfers.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- formerly_sg5 reply -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/formerly_sg5</span>
+                        <span class="score">12 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The bank transfer <em>is</em> the canonical example because it's the simplest one that demonstrates the property. In practice it shows up anywhere you have two modules with internal locking that need a cross-module atomic operation. Databases solved this with MVCC decades ago. The question is whether language-level transactions can do for in-memory data structures what database transactions did for persistent storage.</p>
+                        <p>You can always restructure. The question is whether you should have to.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- tsx_survivor_2019 - signal, 29 pts, controversial -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/tsx_survivor_2019</span>
+            <span class="score">29 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I worked on TSX-accelerated code for a lock elision library circa 2018-2019. Intel disabled TSX on virtually all consumer Skylake-and-later CPUs via microcode update due to the TAA side-channel vulnerability. Server parts kept it longer but even there it's been phased out on newer cores.</p>
+            <p>GCC's <a href="https://github.com/gcc-mirror/gcc/tree/master/libitm">libitm</a> runtime exists but falls back to a global lock when HTM isn't available. Which on most hardware today, it isn't.</p>
+            <blockquote><p>Atomic blocks are likely to perform best where they execute quickly and touch little data.</p></blockquote>
+            <p>So the performance model is: hope for HTM, fall back to a global lock. For small critical sections. Where a regular mutex would also work fine and you'd have predictable performance. What's the sell?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- embedded_for_20_years reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="score">8 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>IBM POWER still has HTM. But the capacity limits are tight and you fall back on abort anyway. The problem isn't just that Intel killed TSX - it's that hardware TM has fundamental tension with cache coherence protocols. Every time a cache line gets evicted during a transaction, you abort. The hardware window for "quick and little data" is genuinely small, and it keeps getting smaller as core counts go up and cache pressure increases.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- not_even_wrong_42 - signal, 21 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_even_wrong_42</span>
+            <span class="score">21 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Two things bother me about this paper.</p>
+            <p>1. It's based on C++20. The normative reference is ISO/IEC 14882:2020. We have C++23 published and C++26 nearing completion. If this TS is supposed to build "widespread existing practice," shouldn't it reference the standard people are actually targeting?</p>
+            <p>2. Section 8.8 paragraph 6 is a minefield of implementation-defined behavior:</p>
+            <blockquote><p>an invocation of a function, unless the function is inline with a reachable definition or the function is a library function that may be used in an atomic block</p></blockquote>
+            <p>So calling a non-inline function is implementation-defined. Virtual calls are implementation-defined. Dynamic initialization of block-scope statics is implementation-defined. The usable subset of <code>atomic do</code> blocks is going to be wildly compiler-specific. Portable code inside atomic blocks will be limited to arithmetic and direct member access on local data.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- weekly_paper_drop OP reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/weekly_paper_drop</span>
+                  <span class="score">5 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Good catch on the C++20 base. Combined with the exception UB and the implementation-defined function calls, you'd basically need a dedicated lint pass to tell you whether your atomic block is even valid on your compiler.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- the_real_stm_user - encounter start, 16 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/the_real_stm_user</span>
+            <span class="score">16 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 8.8 paragraph 4:</p>
+            <blockquote><p>If the execution of an atomic block evaluates an inter-thread side effect or if an atomic block is exited via an exception, the behavior is undefined.</p></blockquote>
+            <p>Paragraph 5 then says the recommended practice is to terminate without invoking the terminate handler. So the committee knows exceptions will escape atomic blocks in practice - the recommended practice acknowledges it. Why UB instead of defined behavior?</p>
+            <p>An STM implementation needs to detect transaction abort conditions anyway. If it detects an exception propagating out of the block, it could roll back and then rethrow, or roll back and terminate. Either would be defined. UB means the optimizer can assume it never happens and remove code paths that lead to it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- formerly_sg5 encounter reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/formerly_sg5</span>
+                  <span class="score">11 points</span>
+                  <span class="time">47 min. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>You can't statically prove that no expression inside the block will throw. Making it ill-formed would require <code>noexcept</code> on every function call, which makes the feature unusable with any existing codebase.</p>
+                  <p>UB is the pragmatic middle ground: the programmer promises not to throw, the implementation is free to abort, retry, or terminate as it sees fit. The "recommended practice" note is guidance to implementations, not a semantic guarantee. An implementation that terminates on exception-in-transaction is conforming <em>and</em> useful - it just isn't <em>required</em> to do it that way.</p>
+                  <p>The alternative - mandating rollback+rethrow as defined behavior - would force every STM implementation to support full exception-safe rollback, which is a significantly harder implementation requirement for something the programmer isn't supposed to do in the first place.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- the_real_stm_user encounter counter -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/the_real_stm_user</span>
+                        <span class="score">8 points</span>
+                        <span class="time">22 min. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I take the implementation cost point. But I'm not asking for rollback+rethrow. I'd settle for implementation-defined or unspecified. Both give implementations the same freedom. Neither permits time travel.</p>
+                        <p>UB for something the paper itself expects to happen at runtime - that's the part that doesn't sit right. If you're writing a "recommended practice" for how to handle it, you've already conceded it's a realistic scenario.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- safe_cpp_when - tangent, 15 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/safe_cpp_when</span>
+            <span class="score">15 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile in Rust, <code>Send + Sync</code> and the borrow checker make data races a compile-time error. No UB needed, no eleven-page exclusion list of things you can't call.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- template_crimes_unit tangent reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_crimes_unit</span>
+                  <span class="score">9 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Transactional memory and Rust's ownership model solve different problems. TM gives you atomic composition of arbitrary memory operations. Rust prevents data races at compile time. Neither subsumes the other. Rust doesn't have TM either.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- mutex_appreciator tangent end -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/mutex_appreciator</span>
+                        <span class="score">3 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>every thread. every single thread.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad 2: CppCon -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO</div>
+        <div class="promoted-body">Early bird ends May 15. The conference for the C++ community. <a href="https://cppcon.org">cppcon.org</a></div>
+      </div>
+
+      <!-- definitely_not_10x - collapsed noise, -3 pts -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_10x</span>
+            <span class="score negative">-3 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>N5036. Five thousand and thirty-six papers. And we still don't have <code>std::networking</code>. Priorities.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- crypto_cpp_bootcamp - spam, removed -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score negative">-8 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+          </div>
+          <div class="replies">
+
+            <!-- paper_trail_2019 mod reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username mod">u/paper_trail_2019</span>
+                  <span class="score">1 point</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Spam.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

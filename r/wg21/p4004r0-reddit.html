@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Reconsider CWG 1395 &quot;Partial ordering of variadic templates reconsidered&quot;</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P4004",
+    "revision": 0,
+    "document": "P4004R0",
+    "title": "Reconsider CWG 1395 \"Partial ordering of variadic templates reconsidered\"",
+    "authors": "Christof Meerwald",
+    "audience": "EWG",
+    "date": "2026-02-22",
+    "comments": 8,
+    "upvotes": 31,
+    "upvote_pct": "89%",
+    "poster": "variadic_dispatch_42",
+    "heat": "cold",
+    "interest": "niche",
+    "flair": "WG21",
+    "generated": "2026-04-02"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P4004R0 - Reconsider CWG 1395 "Partial ordering of variadic templates reconsidered" <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/variadic_dispatch_42 &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Christof Meerwald (NVIDIA)<br>
+        <strong>Document:</strong> P4004R0<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Target:</strong> EWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p4004r0">wg21.link/p4004r0</a></p>
+
+        <p>Christof Meerwald is asking EWG to revisit the resolution of CWG 1395, a core defect report from 2016 that changed how variadic and non-variadic function templates get partially ordered during overload resolution. The short version: the accepted resolution fundamentally changed how function parameter packs work during partial ordering, but a decade later only EDG actually implements it that way. GCC, Clang, and MSVC all do something different - and users expect the GCC/Clang/MSVC behavior.</p>
+
+        <p>The paper proposes two options. Option 1 reverts most of the CWG 1395 changes but keeps the trailing-pack tiebreaker in [temp.deduct.partial]/11, which would standardize what the three major compilers already do. Option 2 goes further and resolves additional ambiguity from CWG 1825. Full proposed wording is included for Option 1.</p>
+      </div>
+      <div class="vote-count">&#9650; 31 points (89% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Comment 1: not_a_language_lawyer (noise - meta quip) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_language_lawyer</span>
+            <span class="score">41 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>A paper to reconsider a resolution that reconsidered partial ordering. We have achieved template meta-standardization.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply 1a: constexpr_all_the_things (noise - recursion riff) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_all_the_things</span>
+                  <span class="score">9 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>partial_ordering(partial_ordering(variadic_templates))</code>. It compiles but instantiation has been pending since 2016.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 2: daily_segfault (noise - everyman) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_segfault</span>
+            <span class="score">28 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I have been writing C++ professionally for over a decade and I'm not sure I've ever consciously thought about partial ordering of variadic templates. This paper is for people operating three standard-ese layers above me.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 3: actually_reads_the_papers (signal - EDG divergence) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/actually_reads_the_papers</span>
+            <span class="score">16 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The key sentence:</p>
+            <blockquote>10 years later only EDG implements that approach and gets bugs reports for real-world code where users expect a different partial ordering result.</blockquote>
+            <p>So GCC, Clang, and MSVC all agree on one behavior, the standard specifies something else, only EDG follows the standard, and EDG's users file bugs because they expect the GCC/Clang behavior. This is about as clear-cut a case for "standardize existing practice" as you're going to find.</p>
+            <p>Option 1 is conservative - revert the pack-expansion deduction changes but keep the trailing-pack tiebreaker in [temp.deduct.partial]/11. Straightforward fix.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply 3a: actually_reads_the_papers (signal - Option 2 follow-up) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_reads_the_papers</span>
+                  <span class="score">5 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Also worth noting - Option 2 (making the CWG 1825 example pick an overload instead of staying ambiguous) is left open without full wording. That feels like the more interesting design question. GCC and MSVC already pick <code>#2</code> there, Clang says ambiguous. If we're standardizing existing practice, might as well go all the way.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 4: overload_resolution_enjoyer (signal - spec is the bug) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/overload_resolution_enjoyer</span>
+            <span class="score">11 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>Having a feature specified in a way almost no one implements is not really useful, particularly if there are additional issues with that specification that need to be fixed.</blockquote>
+            <p>Hard to argue with that. When three implementations agree and the spec disagrees, the spec is the bug. The observation that the current wording doesn't even have normative backing for its own examples in [temp.deduct.partial]/8 is the cherry on top.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interstitial ad -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - because you need to see the assembly.</div>
+        <div class="promoted-body">Compiler Explorer. Test your code against GCC, Clang, MSVC, and more. In the browser. For free.</div>
+      </div>
+
+      <!-- Comment 5: mass_transit_dev (noise - tangent) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/mass_transit_dev</span>
+            <span class="score negative">-3 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>An entire paper about which of two function templates wins overload resolution, where even the committee's own defect resolution doesn't match what compilers actually do. This is the kind of thing that makes me sympathize with the "C++ is too complicated" crowd.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply 5a: former_boost_user_ama (noise - brief defense) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_boost_user_ama</span>
+                  <span class="score">4 points</span>
+                  <span class="time">47 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The partial ordering rules have an edge case that went unnoticed in practice for a decade. If anything that's evidence the system works fine for real code. This is cleanup, not a crisis.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

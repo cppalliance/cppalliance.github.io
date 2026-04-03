@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Values of floating-point types</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3938",
+  "revision": 1,
+  "document": "P3938R1",
+  "title": "Values of floating-point types",
+  "authors": "Jan Schultke",
+  "audience": "SG6, EWG, CWG",
+  "date": "2026-02-20",
+  "comments": 8,
+  "upvotes": 47,
+  "upvote_pct": "89%",
+  "poster": "sg6_lurker",
+  "heat": "cold",
+  "interest": "niche",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3938R1 - Values of floating-point types <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/sg6_lurker</span> &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3938r1">P3938R1</a><br>
+        <strong>Author:</strong> Jan Schultke<br>
+        <strong>Date:</strong> 2026-02-20<br>
+        <strong>Audience:</strong> SG6, EWG, CWG</p>
+
+        <p>Jan Schultke takes on a surprisingly fundamental question: what values can a C++ floating-point type actually represent? Turns out the standard is vague on whether infinity and NaN exist from a core language perspective, whether negative zero is negative, and whether <code>0.0</code> is guaranteed to be positive zero.</p>
+
+        <p>The paper walks through about fifteen of these questions, finds answers in existing practice and scattered wording, and proposes core language changes to nail it all down. Notable finding: <code>numeric_limits&lt;float&gt;::infinity() + 0</code> is technically UB under the current standard, because C++ never actually maps its expressions to ISO/IEC 60559 operations. Also clarifies template argument equivalence for floats - two NaN bit patterns with different payloads produce distinct template instantiations, and the paper proposes wording to match that.</p>
+
+        <p>Targets SG6, EWG, and CWG. Mostly encoding status quo into normative wording rather than proposing new behavior.</p>
+      </div>
+      <div class="vote-count">&#9650; 47 points (89% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_a_NaN</span>
+            <span class="score">34 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>This implies that e.g. <code>numeric_limits&lt;float&gt;::infinity() + 0</code> is not infinity, but UB by omission or UB by wording hole</blockquote>
+            <p>TIL that adding zero to infinity is technically undefined behavior in C++. I have been living a lie for fifteen years.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/zero_divided_by_zero</span>
+                  <span class="score">71 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Wait until you find out that dividing by zero is also UB. Yes, even for floats. The standard says "the behavior is undefined" in [expr.mul] with zero caveats for floating-point types. Every <code>1.0f / 0.0f</code> you ever wrote was a prayer, not a program.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score">28 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>We are 40+ years into C++ and we still haven't formally specified what values a float can hold. Just incredible. This is the kind of paper that makes you realize the standard is held together with vibes and implementation consensus.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/rust_rewrite_when</span>
+                  <span class="score">8 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust just made floats not <code>Eq</code> and not <code>Ord</code> and called it a day. Sometimes the answer is "this is hard, so let's make the type system remind you it's hard." Meanwhile C++ is still trying to retroactively figure out if negative zero is negative.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">en.cppreference.com</div>
+        <div class="promoted-body">You were going to look it up anyway. <a href="https://en.cppreference.com">en.cppreference.com</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/ieee754_pedant</span>
+            <span class="score">16 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I read the whole thing. It's well-structured but the framing is slightly misleading. The abstract says:</p>
+            <blockquote>The goal of this paper is to answer these questions, not by making any evolutionary changes to the language, but by investigating what the status quo is and turning that into wording.</blockquote>
+            <p>But several of the proposed wording changes are actually normative, not just descriptive:</p>
+            <p>1. Mandating that floating-point literals have no negative sign bit ([lex.fcon]). No implementation does this differently, but it was never required before.</p>
+            <p>2. Requiring unary <code>-</code> to flip the sign bit of zero ([expr.unary.op]). Again, all compilers do this, but the standard didn't say they had to.</p>
+            <p>3. Defining "bitwise identical" and using it for template argument equivalence ([temp.type]). This replaces the vague "identical" with something that has a concrete operational definition via <code>std::bit_cast</code>.</p>
+            <p>None of these are controversial - they're all encoding what compilers already do. But "investigating what the status quo is and turning that into wording" undersells it. These are normative changes that narrow the implementation space. That's the right thing to do here. I just wish the paper owned it more directly instead of framing itself as purely descriptive.</p>
+            <p>The Q&amp;A section (section 3) is worth reading on its own as a reference. I've had the "is negative zero negative" argument at work more than once and the answer ("no, because negative means less than zero, and <code>-0.0</code> compares equal to <code>0.0</code>") is one of those things that's obvious once someone writes it down.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_nttp_fan</span>
+            <span class="score">9 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 3.14 on template argument equivalence is the part I care about most. The current wording says floating-point template arguments must be "identical" but never defines what that means for floats. All three compilers just mangle the bit pattern into the symbol name:</p>
+            <pre><code>_Z1fILf7fc00000EEvv:   // default qNaN
+        ret
+_Z1fILf7fc00001EEvv:   // different qNaN payload
+        ret</code></pre>
+            <p>Two distinct instantiations for what ISO/IEC 60559 considers the same value. The paper proposes "bitwise identical" via <code>std::bit_cast</code> which matches what compilers already do and what <a href="https://wg21.link/p1714r1">P1714R1</a> originally intended before it got rejected in favor of P1907R1.</p>
+            <p>This also means <code>std::constant_wrapper</code> would work correctly with distinct NaN payloads, which is a nice side effect.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/definitely_not_a_NaN</span>
+                  <span class="score">4 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>NaN payloads as template arguments. That is deeply cursed and I love it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/wasm_dev_42</span>
+            <span class="score">5 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The sNaN relaxation for <code>is_iec559</code> is the right call. On WASM targets, <code>f32</code>/<code>f64</code> instructions don't handle signaling NaNs at all - they silently get treated as quiet NaNs. But GCC and Clang still report <code>is_iec559 == true</code> because the <em>format</em> conforms to IEEE 754, just not the signaling behavior.</p>
+            <blockquote>An implementation is permitted to treat all signaling NaNs as quiet NaN instead, even for types that adhere to ISO/IEC 60559.</blockquote>
+            <p>This fixes a real contradiction that has bitten people writing portable numeric code. The alternative would be forcing <code>is_iec559 = false</code> on WASM, which would break a lot of <code>if constexpr</code> branches that people use to select IEEE-aware code paths. Worse for everyone.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

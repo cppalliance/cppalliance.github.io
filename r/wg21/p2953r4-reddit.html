@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Forbid defaulting operator=(X&amp;&amp;) &amp;&amp;</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P2953",
+    "revision": 4,
+    "document": "P2953R4",
+    "title": "Forbid defaulting operator=(X&&) &&",
+    "authors": "Matthew Taylor, Arthur O'Dwyer",
+    "audience": "EWG",
+    "date": "2026-02-22",
+    "comments": 8,
+    "upvotes": 23,
+    "upvote_pct": "88%",
+    "poster": "quiet_spec_reader",
+    "heat": "cold",
+    "interest": "relevant",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P2953R4 - Forbid defaulting operator=(X&amp;&amp;) &amp;&amp; <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/quiet_spec_reader &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Matthew Taylor, Arthur O'Dwyer<br>
+        <strong>Document:</strong> P2953R4<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Target:</strong> EWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p2953r4">wg21.link/p2953r4</a></p>
+
+        <p>C++ currently lets you write <code>A&amp; operator=(const A&amp;) &amp;&amp; = default</code> - an explicitly defaulted copy-assignment operator that's rvalue-ref-qualified. Nobody does this on purpose. The compiler is happy to generate it, but it makes no sense: you're asking the compiler to default-implement assignment to an rvalue. This paper proposes to make it stop.</p>
+
+        <p>Two options on the table: the "ambitious" approach makes these declarations ill-formed outright, while the "conservative" approach makes them defaulted-as-deleted. The authors prefer ill-formed. They also sweep up a few other arcane forms - cv-qualified defaulted assignment, cv-qualified parameters in defaulted move assignment - that are currently deleted-by-default and nobody uses.</p>
+
+        <p>This is closely coupled with <a href="https://wg21.link/p2952">P2952</a> (placeholder return types for defaulted assignment), already in CWG for C++29. Without P2953, P2952 creates a subtle inconsistency where two "natural" implementations of the same operator deduce different return types.</p>
+      </div>
+      <div class="vote-count">&#9650; 23 points (88% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Comment 1: constexpr_all_the_things (noise - sarcastic) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_all_the_things</span>
+            <span class="score">38 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I love that somewhere out there, four compilers independently decided to handle <code>C&amp; operator=(const C&amp;) &amp;&amp; = default</code> differently, and it took until R4 of a paper to sort it out. Standards gonna standard.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 2: sfinae_or_bust (TEASER - ill-formed vs deleted) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/sfinae_or_bust</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The actually interesting question buried in this paper is the ill-formed vs. defaulted-as-deleted choice. Section 2.2 explains the history:</p>
+
+            <blockquote>we want to continue permitting programmers to write things like the above <code>C</code></blockquote>
+
+            <p>That's the P0641 carve-out. You write <code>C(const C&amp;) = default</code> in a class template, and if a member only has <code>A(A&amp;)</code>, the copy constructor quietly becomes deleted instead of making the whole template ill-formed. That matters for real code.</p>
+
+            <p>The paper argues the rvalue-ref-qualified case doesn't need this treatment because nobody writes <code>B&amp; operator=(const B&amp;) &amp;&amp; = default</code> in templates. The GitHub search bears this out. But the design principle is worth watching: every time we decide "nobody does X so we can make X ill-formed instead of deleted," we're betting against future template metaprogramming creativity. The paper makes a good case that this particular bet is safe.</p>
+
+            <p>If you care about the wording details, the <a href="https://eel.is/c++draft/dcl.fct.def.default">current [dcl.fct.def.default]</a> is what's being modified.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 2a: daily_cpp_spelunker (reply - GitHub search) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_cpp_spelunker</span>
+                  <span class="score">21 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Six. They searched all of GitHub, filtered out compiler test suites and LLVM forks, and found <em>six</em> results for rvalue-ref-qualified defaulted assignment operators. Versus 311k results for the normal forms.</p>
+                  <p>I think the "will this break real code" question is settled.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 3: blog_post_enjoyer (noise - Arthur appreciation) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/blog_post_enjoyer</span>
+            <span class="score">12 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Arthur O'Dwyer finding an obscure defaulted-special-member corner case that all four major compilers handle differently is the most Arthur O'Dwyer thing that has ever happened. The man has a sixth sense for language-lawyer edge cases.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 4: wording_nerd_2024 (signal - P2952 interaction) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/wording_nerd_2024</span>
+            <span class="score">9 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The motivation section buries the lede. The real urgency is the <a href="https://wg21.link/p2952">P2952</a> interaction. Without P2953, you get:</p>
+
+            <blockquote>The two "natural" implementations deduce different types! This looks inconsistent.</blockquote>
+
+            <p>The hand-written <code>auto&amp;&amp; operator=(this C&amp;&amp; self, const C&amp;)</code> deduces <code>C&amp;&amp;</code>. The defaulted version deduces <code>C&amp;</code>. Both are "doing the natural thing" and they disagree. P2953 sidesteps this by making the defaulted version unusable.</p>
+
+            <p>The EWG poll on merging this into P2952 was 6-for, 1-against, with nine neutrals. Not exactly a groundswell. But the sole "Against" voter on P2952's electronic poll specifically cited the lack of P2953 as their reason. So the papers are coupled whether EWG intended it or not.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Interstitial ad: eel.is/c++draft -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">eel.is/c++draft</div>
+        <div class="promoted-body">The latest C++ working draft. Hyperlinked, searchable, always current. <a href="https://eel.is/c++draft">eel.is/c++draft</a></div>
+      </div>
+
+      <!-- Comment 5: compiler_bug_collector (signal - vendor divergence) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiler_bug_collector</span>
+            <span class="score">7 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The vendor divergence table in section 2.3 is worth a look. Nine test cases across Clang, GCC, MSVC, and EDG, and they disagree on at least three of them. GCC <a href="https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116162">fixed one of these</a> in 2025. MSVC and EDG still diverge on the <code>decltype(f())</code> case.</p>
+            <p>This is a cleanup paper that's also documenting compiler bugs nobody knew they had.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 6: just_ship_already_99 (tangent - SMF complexity) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_already_99</span>
+            <span class="score">6 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Someday I want someone to draw the complete flowchart of "when is an explicitly defaulted special member function (a) well-formed, (b) defined-as-deleted, (c) ill-formed on first declaration, or (d) ill-formed only if not on first declaration." Because after reading this paper I'm pretty sure the answer varies by compiler.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 6a: constexpr_all_the_things (tangent reply - punchline) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_all_the_things</span>
+                  <span class="score">17 points</span>
+                  <span class="time">47 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>That flowchart would be defaulted-as-deleted.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

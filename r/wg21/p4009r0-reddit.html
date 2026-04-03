@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - A proposal for solving all of the contracts concerns</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P4009",
+  "revision": 0,
+  "document": "P4009R0",
+  "title": "A proposal for solving all of the contracts concerns",
+  "authors": "Ville Voutilainen",
+  "audience": "EWG",
+  "date": "2026-02-09",
+  "comments": 50,
+  "upvotes": 347,
+  "upvote_pct": "84%",
+  "poster": "standards_digest_2025",
+  "heat": "hot",
+  "interest": "magnetic",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">standards_digest_2025 &middot; 14 hr. ago</div>
+
+    <div class="submission">
+      <div class="title">P4009R0 - A proposal for solving all of the contracts concerns <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/standards_digest_2025</span> &middot; 14 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p4009r0">P4009R0</a> &middot; <strong>Author:</strong> Ville Voutilainen &middot; <strong>Date:</strong> 2026-02-09 &middot; <strong>Audience:</strong> EWG</p>
+        <p>Ville Voutilainen drops a grenade on the C++26 contracts timeline. The proposal rewrites the contracts surface: bare <code>pre(cond)</code> means guaranteed enforce - no configuration can turn it off - while <code>pre(std::pre(cond))</code> wraps the predicate in a library function that queries a configuration mechanism to pick between enforce, observe, quick_enforce, or ignore. The core language gets only two evaluation semantics: enforce and ignore. All the <a href="https://wg21.link/p2900">P2900</a> complexity moves to library functions.</p>
+        <p>The motivation is blunt: the Romanian NB comment objects to the lack of guaranteed enforcement, several vendors and prominent members are unhappy, and Voutilainen argues the committee is "at war" with its own constituency by pushing P2900 through as-is. The paper also punts constification to C++29 and admits the implementation-defined configuration mechanism won't work across modules.</p>
+        <p>Bold move at this stage of C++26. Whether you think this is a reasonable design alternative or DIS-phase arson, it's worth reading.</p>
+      </div>
+      <div class="vote-count">&#9650; 347 points (84% upvoted) &middot; 50 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- ==================== COMMENT 1: AutoModerator pin ==================== -->
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">14 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>Paper information for P4009R0:</strong></p>
+              <p><strong>Title:</strong> A proposal for solving all of the contracts concerns<br>
+              <strong>Author:</strong> Ville Voutilainen<br>
+              <strong>Document:</strong> <a href="https://wg21.link/p4009r0">P4009R0</a><br>
+              <strong>Date:</strong> 2026-02-09<br>
+              <strong>Audience:</strong> EWG</p>
+              <p><em>I am a bot, and this action was performed automatically. Please <a href="/message">contact the moderators</a> if you have any questions or concerns.</em></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 2: Meme (267 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/throwaway_83721</span>
+            <span class="score">267 points</span>
+            <span class="time">13 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>we're going to end up with <code>pre(std::pre(std::pre(pre(x))))</code> and call it progress</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/linker_error_420</span>
+                  <span class="score">87 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>std::pre(std::pre(std::pre(...</code> recursive template instantiation depth exceeded. Contracts for C++ has been successfully optimized to C++ for Contracts.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/build_system_victim</span>
+                  <span class="score">34 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>compile-time contracts: the assertion is that your build finishes before the heat death of the universe</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 3: TEASER - evaluation semantics (234 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/pre_and_post_mortem</span>
+            <span class="score">234 points</span>
+            <span class="time">11 hr. ago</span>
+            <span class="awards">&#127942; &#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>Did anyone else actually trace through the evaluation model here?</p>
+            <p><code>pre(std::pre(x &gt;= 0))</code></p>
+            <p>When the configuration says "ignore," <code>std::pre()</code> returns <code>std::ignore</code>. The language <code>pre</code> keyword sees the return type is <code>std::ignore_t</code> and uses the "ignore" semantic. Sounds clean.</p>
+            <p>But <code>std::pre(x &gt;= 0)</code> is a function call. <code>x &gt;= 0</code> is a function argument. It's evaluated <em>before</em> <code>std::pre</code> runs, regardless of what the configuration says.</p>
+            <p>The entire point of P2900's "ignore" semantic is that the predicate is not evaluated. You have an expensive invariant check like <code>is_sorted(vec.begin(), vec.end())</code> and in production, ignore means don't pay for it. With this design, you always pay.</p>
+            <p>The paper says "QoI will do what's expected there" for the N-evaluation question, but the evaluation-on-ignore issue isn't QoI - it's a fundamental consequence of the library approach. Unless <code>std::pre</code> is compiler magic masquerading as a library function, which kind of defeats the purpose of making it "library-geared."</p>
+            <p>This is the load-bearing claim of the paper and I don't think it holds weight.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/library_design_nerd</span>
+                  <span class="score">89 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is the key insight. The paper explicitly says the goal is to "avoid lambdas as a mechanism for deferring evaluation" - but it doesn't actually defer evaluation. It just changes what happens <em>after</em> evaluation. That's a categorically different thing.</p>
+                  <p>P2900's ignore: predicate is not evaluated.<br>
+                  P4009's ignore: predicate is evaluated, result is discarded.</p>
+                  <p>These have very different performance profiles for anything beyond trivial boolean checks.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/pre_and_post_mortem</span>
+                        <span class="score">43 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Right. And it's not just performance. If your predicate has observable side effects - logging, metrics, whatever - P2900-ignore is silent. P4009-ignore still triggers them. That's a semantic difference that library authors care about.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/implementer_at_large</span>
+                              <span class="score">67 points</span>
+                              <span class="time">9 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>"QoI will do what's expected there" is doing more heavy lifting in this paper than <code>std::ignore</code> is.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_read_the_paper</span>
+                  <span class="score">52 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>To steelman the approach: the paper's position is that genuinely expensive predicates should use the configurable form, and <code>std::pre()</code> as a library function <em>could</em> be implemented with compiler support that elides evaluation. The paper says "implementation-defined configuration mechanism" - that gives compilers room to make <code>std::pre</code> special.</p>
+                  <p>Not saying it's convincing, but "always evaluates" isn't necessarily the design intent - it's the consequence if you read <code>std::pre</code> as a normal function. An implementation could treat it as a builtin.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 4: Syntax complaint (203 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/skill_issue_2026</span>
+            <span class="score">203 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>pre(std::pre(x &gt;= 0))</code> is the "simpler" syntax?</p>
+            <p>Am I reading this right?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/yet_another_cpp_dev</span>
+                  <span class="score">178 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It's simpler in the same way that C++ is a simple language</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_read_the_paper</span>
+                  <span class="score">61 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>To be fair, bare <code>pre(x &gt;= 0)</code> is still available and means guaranteed enforce. The <code>std::pre()</code> wrapping is only for configurable semantics. So the simplest form <em>is</em> simple.</p>
+                  <p>The framing as "simpler overall" is a stretch though.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_first_try</span>
+                  <span class="score">92 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>finally, a standard that values job security for those of us who explain contract semantics in code review</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 5: Process tangent (156 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/standards_process_cynic</span>
+            <span class="score">156 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>So let me get this straight.</p>
+            <p>We removed contracts from C++20. Spent 5 years redesigning them in SG21. Got <a href="https://wg21.link/p2900">P2900</a> into C++26. And now, in the DIS phase, we're considering tearing it up again?</p>
+            <p>Is this a standards body or a Sisyphus cosplay?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_on_the_committee</span>
+                  <span class="score">48 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"extraordinary situation" is doing a lot of heavy lifting in that paper</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/committee_process_watcher</span>
+                  <span class="score">72 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Dismissing it as process theatrics misses the point. The Romanian NB comment is real and it has formal weight. There are national bodies who have said "we cannot use this feature as designed." That's not a Reddit complaint - it's a ballot-level objection with teeth.</p>
+                  <p>Whether P4009 is the right response is debatable. Whether the concern it addresses is legitimate is not.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/yet_another_cpp_dev</span>
+                        <span class="score">19 points</span>
+                        <span class="time">9 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Genuine question: has an NB comment ever actually killed a C++ feature at the DIS stage?</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== AD: CppCon 2026 ==================== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO</div>
+        <div class="promoted-body">Early bird ends May 15. The conference for the C++ community.</div>
+      </div>
+
+      <!-- ==================== COMMENT 6: Teaching perspective (89 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/teaching_track</span>
+            <span class="score">89 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From a teaching perspective, I currently explain <code>pre(cond)</code> as "this function requires cond to be true." One sentence. Students get it.</p>
+            <p>Explaining <code>pre(std::pre(cond))</code> means I have to cover:</p>
+            <p>1. The language keyword <code>pre</code><br>
+            2. A library function <code>std::pre()</code> that queries a configuration mechanism<br>
+            3. That configuration mechanism picks a semantic (enforce, observe, ignore, quick_enforce)<br>
+            4. Based on the semantic, <code>std::pre()</code> returns either a bool or <code>std::ignore</code><br>
+            5. The language keyword interprets the return type to decide what to do</p>
+            <p>That's five abstraction layers for what should be a one-layer concept. Even if students only use the bare form, they'll encounter <code>std::pre()</code> in every library and every blog post within a month of the feature shipping.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_or_die</span>
+                  <span class="score">143 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>the real contract is the friends we confused along the way</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/enterprise_assertions_guy</span>
+                  <span class="score">37 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Your students should be using bare <code>pre(cond)</code> then. That form is still there, still simple. The <code>std::pre()</code> wrapping exists for organizations that need configurable semantics. Different audiences, different needs.</p>
+                  <p>Not everything in the standard needs to be teachable to first-year students.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/teaching_track</span>
+                        <span class="score">52 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>In theory, sure. In practice, "best practices" guides will standardize on <code>std::pre()</code> because it's the flexible form. The first Stack Overflow answer will say "always use <code>std::pre()</code> for production code." And now every student encounters the complex form first.</p>
+                        <p>We've seen this with <code>auto</code> and trailing return types. The simple form exists, but the internet decided the complex form is "correct."</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 7: "every time" noise (87 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_real_language_lawyer</span>
+            <span class="score">87 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>every time I think contracts is done, another paper drops that says "actually, have we considered..."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_or_die</span>
+                  <span class="score">142 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>the contracts cinematic universe at this point has more sequels than fast and furious</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_template_wizard</span>
+                  <span class="score">56 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>P2900 is like a TV show that keeps getting renewed when everyone thought the series finale already aired</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 8: Compiler + ENCOUNTER (78 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiler_person_42</span>
+            <span class="score">78 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Speaking as someone who works on a major compiler toolchain: the "implementations are experimental anyway" argument in this paper cuts both ways.</p>
+            <p>Yes, P2900 implementations aren't production-hardened yet. But we've invested real engineering effort implementing P2900's four evaluation semantics, its interaction with constant evaluation, the violation handler model. "Just change the design" isn't free even for experimental code.</p>
+            <p>More concerning is this:</p>
+            <blockquote><p>the suggested implementation-defined facility will not work across modules or across TUs</p></blockquote>
+            <p>That's not a minor caveat. If the feature can't work across the boundaries that C++20 introduced as a headline feature, you're shipping a known incompatibility.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_committee_intern</span>
+                  <span class="score">27 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>this is why we can't have nice things</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/the_real_assertion</span>
+                  <span class="score">34 points</span>
+                  <span class="dagger">&dagger;</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The implementation cost argument is overstated. The core language change here is small: two semantics (enforce, ignore) instead of four. That's <em>less</em> to implement, not more. The library part is new work, but library work is inherently lower-risk than core language machinery.</p>
+                  <p>And the module point - yes, the paper acknowledges a limitation. But P2900's interaction with modules isn't exactly solved either. Contract checking across module boundaries has open questions in both designs.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/compiler_person_42</span>
+                        <span class="score">52 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Lower risk? Look at the diagnostic quality story.</p>
+                        <p>The paper proposes <code>source_location</code> as a fallback for the expression text that current contract assertions display. <code>source_location</code> gives you file and line. It does not give you <code>x &gt;= 0 &amp;&amp; x &lt; size()</code>.</p>
+                        <p>The paper's answer is to invent a future "facility that captures code in a nearby context in text form." That's not a solution. That's a TODO comment dressed in committee language.</p>
+                        <p>You're asking implementers to ship something with degraded diagnostics now, on the promise of a fix later. That's the kind of thing that makes compiler teams nervous.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/the_real_assertion</span>
+                              <span class="score">28 points</span>
+                              <span class="time">5 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>The diagnostic quality concern is legitimate. I'll give you that.</p>
+                              <p>But is your position that we should adopt a more complex language mechanism with four configurable semantics - because the simpler one loses expression text in diagnostics? That's an engineering tradeoff, not a showstopper. Especially since the paper explicitly outlines how implementations can solve it with their own mechanisms today.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/compiler_person_42</span>
+                                    <span class="score">41 points</span>
+                                    <span class="time">5 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>I'll concede the core language delta is small. Two semantics is simpler than four, full stop.</p>
+                                    <p>But the total system - core language + library functions + implementation-defined configuration + the future diagnostic facility + the future constification keyword + the module interop story - that's not a small delta. That's spreading the complexity across four features and three release cycles, and hoping they all land.</p>
+                                    <p>I'd rather have one feature that's self-contained in C++26, even if it's more complex at the language level, than a design that requires C++29 to be complete.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== AD: Compiler Explorer ==================== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title"><a href="https://godbolt.org" style="color: var(--text-primary); text-decoration: none;">godbolt.org</a></div>
+        <div class="promoted-body">Because you need to see the assembly.</div>
+      </div>
+
+      <!-- ==================== COMMENT 9: NB comment analysis (71 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_a_delegate</span>
+            <span class="score">71 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I want to make a distinction that keeps getting lost in these threads.</p>
+            <p>The Romanian NB comment isn't "contracts bad." It's specifically about the lack of <em>guaranteed enforcement</em> - the ability to say "this contract MUST be checked, always, no build configuration can override this, and the program terminates if it fails."</p>
+            <p>P2900 has enforce, but any build can configure it away. Bare <code>pre(cond)</code> in this proposal IS guaranteed enforce - nothing can turn it off. That directly addresses the NB concern.</p>
+            <p>Whether the rest of the P4009 apparatus is worth it is a separate question. But on the specific NB complaint, this paper has an answer that P2900 currently does not.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/standards_process_cynic</span>
+                  <span class="score">93 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>So the solution to "we want guaranteed enforcement" is an entire design overhaul that also changes configurable enforcement, punts constification, breaks diagnostics, and admits it won't work with modules?</p>
+                  <p>That's using a nuclear submarine to deliver a pizza.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/contracts_watcher</span>
+                  <span class="score">39 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is exactly right. And it raises the obvious question: could you solve the NB comment with a much smaller change? Add a guaranteed-enforce annotation to P2900 - something like <code>pre enforce(cond)</code> that can't be configured away - and leave everything else as is.</p>
+                  <p>P4009 bundles a targeted fix for the NB concern with a wholesale redesign. The bundling is the problem.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 10: Enterprise perspective (67 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/enterprise_assertions_guy</span>
+            <span class="score">67 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I work at a large financial institution. We have exactly the kind of custom assertion macros the paper describes. Our entire codebase uses <code>OUR_PRECONDITION(cond)</code> which expands to different checking behavior based on build type, component level, and runtime configuration.</p>
+            <p><code>pre(our::precondition(cond))</code> is genuinely how we'd want to use a standardized contracts facility. The ability to plug our existing assertion infrastructure into language-level contracts without replacing it is appealing.</p>
+            <p>For shops that already have assertion frameworks like <a href="https://github.com/bloomberg/bde">BDE</a> or <a href="https://abseil.io">Abseil</a> CHECK macros, this is a natural fit.</p>
+            <p class="edit">Edit: To be clear, I'm not saying the syntax is pretty. I'm saying the <em>model</em> - language keyword wrapping a library call - maps cleanly to what enterprise codebases actually look like.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_template_wizard</span>
+                  <span class="score">44 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>But that's the thing - you already <em>have</em> custom macros. This proposal makes the standard syntax longer for everyone else so that shops with existing infra can plug in marginally more cleanly. That's optimizing for the minority case.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/contracts_watcher</span>
+                  <span class="score">123 points</span>
+                  <span class="time">9 hr. ago</span>
+                  <span class="awards">&#127942;</span>
+                </div>
+                <div class="comment-text">
+                  <blockquote><p>The BSLS-prefix is completely fictional. The naming style used in it is the work of the author's imagination. Any resemblance to actual naming schemes is entirely coincidental.</p></blockquote>
+                  <p>Yes Ville, we believe you. Completely fictional. Absolutely no resemblance to any particular financial institution's coding standards whatsoever. None at all.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 11: Constification (58 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constification_matters</span>
+            <span class="score">58 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The constification punt is getting less attention than it deserves.</p>
+            <p>P2900 makes preconditions const-evaluable - contracts can be checked at compile time. This is the path toward static contract verification, which is arguably the most valuable long-term capability contracts could provide.</p>
+            <p>This paper says "let's just not do constification" and instead proposes a standalone <code>constify()</code> keyword in C++29. We're trading a capability we have now for a promise of a different capability three years later.</p>
+            <p>And <code>constify()</code> as described is a significant language feature on its own. Deferring it to C++29 means it might not land until C++32 if scope creep hits. We've seen that pattern before.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/pre_and_post_mortem</span>
+                  <span class="score">29 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Worth noting that constification in P2900 wasn't exactly uncontroversial either. Several committee members felt it was too restrictive. But removing it entirely and promising a replacement is a hard sell when the replacement doesn't exist yet.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 12: Library extensibility (45 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor_42</span>
+            <span class="score">45 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The extensibility story is actually interesting, even if the syntax makes me wince.</p>
+            <p>Right now, if you want custom assertion semantics, you're completely outside the language facility. You use macros. They don't interact with the language's contract checking at all - the compiler can't reason about them, tools can't analyze them, <a href="https://github.com/boostorg/contract">Boost.Contract</a> does its thing entirely at library level.</p>
+            <p>With <code>pre(my_custom_function(cond))</code>, the language <code>pre</code> keyword knows about your custom assertion. It participates in the contract model. That's new. The paper is right that this is "the simplest and most familiar extension mechanism" - it's just a function call.</p>
+            <p>The question is whether the costs (evaluation-on-ignore, diagnostic quality loss, deferred constification, module limitations) are worth that extensibility.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/library_design_nerd</span>
+                  <span class="score">67 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>At what cost though?</p>
+                  <p>You lose diagnostic quality (<code>source_location</code> is not <code>x &gt;= 0 &amp;&amp; x &lt; size()</code>). You lose the ability to skip evaluation. You gain the ability to call a function - which, as you note, we can already do with macros.</p>
+                  <p>The paper's answer for diagnostics is to eventually "introduce a new facility that captures code in a nearby context in text form." That's vaporware. It doesn't exist, isn't proposed, and has no timeline.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/former_boost_contributor_42</span>
+                        <span class="score">31 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>You're not wrong. The diagnostic quality story is the real achilles heel. <code>source_location</code> gives you <code>foo.cpp:42</code> when what you want is <code>x &gt;= 0 &amp;&amp; x &lt; container.size()</code>. The paper openly acknowledges this and punts it.</p>
+                        <blockquote><p>a new facility that simply captures code in a nearby context in text form</p></blockquote>
+                        <p>"Simply." Right.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 13: Blog title prediction (44 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_knows_templates</span>
+            <span class="score">44 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I cannot wait for the blog post titled "<code>pre(std::pre(cond))</code> considered harmful"</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 14: UB noise (33 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/segfault_enjoyer</span>
+            <span class="score">33 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><em>laughs in undefined behavior</em></p>
+            <p>you guys are getting contracts?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/move_semantics_enjoyer</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>we've been negotiating the terms of the contract since 2015</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 15: "10 years" noise (21 pts) ==================== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_hater_9000</span>
+            <span class="score">21 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>great, another paper that will take 10 years to get through EWG. by the time contracts actually ship, I'll be writing Rust in a retirement home and complaining about borrow checker ergonomics</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 16: [removed by moderator] ==================== -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score negative">-3 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/turbo_llama_9000</span>
+                  <span class="score">5 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/coroutine_hater_9000</span>
+                        <span class="score">11 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>some crypto link about "decentralized contract verification" or something. you know, the usual</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== COMMENT 17: Rust tangent (collapsed, -12 pts) ==================== -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_use_rust_already</span>
+            <span class="score negative">-12 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile in Rust, every function just has a <code>requires</code> attribute and it works. No committees, no five-year redesign cycles, no NB comments. Just ship the feature.</p>
+            <p>But sure, let's spend another three years bikeshedding <code>pre(std::pre(pre(cond)))</code>.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_real_language_lawyer</span>
+                  <span class="score">94 points</span>
+                  <span class="time">38 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Sir, this is a WG21 subreddit</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="score">38 points</span>
+                  <span class="time">31 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust doesn't have a standard contracts feature either. They have third-party crate annotations. Glass houses.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

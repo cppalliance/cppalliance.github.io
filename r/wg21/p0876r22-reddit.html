@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - P0876R22 - fiber_context - fibers without scheduler</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P0876",
+  "revision": 22,
+  "document": "P0876R22",
+  "title": "fiber_context - fibers without scheduler",
+  "authors": "Oliver Kowalke, Nat Goodspeed",
+  "audience": "LEWG, LWG, CWG",
+  "date": "2026-02-22",
+  "comments": 52,
+  "upvotes": 342,
+  "upvote_pct": "82%",
+  "poster": "standards_watcher_2026",
+  "heat": "hot",
+  "interest": "magnetic",
+  "flair": "WG21",
+  "generated": "2026-04-02"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">standards_watcher_2026 &middot; 5 hr. ago</div>
+
+    <div class="submission">
+      <div class="title">P0876R22 - fiber_context - fibers without scheduler<span class="flair">WG21</span></div>
+      <div class="meta">&#9650; 342 points &middot; 52 comments &middot; submitted 5 hours ago by u/standards_watcher_2026</div>
+      <div class="body">
+        <p><strong>Document:</strong> P0876R22 &middot; <strong>Authors:</strong> Oliver Kowalke, Nat Goodspeed &middot; <strong>Date:</strong> 2026-02-22 &middot; <strong>Audience:</strong> LEWG, LWG, CWG</p>
+        <p>Oliver Kowalke and Nat Goodspeed are back with R22 of the fiber proposal - the paper that has been through more revisions than most of us have had performance reviews. <code>fiber_context</code> proposes a minimal API for stackful context switching. No scheduler, no green threads, no opinions about how you use it. Just <code>resume()</code> to switch stacks and a synthesized <code>fiber_context</code> to switch back. Think Boost.Context, but standardized.</p>
+        <p>The pitch: give C++ a low-level primitive for switching between function call stacks. This is the building block that <a href="https://github.com/boostorg/fiber">Boost.Fiber</a>, Meta's <a href="https://github.com/facebook/folly">folly::fibers</a>, Bloomberg's quantum, Baidu's bthread, and literally billions of WeChat users (via Tencent's libco) already rely on through Boost.Context. A fiber switch takes 11 CPU cycles on x86_64. That is function-call territory.</p>
+        <p>The drama: EWG forwarded this to CWG/LWG for C++26 in Sofia last June (SF 10 / F 14 / N 4 / A 5 / SA 1), but both groups ran out of time. Now targeting C++29. The per-fiber exception state requirement from St. Louis 2024 remains the main implementation controversy, with Microsoft voicing performance concerns.</p>
+        <p>Paper: <a href="https://wg21.link/p0876r22">https://wg21.link/p0876r22</a></p>
+      </div>
+      <div class="vote-count">342 points (82% upvoted)</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+<!-- ===== PINNED MOD COMMENT ===== -->
+<div class="mod-pin">
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username mod">u/AutoModerator</span>
+      <span class="score">1 point</span>
+      <span class="time">5 hr. ago</span>
+      <span class="flair">pinned comment</span>
+    </div>
+    <div class="comment-text">
+      <p>Reminder: be civil. Paper authors sometimes read these threads. If you haven't read the paper, consider doing so before commenting on the design.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== TEASER: async_plumber - coroutine frame allocation ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/async_plumber</span>
+      <span class="score">97 points</span>
+      <span class="time">4 hr. ago</span>
+      <span class="awards">&#127942;</span>
+    </div>
+    <div class="comment-text">
+      <p>I work on an async networking stack built on Boost.Fiber, and this is the comment I've been waiting to write for about five years.</p>
+      <p>The paper barely touches what I think is the strongest argument for <code>fiber_context</code>: <a href="https://wg21.link/p4003r0">P4003R0</a> and P4007R0 laid out the coroutine frame allocation problem for async I/O. Every coroutine in an I/O call chain has a frame that can't be HALO-optimized because the operation's lifetime outlives the caller. So you need a custom allocator, threaded through every single coroutine in the chain via a <code>thread_local</code> write-through cache.</p>
+      <p>With fibers? The stack pointer IS your allocator. Decrement to allocate, increment to deallocate. Zero overhead frame management. We switched from a coroutine-based I/O model to <a href="https://github.com/facebook/folly">folly::fibers</a> at $employer three years ago and saw measurable latency improvements at p99 just from eliminating coroutine frame allocation churn.</p>
+      <p>The <code>resume()</code> taking 11 cycles claim checks out in our benchmarks on x86_64. That is comparable to a virtual function call. But the elephant in the room is the per-fiber exception state mandate from St. Louis - EWG voted 6/8/3/0/0 to require it. Has anyone actually measured what that costs on top of the 11 cycles?</p>
+      <p>Real link for the curious: <a href="https://github.com/boostorg/context">github.com/boostorg/context</a> - this is what the proposed API is modeled on.</p>
+      <p class="edit">Edit: to be clear, the 11 cycles number is from Boost.Context WITHOUT per-fiber exception state. The paper proposes mandating it but doesn't benchmark the delta. That's the thing I want to see.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+      <span class="action">Save</span>
+    </div>
+    <div class="replies">
+
+<!-- ENCOUNTER: fiber_skeptic_2024 responds -->
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/fiber_skeptic_2024</span>
+      <span class="score">54 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>This is a great summary of the allocation argument, but you've buried the lede in your own edit. The 11 cycles number is meaningless for evaluating the proposal because the proposal mandates something that isn't measured in those 11 cycles.</p>
+      <p>Per-fiber exception state means on every <code>resume()</code> or <code>resume_with()</code> you have to save and restore the data underlying <code>std::uncaught_exceptions()</code> and <code>std::current_exception()</code>. The paper describes two strategies: (1) save/restore TLS on every switch, or (2) use <code>upper_bound()</code> on current stack pointer to look up which fiber is current. Strategy 1 adds a TLS read+write on every switch. Strategy 2 shifts cost to every exception query.</p>
+      <p>What's the actual number? 15 cycles? 30? 100 on Windows with SEH? The paper doesn't say.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/async_plumber</span>
+      <span class="score">38 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Fair point. In our testing with the Boost.Context patch that Nat presented in Wroclaw, the TLS save/restore strategy adds roughly 3-5ns per switch on libstdc++/Linux. So call it 20-25 total cycles on a modern Xeon. Still well under a microsecond, still orders of magnitude cheaper than a kernel context switch.</p>
+      <p>Whether that's acceptable depends on your workload. For us doing network I/O where each operation already takes microseconds minimum, it's noise. For someone doing millions of fiber switches per second on a hot HFT path, maybe not.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="3">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/fiber_skeptic_2024</span>
+      <span class="score">29 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>3-5ns on libstdc++/Linux is the optimistic case though. Gor Nishanov's feedback in February 2025 specifically flagged Windows/SEH as the concern. The MSVC exception model ties exception state to the stack in a fundamentally different way than Itanium ABI.</p>
+      <p>And "possible while expressing concern about potential performance" from the paper is doing a LOT of heavy lifting. What does "concern about potential performance" mean when it's Microsoft talking about their own runtime?</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="4">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/async_plumber</span>
+      <span class="score">22 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Yeah, the Windows story is genuinely different. SEH is stack-frame-based, and fibers create new stacks. I don't think anyone is claiming the cost is identical across platforms.</p>
+      <p>But here's the thing - without per-fiber exception state, you get the Appendix A/B/C horrors. <code>std::current_exception()</code> returns the wrong exception. <code>throw;</code> rethrows something from a completely different fiber. Those aren't hypothetical - the paper has working demonstrations of the breakage.</p>
+      <p>So the question isn't "is per-fiber exception state expensive." It's "is the alternative - broken exception semantics - acceptable." I'd argue no.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="5">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/fiber_skeptic_2024</span>
+      <span class="score">18 points</span>
+      <span class="time">1 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Alright, that's a fair framing. Correctness over performance, especially for a feature that's supposed to be a building block. I'd still like to see actual benchmarks from MSVC before this ships, but I concede the paper made the right call mandating it. The alternative is a landmine in the standard library.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies depth 4 -->
+  </div>
+</div>
+
+    </div><!-- /replies depth 3 -->
+  </div>
+</div>
+
+    </div><!-- /replies depth 2 -->
+  </div>
+</div>
+
+    </div><!-- /replies depth 1 -->
+  </div>
+</div>
+
+<!-- ===== NOISE: 22 revisions joke ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/UB_enjoyer_420</span>
+      <span class="score">287 points</span>
+      <span class="time">5 hr. ago</span>
+      <span class="awards">&#127942;&#127942;</span>
+    </div>
+    <div class="comment-text">
+      <p>22 revisions. this paper has been in committee longer than some of my coworkers have been alive</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/cmake_victim_42</span>
+      <span class="score">143 points</span>
+      <span class="time">5 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>committee gonna committee</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/boost_user_since_03</span>
+      <span class="score">34 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Some of us have been waiting for this since N3985 in 2014. The lineage is N3985 &rarr; P0099 &rarr; P0534 &rarr; P0876. Over a decade of stackful context switching proposals. At this rate my grandchildren will get to use <code>std::fiber_context</code>.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== SIGNAL: context_switch_cost - HFT perspective ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/context_switch_cost</span>
+      <span class="score">76 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>The paper claims:</p>
+      <blockquote><p>A fiber switch takes 11 CPU cycles on a x86_64-Linux system using an implementation based on the strategy described in fiber switch using the calling convention</p></blockquote>
+      <p>We've measured similar numbers with our own fcontext-based implementation. On Zen4 it's closer to 8-9 cycles. On Sapphire Rapids, 10-12. The calling-convention trick - save only the callee-saved registers (R12-R15, RBX, RBP on SysV) and swap the stack pointer - is well-understood and about as fast as you can get without compiler intrinsics.</p>
+      <p>What I want to know is the cost with the per-fiber exception state mandate baked in. The paper proposes TLS save/restore on every switch OR an <code>upper_bound()</code> lookup on <code>current_exception()</code>/<code>uncaught_exceptions()</code> calls. In our codebase, fiber switches are on the critical path. Even 5ns extra per switch matters when you're doing 10M+ switches/sec on a market data feed.</p>
+      <p>The paper needs actual benchmark numbers for both strategies before LWG can make an informed decision.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/not_a_real_dev</span>
+      <span class="score">12 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>wait, 11 cycles for a context switch? that's like... nothing? why is this even a debate</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/context_switch_cost</span>
+      <span class="score">41 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>11 cycles is the base cost without exception state tracking. That's the whole point - the base is cheap. The question is what the mandated additions do to that number. A kernel context switch is 10,000-50,000 cycles depending on the OS and what gets invalidated. Even if per-fiber exception state doubles the fiber switch cost to 22 cycles, it's still three orders of magnitude faster. But "doubles the cost" is the kind of thing I'd like to know before it ships.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/coroutine_hater</span>
+      <span class="score">23 points</span>
+      <span class="dagger">&dagger;</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>now add exception state save/restore plus whatever Windows SEH magic MSVC needs and watch that number triple. this is the classic WG21 pattern - propose something elegant, then committee requirements make it expensive, then it ships 5 years late and nobody uses it because the Boost version is faster</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== NOISE: coroutines solve everything ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/coroutine_hater</span>
+      <span class="score">67 points</span>
+      <span class="time">5 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Remember when we were told coroutines would solve everything? P2300 and sender/receiver would give us async I/O and it would be beautiful? Now we need fibers because coroutine frame allocation is a problem (P4003R0), and coroutines waiting on senders need to propagate a custom allocator through every parameter list (P4007R0). Classic.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/senior_cpp_23</span>
+      <span class="score">28 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Coroutines and fibers serve different purposes. Coroutines are great for lazy evaluation, generators, and structured concurrency patterns where suspension points are explicit. Fibers are for when you want to run existing synchronous code cooperatively without rewriting every function signature. Reading the paper helps.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/coroutine_hater</span>
+      <span class="score">15 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>I've read all 22 revisions thanks. My point is that the committee spent 5 years betting on stackless coroutines as the async primitive and now we're circling back to "actually you need stackful switching too." The ecosystem figured this out ages ago - that's why Boost.Fiber and folly::fibers exist.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== SIGNAL: actually_read_the_paper - process analysis ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/actually_read_the_paper</span>
+      <span class="score">89 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Let me lay out the timeline because the process story here is remarkable.</p>
+      <p>LWG tentatively approved library wording in St. Louis, June 2024. CWG finished initial core wording review in Tokyo, March 2024 - with one change request (per-fiber exception state). EWG approved that change 6/8/3/0/0 in St. Louis. Then EWG requested implementation experience. Wroclaw: presented it. Microsoft asked for time. Hagenberg: Microsoft conceded it's implementable, but arrived too late for EWG. Sofia, June 2025: EWG forwarded to CWG/LWG for C++26 with SF 10 / F 14 / N 4 / A 5 / SA 1.</p>
+      <p>And then CWG and LWG ran out of time.</p>
+      <p>The paper quotes <a href="https://wg21.link/p1000r6">P1000R6</a>:</p>
+      <blockquote><p>Just wait a couple more meetings and C++ will be open for business and can be the first thing voted into the C++ working draft.</p></blockquote>
+      <p>This is the promise of the train model. A paper that has been through 22 revisions, had wording approved by two groups, got forwarded by a third, and still missed the train because of scheduling. Now it's C++29. The authors are understandably frustrated, and they are being polite about it.</p>
+      <p>The 5 against + 1 strongly against in the EWG vote is worth noting though. That is not insignificant opposition for a paper at forwarding stage. The concerns are real even if the majority is clear.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/just_ship_networking</span>
+      <span class="score">156 points</span>
+      <span class="time">3 hr. ago</span>
+      <span class="awards">&#127942;</span>
+    </div>
+    <div class="comment-text">
+      <p>can we please just get networking OR fibers OR anything async in the standard before I retire</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/async_plumber</span>
+      <span class="score">43 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>networking + fibers would honestly be the dream combo. synchronous-looking I/O code that's actually cooperative under the hood. that's what <a href="https://github.com/userver-framework/userver">userver</a> already does and it's a great model.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/template_wizard_9000</span>
+      <span class="score">71 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>the train model is more like a bus that's always full and the driver is arguing with the passengers about whether the destination exists</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== TANGENT: Rust async ===== -->
+<div class="comment collapsed" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/yet_another_throwaway</span>
+      <span class="score negative">-8 points</span>
+      <span class="time">5 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Meanwhile in Rust, we've had async/await for years and it actually shipped. No 22 revisions, no "ran out of time." Just a working async model. But sure, keep arguing about fiber exception semantics for another decade.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/template_wizard_9000</span>
+      <span class="score">192 points</span>
+      <span class="time">5 hr. ago</span>
+      <span class="awards">&#127942;&#127942;&#127942;</span>
+    </div>
+    <div class="comment-text">
+      <p>Sir, this is a Wendy's</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/systems_greybeard</span>
+      <span class="score">34 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Rust's async model is pinning-based with stackless futures. Completely different design space. Rust explicitly chose NOT to support stackful coroutines/fibers because of the interaction with their ownership model. The tradeoffs are legitimate in both directions. This comparison helps nobody.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== SIGNAL: systems_greybeard - P3620R0 critique ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/systems_greybeard</span>
+      <span class="score">62 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>I want to push back on how the paper handles <a href="https://wg21.link/p3620r0">P3620R0</a>'s concerns. The paper states:</p>
+      <blockquote><p>At a high level, P3620R0 appears to argue that unless fibers are appropriate for all use cases, they must not be available for any use case.</p></blockquote>
+      <p>This is a straw man and the authors probably know it. P3620R0 raises three specific, technical concerns:</p>
+      <p>1. <code>thread_local</code> is shared between fibers on the same thread. The paper says "std::thread was introduced despite this problem." But <code>thread_local</code> was literally designed FOR threads. Fibers break the expectation. The paper's own TLS section acknowledges the problems but waves them away.</p>
+      <p>2. Deadlock potential when holding a mutex across a fiber switch. The paper again says "C++20 coroutines have the same problem." True, but coroutines have a visible suspension point (<code>co_await</code>). With fibers, ANY opaque function call might suspend. That is a qualitative difference in audibility.</p>
+      <p>3. Cross-thread resumption is forbidden (removed in R10). But many production fiber schedulers - including <a href="https://github.com/apache/brpc">brpc's bthread</a> - DO migrate fibers between threads. The standard facility is strictly less capable than several of the deployed systems the paper cites as evidence of demand.</p>
+      <p>Dismissing these as "fibers aren't appropriate for all use cases so they can't be available for any" is not engaging with the actual technical objections. A stronger paper would steelman P3620R0 and explain why the tradeoffs are still worth it.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/boost_user_since_03</span>
+      <span class="score">11 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>I've been using <a href="https://github.com/boostorg/fiber">Boost.Fiber</a> in production since 2016 and the TLS thing has literally never bitten us. We don't use <code>thread_local</code> in fiber-aware code. It's a known constraint, not a showstopper.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/systems_greybeard</span>
+      <span class="score">27 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Your experience in a fiber-aware codebase doesn't generalize. The whole point of standardizing something is that it gets used by people who didn't write the library. What happens when someone calls a third-party library from a fiber and that library uses <code>thread_local</code> internally? The paper's own Section on TLS explicitly acknowledges this: function F uses <code>thread_local</code> V, calls function G which resumes another fiber, that fiber modifies V, and when F regains control, V has a surprising value.</p>
+      <p>The paper's response is "std::thread was introduced despite this problem." That's true but threads got <code>thread_local</code> as a companion. Fibers don't get <code>fiber_local</code>. SG1 rejected P3346R0 which would have made <code>thread_local</code> fiber-specific.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/fiber_skeptic_2024</span>
+      <span class="score">19 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>+1 on the cross-thread point especially. The paper cites brpc bthread (1 million+ deployed instances), Alibaba's Photon, and Meta's folly as evidence of demand - but all three support migrating fibers between threads, which <code>fiber_context</code> explicitly forbids. The standard version is a strict subset of what the cited production systems actually do.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== NOISE: green threads ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/definitely_knows_fibers</span>
+      <span class="score">5 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>so this is basically green threads but they don't want to call it green threads</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/coroutine_convert</span>
+      <span class="score">31 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>No. Green threads have a scheduler. <code>fiber_context</code> is specifically scheduler-free. When you call <code>resume()</code>, YOU decide which fiber runs next. There is no runtime making scheduling decisions for you. That is the entire point of this being a "building block" - you can implement green threads on top of it (Boost.Fiber does exactly that), but the primitive itself is lower level.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== AD: CppCon 2026 ===== -->
+<div class="promoted">
+  <div class="promoted-label">Promoted</div>
+  <div class="promoted-title">CppCon 2026 - Aurora, CO</div>
+  <div class="promoted-body">Early bird ends May 15. The conference for the C++ community. Keynotes, sessions, lightning talks, and more.</div>
+</div>
+
+<!-- ===== SIGNAL: coroutine_convert - API design analysis ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/coroutine_convert</span>
+      <span class="score">84 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>The API design here is genuinely interesting, and I think most people scrolling past are missing what makes it clever.</p>
+      <p>The key insight: <code>resume()</code> returns a synthesized <code>fiber_context</code> representing the calling fiber. So the fiber you switch to receives a handle to the fiber that just suspended. And <code>resume()</code> is rvalue-ref-qualified, so calling it empties the object. You literally cannot hold two handles to the same fiber.</p>
+<pre><code>fiber_context f{[](fiber_context&amp;&amp; caller) {
+    // caller is the fiber that called f.resume()
+    caller = std::move(caller).resume();
+    // back again, caller updated
+    return std::move(caller);
+}};
+f = std::move(f).resume();
+// f now represents the suspended lambda
+</code></pre>
+      <p>The type system prevents the misuse. If you have the object, you own the only handle. Once you call <code>resume()</code>, the object is empty. No double-resume, no dangling handles, no reference counting. Move-only + rvalue-ref-qualified is brutal and correct.</p>
+      <p>But the learning curve is steep. The "synthesized fiber_context" concept requires understanding that <code>resume()</code> both suspends the caller AND creates a new object representing that caller. It is symmetric switching - no caller/callee relationship. Compare to Go's goroutines where the scheduler is invisible, or coroutines where <code>co_await</code> is the explicit suspension point. <code>fiber_context</code> makes you be the scheduler, which is the point - and the barrier to adoption.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/daily_linker_error</span>
+      <span class="score">47 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>I read the code example three times and I still can't trace which fiber is running at which line. I think I understand it now but I had to draw a diagram. this is going to be a pedagogical nightmare.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/coroutine_convert</span>
+      <span class="score">35 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Right, and that is by design. The paper explicitly says this is the LOW-LEVEL primitive. You are not supposed to use <code>fiber_context</code> directly in application code any more than you use <code>mmap</code> instead of <code>new</code>. Libraries like Boost.Fiber wrap this in something sane. The value of standardizing the primitive is so those libraries can be written in portable C++ instead of per-platform assembly.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/segfault_appreciator</span>
+      <span class="score">21 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>move-only + rvalue-ref-qualified resume(). brutal and correct. this is how you prevent a whole class of bugs at the type level instead of writing "Preconditions: don't do that" in the spec</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== NOISE: constexpr joke ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/constexpr_everything_2025</span>
+      <span class="score">14 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>ok but can we make <code>fiber_context</code> constexpr</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/template_wizard_9000</span>
+      <span class="score">23 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>funny you should say that - the paper mentions that when Hana Dusikova was implementing <a href="https://wg21.link/p3367r3">P3367R3</a> constexpr coroutines, the "easiest way to model a coroutine" in the constexpr evaluator was to use fibers internally. so in some sense, fibers ARE constexpr. just not the way you meant</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== REMOVED + MOD ===== -->
+<div class="comment deleted" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">[deleted]</span>
+      <span class="time">5 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>[removed by moderator]</p>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/segfault_appreciator</span>
+      <span class="score">8 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>what did they say?</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/daily_linker_error</span>
+      <span class="score">11 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>something about how C++ is dead and everyone should just use $other_language. the usual tuesday vibes</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username mod">u/paper_trail_2019</span>
+      <span class="score">1 point</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Rule 2.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== SIGNAL: embedded_20_years - embedded perspective ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/embedded_for_20_years</span>
+      <span class="score">53 points</span>
+      <span class="time">2 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Embedded developer here. The explicit-stack constructor is the reason I care about this paper:</p>
+<pre><code>fiber_context(F&amp;&amp; entry, span&lt;byte&gt; stack, D&amp;&amp; deleter);
+</code></pre>
+      <p>On our STM32 targets, we cannot afford dynamic stack allocation. We preallocate fixed-size stacks from a pool. The span constructor is exactly right for this use case.</p>
+      <p>But the paper says: "If at any time during the life of a fiber the data storage required to track its invocation sequence exceeds the size() of that span, the behaviour is undefined." No guard pages in our environment. No MMU in many cases. Stack overflow is silent corruption.</p>
+      <p>11 cycles for a context switch is appealing for our RTOS replacement use case. But UB on stack overflow, with no way to detect it, is the worst possible answer for safety-critical embedded systems. An implementation-defined hook for stack overflow detection would make this paper much more attractive for our domain.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/async_plumber</span>
+      <span class="score">22 points</span>
+      <span class="time">1 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>The explicit stack constructor was added in R12 specifically for use cases like yours. You're right that the UB on overflow is unfortunate - but that is the same UB you get with any thread's stack today. The paper does note that implementations "might find it advantageous" to provide a guard page, but that is a Note, not normative.</p>
+      <p>For embedded, you probably want to size your stacks conservatively and instrument with stack painting during development. Same as with RTOS task stacks.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/not_a_real_dev</span>
+      <span class="score negative">-3 points</span>
+      <span class="time">1 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>what's a guard page?</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== AD: Corosio ===== -->
+<div class="promoted">
+  <div class="promoted-label">Promoted</div>
+  <div class="promoted-title">Corosio - Async I/O for C++</div>
+  <div class="promoted-body">Built on Boost. Stackful coroutines and async networking for modern C++. <a href="https://corosio.org" style="color: var(--text-link);">corosio.org</a></div>
+</div>
+
+<!-- ===== DELETED ===== -->
+<div class="comment deleted" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">[deleted]</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>[deleted]</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TANGENT: compile times ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/just_ship_networking</span>
+      <span class="score">31 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p><em>laughs in compile times</em></p>
+      <p>at least <code>&lt;fiber_context&gt;</code> is presumably not going to be a compile-time disaster like <code>&lt;ranges&gt;</code>. it's one class with like 6 member functions.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/cmake_victim_42</span>
+      <span class="score">18 points</span>
+      <span class="time">3 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>single header, single class, no template metaprogramming wizardry. this might be the most compile-time-friendly proposal to come out of WG21 in years. small victories.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== NOISE: ELI5 ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/not_a_real_dev</span>
+      <span class="score">3 points</span>
+      <span class="time">5 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>can someone ELI5 what a fiber is? I thought threads were the things you use for concurrency</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/senior_cpp_23</span>
+      <span class="score">42 points</span>
+      <span class="time">5 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Thread: the OS decides when it runs and when it stops. Preemptive. Expensive to create (kernel resources, default 1-8MB stack). Having 10,000 of them makes your OS unhappy.</p>
+      <p>Fiber: YOU decide when it runs and when it stops. Cooperative. Cheap to create (user-space, you pick the stack size). Having 100,000 of them is fine. Each fiber runs on a thread, but many fibers can share one thread by taking turns.</p>
+      <p><code>fiber_context</code> specifically: the lowest-level version of "fiber." No scheduler, no runtime, no opinions. Just <code>resume()</code> to switch from one stack to another. Everything else is built on top by libraries.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="2">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/not_a_real_dev</span>
+      <span class="score">1 point</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>ok that makes sense. but if I have to write the scheduler myself, why not just use threads and let the OS do it?</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="3">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/senior_cpp_23</span>
+      <span class="score">28 points</span>
+      <span class="time">4 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>Because 10,000 concurrent connections = 10,000 threads = your OS crying. With fibers you handle 10,000 connections on a handful of threads. Each connection gets its own fiber with a small stack. When a connection is waiting for I/O, its fiber suspends and the thread picks up another fiber. 11 cycles to switch vs 10,000+ for a kernel context switch.</p>
+      <p>You don't write the scheduler yourself - you use a library (Boost.Fiber, folly::fibers, etc.). Those libraries use <code>fiber_context</code> under the hood. This paper standardizes the under-the-hood part so those libraries don't need platform-specific assembly.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+<!-- ===== SIGNAL: fiber_skeptic_2024 - terminate on destroy ===== -->
+<div class="comment" data-depth="0">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/fiber_skeptic_2024</span>
+      <span class="score">44 points</span>
+      <span class="time">1 hr. ago</span>
+    </div>
+    <div class="comment-text">
+      <p>One more thing that bothers me about the proposed API. Destroying a non-empty <code>fiber_context</code> calls <code>terminate</code>:</p>
+      <blockquote><p>If empty() is false, terminate is invoked ([except.terminate]).</p></blockquote>
+      <p>This is more aggressive than <code>std::thread</code>, which gives you <code>detach()</code> and <code>join()</code> as escape hatches. With <code>fiber_context</code>, if you forget to properly wind down a fiber before the handle goes out of scope, your program dies. Period.</p>
+      <p>The paper includes an <code>autocancel</code> wrapper class in Appendix D - roughly 60 lines of non-trivial code - just to safely manage fiber lifetimes. If the "building-block primitive" requires a 60-line RAII wrapper to avoid calling <code>terminate</code>, maybe the building block needs another look at its lifecycle design.</p>
+      <p>I get the reasoning: you can't safely destroy a suspended fiber's stack because of RAII objects that might hold resources. And detach doesn't make sense without a scheduler. But "get it wrong and your program terminates" is a sharp edge for something intended to be foundational.</p>
+      <p class="edit">Edit: to be fair, std::jthread partially addressed the same problem for threads. Maybe a std::jfiber is the answer here too, but that's a separate paper and a separate decade of committee time.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+    <div class="replies">
+
+<div class="comment" data-depth="1">
+  <div class="votebar">
+    <span class="arrow up">&#9650;</span>
+    <span class="arrow down">&#9660;</span>
+  </div>
+  <div class="comment-body">
+    <div class="comment-header">
+      <span class="username">u/actually_read_the_paper</span>
+      <span class="score">19 points</span>
+      <span class="time">47 minutes ago</span>
+    </div>
+    <div class="comment-text">
+      <p>The <code>autocancel</code> in Appendix D is illuminating. It has to track a done flag, a stop flag, and loop over <code>resume()</code> calls until the fiber voluntarily terminates. And even then the paper says the result is ambiguous because returning empty from resume doesn't necessarily mean YOUR fiber terminated - it could be some other fiber in the chain that terminated and resumed you.</p>
+      <p>This is the paper being honest about the complexity of the problem. Fibers are genuinely harder to manage than threads because there is no OS to clean up after you. Whether that makes the API wrong or just low-level is a reasonable question.</p>
+    </div>
+    <div class="comment-footer">
+      <span class="action">Reply</span>
+      <span class="action">Share</span>
+      <span class="action">Report</span>
+    </div>
+  </div>
+</div>
+
+    </div><!-- /replies -->
+  </div>
+</div>
+
+    </div><!-- /comments -->
+  </div><!-- /thread -->
+</body>
+</html>

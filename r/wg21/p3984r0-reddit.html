@@ -1,0 +1,2327 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - A type-safety profile</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3984",
+    "revision": 0,
+    "document": "P3984R0",
+    "title": "A type-safety profile",
+    "authors": "Bjarne Stroustrup",
+    "audience": "EWG, SG12, SG20, SG23",
+    "date": "2026-02-22",
+    "comments": 87,
+    "upvotes": 1247,
+    "upvote_pct": "89%",
+    "poster": "constexpr_everything_2024",
+    "heat": "thermonuclear",
+    "interest": "gravitational",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3984R0 - A type-safety profile <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/constexpr_everything_2024 &middot; 14 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Bjarne Stroustrup<br>
+        <strong>Document:</strong> P3984R0<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Target:</strong> EWG, SG12, SG20, SG23<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3984r0">wg21.link/p3984r0</a></p>
+
+        <p>Bjarne's latest on profiles - this time with actual detail on what type-safety and resource-safety profiles would look like in practice. Four target audiences tells you the scope.</p>
+
+        <p>The pitch: "subset a superset" of C++. Add safe abstractions (hardened containers, <code>not_null</code>, runtime checks where needed), then ban the raw features those abstractions replace (pointer arithmetic, unchecked subscripts, uninitialized access). Opt-in per TU. Result is still ISO C++, linkable with everything else.</p>
+
+        <p>The paper walks through each class of type violation - initialization, ranges, nullptr, and the hard one: invalidation (dangling pointers). For invalidation it proposes static analysis plus a new <code>[[not_invalidating]]</code> attribute for functions that don't invalidate their pointer arguments. Section 2.4 on copies and moves is... one sentence. Section 5 outlines a plan for progress toward standardization.</p>
+
+        <p>Explicitly described as "aimed at understanding, not a standards text" - so no proposed wording yet. Profiles have been in flight since the Core Guidelines era. This paper is the philosophical foundation; <a href="https://wg21.link/p3081">P3081</a> is the one with concrete wording targeting C++26.</p>
+      </div>
+      <div class="vote-count">&#9650; 1,247 points (89% upvoted) &middot; 87 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Pinned: AutoModerator -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="score">1 point</span>
+            <span class="time">14 hr. ago</span>
+            <span class="flair">pinned comment</span>
+          </div>
+          <div class="mod-pin">
+            <p><strong>Paper:</strong> P3984R0 - A type-safety profile | <strong>Author:</strong> Bjarne Stroustrup | <strong>Date:</strong> 2026-02-22 | <strong>Audience:</strong> EWG, SG12, SG20, SG23 | <strong>Link:</strong> <a href="https://wg21.link/p3984r0">wg21.link/p3984r0</a></p>
+            <p>Reminder: paper authors sometimes read these threads. Be civil, be specific, critique the paper not the person. Rule 2 violations will be removed.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Comment 1: just_ship_it_already (noise, top quip) -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_it_already</span>
+            <span class="score">340 points</span>
+            <span class="time">13 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>profiles R0. we've been doing profiles R0 for five years now. this is like groundhog day but the groundhog is a WG21 paper number.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compile_time_enjoyer</span>
+                  <span class="score">189 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>at this rate C++ will be memory safe by 2050</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/template_pessimist</span>
+                        <span class="score">267 points</span>
+                        <span class="time">12 hr. ago</span>
+                        <span class="awards">&#127942;</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>optimistic</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_boost_contributor</span>
+                  <span class="score">34 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I remember when profiles was just a slide in a Core Guidelines talk at CppCon 2015. we were so young. so naive.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TEASER: lifetime_lint_survivor (signal, deep analysis) -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lifetime_lint_survivor</span>
+            <span class="score">187 points</span>
+            <span class="time">12 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>we must accept only code that's not too complex to analyze</blockquote>
+            <p>This is the sentence that should have been in the abstract. The entire paper's guarantee has an asterisk, and the asterisk says "unless the code is hard."</p>
+            <p>I've spent the last four years working on lifetime analysis tooling. The problem isn't the easy cases - yeah, you can catch the <code>push_back</code> invalidation example in the paper. That's freshman stuff. The problem is the exponential blowup when you have:</p>
+            <p>1. Conditional returns of pointers with different origins<br>
+            2. Callbacks that store references into containers<br>
+            3. Type-erased handles (<code>any</code>, <code>function</code>, <code>coroutine_handle</code>)<br>
+            4. Placement new into <code>aligned_storage</code> or successor types</p>
+            <p>The paper acknowledges this ("fundamentally impossible to statically analyze") but then handwaves the boundary. What happens at the edge? The paper says reject the code. Rejection means refactoring. Refactoring means cost. Nobody's quantifying that cost.</p>
+            <p>Rust solved this by making the boundary explicit in the type system - lifetimes are part of the signature. Profiles tries to infer the boundary from existing C++ semantics, and the paper admits the inference has limits. The question isn't whether profiles can handle the vector example. The question is what percentage of real-world code falls into the "too complex" bucket.</p>
+            <p>I'd bet it's larger than anyone on the committee wants to hear.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Encounter 1 seed -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/static_analysis_enjoyer</span>
+                  <span class="score">78 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is the thing that kills me about profiles. The paper <em>almost</em> gets it right - the invalidation rules in 2.6 are genuinely clever for the cases they cover. But the "too complex" escape hatch is where the guarantee lives or dies, and the paper treats it as an implementation detail instead of a design parameter.</p>
+                  <p>How big is the escape hatch? That's the question the paper should answer and doesn't.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Encounter 1: Turn 1 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/async_skeptic_42</span>
+                        <span class="score">92 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I implement lifetime analysis tooling and the "too complex" boundary is narrower than people think. We handle 85-90% of real-world patterns in our static analyzer. The remaining 10-15% isn't "fundamentally impossible" - it's "would require inter-procedural analysis that's expensive but feasible."</p>
+                        <p>The paper is conservative because it's aimed at compiler-integrated analysis, not standalone tools. Compilers have tighter time budgets. But Clang's <a href="https://clang.llvm.org/docs/LifetimeSafety.html">lifetime safety analysis</a> already handles a lot of the patterns people assume are intractable. The gap between "what a compiler can check in reasonable time" and "what's fundamentally impossible" is where the engineering happens.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- Encounter 1: Turn 2 -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/static_analysis_enjoyer</span>
+                              <span class="score">56 points</span>
+                              <span class="time">10 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>85-90% is doing a lot of work in that sentence. What's in the other 10-15%? Because in my experience that's where the CVEs live. The easy patterns are the ones nobody gets wrong anyway.</p>
+                              <p>Show me the escape hatch boundaries for type-erased callbacks, coroutine frames, and placement new. Those aren't exotic - they're the backbone of every async framework, every signal/slot system, every ECS. If profiles can't handle the patterns that modern C++ actually uses, the guarantee is theoretical.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <!-- Encounter 1: Turn 3 -->
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/async_skeptic_42</span>
+                                    <span class="score">67 points</span>
+                                    <span class="time">9 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Fair challenge. Type-erased callbacks: if the type erasure goes through <code>std::function</code> or <code>std::move_only_function</code>, the analyzer can track through the known interface. Custom type erasure: that's in the "requires unsafe block" bucket, yes. Placement new: same bucket. Coroutine frames: genuinely hard because the frame lifetime is opaque to the caller.</p>
+                                    <p>I'll concede coroutines are the weak point. But "profiles can't handle coroutines perfectly" isn't "profiles are useless." It's "profiles need to mark coroutine frame access as unsafe by default until better analysis exists."</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies">
+
+                                    <!-- Encounter 1: Resolution -->
+                                    <div class="comment" data-depth="5">
+                                      <div class="votebar">
+                                        <span class="arrow up">&#9650;</span>
+                                        <span class="arrow down">&#9660;</span>
+                                      </div>
+                                      <div class="comment-body">
+                                        <div class="comment-header">
+                                          <span class="username">u/static_analysis_enjoyer</span>
+                                          <span class="score">43 points</span>
+                                          <span class="time">9 hr. ago</span>
+                                        </div>
+                                        <div class="comment-text">
+                                          <p>We agree on the real question then: is 85% coverage with explicit escape hatches for the rest good enough to satisfy the NSA/CISA pressure, or does the industry need Rust-level guarantees? I genuinely don't know the answer. But the paper should be honest about where the boundary is instead of deferring it to "too complex."</p>
+                                        </div>
+                                        <div class="comment-footer">
+                                          <span class="action">Reply</span>
+                                          <span class="action">Share</span>
+                                          <span class="action">Report</span>
+                                        </div>
+                                        <div class="replies"></div>
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/intern_at_faang</span>
+                  <span class="score">12 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I'm not reading all that but I trust you</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Rust tangent (LOCKED) -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_rustacean</span>
+            <span class="score negative">-47 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>just use Rust lol. this entire paper is 17 pages of coping with the fact that C++ can't do what Rust does by default.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/senior_cpp_dev_69</span>
+                  <span class="score">234 points</span>
+                  <span class="time">13 hr. ago</span>
+                  <span class="awards">&#127942;</span>
+                </div>
+                <div class="comment-text">
+                  <p>there it is. 23 minutes. new record for this sub.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/legacy_codebase_survivor</span>
+                  <span class="score">89 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>some of us have codebases written before you were born that generate actual revenue. "just use Rust" isn't a migration plan, it's a bumper sticker.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/UB_is_a_feature</span>
+                        <span class="score negative">-12 points</span>
+                        <span class="time">12 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>skill issue</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username mod">u/paper_trail_2019</span>
+                  <span class="score">1 point</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rule 2. We get it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="locked-notice">&#128274; This thread has been locked by the moderators of r/wg21.</div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: [[not_invalidating]] annotation burden -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_library_author</span>
+            <span class="score">89 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From section 1:</p>
+            <blockquote>we avoid having to rely on developers following guidelines and sprinkling annotations all over the code</blockquote>
+            <p>From section 2.6:</p>
+            <blockquote>Add a [[not_invalidating]] attribute to be used to speed up analysis</blockquote>
+            <p>The paper argues against annotations in section 1 and introduces a new annotation in section 2.6. I realize these aren't technically the same thing - <code>[[not_invalidating]]</code> is "just an optimization" per the paper - but in practice, any non-trivial API surface will need this on dozens of functions to avoid false positive rejections.</p>
+            <p>The annotation burden for the standard library alone is non-trivial. <code>vector::size()</code>, <code>vector::empty()</code>, <code>vector::capacity()</code>, <code>map::find()</code>, every const accessor on every container - all need <code>[[not_invalidating]]</code> or the analyzer assumes the worst. And getting it wrong means either false rejections (annotation missing) or false safety (annotation wrong on a function that does invalidate).</p>
+            <p>The paper says the annotation "can be verified when the function definition is compiled" - but the implementation cost of re-analyzing every annotated function under profile rules is itself non-trivial. This is the kind of detail that separates a 17-page vision document from a specification.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/pragma_once_and_done</span>
+                  <span class="score">45 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>the irony is thick. "we don't want annotations." <em>proceeds to add an annotation.</em> "but this one is different." sure it is.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/annotation_skeptic</span>
+                  <span class="score">23 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>annotations all the way down. it's annotations the whole way.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: "10 years through committee" -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/another_lewg_paper</span>
+            <span class="score">156 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>great, another paper that will take 10 years to get through committee</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/specs_not_my_job</span>
+                  <span class="score">8 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>targeted to EWG actually</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/just_a_grad_student</span>
+                        <span class="score">67 points</span>
+                        <span class="time">11 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>even worse</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Embedded perspective -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/stm32_or_die</span>
+            <span class="score">73 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The runtime checks concern me. The paper says "eliminating undefined behavior (supported by runtime checks where necessary)" and that's the part that makes embedded developers nervous.</p>
+            <p>We run on Cortex-M4 with 256K flash and 64K RAM. Every byte matters. Every branch matters. If profiles means my <code>span</code> access now has a bounds check that I can't elide, that's a non-starter for ISR code.</p>
+            <p>The paper claims no "inessential overheads" but doesn't define "inessential." In my world, a single branch in a tight loop is essential overhead. I need to know: can I opt into type-safety for my application layer and opt out for my HAL code within the same TU? The paper's TU-level granularity might be too coarse for us.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_real_cpp_dev</span>
+                  <span class="score">45 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>you guys have 64K?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_by_necessity</span>
+                  <span class="score">32 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>We run safety-critical avionics code on bare metal. I'm cautiously interested but need to see the runtime check overhead quantified with actual numbers. "No inessential overhead" isn't a specification, it's a marketing claim. The zero-overhead principle was already a compromise - Bjarne said so himself in D&amp;E. Layering profiles on top of that compromise doesn't resolve it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: CppCon 2026 -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO</div>
+        <div class="promoted-body">Early bird ends May 15. The conference for the C++ community. <a href="https://cppcon.org">cppcon.org</a></div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Committee process / profiles history -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/sg23_lurker</span>
+            <span class="score">62 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For context, here's the profiles paper trail for anyone trying to follow along:</p>
+            <p>- <a href="https://wg21.link/p1179">P1179</a> - Lifetime safety (the original Sutter/Stroustrup proposal, 2019)<br>
+            - <a href="https://wg21.link/p3038">P3038</a> - Stroustrup's initial profiles framework<br>
+            - <a href="https://wg21.link/p3081">P3081</a> - Core safety profiles for C++26<br>
+            - <a href="https://wg21.link/p3274">P3274</a> - Framework for profile development<br>
+            - <a href="https://wg21.link/p3390">P3390</a> - Safe C++ (Baxter's competing approach)<br>
+            - <a href="https://wg21.link/p3586">P3586</a> - "Problems with profiles" (the rebuttal paper)<br>
+            - <a href="https://wg21.link/p3984">P3984</a> - This paper (type-safety profile detail)</p>
+            <p>That's seven papers on the same problem space and I'm probably missing a few. SG23 has been trying to navigate between profiles-first and safe-C++-first for two years now. The Wroc&#322;aw meeting reportedly had polls where profiles won priority, but "won priority" and "achieved consensus" are very different things in committee-speak.</p>
+            <p>The fact that this paper targets four groups (EWG, SG12, SG20, SG23) suggests Bjarne wants to go wide rather than deep through SG23 alone. That's either strategic or an acknowledgment that SG23 isn't converging.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/coroutine_casualty</span>
+                  <span class="score">87 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I need a flowchart just for the profiles papers alone. seven papers on the same problem space and you're "probably missing a few." there are papers about the papers at this point.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/paper_trail_lurker</span>
+                  <span class="score">28 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>If you want the other side of the argument, read <a href="https://wg21.link/p3586">P3586</a> ("Problems with profiles"). It's the most detailed technical critique of the profiles approach. And <a href="https://wg21.link/p3081">P3081</a> for the concrete core safety profile that's actually targeting C++26 standardization. P3984 reads like the philosophical foundation paper; P3081 is the one with proposed wording.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Removed comment + mod warning chain -->
+      <!-- ============================================================ -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer"></div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/move_semantics_hater</span>
+                  <span class="score">12 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/signed_overflow_fan</span>
+                        <span class="score">34 points</span>
+                        <span class="dagger">&dagger;</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>something about the inventor of C++ being out of touch with modern development. you know, the usual respectful discourse we're known for here.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username mod">u/not_on_the_committee</span>
+                              <span class="score">1 point</span>
+                              <span class="time">10 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Last warning. Rule 2.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: compiler dev eye twitch -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/volatile_brain</span>
+            <span class="score">112 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I work on a major C++ compiler's frontend and my eye is twitching reading section 2.6. the invalidation analysis as described is... let's say "optimistic" about what compile-time analysis can achieve in reasonable time.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/strictly_conforming</span>
+                  <span class="score">5 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>which compiler</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/volatile_brain</span>
+                        <span class="score">78 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>nice try</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: "Section 2.4 is literally one sentence" -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/the_real_template_wizard</span>
+            <span class="score">134 points</span>
+            <span class="time">10 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 2.4. Copies and moves. The entirety:</p>
+            <blockquote>To be handled similar to constructors and destructors.</blockquote>
+            <p>That's it. That's the section. One sentence for the feature responsible for approximately 40% of all non-trivial C++ bugs I've seen in production. Move semantics alone has generated more committee papers than some entire programming languages have features.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_segfault_42</span>
+                  <span class="score">67 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I had to scroll back to check and I'm dying. one sentence. for copies and moves. the man really said "exercise left to the reader" on the hardest part.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/copy_semantics_matter</span>
+                  <span class="score">56 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Copies and moves are where half the production bugs in C++ live. Move-from state, self-assignment, exception safety in copy constructors, the rule of five vs rule of zero tension. The paper spends half a page on the <code>push_back</code> invalidation example that any intern could debug, and one sentence on the move semantics footgun factory that has generated more CVEs than I can count.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/dangerous_moves</span>
+                        <span class="score">34 points</span>
+                        <span class="time">8 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+<pre><code>std::vector&lt;std::unique_ptr&lt;Widget&gt;&gt; widgets;
+auto&amp; w = widgets[0];
+widgets.push_back(std::make_unique&lt;Widget&gt;());
+w-&gt;update();  // w may be dangling after reallocation</code></pre>
+                        <p>The invalidation analysis from 2.6 catches this. But what about:</p>
+<pre><code>auto w = std::move(widgets[0]);
+widgets[0]-&gt;update();  // moved-from access</code></pre>
+                        <p>Moved-from state is type-safe by the standard's definition but not safe by any reasonable definition. Where does the profile draw the line?</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Game dev perspective -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/frame_budget_bill</span>
+            <span class="score">45 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>16.67ms per frame. That's what I have. Runtime bounds checks on every container access in our ECS iteration? No.</p>
+            <p>But - and I need to be honest here - 90% of our codebase isn't the hot path. Our UI code, our asset pipeline, our network layer, our scripting bridge - all of that could benefit from profiles. The question is granularity. Can I profile-protect my asset pipeline code while leaving my particle system alone?</p>
+            <p>The paper talks about TU-level opt-in. Most game engines don't organize TUs by "safe" and "unsafe" - they organize by system. I'd need something finer.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_enough_frames</span>
+                  <span class="score">23 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>frame budgets say no. 16.67ms or you're a slideshow.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/game_engine_pragmatist</span>
+                  <span class="score">31 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>In practice the problem is convincing a tech lead to adopt profiles when the exception list for performance-critical code is longer than the adoption guide. We need case studies. Take a real game engine module - say, the resource loading pipeline - apply profiles, measure the overhead. Until someone does that, it's all theory.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Finance / HFT perspective -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/nanosecond_accountant</span>
+            <span class="score">67 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>We measure in nanoseconds. Literally. Our hot path processes market data at 2.3 million messages/second and every conditional branch matters.</p>
+            <p>The paper says profiles insert "run-time checks to ensure that an error action is triggered rather than reaching the point of UB." In our world, we've spent years <em>removing</em> runtime checks. We know our data is valid because we control the entire pipeline. Adding bounds checks to our <code>span</code> access in the matching engine would cost us about 3ns per message. At our volume, that's 6.9 milliseconds per second of pure overhead.</p>
+            <p>I want type safety for our configuration layer, our logging, our REST API code. I do not want it anywhere near the matching engine. The paper's TU-level granularity is better than nothing, but what I really need is function-level or scope-level opt-in.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/turbo_llama_9000</span>
+                  <span class="score">89 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>tell me you work in HFT without telling me you work in HFT</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: committee gonna committee -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/committee_gonna_committee</span>
+            <span class="score">89 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>committee gonna committee. see you all in 2030 when we're debating the exact semantics of <code>[[not_invalidating]]</code> for the 47th time.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Safe C++ / Circle comparison + Encounter 2 -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/circle_curious</span>
+            <span class="score">103 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The fundamental question isn't "do profiles work" - it's "do profiles work well enough compared to the alternative."</p>
+            <p><a href="https://github.com/seanbaxter/circle">Circle's Safe C++</a> gives you a borrow checker. Actual ownership tracking in the type system. The compiler knows who owns what and for how long. The cost: new syntax, new semantics, a learning curve.</p>
+            <p>Profiles gives you: "we'll reject code that's too complex and ban some features." The benefit: no new syntax, opt-in, links with everything. The cost: the guarantee has escape hatches.</p>
+            <p>Both are trying to answer the same question from the NSA and CISA: "prove your code is memory safe." But they answer it at different confidence levels. A profile says "we checked everything we could check." A borrow checker says "we checked everything."</p>
+            <p>The committee chose profiles. I'm not sure the committee chose correctly, but I understand the politics.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Encounter 2: Turn 1 -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/dangling_by_design</span>
+                  <span class="score">67 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The thing people keep missing: they're not solving the same problem at the same depth. Circle adds lifetime tracking to the type system. That's a new capability - the compiler knows ownership and borrowing relationships. Profiles restricts what you can do with the existing type system and adds runtime checks. You can verify strictly more things with a richer type system than with a restricted subset of the same type system. That's not opinion, that's math.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Encounter 2: Turn 2 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/sg23_lurker</span>
+                        <span class="score">45 points</span>
+                        <span class="time">8 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>That's technically correct but it ignores the adoption curve. Circle requires new syntax, new mental models, a complete rethink of ownership at API boundaries. Profiles requires banning some patterns and adopting hardened containers. For a company with 10 million lines of C++, which migration path doesn't require rewriting everything?</p>
+                        <p>I was in the room for some of the SG23 discussions and the migration-cost argument is what tipped the balance.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- Encounter 2: Turn 3 -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/dangling_by_design</span>
+                              <span class="score">78 points</span>
+                              <span class="time">7 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Committee support and $5 gets you a coffee. The migration argument is real but it's also the argument against every improvement since the invention of the wheel. At some point the cost of NOT migrating exceeds the cost of migration. The NSA memo wasn't subtle. Companies that can't demonstrate memory safety guarantees are going to start losing government contracts. "We banned pointer arithmetic" is a weaker answer than "our type system enforces ownership."</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <!-- Encounter 2: Resolution -->
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/sg23_lurker</span>
+                                    <span class="score">34 points</span>
+                                    <span class="time">7 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Look, both approaches have genuine merit. The honest answer is probably that profiles covers the 80% case with less migration cost, and Circle-style ownership covers the 95% case with more migration cost. The question is which percentage the market will actually demand. If the answer turns out to be 95%, then profiles bought us time but didn't solve the underlying problem.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies"></div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/why_not_both_cpp</span>
+                  <span class="score">12 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>why not both.jpg</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Teaching / pedagogy perspective -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/actually_teaches_cpp</span>
+            <span class="score">58 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I teach intermediate C++ at a university. The paper opens with Bjarne's original motivation - combining C's hardware access with Simula's type safety. My students weren't born when Simula was relevant.</p>
+            <p>What I need from profiles is: "turn this on and 80% of the footguns disappear." What this paper gives me is: "turn this on and some footguns disappear but the boundary is complex and you need to understand <code>[[not_invalidating]]</code> and the invalidation analysis rules and which code patterns are 'too complex for the analyzer.'"</p>
+            <p>That's not a win for pedagogy. It's another thing to teach. I'd rather have fewer guarantees with a simpler mental model than more guarantees with escape hatches students don't understand.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_pupil</span>
+                  <span class="score">45 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>my students can barely understand const correctness and you want me to add profiles to the curriculum. I'm going to need a bigger syllabus.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Tangent: Build systems -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/cmake_victim_2025</span>
+            <span class="score">34 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>ok but real talk how does this interact with build systems. is <code>-fprofile=type_safety</code> a compiler flag? a pragma? a module attribute? the paper doesn't say and that's kind of important for anyone who actually has to ship this.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/modules_when</span>
+                  <span class="score">23 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>CMake support when</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/asking_real_questions</span>
+                        <span class="score">12 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>asking the real questions while everyone else debates theory</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/build_system_survivor</span>
+                  <span class="score">8 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>modules first, profiles second. you can't build on a foundation that doesn't compile.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Resource definition circularity -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/resource_leak_detective</span>
+            <span class="score">78 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 2.2 defines a resource as something that "must be acquired before use and released after its last use" - but then immediately narrows it to things with constructor/destructor pairs.</p>
+            <p>This means every C API resource (<code>FILE*</code>, <code>HANDLE</code>, socket fd, OpenGL context, Vulkan handles...) is invisible to the resource-safety profile until someone wraps it. The paper's answer is "encapsulate first." But the entire point of profiles is to help code that ISN'T already following best practices. If your code already wraps every C resource in RAII, you've already solved the problem profiles is trying to solve.</p>
+            <p>See <a href="https://github.com/microsoft/GSL">Microsoft's GSL</a> and the <a href="https://github.com/isocpp/CppCoreGuidelines">Core Guidelines</a> - they've been trying to get people to wrap raw resources for a decade. Profiles adds enforcement but doesn't solve the adoption problem.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/fclose_nullptr_fan</span>
+                  <span class="score">56 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>FILE*</code> has entered the chat. and exited without being closed. as is tradition.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/pedantic_standards_nerd</span>
+                        <span class="score">23 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p><code>fclose(NULL)</code> is straight UB per C17 7.21.5.1. not even implementation-defined. the profile can't help you if you never wrapped the handle in the first place. that's the point.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Invalidation analysis code example -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/dangling_by_design</span>
+            <span class="score">92 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The invalidation example in the paper is the easy case. Here's the hard one:</p>
+<pre><code>auto get_ref(std::map&lt;int,std::string&gt;&amp; m) {
+    auto [it, inserted] = m.try_emplace(42, "hello");
+    return std::string_view{it-&gt;second};
+}
+
+void use() {
+    std::map&lt;int,std::string&gt; m;
+    auto sv = get_ref(m);
+    m.clear();            // invalidates sv
+    std::cout &lt;&lt; sv;      // dangling string_view
+}</code></pre>
+            <p>The <code>string_view</code> returned from <code>get_ref</code> aliases memory owned by the map. The map isn't modified through the same reference chain. How does the profile track this? The paper says "don't let a pointer to a deleted object out of the function" but <code>get_ref</code> returns a pointer to a VALID object - it only becomes invalid when <code>m.clear()</code> is called later, in a different scope.</p>
+            <p>This is the class of bug that actually kills people in production, and I don't see how the rules in section 2.6 handle it without whole-program analysis or Rust-style lifetime annotations.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/godbolt_addict</span>
+                  <span class="score">34 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>For the curious: Clang trunk with <code>-Wdangling</code> already catches some of these patterns. The <a href="https://clang.llvm.org/docs/LifetimeSafety.html">lifetime safety analysis docs</a> cover the current state of the art. It's not the full profile as described here but it's the closest thing to a prototype we have.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/rewrite_in_rust_guy</span>
+                  <span class="score">45 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I showed this example to my coworker. he didn't switch to Rust, he just sighed and said "we use <code>shared_ptr</code> for everything anyway." I think that's worse.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Tangent: Government mandates -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/throwaway_wg21_84729</span>
+            <span class="score">34 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>nobody's gonna talk about the elephant in the room? the NSA memo, the CISA guidance, the White House push for memory-safe languages. this paper exists because governments are about to start mandating this stuff and C++ doesn't have an answer yet.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/memory_safe_or_bust</span>
+                  <span class="score">12 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>NSA literally said "use memory-safe languages." they didn't say "use C++ with some static analysis on top."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/definitely_not_a_committee_member</span>
+                        <span class="score">67 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>and then everyone switched to Rust and lived happily ever after. that's not how billion-dollar codebases work.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/policy_nerd_2026</span>
+                  <span class="score">23 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>fair, but "profiles might work in a few years" isn't going to satisfy a government auditor in 2027. the clock is ticking whether the committee wants it to or not.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Deleted comment -->
+      <!-- ============================================================ -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[deleted]</p>
+          </div>
+          <div class="comment-footer"></div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: "I actually read the whole thing" - delayed return -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/read_all_17_pages</span>
+            <span class="score">38 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I actually read the whole paper. Including section 5, the plan for progress.</p>
+            <p>The plan basically says: implement the type-safety and resource-safety profiles, get experience, iterate. It references prototypes ([HS21, CG, GDR25]) and suggests that the work is "sufficiently detailed to be translated in standardese with relatively few technical changes."</p>
+            <p>The word "relatively" is doing a lot of heavy lifting there. The gap between "here's a set of rules described in English prose" and "here's normative wording that three independent compilers can implement compatibly" is where profiles papers go to age. <a href="https://wg21.link/p1179">P1179</a> (lifetime safety) was 2019. We're in 2026. "Relatively few technical changes" in committee time could mean 2030.</p>
+            <p>The real question in section 5 isn't the plan - it's whether the committee has the patience for another iteration cycle on the same idea while the industry pressure for memory safety keeps growing.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/overworked_reviewer</span>
+                  <span class="score">56 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>you read all 17 pages? on purpose?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sg23_lurker</span>
+                  <span class="score">28 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Section 5 is where the real question lives. The plan for progress is basically "implement it, get experience, iterate." That's been the plan since 2019. The question is whether "iterate" converges before the market moves on.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: Bjarne's formatting -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/xX_consteval_Xx</span>
+            <span class="score">67 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Bjarne wrote this on a typewriter, I'm convinced. the formatting screams "I use Word and I'm not sorry about it."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/paper_number_goes_brrr</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>the numbered section headers, the bullet points that start mid-line, the references like [BS25b]. peak academic formatting. respect honestly.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: networking plea -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/networking_ts_forever</span>
+            <span class="score">45 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>can we please get networking in the standard before I retire. asking for a friend who started the petition in 2014.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Removed spam -->
+      <!-- ============================================================ -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer"></div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: self-referential citations -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lord_of_the_vtable</span>
+            <span class="score">78 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>the paper references itself as [BS25b, BS22b, BS23]. Bjarne really said "for further reading, see: me." king behavior honestly.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_archaeologist</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>lore master. when you invented the language, every prior work IS your work.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: web server plea + devastating reply -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/i_just_want_a_web_server</span>
+            <span class="score">56 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I just want to write a web server in C++ without worrying about use-after-free. is that too much to ask.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/someone_who_benchmarks</span>
+                  <span class="score">123 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>yes</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: optimistic take -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score">23 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>compiles first try if you never use raw pointers. profiles just makes that the law. I'm here for it actually.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Signal: Zero-overhead tension (recurring: lifetime_lint_survivor) -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lifetime_lint_survivor</span>
+            <span class="score">54 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>One thing that hasn't gotten enough attention: the paper explicitly says "a profile cannot change the semantics of a program beyond defining the meaning of some forms of undefined behavior" and then says profiles insert "run-time checks."</p>
+            <p>Runtime checks are overhead. The paper says profiles don't impose "inessential overheads." But who decides what's essential? A bounds check on <code>vector::operator[]</code> is essential for safety and inessential for performance. You can't have both.</p>
+            <p>The zero-overhead principle was the constraint that prevented Stroustrup from enforcing safety in the first place - he says so explicitly in the introduction. Profiles tries to thread the needle, but the needle hasn't gotten any wider in 40 years.</p>
+            <p class="edit">Edit: to be clear, I'm not saying profiles is wrong. I'm saying the paper should acknowledge the tension directly instead of papering over it with "inessential."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/hot_path_or_die</span>
+                  <span class="score">34 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>runtime checks are not zero overhead. the paper acknowledges this in one sentence and then moves on. pick one: safety or speed. you can't have both without a LOT more nuance than this paper provides.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: recruiter joke -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/interview_ptsd</span>
+            <span class="score">45 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>imagine explaining profiles to a recruiter. "what are your safety profile preferences?" "I prefer type_safety with resource_safety but I opt out in my ISR handlers." recruiter: <em>closes laptop</em></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/recruiter_brain_syndrome</span>
+                  <span class="score">78 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"do you know profiles?" "I know LinkedIn profiles." hired.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Noise: personality comment -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/this_is_my_personality_now</span>
+            <span class="score">12 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>this paper has been my entire personality for the last month and I'm not ok</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Collapsed: old guard -->
+      <!-- ============================================================ -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/cpp_since_98</span>
+            <span class="score negative">-3 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I don't understand why we need this. I've been writing C++ since '98 and I've never had a memory safety issue that couldn't be found with a debugger and two cups of coffee. This is a solution looking for a problem.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

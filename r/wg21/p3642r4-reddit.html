@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Carry-less product: std::clmul</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3642",
+  "revision": 4,
+  "document": "P3642R4",
+  "title": "Carry-less product: std::clmul",
+  "authors": "Jan Schultke",
+  "audience": "LEWG",
+  "date": "2026-02-17",
+  "comments": 7,
+  "upvotes": 47,
+  "upvote_pct": "89%",
+  "poster": "sg6_lurker",
+  "heat": "cold",
+  "interest": "niche",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3642R4 - Carry-less product: std::clmul <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/sg6_lurker</span> &middot; 6 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3642r4">P3642R4</a><br>
+        <strong>Author:</strong> Jan Schultke<br>
+        <strong>Date:</strong> 2026-02-17<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>Paper proposes <code>std::clmul</code> and <code>std::clmul_wide</code> for carry-less multiplication - also known as XOR multiplication or polynomial multiplication over GF(2). It's the operation behind CRC computation, AES-GCM in cryptography, and some clever bit manipulation tricks like the simdjson JSON parser's quote-pair detection.</p>
+
+        <p>Hardware support is universal: x86 has had PCLMULQDQ since 2010, ARM has NEON pmull, RISC-V has Zbc/Zbkc extensions. LLVM recently added a portable <code>@llvm.clmul</code> intrinsic. The paper targets <code>&lt;numeric&gt;</code> and includes a widening variant (<code>clmul_wide</code>) that returns both halves of the result via a shared <code>wide_result&lt;T&gt;</code> type designed alongside P3161.</p>
+
+        <p>SG6 forwarded R1 at Sofia with a unanimous 11-0 poll, requesting SIMD overloads - which R4 now includes. Currently in the LEWG queue.</p>
+      </div>
+      <div class="vote-count">&#9650; 47 points (89% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_something</span>
+            <span class="score">31 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>another &lt;numeric&gt; paper while <code>std::net</code> remains a collective hallucination. but sure, polynomial multiplication, that's what the people were asking for.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/crc32_daily</span>
+            <span class="score">18 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I've been using <code>_mm_clmulepi64_si128</code> directly for years. Nice to see this getting a portable interface. The SG6 vote was 11-0 which is... not something you see every day in committee-land.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/low_latency_dev</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>So this is basically a portable wrapper around PCLMULQDQ / pmull / clmul. Which is fine, but the paper buries the lede a bit:</p>
+            <blockquote><p>The issue with library implementations is that the optimal implementation for std::clmul highly depends on the architecture and has interesting mathematical properties that become opaque in the library.</p></blockquote>
+            <p>Translation: you can't just implement this in a header. You need the compiler to lower it. Same pattern as <code>popcount</code> and <code>countl_zero</code>. Fine for established bit operations, but it means every stdlib vendor needs to coordinate with their compiler team.</p>
+            <p>The <a href="https://quick-bench.com/q/eG4Q5BR_udnfh4V5f-3d3h3fRHY">9.2x benchmark gap</a> between naive and NTL implementations is the real story here. If you're not hitting the hardware instruction, you're leaving an order of magnitude on the table.</p>
+            <p>Also: the SIMD widening operations - the AVX-512 VPCLMULQDQ stuff that crypto actually wants - are explicitly punted to a future paper.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/crc32_daily</span>
+                  <span class="score">9 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The portability angle is the whole point. x86 has PCLMULQDQ (2010), ARM has NEON pmull, RISC-V has Zbc. Writing <code>#ifdef</code> chains for three ISAs is exactly the kind of thing the standard library should paper over.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Quick C++ Benchmark</div>
+        <div class="promoted-body">Benchmark your C++ side by side. No setup required. <a href="https://quick-bench.com">quick-bench.com</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/integer_overflow_pedant</span>
+            <span class="score">12 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The interesting design question here isn't <code>clmul</code> itself - it's <code>wide_result&lt;T&gt;</code>.</p>
+            <p>The paper explicitly shares this type with P3161 (widening arithmetic). That means if P3161 changes the type name, the layout, or the comparison semantics, this paper has to track. And P3161 hasn't shipped yet.</p>
+            <blockquote><p>The result type is deliberately not named clmul_wide_result so that future mul_wide and other operations can use the same result type</p></blockquote>
+            <p>Fine in principle. In practice, coupling two in-flight proposals through a shared vocabulary type is how you get both of them stuck in LEWG for an extra year.</p>
+            <p>Minor: I would have expected this in <code>&lt;bit&gt;</code> rather than <code>&lt;numeric&gt;</code>. <code>clmul</code> is fundamentally a bitwise operation. The paper's reasoning is "P0543 did it this way" which is a precedent argument, not a technical one.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/yet_another_standards_lawyer</span>
+                  <span class="score">6 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>classic committee move: standardize the result type before standardizing the operation that needs it</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/parserjock_99</span>
+            <span class="score">8 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>the hilbert curve example in section 3.2 is pretty dense for motivation. the JSON parsing angle is the killer use case - <a href="https://github.com/simdjson/simdjson">simdjson</a> uses exactly this trick (<code>clmul(quote_mask, -1)</code>) and it's absurdly fast. should have led with that.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

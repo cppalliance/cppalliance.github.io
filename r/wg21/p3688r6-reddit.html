@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - ASCII character utilities</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3688",
+    "revision": 6,
+    "document": "P3688R6",
+    "title": "ASCII character utilities",
+    "authors": "Jan Schultke, Corentin Jabot",
+    "audience": "LEWG",
+    "date": "2026-02-21",
+    "comments": 9,
+    "upvotes": 67,
+    "upvote_pct": "91%",
+    "poster": "template_wrangler_23",
+    "heat": "cold",
+    "interest": "niche",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3688R6 - ASCII character utilities <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/template_wrangler_23 &middot; 9 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Jan Schultke, Corentin Jabot<br>
+        <strong>Document:</strong> P3688R6<br>
+        <strong>Date:</strong> 2026-02-21<br>
+        <strong>Target:</strong> LEWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3688r6">wg21.link/p3688r6</a></p>
+
+        <p>The <code>&lt;cctype&gt;</code> functions have been a quiet source of pain for decades - locale-dependent behavior, no <code>constexpr</code> support, UB traps with signed <code>char</code>, and zero support for Unicode character types. P3688R6 proposes a new <code>&lt;ascii&gt;</code> header with lightweight, locale-independent, <code>constexpr</code> alternatives for all the character classification and transformation functions you actually need when parsing ASCII text.</p>
+
+        <p>The paper covers 18 functions total - the usual suspects like <code>ascii_is_digit</code>, <code>ascii_is_alphabetic</code>, <code>ascii_to_lower</code>, plus additions like <code>ascii_is_bit</code>, <code>ascii_is_any</code>, and case-insensitive comparison helpers. Everything is <code>constexpr</code>, <code>noexcept</code> (mostly), and works with <code>char</code>, <code>wchar_t</code>, <code>char8_t</code>, <code>char16_t</code>, and <code>char32_t</code>.</p>
+
+        <p>SG16 has been iterating on the naming across revisions. R6 uses the <code>ascii_is_*</code> prefix convention after feedback from earlier revisions that used <code>is_ascii_*</code>. Six revisions and a handful of SG16 polls later, this is heading to LEWG.</p>
+      </div>
+      <div class="vote-count">&#9650; 67 points (91% upvoted) &middot; 9 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Top-level 1: abseil comparison (noise) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_it_42</span>
+            <span class="score">47 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><a href="https://github.com/abseil/abseil-cpp/blob/master/absl/strings/ascii.h">Abseil</a> has had <code>absl::ascii_is*</code> for years. Nice that the standard is finally catching up. At least the naming ended up in the same ballpark.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply: constexpr angle -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_2024</span>
+                  <span class="score">12 points</span>
+                  <span class="time">47 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The <code>constexpr</code> angle is what makes this worth standardizing over just using abseil. None of the existing solutions give you that. There is a <a href="https://godbolt.org/z/5nvWzdf8G">godbolt demo</a> in the paper showing the whole API. Also the <code>char8_t</code>/<code>char16_t</code> support - try passing those to <code>std::isdigit</code> and see what happens.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-level 2: process cynic (noise / tangent) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/still_waiting_for_networking</span>
+            <span class="score">31 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>committee gonna committee. Six revisions to standardize <code>c &gt;= '0' &amp;&amp; c &lt;= '9'</code>.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply from OP -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/template_wrangler_23</span>
+                  <span class="score">5 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is literally the simplest kind of proposal the committee has seen in months. If LEWG cannot fast-track something this straightforward, we have bigger problems.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-level 3: EBCDIC design choice (signal) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="score">23 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The design choice in section 3.7.3 is worth reading carefully. They considered three options for non-ASCII-compatible encodings and landed on "treat the input as ASCII regardless of the literal encoding." Which means:</p>
+            <blockquote><p>depending on encoding, ascii_is_digit('0') may be false, which may be surprising to the user</p></blockquote>
+            <p>This is the right call for protocol parsing - JSON, HTTP, XML are all ASCII/UTF-8 regardless of the host encoding. But it does mean the functions are not a drop-in replacement for <code>&lt;cctype&gt;</code> on every platform. On EBCDIC, <code>'0'</code> is <code>0xf0</code>, not <code>0x30</code>. The functions work on the numeric value, not the character you typed.</p>
+            <p>If your code already does <code>c &gt;= '0' &amp;&amp; c &lt;= '9'</code> and works on EBCDIC, switching to <code>ascii_is_digit</code> will break you. Narrow use case, but the paper is honest about the tradeoff.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply: confusion -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">3 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Wait, <code>ascii_is_digit('0')</code> can be <em>false</em>? On what planet?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Reply: EBCDIC explanation -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/embedded_for_20_years</span>
+                        <span class="score">7 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>EBCDIC. Some of us still ship to mainframes. <code>'0'</code> is <code>0xf0</code> there, not <code>0x30</code>. The paper calls these functions "ASCII utilities," not "literal encoding utilities" - it means it.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Interstitial ad -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- Top-level 4: namespace ascii (signal) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/api_design_matters</span>
+            <span class="score">15 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 3.13 dismisses <code>namespace ascii</code> because of hypothetical SIMD overloads:</p>
+            <blockquote><p>would it be std::simd::ascii::is_lower or std::ascii::simd::is_lower?</p></blockquote>
+            <p>That is not a convincing argument. We can cross the SIMD bridge when we get there, and nested namespaces are not that hard. A dedicated namespace would let users write <code>using std::ascii::is_lower;</code> instead of the mouthful <code>std::ascii_is_lower</code>. The <code>ascii_is_*</code> prefix works fine but <code>std::ascii::</code> would have been cleaner.</p>
+            <p>Not a dealbreaker. But I expect this bikeshed to reopen in LEWG.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-level 5: function objects / algorithm usability (signal) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/ranges_convert</span>
+            <span class="score">8 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From the design discussion on function objects:</p>
+            <blockquote><p>Cherry-picking the functions in &lt;ascii&gt; to be function objects is far from solving the general problem</p></blockquote>
+            <p>I get the argument but this is still going to be painful in practice. Every single time you want to use one of these in <code>ranges::find_if</code> you are wrapping it in a lambda:</p>
+<pre><code>auto it = std::ranges::find_if(str, [](char c) {
+    return std::ascii_is_digit(c);
+});</code></pre>
+            <p>Yes, the general LIFT problem exists. Section 3.6 punts to <a href="https://wg21.link/p3312r1">P3312R1</a> (Overload Set Types) as a potential general solution, which is not exactly around the corner. Knowing that does not make the boilerplate less annoying.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
