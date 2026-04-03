@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - std::rebind - Generalized Type Rebinding</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3971",
+  "revision": 0,
+  "document": "P3971R0",
+  "title": "std::rebind - Generalized Type Rebinding",
+  "authors": "Daniel Towner",
+  "audience": "LEWG",
+  "date": "2026-02-20",
+  "comments": 7,
+  "upvotes": 34,
+  "upvote_pct": "91%",
+  "poster": "generic_programming_feed",
+  "heat": "cold",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3971R0 - std::rebind - Generalized Type Rebinding <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/generic_programming_feed</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3971r0">P3971R0</a><br>
+        <strong>Author:</strong> Daniel Towner (Intel)<br>
+        <strong>Date:</strong> 2026-02-20<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>Proposes <code>std::rebind&lt;NewT&gt;(container)</code> - a generalized facility for converting containers and other types to use a different element type while preserving structure. <code>std::rebind&lt;double&gt;(std::array&lt;float, 4&gt;)</code> yields <code>std::array&lt;double, 4&gt;</code>. Works uniformly across <code>array</code>, <code>vector</code>, <code>complex</code>, and user-defined types. Follows precedent from <code>simd::rebind_t</code> in P1928R15.</p>
+      </div>
+      <div class="vote-count">&#9650; 34 points (91% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/generic_code_writer</span>
+            <span class="score">27 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This fills a real gap. Converting <code>vector&lt;float&gt;</code> to <code>vector&lt;double&gt;</code> uses range constructors. Converting <code>array&lt;float, N&gt;</code> to <code>array&lt;double, N&gt;</code> requires manual element copying. Converting <code>complex&lt;float&gt;</code> to <code>complex&lt;double&gt;</code> needs direct construction. <code>std::rebind&lt;double&gt;(data)</code> unifies all three. Generic code shouldn't need to know which container it's rebinding.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/simd_rebind_precedent</span>
+            <span class="score">19 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The simd library already has <code>rebind_t</code> for changing element types. This generalizes that concept to the rest of the standard library. Good precedent to build on.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/allocator_rebind_exists</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>We already have <code>std::allocator_traits&lt;A&gt;::rebind_alloc&lt;U&gt;</code> for allocators. This is the same idea applied to containers. The naming is consistent. The concept is well-understood.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/customization_point_question</span>
+            <span class="score">9 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>How do user-defined types opt in? Is it a CPO, a specialization of a trait, or ADL? The design choice matters for extensibility. A trait specialization like <code>rebind_result&lt;NewT, Container&gt;</code> would be most flexible.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/intel_simd_papers</span>
+            <span class="score">5 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Daniel Towner from Intel also authored P3973R0 (<code>bit_cast_as</code> for simd). The simd team is systematically filling ergonomic gaps in the simd API and generalizing the useful patterns.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

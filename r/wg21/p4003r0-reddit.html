@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Coroutines for I/O</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P4003",
+  "revision": 0,
+  "document": "P4003R0",
+  "title": "Coroutines for I/O",
+  "authors": "Vinnie Falco, Steve Gerbino, Mungo Gill",
+  "audience": "LEWG",
+  "date": "2026-02-22",
+  "comments": 58,
+  "upvotes": 412,
+  "upvote_pct": "83%",
+  "poster": "async_io_watcher",
+  "heat": "hot",
+  "interest": "magnetic",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P4003R0 - Coroutines for I/O <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/async_io_watcher</span> &middot; 16 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p4003r0">P4003R0</a><br>
+        <strong>Authors:</strong> Vinnie Falco, Steve Gerbino, Mungo Gill<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>A proposal for a coroutine-native I/O protocol built from working code. The core is two concepts - IoAwaitable and IoRunnable - a type-erased executor, and a thread-local frame allocator. The paper argues that five C++20 coroutine properties (type erasure through <code>coroutine_handle&lt;&gt;</code>, promise customization, stackless frames, symmetric transfer, and compiler-managed state) together make coroutines the optimal basis for byte-oriented I/O.</p>
+
+        <p>Implementation experience comes from <a href="https://github.com/cppalliance/capy">Boost.Capy</a> and <a href="https://github.com/cppalliance/corosio">Corosio</a> - a complete networking stack (sockets, timers, DNS, TLS, HTTP) on multiple platforms. Frame allocator recycling shows 3.1x speedup over <code>std::allocator</code> on MSVC. Same author line as <a href="https://wg21.link/p4007r0">P4007R0</a> and <a href="https://wg21.link/p4014r0">P4014R0</a>.</p>
+      </div>
+      <div class="vote-count">&#9650; 412 points (83% upvoted) &middot; 58 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">16 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>Paper:</strong> P4003R0 &middot; <strong>Target:</strong> LEWG &middot; <strong>Type:</strong> Proposal</p>
+              <p><em>I am a bot, and this action was performed automatically. Please <a href="#">contact the moderators</a> of this subreddit if you have any questions or concerns.</em></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/finally_someone_tried</span>
+            <span class="score">278 points</span>
+            <span class="time">15 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>This paper is a research report drawn from working code: a complete coroutine-only networking library.</blockquote>
+            <p>This is the sentence I've been waiting to read in a WG21 paper for six years. Not "we think this could work." Not "future work includes implementation." They built the thing, benchmarked it, and now they're telling us what they found. More papers should work this way.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/implementation_first</span>
+                  <span class="score">94 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The Boost.Beast guy built a networking library. This is not his first rodeo. The question is whether the committee will listen to someone who has shipped production I/O code, or whether the debate will stay theoretical.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: two-argument await_suspend -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/awaitable_protocol_nerd</span>
+            <span class="score">198 points</span>
+            <span class="time">15 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The core design decision is the two-argument <code>await_suspend</code>:</p>
+            <pre><code>coroutine_handle&lt;&gt; await_suspend(
+    coroutine_handle&lt;&gt; cont,
+    io_env const* env);</code></pre>
+            <p>Standard awaitables take one argument. This takes two - the second carries the executor, stop token, and frame allocator. The upside: compile-time protocol checking. If you <code>co_await</code> an IoAwaitable from a non-conforming promise, you get a compile error, not a silent runtime bug. The downside: IoAwaitables don't compose with standard awaitables. You're in the IoAwaitable world or you're not.</p>
+            <p>The paper addresses this explicitly - the static_assert in <code>await_transform</code> catches mismatches at the right point. It's a deliberate walled garden with a clearly marked door.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/generic_awaitable_fan</span>
+                  <span class="score">82 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The walled garden is the problem. If I have an existing awaitable library that works with <code>task&lt;T&gt;</code>, <code>lazy&lt;T&gt;</code>, or any other coroutine type, it won't work with IoAwaitable tasks without modification. Every awaitable in the ecosystem needs a second overload of <code>await_suspend</code> to participate.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/awaitable_protocol_nerd</span>
+                        <span class="score">57 points</span>
+                        <span class="time">13 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The paper compares this to the alternative - templating on the promise type and extracting the environment. That approach compiles silently with non-conforming awaitables and produces runtime bugs. The two-argument form is a forced opt-in. You either implement the protocol or you don't. No middle ground.</p>
+                        <p>Is that the right tradeoff? Depends on whether you value interop with the existing awaitable ecosystem or compile-time correctness guarantees. The paper chose correctness.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: TLS frame allocator -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/tls_considered_harmful</span>
+            <span class="score">156 points</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The frame allocator uses thread-local storage for propagation. Section 5.5 addresses the concerns - fibers, thread migration, M:N schedulers - and argues the window is narrow (set before <code>operator new</code>, cleared after allocation). But TLS for a critical-path resource makes me nervous.</p>
+            <p>What happens when someone runs this on a fiber-based scheduler that multiplexes coroutines across threads? The paper says "the thread-local is written immediately before the coroutine allocation and read immediately during allocation" so the window is tiny. But tiny is not zero.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/frame_allocator_enjoyer</span>
+                  <span class="score">68 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The alternative is putting the allocator in the coroutine signature - which makes every <code>io_task</code> a template on the allocator type. The paper explicitly rejects this. Ergonomics win. <code>task&lt;T&gt;</code> not <code>task&lt;T, Alloc&gt;</code>.</p>
+                  <p>The 3.1x speedup over <code>std::allocator</code> on MSVC is real. Frame sizes repeat and lifetimes nest. A recycling allocator exploiting that pattern is faster than mimalloc (1.28x). The TLS propagation is how you get the allocator to <code>operator new</code> before the frame exists.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/tls_considered_harmful</span>
+                        <span class="score">34 points</span>
+                        <span class="time">12 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The benchmarks are from one implementation on two compilers. I'd want to see numbers from at least one other team before baking TLS into a standard protocol. Single-vendor data for a standardization proposal always makes me cautious.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Boost 1.88 released. Now with C++23 module support.</div>
+        <div class="promoted-body"><a href="https://boost.org">boost.org</a></div>
+      </div>
+
+      <!-- Encounter: sender-based networking vs coroutine-native -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/sender_networking_advocate</span>
+            <span class="score">124 points</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper positions this as "coroutines for I/O" but <code>std::execution</code> already handles I/O through senders. <a href="https://wg21.link/p2762">P2762</a> has been exploring sender-based networking. The committee already made a strategic decision that networking should be based on P2300. This paper is proposing a parallel, incompatible model.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/asio_veteran_2012</span>
+                  <span class="score">89 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The 2021 poll had no consensus on stopping the Networking TS (13 SF, 13 WF, 8 N, 6 WA, 10 SA). The "networking should be based on P2300" poll was weak consensus with the chairs noting many neutrals and no concrete sender-based networking paper in hand. Five years later, there's still no sender-based networking paper with implementation experience. This paper has a working stack.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/sender_networking_advocate</span>
+                        <span class="score">41 points</span>
+                        <span class="time">12 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>P2762 exists. The <code>beman::execution</code> work exists. Sender-based networking is being worked on. It's harder because senders provide more guarantees - zero allocation, compile-time work graphs, cancellation through the type system. That takes longer to design correctly.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/asio_veteran_2012</span>
+                              <span class="score">27 points</span>
+                              <span class="time">11 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>"Takes longer to design correctly" is doing a lot of heavy lifting. <a href="https://github.com/boostorg/asio">Boost.Asio</a> has shipped production networking for 20 years. This paper builds on that design lineage with coroutines. At some point "takes longer" becomes "maybe the approach is wrong for this domain."</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: IoAwaitable is small -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/narrow_abstraction_enjoyer</span>
+            <span class="score">108 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The protocol is genuinely small. Two concepts, one struct, one type-erased executor. That's the entire public surface. Compare to the surface area of <code>std::execution</code> sender algorithms. The paper's line about narrow abstractions - iterators, RAII, allocators - is earned here. IoAwaitable captures one thing: how a coroutine gets its I/O context.</p>
+            <blockquote>We could not find anything to remove from it without losing function.</blockquote>
+            <p>Saint-Exup&eacute;ry would approve.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/complexity_realist</span>
+                  <span class="score">42 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Small protocol, sure. But the implementation mixin in Section 7 (<code>io_awaitable_promise_base</code>) is not small. And the IoRunnable concept has seven requirements. The protocol is narrow at the concept boundary but deep behind it. Which is fine - that's how good abstractions work - but let's not pretend it's trivial.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Noise: networking history -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/networking_ts_survivor</span>
+            <span class="score">87 points</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Every three years someone proposes networking for C++. Every three years the committee argues about whether it should be based on the current executor/async model du jour. This has been going on since 2005. The Networking TS. The Executors TS. Now senders. Now this. At least this one has a working library.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_use_boost_beast</span>
+                  <span class="score">48 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Boost.Asio has been shipping production networking since 2003. Boost.Beast added HTTP/WebSocket in 2017. <a href="https://github.com/boostorg/cobalt">Boost.Cobalt</a> added coroutines. The ecosystem exists. The question is why the standard still doesn't have sockets.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Noise: type erasure -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/type_erasure_skeptic</span>
+            <span class="score">62 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 6 makes a strong case for coroutine frames as natural type erasure. A <code>task&lt;T&gt;</code> erases everything behind a <code>coroutine_handle&lt;&gt;</code>. You get runtime polymorphism without virtual functions. The <code>any_read_stream</code> example in Appendix B shows how this enables type-erased I/O streams with one template parameter instead of the usual template spaghetti.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Author advocacy signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/disclosure_reader</span>
+            <span class="score">53 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Same authors as P4007R0 and P4014R0. Three papers, one argument: I/O should use coroutines directly, not route through senders. The committee will want to see analysis from someone who doesn't have a competing library before treating this as settled direction. That said, the implementation experience is real, and the Asio design lineage is decades deep.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/who_else_would_build_it</span>
+                  <span class="score">38 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Who else would write this paper? The people who have built production I/O libraries are the ones qualified to say what I/O needs. Asking for "someone without a library" is asking for a theorist. We tried that approach already. It produced executors.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Corosio - Async I/O for C++. Built on Boost.</div>
+        <div class="promoted-body"><a href="https://corosio.org">corosio.org</a></div>
+      </div>
+
+      <!-- Noise batch -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/executor_ref_enjoyer</span>
+            <span class="score">44 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The <code>executor_ref</code> type erasure is clean. Two function pointers (dispatch and post), one void pointer for context. That's the entire executor interface. No concepts, no traits, no customization points. A socket just needs to know how to resume a coroutine. <code>executor_ref</code> tells it how.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/appendix_a_appreciator</span>
+            <span class="score">36 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Appendix A is the best introduction to async I/O fundamentals I've read in a WG21 paper. Event loops, completion handlers, executors, strands, cancellation - explained from scratch with diagrams. Every new C++ developer writing networking code should start there.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/stop_token_propagation</span>
+            <span class="score">31 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Cancellation through <code>std::stop_token</code> propagating from launch site to I/O object to platform primitive (<code>CancelIoEx</code>, <code>IORING_OP_ASYNC_CANCEL</code>). Cooperative, composable, and it builds on what's already in the standard. This is how cancellation should work for I/O.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_partisan</span>
+            <span class="score">26 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Between P4003 (the protocol), P4007 (the sender boundary analysis), P4014 (the sub-language guide), and P2583 (symmetric transfer gap) - there are now four papers making the case for coroutine I/O as a first-class model. The committee can agree or disagree but they can't say the case hasn't been made.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- [removed] -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score negative">-12 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/io_uring_for_everything</span>
+            <span class="score">22 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The execution context owning its I/O objects maps directly to how io_uring and IOCP actually work. The socket knows its ring. The operation goes through that ring. The completion comes back on that ring. This is what a platform-native design looks like when you don't force an abstraction layer between the coroutine and the kernel.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/straw_poll_predictor</span>
+            <span class="score">18 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Suggested straw poll: "Coroutine-driven async I/O should have the same freedom to optimize for its domain as heterogeneous compute did." I predict SF/F/N/A/SA of roughly 4/8/5/3/2. Not unanimous. Not killed. Enough to keep the direction alive.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/great_another_10_years</span>
+            <span class="score">14 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Can we please just get sockets in the standard. I don't care if they're sender-based, coroutine-based, or pigeon-based. Just ship something.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/rfc_1149_implementer</span>
+                  <span class="score">9 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>IP over Avian Carriers is actually standardized (RFC 1149). C++ networking is not. Think about that.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/skill_issue_42</span>
+            <span class="score">7 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I've been using Rust's Tokio for three years now. Every time I read a WG21 paper about C++ async I feel like I'm watching a documentary about the space shuttle program. Impressive engineering. Decade-long timelines. Enormous cost. And my TCP server already works.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/committee_gonna_committee</span>
+            <span class="score">4 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>committee gonna committee</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

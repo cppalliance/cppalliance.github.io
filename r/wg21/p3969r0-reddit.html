@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Fixing std::bit_cast of types with padding bits</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3969",
+  "revision": 0,
+  "document": "P3969R0",
+  "title": "Fixing std::bit_cast of types with padding bits",
+  "authors": "Jan Schultke",
+  "audience": "LEWG",
+  "date": "2026-02-20",
+  "comments": 7,
+  "upvotes": 78,
+  "upvote_pct": "95%",
+  "poster": "bit_cast_pedant",
+  "heat": "cold",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3969R0 - Fixing std::bit_cast of types with padding bits <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/bit_cast_pedant</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3969r0">P3969R0</a><br>
+        <strong>Author:</strong> Jan Schultke<br>
+        <strong>Date:</strong> 2026-02-20<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>When you <code>bit_cast</code> a type with padding bits (like 80-bit <code>long double</code>) to a type without padding (like <code>__int128</code>), the padding bits map onto value bits in the destination. Those padding bits have indeterminate values. The result: <code>std::bit_cast</code> becomes an alternative spelling for <code>std::unreachable()</code>. The paper proposes either diagnosing this degenerate case or zero-filling padding bits.</p>
+      </div>
+      <div class="vote-count">&#9650; 78 points (95% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/unreachable_by_accident</span>
+            <span class="score">64 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>A specialization std::bit_cast&lt;To, From&gt; is an alternative spelling for std::unreachable if From has padding bits and To does not</blockquote>
+            <p>This is the kind of sentence that makes you question every <code>bit_cast</code> you've ever written. GCC accepts <code>bit_cast&lt;__int128&gt;(0.0L)</code> and gives you 0. Clang rejects it. The standard says it's UB. Nobody agrees and the user loses.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/zero_fill_advocate</span>
+            <span class="score">42 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Just zero-fill the padding bits. It's what GCC already does. It's deterministic. It's portable. It works in constant expressions. The alternative - adding a new <code>bit_cast_zero_padding</code> function - is more ceremony for the same result. Change the existing behavior and be done with it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/padding_bits_realist</span>
+                  <span class="score">19 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Zero-filling changes the observable behavior of <code>bit_cast</code> at runtime. Currently, padding bits are whatever the hardware left there - which means <code>bit_cast</code> copies them faithfully. If we mandate zero-filling, the implementation must detect and zero padding bits at runtime. That's not free on all architectures.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/long_double_sufferer</span>
+            <span class="score">28 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>80-bit <code>long double</code> on x87 has 6 bytes of padding in a 16-byte representation. This is the primary motivation. If you're implementing <code>&lt;cmath&gt;</code> and need to inspect the bit pattern of a <code>long double</code>, <code>bit_cast</code> to an integer type should just work. Currently it's UB and compilers disagree on what happens.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/bitint_padding_watcher</span>
+            <span class="score">14 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The <code>_BitInt</code> angle is important. If <a href="https://wg21.link/p3666r2">P3666R2</a> lands bit-precise integers, most <code>_BitInt</code> types will have padding bits. The paper estimates 7/8 of all <code>_BitInt</code> widths have padding. This degenerate <code>bit_cast</code> behavior would be a constant source of bugs.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/schultke_again</span>
+            <span class="score">8 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Jan Schultke wrote P3737R3 (<code>std::array</code>), P3899R1 (floating-point overflow), and now this. Systematically finding and fixing spec corners. The committee needs more of this kind of work.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

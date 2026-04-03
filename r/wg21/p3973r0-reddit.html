@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - bit_cast_as: Element type reinterpretation for std::simd</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3973",
+  "revision": 0,
+  "document": "P3973R0",
+  "title": "bit_cast_as: Element type reinterpretation for std::simd",
+  "authors": "Daniel Towner",
+  "audience": "LEWG, SG1",
+  "date": "2026-01-19",
+  "comments": 7,
+  "upvotes": 31,
+  "upvote_pct": "93%",
+  "poster": "simd_ergonomics_watcher",
+  "heat": "cold",
+  "interest": "niche",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3973R0 - bit_cast_as: Element type reinterpretation for std::simd <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/simd_ergonomics_watcher</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3973r0">P3973R0</a><br>
+        <strong>Author:</strong> Daniel Towner (Intel)<br>
+        <strong>Date:</strong> 2026-01-19<br>
+        <strong>Audience:</strong> LEWG, SG1</p>
+
+        <p>Proposes <code>std::bit_cast_as&lt;T&gt;(simd_vec)</code> for reinterpreting simd objects at different element granularities. Instead of <code>std::bit_cast&lt;vec&lt;uint16_t, 8&gt;&gt;(bytes)</code> with manually computed element counts, you write <code>std::bit_cast_as&lt;uint16_t&gt;(bytes)</code> and the count is inferred automatically. Brings <code>std::simd</code> to parity with platform intrinsics like <code>_mm256_castps_si256</code>. Generalizes naturally to <code>std::array</code> and <code>std::span</code>.</p>
+      </div>
+      <div class="vote-count">&#9650; 31 points (93% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/intrinsics_refugee</span>
+            <span class="score">24 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This is long overdue. Platform intrinsics have had <code>_mm256_castps_si256</code> forever - same bits, different element type, zero overhead. <code>std::simd</code> made you spell out the entire target type with manual count computation. <code>bit_cast_as&lt;uint32_t&gt;(floats)</code> is the natural C++ equivalent and it's embarrassing we didn't have it from the start.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compile_time_safety_fan</span>
+            <span class="score">18 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The compile-time size verification is the key feature. <code>bit_cast_as&lt;uint32_t&gt;(vec&lt;uint8_t, 15&gt;)</code> won't compile because 15 bytes doesn't divide evenly into 4-byte elements. You catch the error at compile time instead of at runtime or in a code review.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/array_generalization_fan</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The generalization to <code>std::array</code> is natural and useful. <code>bit_cast_as&lt;uint16_t&gt;(std::array&lt;uint8_t, 16&gt;)</code> returning <code>std::array&lt;uint16_t, 8&gt;</code> is exactly what protocol parsing code needs. The <code>std::span</code> variant returning a view (not a copy) is the right semantic choice too.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/p3983_dependency</span>
+            <span class="score">11 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Depends on P3983R0 for array-like layout guarantees in simd. Without guaranteed contiguous element storage, <code>bit_cast</code> between simd types isn't portable. The dependency is well-documented and the prerequisite paper is in the pipeline.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/naming_bikeshed</span>
+            <span class="score">8 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>bit_cast_as</code> vs <code>as_elements</code> - the paper chose <code>bit_cast_as</code> because the relationship to <code>std::bit_cast</code> should be obvious. I agree. When you see <code>bit_cast_as</code> you know this is bit-level reinterpretation, not a semantic conversion.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/intel_simd_team</span>
+            <span class="score">5 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Intel's simd implementation has had this internally since early development. It's widely used both in the library internals (interfacing with compiler intrinsics) and in user code (wireless signal processing, packet handling). Production-tested.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

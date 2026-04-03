@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - std::array is a wrapper for an array!</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3737",
+  "revision": 3,
+  "document": "P3737R3",
+  "title": "std::array is a wrapper for an array!",
+  "authors": "Jan Schultke",
+  "audience": "LEWG",
+  "date": "2026-02-22",
+  "comments": 24,
+  "upvotes": 156,
+  "upvote_pct": "94%",
+  "poster": "array_wrapper_advocate",
+  "heat": "warm",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3737R3 - std::array is a wrapper for an array! <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/array_wrapper_advocate</span> &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3737r3">P3737R3</a><br>
+        <strong>Author:</strong> Jan Schultke<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>We all teach that <code>std::array</code> is just a wrapper for a C-style array. But the standard doesn't actually say that. The spec is permissive enough that a compliant implementation could add extra members, break trivial copyability, or inflate the size. This paper makes the simplified explanation true by standardizing what every implementation already does: a single public data member of type <code>T[N]</code> for nonzero N.</p>
+
+        <p>The zero-length case is where it gets interesting. MSVC STL's <code>std::array&lt;T, 0&gt;</code> actually holds a <code>T</code> and calls its constructors - a known bug that's an ABI break to fix. The paper standardizes the libstdc++/libc++ behavior: trivially copyable, non-empty, with a placeholder member. Also deletes the never-implemented "unique value" iterator requirement for empty arrays.</p>
+      </div>
+      <div class="vote-count">&#9650; 156 points (94% upvoted) &middot; 24 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/bit_cast_enjoyer</span>
+            <span class="score">127 points</span>
+            <span class="time">7 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>I've been using <code>std::bit_cast&lt;std::array&lt;std::byte, sizeof(T)&gt;&gt;(x)</code> for years assuming it works because <code>std::array</code> has the same layout as <code>T[N]</code>. Turns out that was technically relying on non-standard behavior. This paper makes it legal. Should have been done ten years ago.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ub_detector_9000</span>
+                  <span class="score">64 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Welcome to C++ standardization, where the things everyone assumes are true have been technically UB for a decade and nobody noticed because every implementation did the obvious thing.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/msvc_stl_watcher</span>
+            <span class="score">89 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The MSVC STL section is brutal.</p>
+            <blockquote>The MSVC STL implementation is non-compliant. Despite std::array&lt;T, 0&gt; being a zero-length container with no elements, it actually holds one element (and calls its constructors and destructors) as long as T is default-constructible.</blockquote>
+            <p>And fixing it is an ABI break. <a href="https://github.com/microsoft/STL/issues/5583">STL#5583</a> has been open since 2025. The paper basically says "when MSVC eventually breaks ABI, here's what to change to."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/abi_break_enthusiast</span>
+                  <span class="score">52 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>ABI stability: protecting the bugs of yesterday at the expense of the correctness of tomorrow.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/trivially_copyable_matters</span>
+            <span class="score">72 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Making <code>std::array&lt;T, 0&gt;</code> unconditionally trivially copyable is the right call. Both libc++ and libstdc++ already do this. The alternative - making it conditional on T - adds complexity with no benefit. An empty container with no elements shouldn't care whether T has a non-trivial copy constructor.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/generic_programming_pedant</span>
+                  <span class="score">28 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Counter-argument: it's surprising that <code>std::is_trivially_copyable_v&lt;std::array&lt;std::string, 0&gt;&gt;</code> would be true when <code>std::is_trivially_copyable_v&lt;std::string&gt;</code> is false. Generic code that branches on trivial copyability might get confused.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/trivially_copyable_matters</span>
+                        <span class="score">19 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>What would the generic code do differently? <code>memcpy</code> on a zero-element container copies zero elements regardless. Trivial copyability of an empty container is a degenerate case that can't produce wrong results.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">en.cppreference.com - You were going to look it up anyway.</div>
+        <div class="promoted-body">The C++ reference. Updated for C++26.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/malice_and_evil</span>
+            <span class="score">58 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The "malice_and_evil" example in Section 2.2 is perfect. A technically compliant <code>std::array</code> with <code>alignas(1024)</code> and a non-trivially-copyable extra member. Nobody would ship this. But the standard allows it. The paper's thesis in one struct:</p>
+            <blockquote>If the remaining implementation freedom can only be used for evil, perhaps we should not grant it.</blockquote>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div name="replies" class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/iterator_spec_lawyer</span>
+            <span class="score">41 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The deletion of the "unique value" iterator requirement for zero-length arrays (Section 4.4) is long overdue. The requirement was never implemented by any compiler. All three major standard libraries use <code>T*</code> iterators, making <code>begin() == end()</code> trivially true. The spec said something nobody did, and now the spec will stop saying it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/structural_type_enjoyer</span>
+            <span class="score">34 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Making the structural type property follow naturally from the data member specification is elegant. The current standard has a special paragraph for it. After this paper, it's just a consequence of the type having a single public member of type <code>T[N]</code>. Less spec text, same guarantee.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/double_brace_init_fan</span>
+            <span class="score">27 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>TIL that <code>std::array&lt;int, 0&gt; {{}}</code> needs a non-static data member to work (otherwise double-brace initialization fails). This is why the zero-length specialization can't be an empty class - it needs something to initialize. The things you learn reading wording papers.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lwg_issue_archaeologist</span>
+            <span class="score">22 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><a href="https://cplusplus.github.io/LWG/issue2157">LWG2157</a> has been open since 2012. Fourteen years. This paper finally absorbs it. Some bugs are patient.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/greatest_common_denominator</span>
+            <span class="score">18 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The design strategy is just "standardize the greatest common denominator of libc++ and libstdc++." No new behavior. No controversial choices. Just write down what everyone already does. More papers should be this boring and this useful.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/to_array_double_braces</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The <code>std::to_array</code> return specification uses <code>{{ a[0], ..., a[N - 1] }}</code> - double braces. If <code>std::array</code> weren't a wrapper for a C array, that specification would be nonsensical. The paper points out the standard was already implicitly assuming this layout.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/implicit_object_creation</span>
+            <span class="score">11 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 3 mentions implicit object creation. Having the guarantee that <code>std::array</code> contains an actual array means <code>[intro.object]</code> rules for providing storage and implicit lifetime apply. Without this paper, it's unclear whether <code>std::array&lt;std::byte, N&gt;</code> can serve as storage for implicit-lifetime types. With it, the answer is yes.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/gobbler_constructor</span>
+            <span class="score">8 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The "gobbler" example - a compliant <code>std::array</code> implementation that swallows list-initialization into a separate member - is the kind of adversarial spec reading that makes you question everything you thought you knew about the standard library.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/data_returns_arr</span>
+            <span class="score">5 points</span>
+            <span class="time">42 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The new <code>data()</code> specification just says "Returns: <code>arr</code>." Two words. Replacing a paragraph about valid ranges and <code>addressof(front())</code>. The simplification is beautiful.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

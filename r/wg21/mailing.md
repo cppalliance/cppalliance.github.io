@@ -35,6 +35,9 @@ P3941R2  warm
 P3724R3  cold
 P3844R3  cold
 P3181R1  cold
+P4014R0  hot
+P4003R0  hot
+P2583R0  hot
 P3737R3  warm
 P3844R4  cold
 P3045R7  hot
@@ -45,7 +48,6 @@ P3899R1  cold
 P3936R1  cold
 P3856R5  cold
 P3596R0  warm
-P2583R0  hot
 P3969R0  cold
 P3980R0  warm
 P3971R0  cold
@@ -55,7 +57,6 @@ P3985R0  cold
 P3978R0  cold
 P4019R0  warm
 P3978R1  cold
-P4014R0  hot
 P3978R2  cold
 P2000R5  thermonuclear
 P4024R0  warm
@@ -65,7 +66,6 @@ P3981R0  cold
 P4030R0  warm
 P5000R0  thermonuclear
 P3981R1  cold
-P4003R0  hot
 P3982R0  cold
 P3983R0  cold
 P4025R0  cold

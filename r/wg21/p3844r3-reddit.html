@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Restore simd::vec broadcast from int</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3844",
+  "revision": 3,
+  "document": "P3844R3",
+  "title": "Restore simd::vec broadcast from int",
+  "authors": "Matthias Kretz",
+  "audience": "LWG",
+  "date": "2026-02-06",
+  "comments": 7,
+  "upvotes": 28,
+  "upvote_pct": "89%",
+  "poster": "simd_follower",
+  "heat": "cold",
+  "interest": "niche",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3844R3 - Restore simd::vec broadcast from int <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/simd_follower</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3844r3">P3844R3</a><br>
+        <strong>Author:</strong> Matthias Kretz<br>
+        <strong>Date:</strong> 2026-02-06<br>
+        <strong>Audience:</strong> LWG<br>
+        <strong>Target:</strong> C++26</p>
+
+        <p>The broadcast constructor in the Parallelism TS let you write <code>vec&lt;float&gt;() + 1</code> and have it just work - the int got implicitly converted to float and broadcast across the vector. When simd merged into C++26 via P1928, the stricter value-preserving conversion rules made that expression ill-formed. This paper brings it back with a consteval constructor overload that checks at compile time whether the conversion loses precision, and rejects the program if it does.</p>
+
+        <p>The larger portion of the paper is actually a rewrite of [simd.math] - all the multi-argument math functions (hypot, pow, fma, lerp, etc.) need combinatorial overload expansions to avoid immediate-escalation from the consteval constructor. A 3-argument function like hypot goes from 1 overload to 7. LEWG gave strong consensus at Kona 2025, and LWG approved unanimously on the 2026-02-13 telecon.</p>
+      </div>
+      <div class="vote-count">&#9650; 28 points (89% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compile_time_enjoyer</span>
+            <span class="score">31 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>TIL that <code>vec&lt;float&gt;() + 1</code> is ill-formed in the C++26 CD. Worked in the TS for years. The committee giveth, the committee taketh away.</p>
+            <p>Glad someone noticed before we shipped it broken.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/process_cynic_2023</span>
+                  <span class="score">19 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The TS worked fine. Then Varna 2023 decided to drop the int exception from the broadcast constructor, planning on constant wrappers (<code>std::cw&lt;2&gt;</code>) instead. Three revisions later we're undoing that with a consteval workaround. Classic.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/overload_resolution_victim</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The consteval broadcast constructor itself is clean enough. What concerns me is the downstream cost to [simd.math].</p>
+            <blockquote>for 3-arg math functions we would have to change to seven function templates</blockquote>
+            <p>So every function like <code>hypot(x, y, z)</code>, <code>fma(x, y, z)</code>, <code>lerp(a, b, t)</code> gets seven overloads to cover all permutations of <code>deduced-vec-t&lt;V&gt;</code> vs bare <code>V</code> in each argument slot. For 2-arg functions it's three. This is a lot of surface area in [simd.syn] for what is fundamentally a workaround for the language not having constexpr function parameters.</p>
+            <p>Kretz himself says "making it more complicated is not warranted" and hopes <a href="https://wg21.link/p2826">P2826</a> expression aliases will let them simplify this in C++29. Which means we're shipping a known-temporary complexity expansion into the IS.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/vectorized_for_lunch</span>
+                  <span class="score">8 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The alternative is worse. Without the overload expansion, calling <code>simd::hypot(x, 1)</code> where x is a runtime vec triggers immediate-escalation of the whole function, which makes it require all arguments to be constant expressions. That kills the basic use case entirely.</p>
+                  <p>The overload sets are ugly in the spec text but they're mechanically generated and the implementation burden is manageable. I'll take verbose wording over broken user code.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - because you need to see the assembly.</div>
+        <div class="promoted-body">Compiler Explorer. Matt Godbolt's gift to C++ developers everywhere.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_segfault</span>
+            <span class="score">9 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Consteval constructors with constexpr exceptions to check value preservation at compile time. We are firmly in "the language is powerful enough to fix its own mistakes" territory and I'm not sure how to feel about that.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/numeric_stability_matters</span>
+            <span class="score">6 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The Tony Table in section 3 is the whole motivation in four lines:</p>
+            <blockquote>f(vec&lt;double&gt;()); // OK<br>
+            // compiles but adds 99282960 instead of 99282957<br>
+            f(vec&lt;float&gt;());<br>
+            // compiles but adds infinity instead of 99282957<br>
+            f(vec&lt;std::float16_t&gt;());</blockquote>
+            <p>That's <code>V(0x5EAF00D)</code> silently giving you the wrong number because the explicit cast suppresses all warnings. With the consteval constructor, <code>0x5EAF00D</code> passed directly to a <code>vec&lt;float&gt;</code> is ill-formed. Much better.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_is_life_42</span>
+            <span class="score">4 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Has anyone actually shipped production code using <code>std::experimental::simd</code> from the TS? Genuine question. I've been using Highway for everything SIMD-related and haven't looked back.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

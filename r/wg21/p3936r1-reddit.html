@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Safer atomic_ref::address (FR-030-310)</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3936",
+  "revision": 1,
+  "document": "P3936R1",
+  "title": "Safer atomic_ref::address (FR-030-310)",
+  "authors": "Corentin Jabot, Gonzalo Brito Gadeschi",
+  "audience": "LWG",
+  "date": "2026-01-27",
+  "comments": 6,
+  "upvotes": 24,
+  "upvote_pct": "93%",
+  "poster": "atomics_paper_feed",
+  "heat": "cold",
+  "interest": "niche",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3936R1 - Safer atomic_ref::address (FR-030-310) <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/atomics_paper_feed</span> &middot; 4 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3936r1">P3936R1</a><br>
+        <strong>Authors:</strong> Corentin Jabot, Gonzalo Brito Gadeschi<br>
+        <strong>Date:</strong> 2026-01-27<br>
+        <strong>Audience:</strong> LWG</p>
+
+        <p>Resolves French NB comment FR-030-310. <code>atomic_ref::address()</code> currently returns <code>T*</code>, which makes it too easy to accidentally access the object non-atomically while live <code>atomic_ref</code>s exist. The fix: return <code>void*</code> instead. You can still hash, compare, and index with it, but accessing the underlying object requires an explicit cast - making misuse visible. Works in constant expressions thanks to P2738R1's <code>constexpr</code> cast from <code>void*</code>.</p>
+      </div>
+      <div class="vote-count">&#9650; 24 points (93% upvoted) &middot; 6 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lockfree_or_bust</span>
+            <span class="score">18 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Good fix. Returning <code>T*</code> from <code>atomic_ref::address()</code> was an invitation to write data races. You get the pointer back, forget you're supposed to use it only for hashing, and access the object directly. <code>void*</code> makes the non-atomic access require a deliberate <code>static_cast</code>. Harder to do by accident.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_void_star</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The key enabler is P2738R1 - <code>constexpr</code> cast from <code>void*</code> landed in C++26. Without that, <code>void*</code> would have been unusable during constant evaluation and the NB comment would have been harder to resolve. Nice when features compose.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/copycv_appreciator</span>
+            <span class="score">9 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The return type is <code>COPYCV(T, void)*</code> - preserving cv-qualification from the original type. So <code>atomic_ref&lt;const int&gt;::address()</code> returns <code>const void*</code>. Correct and minimal. The exposition-only alias keeps the synopsis clean.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/uintptr_alternative</span>
+            <span class="score">7 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The NB comment originally wanted <code>uintptr_t</code>. EWG rejected it because <code>uintptr_t</code> isn't mandated and some architectures might have pointers larger than the largest integer. <code>void*</code> avoids both problems and the original P2835R7 authors considered it but dismissed it pre-P2738R1. Timing worked out.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/nb_comment_resolver</span>
+            <span class="score">4 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Clean NB comment resolution. Small scope, clear motivation, minimal wording change. These are the papers that keep the standard healthy.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
