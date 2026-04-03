@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - any_view</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3411",
+    "revision": 5,
+    "document": "P3411R5",
+    "title": "any_view",
+    "authors": "Hui Xie, S. Levent Yilmaz, Louis Dionne",
+    "audience": "SG9, LEWG",
+    "date": "2025-06-16",
+    "comments": 27,
+    "upvotes": 156,
+    "upvote_pct": "84%",
+    "poster": "ranges_aficionado_23",
+    "heat": "warm",
+    "flair": "WG21",
+    "generated": "2026-04-03",
+    "prior_revision": null
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3411R5 - any_view <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/ranges_aficionado_23 &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Hui Xie, S. Levent Yilmaz, Louis Dionne<br>
+        <strong>Document:</strong> P3411R5<br>
+        <strong>Date:</strong> 2025-06-16<br>
+        <strong>Target:</strong> SG9, LEWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3411r5">wg21.link/p3411r5</a></p>
+
+        <p>If you've ever tried to return a ranges pipeline from a function and wept at the return type, this paper is for you. P3411 proposes <code>std::ranges::any_view</code> - a type-erased view that lets you hide the template gore behind a clean interface, the same way <code>std::function</code> did for callables but for ranges.</p>
+
+        <p>The design uses a bitflag enum <code>any_view_options</code> to configure properties: input/forward/bidirectional/random_access/contiguous, sized, borrowed, copyable. Default is move-only input. There's a thorough performance section - the naive benchmark shows 8.6x overhead vs raw vector iteration, but the paper argues the real comparison is against the vector-copy pattern people actually use at ABI boundaries, where <code>any_view</code> wins by 3-4x.</p>
+
+        <p>R5 adds <code>approximately_sized</code> support and derives from <code>view_interface</code>. Five revisions in, the design has been through multiple SG9 polls. Notable detail: the authors explicitly disagree with SG9's decision on moved-from semantics but implemented it anyway. Prior art is range-v3's <code>any_view</code> and Boost.Range's <code>any_range</code>, both of which this subsumes.</p>
+      </div>
+      <div class="vote-count">&#9650; 156 points (84% upvoted) &middot; 27 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- AutoModerator pinned -->
+      <div class="comment mod-pin" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="score">1 point</span>
+            <span class="time">7 hr. ago</span>
+            <span class="flair">pinned comment</span>
+          </div>
+          <div class="comment-text">
+            <p><strong>Paper:</strong> P3411R5 - any_view<br>
+            <strong>Authors:</strong> Hui Xie, S. Levent Yilmaz, Louis Dionne<br>
+            <strong>Target:</strong> SG9, LEWG<br>
+            <strong>Link:</strong> <a href="https://wg21.link/p3411r5">wg21.link/p3411r5</a></p>
+            <p>Reminder: be civil. Paper authors sometimes read these threads.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- bitflag_enjoyer (noise, d0) - 187 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/bitflag_enjoyer</span>
+            <span class="score">187 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Love the bitflag enum. Nothing says "modern C++" like ORing integer constants together.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- perf_is_king (noise, d0) - 143 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/perf_is_king</span>
+            <span class="score">143 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>8.6x slower than vector iteration. Doesn't matter how you frame the benchmarks, that number is going to be in every "why C++ ranges are slow" blog post for the next decade.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- actually_reads_papers (noise, d1) - 34 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_reads_papers</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Did you actually read past the first benchmark? The whole point of section 7.13 is that nobody wraps a raw vector in <code>any_view</code> for fun. The realistic comparison is against the vector-copy pattern, where <code>any_view</code> is 3-4x <em>faster</em>.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- pipeline_pragmatist (signal, d2) - 52 pts -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/pipeline_pragmatist</span>
+                        <span class="score">52 points</span>
+                        <span class="time">4 hr. ago</span>
+                        <span class="awards">&#127942;</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The paper's argument is actually well-structured here, but it buries the lede.</p>
+                        <p>There are three benchmarks. The first (8.6x overhead) is explicitly called a strawman by the authors. Fair enough. The third (3-4x faster vs vector-copy) is the strongest case, and it's real - people absolutely do copy into vectors at ABI boundaries because there's no good type-erased alternative today.</p>
+                        <p>The one to scrutinize is benchmark 2: <code>any_view</code> vs the spelled-out pipeline type across a TU boundary. That's 68% overhead, and the paper somewhat hand-waves it by saying "well you wouldn't spell out the return type anyway." True for complex pipelines, but for a simple <code>filter | transform</code>, plenty of codebases will accept the ugly return type over a 68% runtime hit.</p>
+                        <p>The deeper point the paper hints at but doesn't say outright: if you're at an API boundary where you'd use <code>any_view</code>, you're already paying for indirection - virtual calls, dynamic dispatch, cross-TU function calls. Three more indirect calls per iteration step aren't free, but they're in the noise compared to the cost you're already paying at that boundary.</p>
+                        <p>Also all benchmarks are on Apple M4 Max, which has deep pipelines and excellent branch prediction. Would be nice to see numbers on more typical server hardware.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- abi_boundary_survivor (TEASER, d0) - 89 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/abi_boundary_survivor</span>
+            <span class="score">89 points</span>
+            <span class="time">5 hr. ago</span>
+            <span class="awards">&#127942;&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The deepest irony of this paper is in section 7.12:</p>
+            <blockquote>As a type intended to exist at ABI boundaries, ensuring the ABI stability of any_view is extremely important. However, since almost any change to the API of any_view will require a modification to the vtable, this makes any_view somewhat fragile to incremental evolution.</blockquote>
+            <p>So the pitch is: here's a type for your ABI boundary. But if we add any feature to it later, your ABI breaks.</p>
+            <p>We've seen this movie before. <code>std::function</code> was the ABI-stable callable wrapper. Then we needed <code>move_only_function</code>. Then <code>copyable_function</code>. Then <code>function_ref</code>. Each one a new vtable shape, a new ABI. Four types to do what one was supposed to do.</p>
+            <p><code>any_view</code> already has 14 configurable properties via template parameters and bitflags. The paper explicitly lists <code>common_range</code> as something they punted on. <code>approximately_sized</code> was just added in R5. What happens when R8 needs another flag? Another bit, another vtable entry, another ABI break for everyone who was relying on the old layout.</p>
+            <p>The paper acknowledges the problem and then says "this evolutionary challenge should be kept in mind by WG21." That's not a solution. That's a prayer.</p>
+            <p>I'm not against <code>any_view</code> existing - the use case is real. But if you're designing a type whose primary selling point is "put this at your ABI boundary," you need an actual strategy for vtable evolution, not a paragraph of hand-waving.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- tcp_enjoyer (noise, d0) - 76 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/tcp_enjoyer</span>
+            <span class="score">76 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Cool. Can we get networking in the standard before I retire though. Asking for a friend (the friend is my pension).</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- sg9_regular (signal, d0) - 47 pts - moved-from semantics + encounter chain -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/sg9_regular</span>
+            <span class="score">47 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The most revealing section in this paper is 7.11:</p>
+            <blockquote>However, the authors still believe that this is a wrong decision. This is an unprecedented design in the standard library type erasure facilities. All existing type erasure utilities in the library leave the moved-from object in a valid but unspecified state.</blockquote>
+            <p>The authors implemented something they believe is wrong because SG9 voted for it (5 SF / 2 F / 0 N / 2 A / 0 SA in Sofia). This is actually how the process should work - you don't have to agree with the committee's direction to write the wording. But dissent being <em>in the paper</em> is unusual and worth paying attention to.</p>
+            <p>The precedent argument is the strong one. Every type-erased wrapper in the standard (<code>function</code>, <code>move_only_function</code>, <code>any</code>) leaves moved-from objects in a valid-but-unspecified state. Making <code>any_view</code> guarantee an empty view after move creates a divergence. Either future type-erased types will be expected to match this, or we get an inconsistency where some wrappers guarantee empty-after-move and others don't.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- process_cynic_99 (noise, d1) - 67 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/process_cynic_99</span>
+                  <span class="score">67 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Authors shipping code they think is wrong because the committee outvoted them. Process working as designed. Everything is fine.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- api_designer_daily (signal, d1) - 28 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/api_designer_daily</span>
+                  <span class="score">28 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I hear the precedent argument but I think SG9 got both calls right here.</p>
+                  <p>Move-only default is sensible - if you're using <code>any_view</code> at an API boundary, you're probably not copying it. And for the moved-from state: "valid but unspecified" for a type designed for API boundaries is actively hostile. If I take an <code>any_view</code> parameter, move from it, and then someone iterates the moved-from object in a code path I didn't foresee - what happens? With unspecified state, anything. With the empty-view guarantee, you get an empty range. Predictable and safe.</p>
+                  <p>The "don't pay for what you don't use" argument doesn't hold here. The type already heap-allocates in most cases. Setting a null pointer on move is one store instruction.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- sg9_regular (encounter, d2) - 19 pts -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/sg9_regular</span>
+                        <span class="score">19 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The cost isn't the null pointer store on move. It's the check on every <code>begin()</code>. If the moved-from state is "empty view," the implementation has to produce a valid empty range from a moved-from object. That means a branch on every call to <code>begin()</code>, and it's a branch that's always-not-taken in correct code.</p>
+                        <p>"Don't pay for what you don't use" means something specific here. This guarantee benefits exactly one scenario: buggy code that uses an object after moving from it.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- api_designer_daily (encounter, d3) - 14 pts -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/api_designer_daily</span>
+                              <span class="score">14 points</span>
+                              <span class="dagger">&dagger;</span>
+                              <span class="time">2 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>A branch that's always-not-taken costs exactly nothing on any modern CPU - perfectly predicted. And "buggy code that uses after move" describes roughly 40% of the C++ code I've reviewed in the last decade. The guarantee isn't for people who write correct code. It's for the other 95% of us.</p>
+                              <p>Meanwhile you're defending consistency with <code>std::function</code>'s moved-from behavior, which is responsible for approximately infinite segfaults in production. Great precedent to uphold.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <!-- sg9_regular (encounter resolution, d4) - 11 pts -->
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/sg9_regular</span>
+                                    <span class="score">11 points</span>
+                                    <span class="time">1 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Fine. The branch cost is trivial, I'll give you that. My actual concern is the normative precedent. If <code>any_view</code> guarantees empty-after-move, LEWG will be asked "why doesn't the next type-erased wrapper do the same?" And the answer will be "because <code>any_view</code> did it and it was fine." Then we're locked into guaranteeing moved-from behavior for every type-erased wrapper going forward, including ones where the cost isn't trivial.</p>
+                                    <p>But you're probably right that it's the correct call for <em>this</em> type specifically.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: CppCon 2026 -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO</div>
+        <div class="promoted-body">Early bird ends May 15. The conference for the C++ community.</div>
+      </div>
+
+      <!-- senior_boost_user (noise, d0) - 34 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/senior_boost_user</span>
+            <span class="score">34 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Boost.Range has had <code>any_range</code> for over a decade. Good to see the committee catching up.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- ranges_nerd_42 (signal, d1) - 31 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ranges_nerd_42</span>
+                  <span class="score">31 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It's more than just "catching up." Boost's <code>any_range</code> requires copyability, has no move-only view support, no <code>sized_range</code> or <code>borrowed_range</code> options, and uses the old Boost.Iterator traversal categories instead of C++20 concepts.</p>
+                  <p>This proposal also fixes a range-v3 design trap. In range-v3, the first template parameter to <code>any_view</code> is the reference type, so <code>any_view&lt;string&gt;</code> silently copies strings on every dereference. P3411 makes the element type the first parameter and defaults the reference to <code>Element&amp;</code>. That alone is worth the paper.</p>
+                  <p>Reference implementations: <a href="https://github.com/bemanproject/any_view">Beman project</a> and <a href="https://github.com/huixie90/cpp_papers/tree/main/impl/any_view">the authors' own</a>.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- const_correctness_guy (signal, d0) - 38 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/const_correctness_guy</span>
+            <span class="score">38 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>any_view</code> is not const-iterable. Let that sink in.</p>
+            <p>If you write a function that takes <code>const any_view&lt;Widget&gt;&amp;</code>, you cannot iterate it. The paper's rationale is that <code>filter_view</code> and <code>drop_while_view</code> cache their <code>begin()</code> iterator, so they can't be const-iterated. Making <code>any_view</code> unconditionally const-iterable would exclude these views.</p>
+            <p>This is technically correct. It's also going to generate a thousand Stack Overflow questions from people who wrote perfectly reasonable-looking code that doesn't compile. For a type that exists to simplify APIs, that's a meaningful ergonomic landmine.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- pipeline_pragmatist (signal, d1, recurring) - 26 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/pipeline_pragmatist</span>
+                  <span class="score">26 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The const-iterability thing I can live with - it mirrors the underlying views and you learn the rule once. The bigger gap is the lack of <code>common_range</code>. The paper says "just pipe through <code>views::common</code>" but that's wrapping one type-erased type in another adaptor that will itself need to be type-erased. At some point you're paying double indirection per iteration step, which undermines the whole performance story.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- junior_dev_2025 (noise, d0) - 12 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/junior_dev_2025</span>
+            <span class="score">12 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Probably a dumb question but why can't you just return <code>auto</code> from functions and let the compiler figure it out?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- template_fatigue (noise, d1) - 42 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_fatigue</span>
+                  <span class="score">42 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Because then your return type <em>is</em> the implementation. Change a lambda or add a filter step and every translation unit that includes your header recompiles. That's literally section 3 of the paper - the spelled-out return type of a simple filter+transform pipeline is:</p>
+                  <pre><code>std::ranges::filter_view&lt;
+  std::ranges::elements_view&lt;
+    std::ranges::ref_view&lt;
+      std::unordered_map&lt;Key, Widget&gt;&gt;,
+    1&gt;,
+  MyClass::getWidgets()::&lt;lambda(const auto&amp;)&gt;&gt;</code></pre>
+                  <p>Good luck maintaining that across API boundaries.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- crab_evangelist (noise, d1) - -8 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/crab_evangelist</span>
+                  <span class="score negative">-8 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>In Rust you just write <code>impl Iterator&lt;Item=T&gt;</code> and it works. No committee papers needed.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org</div>
+        <div class="promoted-body">Because you need to see the assembly. <a href="https://godbolt.org">Compiler Explorer</a></div>
+      </div>
+
+      <!-- compile_time_sufferer (noise/tangent, d0) - 19 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compile_time_sufferer</span>
+            <span class="score">19 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The compile-time argument is undersold in this paper. We have a project where one ranges-heavy header pulls in 50,000 lines of template instantiations. <code>any_view</code> behind an ABI boundary would cut our incremental build times by minutes.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- modules_believer (noise, d1) - 5 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/modules_believer</span>
+                  <span class="score">5 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Modules will fix this.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- not_holding_breath (noise, d1) - 44 pts -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_holding_breath</span>
+                  <span class="score">44 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><em>laughs in cmake</em></p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- [deleted] with mod reply -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer"></div>
+          <div class="replies">
+
+            <!-- paper_trail_2019 (mod, d1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username mod">u/paper_trail_2019</span>
+                  <span class="score">3 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rule 2.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- designated_init_fan (noise, d0) - 23 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/designated_init_fan</span>
+            <span class="score">23 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Still bitter SG9 went with the bitflag enum over Alternative 3. Writing <code>any_view&lt;int, {.sized = true, .borrowed = true}&gt;</code> would read so much better than <code>any_view&lt;int, any_view_options::sized | any_view_options::borrowed&gt;</code>. The vote was 10 vs 4 so I lost, but I will die on this hill.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- standard_schedule_watcher (noise, d0) - 8 pts -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/standard_schedule_watcher</span>
+            <span class="score">8 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Has this been forwarded to LWG yet? The paper has full wording but I can't tell where it is in the pipeline.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

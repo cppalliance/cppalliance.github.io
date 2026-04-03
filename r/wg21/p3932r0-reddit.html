@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Fix LWG4470: Fix integer-from in [simd]</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3932",
+  "revision": 0,
+  "document": "P3932R0",
+  "title": "Fix LWG4470: Fix integer-from in [simd]",
+  "authors": "Matthias Kretz",
+  "audience": "LWG",
+  "date": "2026-02-13",
+  "comments": 7,
+  "upvotes": 28,
+  "upvote_pct": "85%",
+  "poster": "paper_plumber_42",
+  "heat": "cold",
+  "flair": "WG21",
+  "generated": "2026-04-02",
+  "prior_revision": null
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3932R0 - Fix LWG4470: Fix integer-from in [simd] <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/paper_plumber_42</span> &middot; 6 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3932r0">P3932R0</a><br>
+        <strong>Author:</strong> Matthias Kretz<br>
+        <strong>Date:</strong> 2026-02-13<br>
+        <strong>Audience:</strong> LWG<br>
+        <strong>Target:</strong> C++26</p>
+
+        <p>Matthias Kretz is back with plumbing work on <code>std::simd</code>. Three LWG issues - 4470, 4414, and 4518 - all touch overlapping wording in <code>[simd]</code>, so they get fixed together in one paper.</p>
+
+        <p>The main issue: <code>integer-from&lt;Bytes&gt;</code>, an exposition-only trait used throughout the simd spec, broke when <code>complex</code> became a vectorizable type. Now <code>Bytes</code> can be 16, and nobody wants to require a 128-bit signed integer type from conforming implementations. The paper reworks how masks and ABI tags are specified to avoid depending on <code>integer-from</code> where it doesn't work.</p>
+
+        <p>Along the way, <code>simd::cat</code> gets a fix so that round-tripping through <code>chunk</code>/<code>cat</code> preserves your ABI tag instead of silently converting, and <code>deduce-abi-t</code> gets clarified for out-of-range arguments.</p>
+      </div>
+      <div class="vote-count">&#9650; 28 points (85% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Comment 1: noise, top voted -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_everything_2024</span>
+            <span class="score">24 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>wording fixes already rolling in for <code>std::simd</code> and most of us haven't even touched the API yet. Kretz works fast.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 2: signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/simd_lane_zero</span>
+            <span class="score">14 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 2.2 is the interesting one. The paper shows this scenario:</p>
+<pre><code>basic_vec x = ...;
+auto [...vs] = simd::chunk&lt;2&gt;(x);
+auto y = simd::cat(vs...);
+static_assert(is_same_v&lt;decltype(x), decltype(y)&gt;); // can fail</code></pre>
+            <p>So <code>chunk</code> followed by <code>cat</code> doesn't round-trip to the same type because the return type was using <code>deduce-abi-t</code> instead of <code>resize_t</code>. The fix picks the first argument's ABI tag. Simple and deterministic. You could argue for other heuristics - widest argument, most common tag - but for a defect fix this is the pragmatic choice.</p>
+            <p>Also notable: the paper recommends <em>no</em> feature test macro bump despite behavioral changes.</p>
+            <blockquote>It was not intended to require conforming implementations to now provide a 128-bit signed integer type.</blockquote>
+            <p>Fair enough for exposition-only traits. But anyone whose <code>simd::cat</code> return type silently changed might want a way to detect the fix at compile time.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 3: noise with quote reply -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_a_numerics_guy</span>
+            <span class="score">11 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Wait, <code>std::complex&lt;double&gt;</code> is a vectorizable type in C++26? I've been writing SIMD intrinsics for over a decade and somehow missed that going into P1928.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply 3a -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_trauma_survivor</span>
+                  <span class="score">7 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It was added pretty late in the P1928 lifecycle. From the paper:</p>
+                  <blockquote>After the introduction of complex to the set of vectorizable types, the integer-from trait does not work as intended anymore.</blockquote>
+                  <p>Pretty much exactly what happens when you expand a type set right before shipping. <code>sizeof(complex&lt;double&gt;)</code> is 16 and the old <code>integer-from&lt;16&gt;</code> expected a signed integer type that doesn't exist in the standard.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad interstitial -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- Comment 4: tangent -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/stdlib_when_though</span>
+            <span class="score">5 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>genuinely curious where implementations stand. is any standard library shipping conforming <code>std::simd</code> yet or is everyone still on experimental?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Reply 4a: recurring user -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_2024</span>
+                  <span class="score">6 points</span>
+                  <span class="time">42 min. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>libstdc++ has had <code>std::experimental::simd</code> for years - Kretz literally wrote it. libc++ has a partial implementation going. MSVC I'm less sure about. The gap between spec and shipping is still wide.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 5: noise, late -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_intrinsics_enjoyer</span>
+            <span class="score">3 points</span>
+            <span class="time">28 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>three issues, one paper, zero controversy. this is what LWG work looks like when it works.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

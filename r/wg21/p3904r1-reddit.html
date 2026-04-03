@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - When paths go WTF: making formatting lossless</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3904",
+    "revision": 1,
+    "document": "P3904R1",
+    "title": "When paths go WTF: making formatting lossless",
+    "authors": "Victor Zverovich",
+    "audience": "SG16",
+    "date": "2026-01-28",
+    "comments": 24,
+    "upvotes": 147,
+    "upvote_pct": "91%",
+    "poster": "format_enjoyer_2024",
+    "heat": "warm",
+    "interest": "relevant",
+    "flair": "WG21",
+    "generated": "2026-04-02",
+    "prior_revision": null
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3904R1 - When paths go WTF: making formatting lossless <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/format_enjoyer_2024 &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Victor Zverovich<br>
+        <strong>Document:</strong> P3904R1<br>
+        <strong>Date:</strong> 2026-01-28<br>
+        <strong>Target:</strong> SG16<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3904r1">wg21.link/p3904r1</a></p>
+
+        <p>Victor Zverovich (of {fmt} fame) is back with a follow-up to <a href="https://wg21.link/p2845">P2845</a>, which got <code>std::filesystem::path</code> formatting into C++26. Turns out there's one remaining gap: on Windows, paths can contain unpaired UTF-16 surrogates, and when you format them with <code>std::format</code>, distinct paths collapse to the same replacement character. Two different paths, same string. Not great.</p>
+
+        <p>The fix: WTF-8 (Wobbly Transformation Format - 8-bit). Yes, that's the actual name. It's a superset of UTF-8 that preserves arbitrary 16-bit code unit sequences losslessly. Rust already uses this for <code>OsString</code> on Windows, and libuv does the same. The visible output on terminals doesn't change - <code>std::print</code> still shows replacement characters for unpaired surrogates. The difference is in the bytes: each surrogate gets a unique WTF-8 encoding rather than all mapping to the same U+FFFD.</p>
+
+        <p>Already implemented in {fmt}. The parse-back API (going from WTF-8 to a path) is punted to a future paper.</p>
+      </div>
+      <div class="vote-count">&#9650; 147 points (91% upvoted) &middot; 24 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- AutoModerator pinned -->
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">7 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>Paper:</strong> P3904R1 &middot; <strong>Authors:</strong> Victor Zverovich &middot; <strong>Target:</strong> SG16 &middot; <strong>Date:</strong> 2026-01-28</p>
+              <p><em>I am a bot, and this action was performed automatically. Please <a href="#">contact the moderators</a> of this subreddit if you have any questions or concerns.</em></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top noise: WTF-8 name joke -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/actual_undefined_behavior</span>
+            <span class="score">287 points</span>
+            <span class="time">7 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>WTF-8. They called an encoding WTF-8. Say what you will about the committee's pace, but the paper titles are undefeated.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_wizard_42</span>
+                  <span class="score">94 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>genuinely thought this was a shitpost until I clicked through and saw a real encoding spec</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_cpp_news</span>
+                  <span class="score">53 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It's legit. Simon Sapin formalized it years ago: <a href="https://wtf-8.codeberg.page/">wtf-8.codeberg.page</a>. Rust uses it under the hood for all OS strings on Windows. The "Wobbly" in Wobbly Transformation Format is doing a lot of work.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Wheeler quote appreciation -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_real_cpp_dev</span>
+            <span class="score">189 points</span>
+            <span class="time">6 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>Compatibility means deliberately repeating other people's mistakes.</blockquote>
+            <p>Opening epigraph goes hard. Best paper opener this mailing.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_99</span>
+                  <span class="score">41 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>a pun title, a cynical epigraph, and a three-page paper that fixes one edge case. peak WG21 energy.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- TEASER: half-round-trip concern -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_skeptic</span>
+            <span class="score">67 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>So let me get this straight. The paper makes <code>std::format</code> produce WTF-8 encoded bytes for paths with unpaired surrogates. But the round trip depends on a read-path API that doesn't exist yet:</p>
+            <blockquote>The API for the read path of the round trip will be proposed by a separate paper.</blockquote>
+            <p>Are we shipping half a round trip? What's the plan if that follow-up paper doesn't make it through SG16? You've got WTF-8 bytes sitting in <code>std::string</code>s that nothing in the standard knows how to decode back to a path.</p>
+            <p class="edit">Edit: to be clear, I think the direction is right. I just don't love standardizing half of a bijection.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Encounter: defense -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/library_design_enjoyer</span>
+                  <span class="score">34 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The format side has standalone value even without the parse side. This is a diagnostics and logging use case first - you want to be able to format two different paths and get two different strings. That's the core invariant P2845 broke on Windows.</p>
+                  <p>Waiting to ship the format fix until the parse paper lands means P2845's lossy behavior sits in the standard for another cycle. The incremental approach is fine. Each half is useful independently.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Encounter: pushback -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/async_skeptic</span>
+                        <span class="score">18 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I take the diagnostics point. But "each half is useful independently" is a stretch - the paper literally motivates the change with round-trip losslessness. If the format side is just for diagnostics, why frame it around round trips at all?</p>
+                        <p>The concern isn't the direction. It's shipping an encoding that nothing in the standard can consume.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- Encounter: resolution -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/library_design_enjoyer</span>
+                              <span class="score">12 points</span>
+                              <span class="time">3 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Fair - the framing does lean heavily on round-trip and then defers half of it. I think the real immediate value is injectivity: two distinct paths produce two distinct strings. That's strictly better than what we have now even if parsability comes later. But yeah, the paper could be more upfront that the win right now is distinguishability, not full round trips.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: {fmt} -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">{fmt} - Fast, safe, modern formatting</div>
+        <div class="promoted-body">The library behind std::format. <a href="https://github.com/fmtlib/fmt">github.com/fmtlib/fmt</a></div>
+      </div>
+
+      <!-- Signal: WTF-8 in UTF-8 strings -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/formerly_msvc_dev</span>
+            <span class="score">52 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>My concern is less about the round trip and more about what happens downstream. Right now, when you <code>std::format</code> a path, you get valid UTF-8 (with replacement characters). After this paper, you can get bytes that are valid WTF-8 but <em>invalid</em> UTF-8 - specifically the three-byte sequences for encoded surrogates.</p>
+            <p>Any code that receives a formatted path string and assumes it's valid UTF-8 - which is a lot of code - will reject or mangle these bytes. Logging frameworks, JSON serializers, database bindings. The <code>std::format</code> contract has been "produces valid UTF-8 text" and this would be the first exception.</p>
+            <p>Not saying it's wrong. But the blast radius is wider than "just a Windows edge case."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/format_enjoyer_2024</span>
+                  <span class="score">23 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The paper does address the terminal output side:</p>
+                  <blockquote>Recommended practice: For vprint_unicode, if invoking the native Unicode API requires transcoding, implementations should substitute invalid code units with U+FFFD REPLACEMENT CHARACTER per the Unicode Standard</blockquote>
+                  <p>So <code>std::print</code> output to a terminal is unchanged - it still shows the replacement character. The WTF-8 bytes only appear in the formatted string itself.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/formerly_msvc_dev</span>
+                        <span class="score">19 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Right, and that's exactly my point. The string you get from <code>std::format</code> and the string that <code>std::print</code> renders to a terminal are now semantically different objects. One is WTF-8, the other is UTF-8 with U+FFFD substitution. That's a new distinction that didn't exist before in the <code>std::format</code> ecosystem. I'm not against it, but "just a display-side thing" undersells the change.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Noise: Rust -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_use_rust_bro</span>
+            <span class="score">43 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Rust solved this years ago with <a href="https://doc.rust-lang.org/std/ffi/struct.OsString.html"><code>OsString</code></a> using WTF-8 internally. The fact that C++ is catching up to this in 2026 is on brand.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/coroutine_hater_2020</span>
+                  <span class="score">71 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I'm going to start a bingo card for r/wg21 threads. "Rust already does this" is the free space.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: frequency question -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="score">28 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Genuine question: how common are unpaired surrogates in real filesystem paths? I've been writing Windows code for two decades and I've never personally encountered one. If this is fixing a theoretical hole that never occurs in practice, is it worth the complexity?</p>
+            <p>Not being dismissive - the consistency argument is real. I'm asking whether anyone has data on how often NTFS paths contain ill-formed UTF-16.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ntfs_internals_fan</span>
+                  <span class="score">37 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>More common than you'd think, but still rare. NTFS allows arbitrary 16-bit sequences as file names. You see them from:</p>
+                  <p>- Malware or security tools that intentionally create paths with invalid UTF-16 to evade parsers<br>
+                  - Cross-platform file transfers where encoding roundtrip already went wrong<br>
+                  - Legacy East Asian software that predates Unicode and stored DBCS in UCS-2 fields<br>
+                  - Fuzzing and test harnesses</p>
+                  <p>It's not a daily occurrence for most people, but if you write tools that enumerate all files (backup software, antivirus, search indexers), you <em>will</em> hit these. The paper's argument isn't frequency - it's that the formatter should be injective. Two distinct inputs, two distinct outputs. The current behavior violates that.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: prior art / cross-language -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/senior_lib_designer</span>
+            <span class="score">41 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The cross-language convergence is worth noting. Rust uses WTF-8 for <code>OsString</code>, libuv adopted it for Windows paths, and Python's PEP 383 solves the same problem with a different mechanism. When three independent ecosystems reach the same conclusion about ill-formed encoding handling, it's a decent signal that the approach is sound.</p>
+            <p>{fmt} already ships with this behavior: <a href="https://github.com/fmtlib/fmt">github.com/fmtlib/fmt</a>. So we have implementation experience plus cross-ecosystem validation. This seems like one of the cleaner SG16 papers I've seen.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_first_try</span>
+                  <span class="score">15 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Python's approach is interesting to compare. PEP 383 uses <code>surrogateescape</code>, which maps invalid bytes to lone surrogates in the U+DC80..U+DCFF range. Different mechanism, same goal: reversible encoding of not-quite-Unicode data. The WTF-8 route is arguably cleaner since it doesn't repurpose the surrogate range for a second meaning.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Deleted comment -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[deleted]</p>
+          </div>
+          <div class="comment-footer"></div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_wizard_42</span>
+                  <span class="score">5 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Tangent: paths in general -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/yet_another_build_victim</span>
+            <span class="score">14 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I feel like every other paper in SG16 is about paths and encoding on Windows. At some point can we just acknowledge that the Windows path model was a mistake and move on</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/old_guard_cpp17</span>
+                  <span class="score">8 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>we can acknowledge it all we want, the installed base isn't going anywhere. there are more NTFS volumes in production than there are humans who've read the C++ standard. you work with the platform you have.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- Collapsed wrong take -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_knows_what_volatile_does</span>
+            <span class="score negative">-7 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Unpaired surrogates are undefined behavior in UTF-16. You shouldn't format them at all. Just throw an exception.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

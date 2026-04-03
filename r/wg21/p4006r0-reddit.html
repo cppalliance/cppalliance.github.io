@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Transparent Function Objects for Shift Operators</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P4006",
+  "revision": 0,
+  "document": "P4006R0",
+  "title": "Transparent Function Objects for Shift Operators",
+  "authors": "Daniel Towner",
+  "audience": "LEWG",
+  "date": "2026-02-03",
+  "comments": 7,
+  "upvotes": 18,
+  "upvote_pct": "86%",
+  "poster": "functional_completionist",
+  "heat": "cold",
+  "flair": "WG21",
+  "generated": "2026-04-02",
+  "prior_revision": null
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P4006R0 - Transparent Function Objects for Shift Operators <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/functional_completionist</span> &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p4006r0">P4006R0</a><br>
+        <strong>Author:</strong> Daniel Towner (Intel)<br>
+        <strong>Date:</strong> 2026-02-03<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>Remember when N3421 gave us transparent functors for C++14 but specifically deferred <code>&lt;&lt;</code> and <code>&gt;&gt;</code> as "slightly beyond completely trivial to specify"? Twelve years later, someone finally wrote the paper to fill the gap.</p>
+
+        <p>P4006R0 proposes <code>std::bit_lshift&lt;&gt;</code> and <code>std::bit_rshift&lt;&gt;</code> - transparent function objects that wrap the bitwise shift operators, completing the <code>bit_and</code>/<code>bit_or</code>/<code>bit_xor</code>/<code>bit_not</code> family. The implementation is exactly what you'd expect: forward to <code>operator&lt;&lt;</code>/<code>operator&gt;&gt;</code> with perfect forwarding. The paper also documents why other missing operators (assignment, increment, member access) should stay missing.</p>
+      </div>
+      <div class="vote-count">&#9650; 18 points (86% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_nihilist</span>
+            <span class="score">27 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>We waited twelve years for someone to write a paper that adds two struct templates to <code>&lt;functional&gt;</code>. The absolute state of standardization throughput.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/lewg_survivor_2024</span>
+                  <span class="score">14 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>To be fair, LEWG had to get through executors, ranges, and <code>std::format</code> first. Shift functors were patiently waiting their turn in the queue like the rest of us.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/bitwise_pedant_42</span>
+            <span class="score">9 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I actually read the paper. It's well-scoped and clean, but the interesting question is how this interacts with <a href="https://wg21.link/p3793r1">P3793R1</a> which proposes <code>std::shl</code> and <code>std::shr</code> in <code>&lt;bit&gt;</code> with defined behavior for edge cases.</p>
+            <p>The paper acknowledges this directly:</p>
+            <blockquote>P3793R1 provides named functions in &lt;bit&gt; that define behavior for shift operations that would otherwise be undefined</blockquote>
+            <blockquote>P4006 provides transparent function objects in &lt;functional&gt; that forward directly to the built-in &lt;&lt; and &gt;&gt; operators, preserving all their semantics including undefined behavior</blockquote>
+            <p>So if both land, you'd have <code>std::shl(x, n)</code> for safe shifts and <code>std::bit_lshift&lt;&gt;{}(x, n)</code> for the raw operator. The question is: in what scenario do you specifically want the UB-preserving wrapper passed to an algorithm instead of a lambda or the safe version? The answer is "when you need uniform functor dispatch and you know your inputs are valid" but that's a pretty narrow lane.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lambda_captures_my_heart</span>
+            <span class="score">5 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Honest question - has anyone ever been actually blocked by the lack of this? <code>[](auto a, auto b) { return a &lt;&lt; b; }</code> is like twenty characters and communicates exactly what it does.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/bitwise_pedant_42</span>
+                  <span class="score">3 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The paper's strongest argument isn't convenience. Section 2.3.4 talks about <code>std::simd</code> needing uniform operator discovery through transparent functors - a library can check that <code>std::bit_and&lt;&gt;</code> is valid for a type but can't do the same for shifts without rolling your own trait. Niche, but it's a real gap in the generic programming story.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - Compiler Explorer</div>
+        <div class="promoted-body">Because you need to see the assembly.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/chevron_survivor</span>
+            <span class="score">2 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Named <code>bit_lshift</code> because they had to disambiguate from stream insertion. Twelve years and the best part of the paper is still the naming section explaining why <code>operator&lt;&lt;</code> means three different things in C++.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_your_average_functor</span>
+            <span class="score">1 point</span>
+            <span class="time">22 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I'm just impressed someone wrote a full paper with proposed wording, an alternatives analysis, and a ten-row appendix covering every C++ operator, for what amounts to twenty lines of code. Thorough.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

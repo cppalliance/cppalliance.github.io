@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Correctly rounded floating-point maths functions</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3864",
+    "revision": 1,
+    "document": "P3864R1",
+    "title": "Correctly rounded floating-point maths functions",
+    "authors": "Guy Davidson, Jan Schultke",
+    "audience": "SG6",
+    "date": "2026-02-22",
+    "comments": 9,
+    "upvotes": 23,
+    "upvote_pct": "78%",
+    "poster": "sg6_observer",
+    "heat": "cold",
+    "interest": "niche",
+    "flair": "WG21",
+    "generated": "2026-04-03",
+    "prior_revision": null
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3864R1 - Correctly rounded floating-point maths functions <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/sg6_observer &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Guy Davidson, Jan Schultke<br>
+        <strong>Document:</strong> P3864R1<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Target:</strong> SG6<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3864r1">wg21.link/p3864r1</a></p>
+
+        <p>Guy Davidson and Jan Schultke propose adding five correctly rounded math functions to <code>&lt;cmath&gt;</code>: <code>cr_add</code>, <code>cr_sub</code>, <code>cr_mul</code>, <code>cr_div</code>, and <code>cr_sqrt</code>. These guarantee roundTiesToEven rounding regardless of the current floating-point environment state, matching what IEC 60559:2020 specifies for its basic operations.</p>
+
+        <p>The motivation is ergonomics. Right now, if you need a correctly rounded result, you either call <code>fesetround()</code> and hope nobody upstream changed the rounding mode on you, or you build an elaborate workaround with separate translation units linked at runtime. These functions let you just say what you mean. They're <code>constexpr</code>, <code>noexcept</code>, and only available for IEC 559 types.</p>
+
+        <p>This follows the C standard's Annex F direction, which reserves the <code>cr_</code> prefix for correctly rounded functions. SG6 territory - numerics study group.</p>
+      </div>
+      <div class="vote-count">&#9650; 23 points (78% upvoted) &middot; 9 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/fesetround_appreciator</span>
+            <span class="score">18 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I've been calling <code>fesetround()</code> like a barbarian for years. Five functions that just do the right thing without touching the floating-point environment? Sign me up.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_a_cpp_dev_2024</span>
+            <span class="score">14 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>TIL you can change the rounding mode at runtime. I've been writing C++ for 8 years and have never once thought about this.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/fesetround_appreciator</span>
+                  <span class="score">9 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Count yourself lucky.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_knows_ieee754</span>
+            <span class="score">11 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote><p>This does not solve problem 2 directly, since this does not necessarily affect the floating-point state at all. However, it reduces the sources of error when correct rounding is important.</p></blockquote>
+            <p>So it solves half of one problem and acknowledges it doesn't solve the other. Humble.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">cppreference</div>
+        <div class="promoted-body">en.cppreference.com - You were going to look it up anyway.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/every_bit_counts</span>
+            <span class="score">7 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The C standard reserves the <code>cr_</code> prefix for a lot more than five functions. Annex F lists cr_sin, cr_cos, cr_exp, cr_log, and a bunch more. This paper deliberately scopes down to just the five basic arithmetic operations - addition, subtraction, multiplication, division, square root - which are the ones IEC 60559 already requires to be correctly rounded.</p>
+            <blockquote><p>the C standard in Annex F reserves the prefix cr_ for functions fully matching the mathematical operations</p></blockquote>
+            <p>Fair enough as a first step, but the hard problem has always been transcendentals. <a href="https://core-math.gitlabpages.inria.fr/">CORE-MATH</a> at INRIA has been working on correctly rounded implementations of those for years and they're making real progress getting them into glibc and LLVM libc. Is there a follow-up planned for <code>cr_sin</code> et al., or is this the extent of the C++ ambition here?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/sg6_observer</span>
+                  <span class="score">4 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I read it as intentionally minimal. The basic ops are the uncontroversial ones where correct rounding is already required by 60559. Transcendentals are a much harder standardization problem - you'd have to nail down which functions, whether the precision guarantee extends to all argument ranges, performance implications. Getting five clean functions through SG6 first seems like the right move.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_wizard_99</span>
+            <span class="score">6 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Slightly off topic but where is P3375 (reproducible floating-point results)? That's the one I actually care about. This paper explicitly says it doesn't solve reproducibility.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/mpfr_is_fine_actually</span>
+            <span class="score">5 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>MPFR has provided correctly rounded arithmetic for two decades. But I suppose having it in the standard means one fewer dependency to argue about in code review.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_all_the_things</span>
+            <span class="score">3 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The interesting detail here is the <code>constexpr</code> marking. During constant evaluation, arithmetic already produces correctly rounded results - that's what the compiler does when there's no FP environment to fiddle with. So <code>cr_add(x, y)</code> at compile time is just... <code>x + y</code>.</p>
+            <p>The real value is runtime: if some library upstream called <code>fesetround(FE_UPWARD)</code> and didn't restore it, <code>cr_add</code> gives you the correct roundTiesToEven answer anyway. The <code>constexpr</code> is there for API consistency, not because you'd choose it over <code>+</code> in a constant expression.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Are default function arguments in the immediate context?</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P2285",
+    "revision": 1,
+    "document": "P2285R1",
+    "title": "Are default function arguments in the immediate context?",
+    "authors": "Andrzej Krzemie\u0144ski, Tomasz Kami\u0144ski",
+    "audience": "EWG",
+    "date": "2026-02-23",
+    "comments": 8,
+    "upvotes": 47,
+    "upvote_pct": "78%",
+    "poster": "sfinae_or_die",
+    "heat": "cold",
+    "flair": "WG21",
+    "generated": "2026-04-02",
+    "prior_revision": null
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P2285R1 - Are default function arguments in the immediate context? <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/sfinae_or_die &middot; 6 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Andrzej Krzemi&#324;ski, Tomasz Kami&#324;ski<br>
+        <strong>Document:</strong> P2285R1<br>
+        <strong>Date:</strong> 2026-02-23<br>
+        <strong>Target:</strong> EWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p2285r1">wg21.link/p2285r1</a></p>
+
+        <p>Ever wonder why <code>std::constructible_from&lt;C&lt;std::string&gt;&gt;</code> gives you a different answer on every compiler? This paper looks at whether default function arguments and default member initializers should count as part of the "immediate context" for SFINAE and concept checking.</p>
+
+        <p>The problem: GCC says no, Clang hard-errors, MSVC says maybe, and the standard doesn't have a clear answer. The paper's strongest argument is that the standard library already works around this - <code>unordered_set</code> needs four separate constructor overloads instead of one with default arguments, because default args don't participate in substitution failure.</p>
+
+        <p>R1 adds implementation analysis (including a tricky lambda-in-default-argument case that has ABI implications) and expands scope to cover default member initializers. The recommendation is to put default arguments in the immediate context if vendors can make it work, with a fallback to at least mandating consistent behavior.</p>
+      </div>
+      <div class="vote-count">&#9650; 47 points (78% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- ============================================================ -->
+      <!-- Comment 1: just_a_process_nerd (signal - committee direction) -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_a_process_nerd</span>
+            <span class="score">23 points</span>
+            <span class="time">2 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>For anyone following this: EWG polled on this at Croydon. The result was consensus that default function arguments are <em>not</em> in the immediate context.</p>
+
+            <p>The broader direction is moving toward <a href="https://wg21.link/p4149">P4149</a> - a paper that tries to properly define what "immediate context" means in the first place, rather than expanding it piecemeal. Krzemi&#324;ski is a co-author on that one too, so this paper's analysis isn't wasted - it got folded into a larger effort.</p>
+
+            <p>The practical takeaway: the overload-explosion pattern for library constructors is here to stay. If you're writing a library and you want <code>constructible_from</code> to give the right answer, you still need separate overloads with <code>requires</code> clauses instead of default arguments.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Comment 2: constexpr_everything_42 (signal - STL can't use) -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_everything_42</span>
+            <span class="score">18 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The strongest argument in the paper is about the standard library:</p>
+
+            <blockquote>If the Standard Library cannot consume the feature, this is a forecast that the users may also be unable to consume it.</blockquote>
+
+            <p>Look at the <code>unordered_set</code> constructor signature explosion. Instead of a single constructor with defaulted parameters, the library has to provide separate overloads with progressively constrained <code>requires</code> clauses - all because default arguments don't participate in SFINAE. That's a real API design tax that trickles down to every library author who wants their constructors to play nice with <code>constructible_from</code>.</p>
+
+            <p>The question is whether fixing this is worth the implementation cost. The paper acknowledges the lambda-in-default-argument problem is non-trivial, and EDG says the default member initializer part might not be implementable at all. At some point you have to ask whether the workaround (more overloads) is cheaper than the fix.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 2a: sfinae_or_die (OP reply) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/sfinae_or_die</span>
+                  <span class="score">5 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Yeah, the real world has already routed around this with the overload explosion pattern. The question is whether we're ok with that being the permanent answer.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Comment 3: former_clang_contributor (signal - lambda ABI)    -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_clang_contributor</span>
+            <span class="score">14 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The lambda example from Richard Smith in section 4 is the real blocker. If default arguments are in the immediate context, a failed substitution instantiates a function-static variable as a side effect, and then a later successful substitution in the same TU has to deal with the consequences.</p>
+
+            <p>The known workaround - each use of the default argument gets a unique lambda type - has ABI implications. Name mangling has to encode <em>where</em> the default argument was used, not just where it was defined.</p>
+
+            <p>Clang and EDG sidestep this entirely by hard-erroring on substitution failure in default arguments. It's not the user-friendly answer, but it's the sound one. GCC does something different but I'm not convinced it handles the lambda case correctly either.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 3a: template_wizard_2020 (signal - compiler divergence) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_wizard_2020</span>
+                  <span class="score">9 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The compiler divergence table is the best part of the paper. Four compilers, five different type traits, and the results are all over the place. MSVC outputs <code>1</code> for <code>is_default_constructible</code> but <code>0</code> for <code>default_initializable</code> on the same type.</p>
+
+                  <p>The paper's description of MSVC's approach is pretty telling:</p>
+
+                  <blockquote>if the default function argument exists assume it will be valid</blockquote>
+
+                  <p>That's... optimistic. GCC at least consistently returns <code>0</code> for everything. Clang gives up and hard-errors on all of them. At minimum we need a consistent answer, even if it's "not in the immediate context." Compiler divergence on traits is worse than the wrong answer.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Interstitial Ad                                              -->
+      <!-- ============================================================ -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Comment 4: compile_time_is_my_runtime (noise - one-liner)    -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compile_time_is_my_runtime</span>
+            <span class="score">11 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Four compilers, four answers. I love this language.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- Comment 5: daily_networking_complainer (noise - tangent)      -->
+      <!-- ============================================================ -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_networking_complainer</span>
+            <span class="score">3 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile I'm still waiting for networking to exist in the standard. But sure, let's spend another decade on whether default arguments are in the immediate context.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 5a: compile_time_is_my_runtime (noise - tangent reply) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compile_time_is_my_runtime</span>
+                  <span class="score">2 points</span>
+                  <span class="time">47 min. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>At this rate compile times will be faster than the committee process.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

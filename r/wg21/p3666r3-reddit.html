@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - P3666R3 - Bit-precise integers</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3666",
+  "revision": 3,
+  "document": "P3666R3",
+  "title": "Bit-precise integers",
+  "authors": "Jan Schultke",
+  "audience": "EWG, LEWG",
+  "date": "2026-02-21",
+  "comments": 25,
+  "upvotes": 187,
+  "upvote_pct": "89%",
+  "poster": "standards_gazette",
+  "heat": "warm",
+  "flair": "WG21",
+  "generated": "2026-04-02",
+  "prior_revision": null
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">standards_gazette &middot; 8 hr. ago</div>
+
+    <div class="submission">
+      <div class="title">P3666R3 - Bit-precise integers<span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/standards_gazette &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3666r3">P3666R3</a><br>
+        <strong>Author:</strong> Jan Schultke<br>
+        <strong>Date:</strong> 2026-02-21<br>
+        <strong>Audience:</strong> EWG, LEWG<br>
+        <strong>Revision:</strong> 3</p>
+        <p>Jan Schultke's proposal to bring C23's <code>_BitInt</code> to C++ as a set of fundamental types, with <code>std::bit_int&lt;N&gt;</code> and <code>std::bit_uint&lt;N&gt;</code> alias templates for the C++-friendly spelling. R3 removes <code>std::simd</code> and <code>std::atomic</code> support from the MVP scope, rebases wording on N5032, and tracks WG14's approval of <code>_BitInt(1)</code> via N3747.</p>
+        <p>The core pitch: C has had <code>_BitInt</code> since C23, Clang has shipped it as an extension for years, GCC 14+ supports it in C mode, and C++ currently has no portable way to call a C function taking <code>_BitInt(128)</code>. The paper argues for fundamental types over a class template on the basis of bit-field usage, the <code>unsigned</code> combiner syntax, narrowing detection in list initialization, and the enormous volume of operator overloads a library type would need.</p>
+        <p>Key design decisions still in play: signed overflow stays UB (matching C), implicit conversions remain permissive (matching C), and <code>BITINT_MAXWIDTH</code> minimum is only 64 (matching C). Sensing a theme? This is a C compatibility proposal first, with C++ ergonomics as a secondary concern.</p>
+      </div>
+      <div class="vote-count">&#9650; 187 &middot; 89% upvoted &middot; 25 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- ===== 1. AutoModerator (pinned) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="flair">pinned comment</span>
+            <span class="score">1 point</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This thread has been automatically created for <a href="https://wg21.link/p3666r3">P3666R3 - Bit-precise integers</a>.</p>
+            <p><strong>Author:</strong> Jan Schultke &middot; <strong>Audience:</strong> EWG, LEWG &middot; <strong>Date:</strong> 2026-02-21</p>
+            <p>Reminder: be civil and constructive. Paper authors sometimes read these threads.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ===== 2. constexpr_everything_42 (noise, 156pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_everything_42</span>
+            <span class="score">156 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Bit-precise integers: for when you need your compile times to be precise down to the bit too.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ===== 3. not_a_real_cpp_dev (noise, 112pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_real_cpp_dev</span>
+            <span class="score">112 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>"Minimal viable product" that touches 25+ standard library headers. Only in C++ is this considered minimal.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ===== 4. just_wants_128_bits (noise, 94pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_wants_128_bits</span>
+            <span class="score">94 points</span>
+            <span class="time">6 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>I don't care about fundamental vs library. I don't care about <code>_BitInt(1)</code>. I don't care about the <code>wb</code> literal suffix. I just want <code>std::bit_int&lt;128&gt;</code> to be guaranteed to exist on every major platform. This paper can't even promise that.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 4a. standards_gazette OP reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/standards_gazette</span>
+                  <span class="score">18 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>You and 90% of the people who will ever use this feature. But getting 128 as a guaranteed minimum requires implementers to commit, and MSVC doesn't even have <code>_BitInt</code> yet. Baby steps.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 5. async_skeptic (TEASER signal, 89pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_skeptic</span>
+            <span class="score">89 points</span>
+            <span class="time">6 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper's own Section 3.4 makes the case for me:</p>
+            <blockquote><p>The following code has undefined behavior if int is a 32-bit signed integer (which it is on many platforms).</p></blockquote>
+            <pre><code>uint16_t x = 65'535;
+uint16_t y = x * x; // UB: promoted to int, overflows</code></pre>
+            <p>Then Section 4.6 argues signed overflow should remain UB. Section 4.7 argues implicit conversions should stay permissive. So the paper identifies integer promotion and overflow as the motivating problem, proposes a new integer family, and then gives it the same UB and similar conversion semantics.</p>
+            <p>The actual fix is narrower than it sounds: <code>bit_uint&lt;16&gt;</code> won't promote to <code>int</code>. That's the win. Everything else is inherited wholesale.</p>
+            <p>The "we can define it later" argument for overflow is the same argument that's kept signed overflow UB since C89. The committee will not come back and change it because by then there'll be a decade of code relying on the optimization. Section 4.7.3 almost gets there - banning conversions to <code>bool</code> and character types - but that's the low-hanging fruit of low-hanging fruit.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 5a. warm_collaborative_dev (depth 1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/warm_collaborative_dev</span>
+                  <span class="score">12 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is the comment I came here for. Though the promotion fix alone is valuable - mixed-sign arithmetic with small unsigned types is a genuine source of bugs in embedded and safety-critical code. Having <code>bit_uint&lt;10&gt;</code> stay 10 bits wide through arithmetic is a real improvement even if everything else stays the same.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- 5b. api_ergonomics_nerd (depth 2, encounter start) -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/api_ergonomics_nerd</span>
+                        <span class="score">28 points</span>
+                        <span class="dagger">&dagger;</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The promotion fix is valuable, agreed. But I'm more conflicted about the implicit conversion design. The paper's <code>div_ceil</code> example in Section 4.7.2 is revealing:</p>
+                        <pre><code>template&lt;class T&gt;
+T div_ceil(T x, T y) {
+    bool quotient_positive = (x ^ y) &gt;= 0;
+    bool adjust = x % y != 0 &amp;&amp; quotient_positive;
+    return x / y + int(adjust);
+}</code></pre>
+                        <p>Every line of this breaks for <code>unsigned _BitInt(8)</code> with strict conversions. But isn't that kind of the point? This code has latent mixed-signedness issues. Strict conversions would find them.</p>
+                        <p>At minimum I want <code>bool</code> and character conversions banned, as Section 4.7.3 suggests. The <code>cout &lt;&lt; your_int_was_actually_a_char</code> problem is real.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- 5c. daily_c_abi_pain (depth 3, encounter clash) -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/daily_c_abi_pain</span>
+                              <span class="score">41 points</span>
+                              <span class="time">4 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Have you actually maintained a C/C++ header that wraps a library using <code>_BitInt</code>?</p>
+                              <p>I do, for a crypto library. Mixed signedness everywhere. <code>unsigned _BitInt(128)</code> passed to functions expecting <code>unsigned long long</code> for the low bits. It's ugly, but it compiles in C. If C++ adds conversion restrictions C doesn't have, I need <code>#ifdef __cplusplus</code> around every third line.</p>
+                              <p>The <code>div_ceil</code> template <em>should</em> be rewritten to be correct. The interop header <em>works</em> and should not be broken by a language boundary.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <!-- 5d. api_ergonomics_nerd (depth 4, encounter resolution) -->
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/api_ergonomics_nerd</span>
+                                    <span class="score">15 points</span>
+                                    <span class="time">3 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Fair point on the interop headers - I underestimated how much <code>_BitInt</code> code is already in the wild. I'll concede the general conversion case. Still holding the line on <code>bool</code> conversions though. Nobody is writing <code>bool b = my_bitint;</code> in a C interop header.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies"></div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 6. compiler_frontend_dev (signal, 67pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiler_frontend_dev</span>
+            <span class="score">67 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I've worked on a compiler frontend with <code>_BitInt</code> support. A few notes:</p>
+            <p>1. Codegen is genuinely good up to 128 bits on x86-64. Native <code>mul</code>/<code>div</code> pairs, proper strength reduction, the works.</p>
+            <p>2. Beyond 128 bits, everything degenerates to software emulation. Users will be surprised when <code>bit_int&lt;256&gt; / 10</code> compiles to a function call instead of a multiply-shift sequence.</p>
+            <p>3. Template argument deduction from <code>_BitInt(N)</code> will generate... interesting error messages. We already get complaints about array-bound deduction failures.</p>
+            <p>4. The <code>BITINT_MAXWIDTH</code> of 8 million in Clang is generous. I have seen people try <code>_BitInt(1048576)</code> in C and then wonder why their struct is 128KB.</p>
+            <p>The fundamental type approach is correct. We already have the intrinsics internally. Wrapping them in a class template would just add compilation overhead for no benefit.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 6a. segfault_enjoyer_2020 (depth 1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/segfault_enjoyer_2020</span>
+                  <span class="score">15 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Does the strength reduction for <code>x / 10</code> actually fire for <code>_BitInt(128)</code> today, or only up to 64-bit operands?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 7. turbo_llama_9000 (noise, 47pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/turbo_llama_9000</span>
+            <span class="score">47 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Rust has had <code>i128</code> since 1.26 (2018). Just saying.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 7a. build_system_victim_xx (depth 1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/build_system_victim_xx</span>
+                  <span class="score">38 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust also doesn't have to maintain ABI compatibility with a language standardized in 1989. Just saying.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== AD: Compiler Explorer ===== -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly.</div>
+      </div>
+
+      <!-- ===== 8. fpga_for_breakfast (signal, 34pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/fpga_for_breakfast</span>
+            <span class="score">34 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Embedded developer here. Section 4.4 says the quiet part loud:</p>
+            <blockquote><p>_BitInt may be completely useless for tasks like 128-bit computation. As unfortunate as that is, the MVP should include no more than C actually mandates.</p></blockquote>
+            <p><code>BITINT_MAXWIDTH</code> being only 64 on some targets means you can't use this for the one thing hardware people actually want: portable 128-bit multiply for fixed-point DSP. The paper's own motivation in Section 3.1 mentions Q32.32, which requires 128-bit intermediates. If your target's MAXWIDTH is 64, you're back to compiler extensions or inline assembly.</p>
+            <p>That said, the no-promotion guarantee is genuinely useful. If I have a 10-bit ADC value, I want <code>bit_uint&lt;10&gt;</code> arithmetic to stay 10 bits wide. That's the real win for us, not the big numbers.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ===== 9. former_boost_contributor_99 (noise, 31pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor_99</span>
+            <span class="score">31 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><a href="https://wg21.link/n1692">N1692</a> (2004), <a href="https://wg21.link/n1744">N1744</a> (2005), <a href="https://wg21.link/n4038">N4038</a> (2014), <a href="https://wg21.link/p3140r0">P3140</a> (2024), <a href="https://wg21.link/p3639r0">P3639</a> (2025), P3666 (2025). Multi-precision integers are the networking of numerics. Always five years away.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ===== 10. template_abuse_survivor (signal, 22pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_abuse_survivor</span>
+            <span class="score">22 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The <code>make_signed</code>/<code>make_unsigned</code> change in Section 5.13 is easy to miss but important. Without it, adding bit-precise integers silently changes <code>make_unsigned_t&lt;int&gt;</code> from <code>unsigned int</code> to <code>_BitInt(32)</code> because the latter has lower conversion rank.</p>
+            <p>The fix is correct: standard integer types in, standard integer types out. Bit-precise types only when you feed bit-precise types. But this is exactly the kind of "existing code silently changes meaning" landmine that makes standardizing new integer types terrifying. How many codebases use <code>make_unsigned_t</code> in template metaprogramming and assume they get back a standard integer?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- ===== 11. safety_first_cpp (tangent, 19pts, controversial) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/safety_first_cpp</span>
+            <span class="score">19 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Can we talk about Section 4.6? The paper lists "wrapping" and "wrapping + erroneous" as alternatives for signed overflow and then picks... UB. Again.</p>
+            <p>The "it can be changed later" argument is wishful thinking. When has the committee ever gone back and defined previously-undefined behavior for an existing type?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 11a. volatile_means_thread_safe (depth 1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/volatile_means_thread_safe</span>
+                  <span class="score">24 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The UB is useful for optimization. <code>x + 1 &gt; x</code> folds to <code>true</code> with UB semantics. With wrapping it can't. For code where performance is the entire point - crypto, HFT, DSP - this matters.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- 11b. former_ub_apologist (depth 2) -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/former_ub_apologist</span>
+                        <span class="score">8 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The erroneous behavior compromise exists exactly for this case. Wrap in release, trap in debug. Rust does it. It works. We just refuse to try.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 12. the_real_msvc_fan (noise, 18pts) ===== -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/the_real_msvc_fan</span>
+            <span class="score">18 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Any word on MSVC support? The table in Section 3.3 is a sad little row of red crosses.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 12a. definitely_not_a_committee_member (depth 1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/definitely_not_a_committee_member</span>
+                  <span class="score">23 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>MSVC has <code>__msvc_int128</code> internally but nothing public. They've been waiting for the standard to settle on the spelling before committing resources. Which is reasonable, honestly - the fundamental vs library question was only decided at Sofia.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 13. [deleted] ===== -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[deleted]</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- 13a. compile_this_84 (depth 1) -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compile_this_84</span>
+                  <span class="score">7 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>what did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- 13b. linker_error_enjoyer (depth 2) -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/linker_error_enjoyer</span>
+                        <span class="score">4 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>something about <code>_BitInt(1)</code> being a better <code>bool</code>, the usual</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

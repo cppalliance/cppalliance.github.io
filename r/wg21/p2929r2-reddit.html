@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Proposal to add simd_invoke to std::simd</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P2929",
+  "revision": 2,
+  "document": "P2929R2",
+  "title": "Proposal to add simd_invoke to std::simd",
+  "authors": "Daniel Towner, Ruslan Arutyunyan",
+  "audience": "LEWG",
+  "date": "2026-01-26",
+  "comments": 8,
+  "upvotes": 23,
+  "upvote_pct": "78%",
+  "poster": "simd_paper_tracker",
+  "heat": "cold",
+  "flair": "WG21",
+  "generated": "2026-04-02",
+  "prior_revision": null
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P2929R2 - Proposal to add simd_invoke to std::simd <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/simd_paper_tracker</span> &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p2929r2">P2929R2</a><br>
+        <strong>Authors:</strong> Daniel Towner, Ruslan Arutyunyan (Intel)<br>
+        <strong>Date:</strong> 2026-01-26<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>Intel folks proposing <code>simd::chunked_invoke</code> - a utility that breaks large <code>basic_vec</code> values into register-sized chunks, applies a callable (typically wrapping a platform intrinsic) to each chunk, and reassembles the results via <code>simd::cat</code>. The paper title still says <code>simd_invoke</code> but the function was renamed to <code>chunked_invoke</code> in this revision to avoid confusion with <code>std::invoke</code>.</p>
+
+        <p>The motivation is practical: if your <code>basic_vec</code> is wider than a native register, you currently have to manually chunk, call intrinsics on each piece, and cat the results back together. This paper wraps that boilerplate into a single function. It also optionally passes a chunk index to the callable if the callable accepts one, using callable probing rather than a separate <code>_indexed</code> variant.</p>
+      </div>
+      <div class="vote-count">&#9650; 23 points (78% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_all_the_things</span>
+            <span class="score">15 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>std::simd: the library that keeps growing before it ships. At this rate the API surface will be larger than the register file.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/actual_simd_user</span>
+            <span class="score">8 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The core idea is a reasonable convenience. But the callable probing design gives me pause. From section 4.1.1:</p>
+            <blockquote>a precedent has been set in the simd::permute function to allow Callables to be probed for their capabilities rather than naming the function to call it out</blockquote>
+            <p>"Probing capabilities" means SFINAE on whether the callable accepts an extra parameter. The note in the wording even warns about ambiguous overloads. I'd rather have an explicit <code>chunked_invoke_indexed</code> than silent overload resolution deciding whether my lambda gets an index or not. The permute precedent isn't great justification for propagating the same pattern.</p>
+            <p>That said, the chunk-invoke-cat boilerplate is genuinely annoying. I've written it enough times to appreciate the motivation.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/highway_fan_2023</span>
+            <span class="score">11 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Genuinely curious - what does this buy you that <a href="https://github.com/google/highway">Highway</a> or xsimd don't already handle? Both of those have had "apply op to native-sized pieces" as a core abstraction for years.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_all_the_things</span>
+                  <span class="score">4 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Standardization, presumably. Though at the rate std::simd is moving, Highway will have rewritten their entire API twice before this ships.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/register_pressure_victim</span>
+            <span class="score">6 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The tail chunk handling is the interesting part. The paper's 19-element example on AVX (native size 8) gives chunks of 8, 8, and 3. Your callable has to handle that trailing 3-element chunk correctly.</p>
+            <p>The mandate says:</p>
+            <blockquote>The callable fn shall be invocable for every combination of chunk argument types that may be produced, including tail chunks of sizes less than N.</blockquote>
+            <p>So your lambda needs to be a generic lambda or have overloads for every possible tail size. In practice that means a <code>constexpr if</code> chain inside the lambda to dispatch the right intrinsic per chunk size - which is pretty much the boilerplate this paper was supposed to eliminate.</p>
+            <p>The non-tail case is where the convenience wins. The tail case still requires the same manual dispatch.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - Compiler Explorer</div>
+        <div class="promoted-body">Because you need to see the assembly.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/naming_things_is_hard_cpp</span>
+            <span class="score">3 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From the revision history:</p>
+            <blockquote>Changed the name of the function to avoid confusion with std::invoke.</blockquote>
+            <p>Ironic that the paper title still says <code>simd_invoke</code>. <code>chunked_invoke</code> is better though - it signals that the chunking is the point, not just "invoke but for SIMD." Aligns with <code>chunk</code> and <code>cat</code> naming in the rest of the library.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lurking_undergrad_cpp</span>
+            <span class="score">2 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Wait, <code>std::simd</code> made it into C++26? I thought it was still in the parallelism TS.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actual_simd_user</span>
+                  <span class="score">5 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><a href="https://wg21.link/p1928r15">P1928</a> is merging it into the working draft. Long road from the TS, but it's happening.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

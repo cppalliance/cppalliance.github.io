@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Conditional noexcept specifiers in compound requirements</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3822",
+    "revision": 1,
+    "document": "P3822R1",
+    "title": "Conditional noexcept specifiers in compound requirements",
+    "authors": "Viacheslav Luchkin, Ga\u0161per A\u017eman",
+    "audience": "EWG, CWG",
+    "date": "2026-02-14",
+    "comments": 8,
+    "upvotes": 47,
+    "upvote_pct": "89%",
+    "poster": "standards_rss_addict",
+    "heat": "cold",
+    "interest": "relevant",
+    "flair": "WG21",
+    "generated": "2026-04-03",
+    "prior_revision": null
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3822R1 - Conditional noexcept specifiers in compound requirements <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/standards_rss_addict &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Viacheslav Luchkin, Ga&#353;per A&#382;man<br>
+        <strong>Document:</strong> P3822R1<br>
+        <strong>Date:</strong> 2026-02-14<br>
+        <strong>Target:</strong> EWG &rarr; CWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3822r1">wg21.link/p3822r1</a></p>
+
+        <p>You know how function declarations have had <code>noexcept(expr)</code> since C++11? Turns out you can't do that in a compound requirement. You get bare <code>noexcept</code> or nothing. So if you need to conditionally check whether an expression is non-throwing - say, in a type-erased wrapper parameterized on noexcept - you have to duplicate the entire concept body with a ternary: one branch that checks <code>noexcept</code>, one that doesn't.</p>
+
+        <p>P3822 extends compound requirements to accept <code>noexcept(constant-expression)</code>, filling the gap. Small change, reuses existing grammar from [except.spec], has a Clang implementation. EWG forwarded it to CWG for C++29.</p>
+      </div>
+      <div class="vote-count">&#9650; 47 points (89% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/turbo_llama_9000</span>
+            <span class="score">27 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>love that we're three decades into C++ and still finding grammar cells that <code>noexcept</code> forgot to colonize</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/yet_another_cpp_dev</span>
+            <span class="score">19 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Wait - <code>noexcept(expr)</code> has been legal on function declarations since C++11 but <em>not</em> in compound requirements? I genuinely assumed this already worked. Who discovered this gap?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_first_try</span>
+                  <span class="score">6 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Anyone writing type-erased wrappers parameterized on noexcept. The workaround is a ternary concept that duplicates the entire body:</p>
+                  <pre><code>template&lt;typename F, bool noexc&gt;
+concept invocable = noexc
+  ? requires(F f) { { f() } noexcept; }
+  : requires(F f) { f(); };</code></pre>
+                  <p>It works but it's the kind of thing that makes you wonder if the language is trolling you. The paper's type erasure <a href="https://godbolt.org/z/4rvPMEvdf">example on Godbolt</a> is the more complete motivating case.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/concept_enjoyer</span>
+            <span class="score">12 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote><p>The lack of support for this syntax is also inconsistent with function declarations, which have had conditional noexcept specifiers since C++11.</p></blockquote>
+            <p>Small paper but the inconsistency it fixes is real. The proposed wording reuses the existing <code>noexcept-specifier</code> grammar from [except.spec] verbatim - no new production rules, just plumbing the existing one into compound requirements where it should have been all along.</p>
+            <p>EWG forwarded to CWG for C++29: SF 10, F 16, N 4, A 4, SA 0. Four against is a little surprising for something this mechanical. Maybe concern about the grammar surface area? Or just people who don't think the ternary workaround is painful enough to justify a language change.</p>
+            <p>There's a <a href="https://github.com/yuxuanchen1997/llvm-project/tree/users/yuxuanchen1997/p3822r0-requirements-noexcept">Clang fork</a> with a working implementation. Apparently most of the existing exception specification logic was reusable, which is kind of the point.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sfinae_survivor</span>
+                  <span class="score">4 points</span>
+                  <span class="time">47 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>One design detail worth noting: if the constant-expression fails to convert to <code>bool</code>, the requirement is not satisfied rather than a hard error. Same reasoning as SFINAE - you want overload resolution to keep looking, not detonate.</p>
+                  <p>Given that <code>noexcept(true)</code> and <code>noexcept(false)</code> are the only realistic values, it's hard to see how you'd actually trigger this in practice. But it's a nice safety net for heavily-templated constraint machinery where someone substitutes a type that doesn't even have a viable conversion.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/volatile_as_intended</span>
+            <span class="score">8 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I've hit exactly this writing a <code>move_only_function</code> alternative at work. Ended up with two separate concepts and a <code>requires</code> clause that looked like it was generated by a macro. Would genuinely love to just write <code>noexcept(noexc)</code> in the compound requirement and be done with it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_template_wizard</span>
+            <span class="score">3 points</span>
+            <span class="time">53 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Honest question: does anyone actually get <code>noexcept</code> right in generic code? Every time I try I end up in a <code>noexcept(noexcept(noexcept(...)))</code> hall of mirrors and give up.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/yet_another_cpp_dev</span>
+                  <span class="score">2 points</span>
+                  <span class="time">41 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>At scale, yes. Anything that does type erasure or wraps callables needs to propagate it. <code>std::function</code> doesn't bother but <code>std::move_only_function</code> does, and that distinction matters in performance-sensitive code.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

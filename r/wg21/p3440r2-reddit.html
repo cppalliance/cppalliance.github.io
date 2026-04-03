@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - P3440R2 - Add mask_from_count function to std::simd</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3440",
+  "revision": 2,
+  "document": "P3440R2",
+  "title": "Add mask_from_count function to std::simd",
+  "authors": "Daniel Towner",
+  "audience": "LEWG",
+  "date": "2026-02-20",
+  "comments": 7,
+  "upvotes": 21,
+  "upvote_pct": "88%",
+  "poster": "simd_lane_watcher",
+  "heat": "cold",
+  "flair": "WG21",
+  "generated": "2026-04-02",
+  "prior_revision": null
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3440R2 - Add mask_from_count function to std::simd <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/simd_lane_watcher</span> &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3440r2">P3440R2</a><br>
+        <strong>Author:</strong> Daniel Towner (Intel)<br>
+        <strong>Date:</strong> 2026-02-20<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>New revision of Daniel Towner's (Intel) paper proposing <code>mask_from_count</code> for <code>std::simd</code> - a free function that generates a mask with the first N elements set to true. The primary use case is loop remainders: when your data doesn't fill an entire SIMD vector, you need a mask to process just the leftover elements. Without a standard facility, users end up writing manual mask generation that's either non-portable across SIMD targets or subtly wrong for edge cases (the paper has some good examples of how the iota-based and bit-manipulation approaches silently break).</p>
+
+        <p>R2 renames the function from <code>n_elements</code> to <code>mask_from_count</code>, clarifies that out-of-range counts saturate instead of violating a precondition, and adds a simd-generic design that works uniformly across <code>basic_vec</code> and scalar types.</p>
+      </div>
+      <div class="vote-count">&#9650; 21 points (88% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/not_a_bikeshed_actually</span>
+            <span class="score">11 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>R2 renames it from <code>n_elements</code> to <code>mask_from_count</code>. The naming section lists nine rejected alternatives. I give it two more revisions before someone in LEWG proposes <code>make_mask_for_first_n_elements_of_basic_vec_please</code>.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor</span>
+            <span class="score">8 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>std::simd</code> has been "almost in the standard" since the Parallelism TS and we're still adding individual utility functions one paper at a time. At this rate we'll have a complete SIMD library by C++35.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_2024</span>
+                  <span class="score">3 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>To be fair this one is like three lines of implementation. The fact that you can get it wrong in subtle ways on different targets is exactly why it should be in the standard library rather than hand-rolled in every codebase.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="score">6 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From the paper:</p>
+            <blockquote>count &gt;= size() saturates to a full mask</blockquote>
+            <p>I understand the consistency argument with <code>partial_load</code>, but in my domain (automotive ECU, ASIL-D) a count that exceeds the SIMD width is almost certainly a bug in the loop arithmetic. I'd rather have a precondition violation that the contract checker catches at the boundary than silent saturation that makes the loop "work" while processing garbage.</p>
+            <p>The paper says Intel saw no performance difference between strict and relaxed preconditions, and that's plausible on AVX-512 where the clamp is a single <code>min</code>. But the semantic cost matters more than the runtime cost here - you've turned a detectable bug into correct-looking behavior.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything_2024</span>
+                  <span class="score">4 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>partial_load</code> already saturates for oversized ranges, so if you're using both together (which is the main use case per the paper), you'd need the same defensive check either way. At least they're consistent with each other.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">Because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/arm_neon_enjoyer</span>
+            <span class="score">5 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From the performance section:</p>
+            <blockquote>Intel's implementation experience shows no notable performance difference between implementations that handle all non-negative counts versus those with stricter preconditions</blockquote>
+            <p>This is one vendor on architectures where mask registers are first-class hardware (AVX-512 <code>k</code> registers, AVX-10). On ARM SVE where masks are governing predicates with different constraints, or on NEON where masks are full-width vectors, the saturation clamp might not be free. Would be nice to see multi-target data before leaning on performance as the design justification.</p>
+            <p>Not a dealbreaker for the function itself - <code>mask_from_count</code> is obviously useful. Just saying the precondition argument leans on evidence from one architecture family.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/highway_or_bust</span>
+            <span class="score">2 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Google Highway has <code>FirstN</code> which does exactly this, and it works across x86, ARM, RISC-V, and WASM today. Nice to see it landing in the standard eventually.</p>
+            <p><a href="https://github.com/google/highway">github.com/google/highway</a></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -4,287 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>r/wg21 - WG21 Paper Discussions</title>
-  <style>
-:root {
-  --bg-canvas: #030303;
-  --bg-body: #1a1a1b;
-  --bg-card: #272729;
-  --bg-hover: #2d2d2f;
-  --border-default: #343536;
-  --text-primary: #d7dadc;
-  --text-secondary: #818384;
-  --text-muted: #6a6b6d;
-  --text-link: #4fbcff;
-  --text-visited: #a98bdb;
-  --text-username: #4fbcff;
-  --text-mod: #5af078;
-  --upvote: #ff4500;
-  --downvote: #7193ff;
-  --flair-bg: #272729;
-  --flair-text: #d7dadc;
-  --font-body: 'Reddit Sans', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'Source Code Pro', 'Fira Code', 'Consolas', monospace;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  background: var(--bg-canvas);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-.subreddit { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
-
-.subreddit-banner {
-  background: linear-gradient(135deg, #1a3a5c 0%, #0d1b2a 100%);
-  border-radius: 4px 4px 0 0;
-  padding: 32px 24px 20px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border-default);
-  border-bottom: none;
-}
-
-.subreddit-banner h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.banner-tagline {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.content-layout {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
-
-.post-list {
-  flex: 1;
-  min-width: 0;
-}
-
-.post-card {
-  display: flex;
-  background: var(--bg-body);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 8px;
-  transition: border-color 0.15s;
-}
-
-.post-card:hover { border-color: var(--text-muted); }
-
-.post-card.mailing-card {
-  border-left: 3px solid var(--text-mod);
-}
-
-.post-votebar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 40px;
-  min-width: 40px;
-  padding-top: 2px;
-  font-size: 12px;
-  color: var(--text-muted);
-  user-select: none;
-}
-
-.post-votebar .arrow { cursor: pointer; line-height: 1; }
-.post-votebar .arrow.up { color: var(--text-muted); }
-.post-votebar .arrow.down { color: var(--text-muted); margin-top: 2px; }
-.post-score { font-weight: 700; font-size: 13px; margin: 4px 0; }
-
-.post-content { flex: 1; min-width: 0; }
-
-.post-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
-  line-height: 1.3;
-}
-
-.post-title a {
-  color: var(--text-primary);
-  text-decoration: none;
-}
-.post-title a:hover { color: var(--text-link); }
-.post-title a:visited { color: var(--text-visited); }
-
-.flair {
-  display: inline-block;
-  background: var(--flair-bg);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  padding: 1px 8px;
-  font-size: 11px;
-  color: var(--flair-text);
-  margin-left: 8px;
-  vertical-align: middle;
-  font-weight: 400;
-}
-
-.update-flair {
-  border-color: var(--text-link);
-  color: var(--text-link);
-}
-
-.update-flair a { color: var(--text-link); text-decoration: none; }
-.update-flair a:hover { text-decoration: underline; }
-
-.mailing-flair {
-  border-color: var(--text-mod);
-  color: var(--text-mod);
-}
-
-.post-meta {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-
-.post-summary {
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.sidebar {
-  width: 312px;
-  min-width: 312px;
-}
-
-.sidebar-card {
-  background: var(--bg-body);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.sidebar-card-header {
-  background: var(--bg-card);
-  padding: 10px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-}
-
-.about-description {
-  padding: 12px;
-  font-size: 13px;
-  color: var(--text-primary);
-  line-height: 1.5;
-}
-
-.about-stats {
-  display: flex;
-  padding: 0 12px 12px;
-  gap: 24px;
-}
-
-.stat { display: flex; flex-direction: column; }
-.stat-number { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-.stat-label { font-size: 11px; color: var(--text-muted); }
-
-.about-created {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-default);
-}
-
-.rules-list {
-  padding: 12px 12px 12px 28px;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-.rules-list li { padding: 4px 0; }
-
-.mod-list {
-  list-style: none;
-  padding: 12px;
-}
-.mod-list li { padding: 3px 0; }
-.mod-name {
-  font-size: 13px;
-  color: var(--text-username);
-  font-weight: 600;
-}
-
-.message-mods {
-  display: block;
-  text-align: center;
-  padding: 8px;
-  font-size: 12px;
-  color: var(--text-link);
-  text-decoration: none;
-  border-top: 1px solid var(--border-default);
-}
-.message-mods:hover { text-decoration: underline; }
-
-.related-list {
-  list-style: none;
-  padding: 12px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-.related-list li { padding: 3px 0; }
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 16px 0;
-  margin-top: 8px;
-  border-top: 1px solid var(--border-default);
-}
-
-.page-label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.page-link {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-link);
-  text-decoration: none;
-  padding: 6px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  background: var(--bg-card);
-}
-
-.page-link:hover {
-  background: var(--bg-hover);
-  border-color: var(--text-muted);
-}
-
-@media (max-width: 960px) {
-  .content-layout { flex-direction: column; }
-  .sidebar { width: 100%; min-width: 0; }
-  .subreddit { padding: 0 8px; }
-  .subreddit-banner { padding: 20px 16px 14px; }
-  .subreddit-banner h1 { font-size: 22px; }
-}
-  </style>
+  <link rel="stylesheet" href="reddit-index.css">
 </head>
 <body>
-<!-- LAST_MAILING: 2026-02 -->
-<!-- LAST_PAGE: 0 -->
 <div class="subreddit">
   <div class="subreddit-banner">
     <div class="banner-content">
@@ -294,83 +16,347 @@ body {
   </div>
   <div class="content-layout">
     <main class="post-list">
-    <!-- POST_LIST_START -->
-    <div class="post-card mailing-card" data-mailing="2026-02">
-      <div class="post-votebar">
-        <span class="arrow up">&#9650;</span>
-        <span class="post-score">&#128204;</span>
-        <span class="arrow down">&#9660;</span>
-      </div>
-      <div class="post-content">
-        <div class="post-title">
-          <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2026/">2026-02 pre-Croydon Mailing</a>
-          <span class="flair mailing-flair">Mailing</span>
+
+      <div class="post-card" data-document="P3932R0" data-paper="P3932">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">28</span>
+          <span class="arrow down">&#9660;</span>
         </div>
-        <div class="post-meta">Stickied by u/AutoModerator &middot; February 2026</div>
-        <div class="post-summary">The pre-Croydon mailing is out. Papers for the March 23-28 meeting in Croydon, UK. Full paper list on open-std.org.</div>
-      </div>
-    </div>
-    <div class="post-card" data-document="P4003R1" data-paper="P4003">
-      <div class="post-votebar">
-        <span class="arrow up">&#9650;</span>
-        <span class="post-score">327</span>
-        <span class="arrow down">&#9660;</span>
-      </div>
-      <div class="post-content">
-        <div class="post-title">
-          <a href="p4003r1-reddit.html">P4003R1 - Ask: IoAwaitable for Coroutine-Native Byte-Oriented I/O</a>
-          <span class="flair">WG21</span>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3932r0-reddit.html">P3932R0 - Fix LWG4470: Fix integer-from in [simd]</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/paper_plumber_42 &middot; 7 comments
+          </div>
+          <div class="post-summary">
+            Matthias Kretz is back with plumbing work on std::simd. Three LWG issues all touch overlapping wording in [simd], so they get fixed together in one paper.
+          </div>
         </div>
-        <div class="post-meta">Posted by u/modern_cpp_news &middot; 44 comments</div>
-        <div class="post-summary">New paper proposing the IoAwaitable protocol as the standard vocabulary for coroutine-native byte-oriented I/O. Positions itself as a "third way" distinct from both the Networking TS and sender/receiver.</div>
       </div>
-    </div>
-    <div class="post-card" data-document="P3874R1" data-paper="P3874">
-      <div class="post-votebar">
-        <span class="arrow up">&#9650;</span>
-        <span class="post-score">847</span>
-        <span class="arrow down">&#9660;</span>
-      </div>
-      <div class="post-content">
-        <div class="post-title">
-          <a href="p3874r1-reddit.html">P3874R1 - Should C++ be a memory-safe language?</a>
-          <span class="flair">WG21</span>
+
+      <div class="post-card" data-document="P4023R0" data-paper="P4023">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">1247</span>
+          <span class="arrow down">&#9660;</span>
         </div>
-        <div class="post-meta">Posted by u/cpp_papers_bot &middot; 83 comments</div>
-        <div class="post-summary">The paper asks whether C++ should commit to becoming a memory-safe language. Core argument: "memory-safe" means systematically preventing all UB, not just reducing memory bugs. Proposes a subset-of-superset approach.</div>
-      </div>
-    </div>
-    <div class="post-card" data-document="P3655R3" data-paper="P3655">
-      <div class="post-votebar">
-        <span class="arrow up">&#9650;</span>
-        <span class="post-score">289</span>
-        <span class="arrow down">&#9660;</span>
-      </div>
-      <div class="post-content">
-        <div class="post-title">
-          <a href="p3655r3-reddit.html">P3655R3 - std::cstring_view</a>
-          <span class="flair">WG21</span>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p4023r0-reddit.html">P4023R0 - Strategic Direction for AI in C++: Governance, and Ecosystem</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/standards_watcher_24 &middot; 92 comments
+          </div>
+          <div class="post-summary">
+            The Directions Group has dropped a paper on how C++ should deal with AI. Six authors including Bjarne, and this one touches two completely different nerve clusters at once.
+          </div>
         </div>
-        <div class="post-meta">Posted by u/standard_committee_watcher &middot; 42 comments</div>
-        <div class="post-summary">Proposes std::cstring_view - a non-owning view of a null-terminated string. Like string_view but with a guaranteed '\0' at the end, so you can safely pass .c_str() to C APIs.</div>
       </div>
-    </div>
-    <div class="post-card" data-document="P2900R14" data-paper="P2900">
-      <div class="post-votebar">
-        <span class="arrow up">&#9650;</span>
-        <span class="post-score">847</span>
-        <span class="arrow down">&#9660;</span>
-      </div>
-      <div class="post-content">
-        <div class="post-title">
-          <a href="p2900r14-reddit.html">P2900R14 - Contracts for C++</a>
-          <span class="flair">WG21</span>
+
+      <div class="post-card" data-document="P3864R1" data-paper="P3864">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">23</span>
+          <span class="arrow down">&#9660;</span>
         </div>
-        <div class="post-meta">Posted by u/standards_watcher_2024 &middot; 87 comments</div>
-        <div class="post-summary">Contracts are in C++26. After the infamous removal from C++20, five years of work in SG21, fourteen revisions, and a plenary vote, the committee approved P2900R14.</div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3864r1-reddit.html">P3864R1 - Correctly rounded floating-point maths functions</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/sg6_observer &middot; 9 comments
+          </div>
+          <div class="post-summary">
+            Guy Davidson and Jan Schultke propose adding five correctly rounded math functions to &lt;cmath&gt;: cr_add, cr_sub, cr_mul, cr_div, and cr_sqrt. These guarantee roundTiesToEven rounding regardless of the current floating-point environment state.
+          </div>
+        </div>
       </div>
-    </div>
-    <!-- POST_LIST_END -->
+
+      <div class="post-card" data-document="P3666R3" data-paper="P3666">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">187</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3666r3-reddit.html">P3666R3 - Bit-precise integers</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/standards_gazette &middot; 25 comments
+          </div>
+          <div class="post-summary">
+            Jan Schultke's proposal to bring C23's _BitInt to C++ as a set of fundamental types, with std::bit_int&lt;N&gt; and std::bit_uint&lt;N&gt; alias templates for the C++-friendly spelling.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3440R2" data-paper="P3440">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">21</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3440r2-reddit.html">P3440R2 - Add mask_from_count function to std::simd</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/simd_lane_watcher &middot; 7 comments
+          </div>
+          <div class="post-summary">
+            New revision of Daniel Towner's (Intel) paper proposing mask_from_count for std::simd - a free function that generates a mask with the first N elements set to true.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P4005R0" data-paper="P4005">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">287</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p4005r0-reddit.html">P4005R0 - A proposal for guaranteed-(quick-)enforced contracts</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/evolution_watcher_24 &middot; 42 comments
+          </div>
+          <div class="post-summary">
+            Ville Voutilainen is back with a contracts paper that takes a different approach to guaranteed enforcement, proposing entirely new keywords: entry_cond, return_cond, and mandatory_assert.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P2929R2" data-paper="P2929">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">23</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p2929r2-reddit.html">P2929R2 - Proposal to add simd_invoke to std::simd</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/simd_paper_tracker &middot; 8 comments
+          </div>
+          <div class="post-summary">
+            Intel folks proposing simd::chunked_invoke - a utility that breaks large basic_vec values into register-sized chunks, applies a callable to each chunk, and reassembles the results.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3904R1" data-paper="P3904">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">147</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3904r1-reddit.html">P3904R1 - When paths go WTF: making formatting lossless</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/format_enjoyer_2024 &middot; 24 comments
+          </div>
+          <div class="post-summary">
+            Victor Zverovich (of {fmt} fame) is back with a follow-up to P2845. On Windows, paths can contain unpaired UTF-16 surrogates that collapse when formatted. The fix: WTF-8.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P4006R0" data-paper="P4006">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">18</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p4006r0-reddit.html">P4006R0 - Transparent Function Objects for Shift Operators</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/functional_completionist &middot; 7 comments
+          </div>
+          <div class="post-summary">
+            Twelve years after N3421 gave us transparent functors for C++14 but deferred shift operators, someone finally wrote the paper to fill the gap with std::bit_lshift and std::bit_rshift.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3966R0" data-paper="P3966">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">28</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3966r0-reddit.html">P3966R0 - 2026-01 Library Evolution Poll Outcomes</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/lewg_poll_tracker &middot; 8 comments
+          </div>
+          <div class="post-summary">
+            January 2026 LEWG e-poll results are out. Three papers forwarded to LWG: P3505R2 (format default representation), P3826R3 (sender algorithm customization), P3450R0 (is_within_lifetime).
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P4011R0" data-paper="P4011">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">87</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p4011r0-reddit.html">P4011R0 - Redefining narrow contract</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/ewg_paper_feed &middot; 26 comments
+          </div>
+          <div class="post-summary">
+            Matthias Kretz argues that the classic N3248 definitions of "narrow contract" and "wide contract" are broken in a post-P2900 world. Two pages, one clear problem, one clear fix.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P4007R0" data-paper="P4007">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">312</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p4007r0-reddit.html">P4007R0 - Senders and Coroutines</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/sender_receiver_watcher &middot; 48 comments
+          </div>
+          <div class="post-summary">
+            This paper identifies four structural gaps where the sender model meets coroutines: error reporting, error returns, frame allocator propagation, and symmetric transfer.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3822R1" data-paper="P3822">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">47</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3822r1-reddit.html">P3822R1 - Conditional noexcept specifiers in compound requirements</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/standards_rss_addict &middot; 8 comments
+          </div>
+          <div class="post-summary">
+            You know how function declarations have had noexcept(expr) since C++11? Turns out you can't do that in a compound requirement. P3822 fills the gap.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3874R1" data-paper="P3874">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">1247</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3874r1-reddit.html">P3874R1 - Should C++ be a memory-safe language?</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/daily_paper_drop &middot; 95 comments
+          </div>
+          <div class="post-summary">
+            The big one. Seven authors are asking the committee to answer a question it has been dancing around since the CISA reports dropped: should C++ actually commit to becoming a memory-safe language?
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3816R2" data-paper="P3816">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">38</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3816r2-reddit.html">P3816R2 - Hashing meta::info</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/reflection_enjoyer_26 &middot; 7 comments
+          </div>
+          <div class="post-summary">
+            P2996 gave us meta::info for reflection. P3372 made unordered containers constexpr. P3816 fills the gap: you still can't use meta::info as a key in an unordered_map.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P3411R5" data-paper="P3411">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">156</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p3411r5-reddit.html">P3411R5 - any_view</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/ranges_aficionado_23 &middot; 27 comments
+          </div>
+          <div class="post-summary">
+            If you've ever tried to return a ranges pipeline from a function and wept at the return type, this paper is for you. P3411 proposes std::ranges::any_view - a type-erased view that hides the template gore.
+          </div>
+        </div>
+      </div>
+
+      <div class="post-card" data-document="P2285R1" data-paper="P2285">
+        <div class="post-votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="post-score">47</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="post-content">
+          <div class="post-title">
+            <a href="p2285r1-reddit.html">P2285R1 - Are default function arguments in the immediate context?</a>
+            <span class="flair">WG21</span>
+          </div>
+          <div class="post-meta">
+            Posted by u/sfinae_or_die &middot; 8 comments
+          </div>
+          <div class="post-summary">
+            Ever wonder why std::constructible_from&lt;C&lt;std::string&gt;&gt; gives you a different answer on every compiler? This paper looks at whether default function arguments should count as part of the "immediate context" for SFINAE.
+          </div>
+        </div>
+      </div>
+
     </main>
     <aside class="sidebar">
       <div class="sidebar-card about-card">

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Hashing meta::info</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3816",
+    "revision": 2,
+    "document": "P3816R2",
+    "title": "Hashing meta::info",
+    "authors": "Matt Cummins, Valentyn Yukhymenko",
+    "audience": "SG7, LEWG, EWG",
+    "date": "2026-01-13",
+    "comments": 7,
+    "upvotes": 38,
+    "upvote_pct": "92%",
+    "poster": "reflection_enjoyer_26",
+    "heat": "cold",
+    "flair": "WG21",
+    "generated": "2026-04-02",
+    "prior_revision": null
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3816R2 - Hashing meta::info <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/reflection_enjoyer_26 &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Matt Cummins, Valentyn Yukhymenko<br>
+        <strong>Document:</strong> P3816R2<br>
+        <strong>Date:</strong> 2026-01-13<br>
+        <strong>Target:</strong> SG7, LEWG, EWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3816r2">wg21.link/p3816r2</a></p>
+
+        <p>P2996 gave us <code>meta::info</code> for reflection. P3372 made unordered containers constexpr. P3816 fills the gap between them: you still can't use <code>meta::info</code> as a key in an <code>unordered_map</code> because there's no hash for it.</p>
+
+        <p>This paper proposes <code>consteval_hash&lt;meta::info&gt;</code> - a new class template specifically for compile-time hashing, separate from <code>std::hash</code>. The argument is that specializing <code>std::hash</code> doesn't work cleanly because <code>hash</code> has runtime requirements inconsistent with consteval-only types. So instead we get a parallel hash type that lives entirely at compile time.</p>
+
+        <p>The design settles on "semi-stable" semantics - hash values are stable across repeated compilations of the same source but may change if the source changes. There's a discussion of ABI implications and a table of twelve alternative names they considered and rejected. R2 tidies up the motivation section and adds an annotations example.</p>
+      </div>
+      <div class="vote-count">&#9650; 38 points (92% upvoted) &middot; 7 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_all_the_things</span>
+            <span class="score">23 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Nice to see the reflection plumbing papers keep landing. The <code>mp_unique</code> example is exactly the kind of thing you want to be able to write without gymnastics.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_archaeologist</span>
+            <span class="score">11 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The interesting design choice here is the semi-stable hash. From the paper:</p>
+            <blockquote><p>The value shall be stable across repeated compiler runs. [ Note: Modifying the source code may change the value. &mdash; end note ]</p></blockquote>
+            <p>This is a meaningful middle ground. An unstable hash (just hash the AST pointer) is trivial to implement but kills reproducible builds. A fully stable hash requires the compiler to derive a value from the semantic identity of the reflection - name, scope, parameter types - which is expensive and fragile as the language adds new reflectable constructs.</p>
+            <p>Semi-stable sidesteps both by interning: assign each AST node a deterministic integer ID from a counter as you encounter it. Same source, same traversal order, same IDs, same hashes. Change the source, the traversal changes, IDs shift. It's the approach from their <a href="https://github.com/bloomberg/clang-p2996/pull/195">second clang-p2996 PR</a> and it's clever.</p>
+            <p>The question I'd have for LEWG is whether users will accidentally depend on cross-TU stability that isn't guaranteed. The paper's ABI section has a somewhat contrived example with buffer sizes, but the real risk is someone stashing hash values into a constexpr variable in a header and expecting the same value in every TU that includes it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_driver_dev</span>
+                  <span class="score">5 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Honest question - who is stashing compile-time hash values into headers? The intended use case is keying an <code>unordered_map</code> inside a consteval function. The hash never escapes the constant evaluator. The ABI scenario in the paper requires you to go out of your way to do something weird with the value.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">C++ Insights</div>
+        <div class="promoted-body">See what your compiler sees. Implicit conversions, template instantiations, desugared syntax. <a href="https://cppinsights.io">cppinsights.io</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/naming_is_hard_42</span>
+            <span class="score">18 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Table of twelve rejected names is the real content of this paper. I lost it at:</p>
+            <blockquote><p>Although we love Zig, we are proposing a C++ feature!</p></blockquote>
+            <p><code>consteval_hash</code> is fine. Move on, LEWG.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/hashmap_heretic</span>
+            <span class="score">7 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote><p>Because of the runtime requirements on hash&lt;T&gt;, existing specializations cannot be made constexpr</p></blockquote>
+            <p>But <code>meta::info</code> is already consteval-only. There are no runtime requirements to conflict with. You could specialize <code>hash&lt;meta::info&gt;</code> as consteval and it would be perfectly consistent - you can't use <code>meta::info</code> at runtime anyway.</p>
+            <p>The argument for a separate type only holds if you plan to extend <code>consteval_hash</code> to types that <em>do</em> have runtime hash specializations (<code>int</code>, <code>string</code>, etc.). Section 9 confirms that's the plan. So this is really a paper about creating a parallel compile-time hash framework, not about hashing <code>meta::info</code>. The title undersells it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_a_library_author</span>
+            <span class="score">4 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Scope note: Section 9.1 proposes extending <code>consteval_hash</code> to all arithmetic, enum, and pointer types. Section 9.2 proposes adding a template parameter for randomized vs stable hashing. That's a significant expansion from "hash <code>meta::info</code> for unordered containers."</p>
+            <p>I'd expect LEWG to ask them to split - ship the <code>meta::info</code> specialization now, iterate on the broader framework in a follow-up. That's how P2996 itself progressed: narrow scope first, extensions later.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/waiting_for_cpp26</span>
+            <span class="score">14 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Every time I see a paper that depends on P2996 and P3372 I have to check - are those actually in C++26 yet? <em>checks</em> okay yes they are. We're building on top of things that exist now. Progress.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
