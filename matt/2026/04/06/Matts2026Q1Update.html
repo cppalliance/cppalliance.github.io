@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speed and Safety | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Speed and Safety | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Speed and Safety" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In my last post I mentioned that int128 library would be getting CUDA support in the future. The good news is that the future is now! Nearly all the functions in the library are available on both host and device. Any function that has BOOST_INT128_HOST_DEVICE in its signature in the documentation is available for usage. An example of how to use the types in the CUDA kernels has been added as well. These can be as simple as: using test_type = boost::int128::uint128_t; __global__ void cuda_mul(const test_type* in1, const test_type* in2, test_type* out, int num_elements) { int i = blockDim.x * blockIdx.x + threadIdx.x; if (i &lt; num_elements) { out[i] = in1[i] * in2[i]; } } Other Boost libraries are or will be beneficiaries of this effort as well. First, Boost.Charconv now supports boost::charconv::from_chars and boost::charconv::to_chars for integers being run on device. This can give you up to an order of magnitude improvement in performance. These results and benchmarks are available in the Boost.Charconv documentation. Next, in the coming months Boost.Decimal will gain CUDA support as part of this effort. We think users will benefit greatly from being able to perform massively parallel parsing, serialization, and calculations on decimal numbers. Stay tuned for this likely in Boost 1.92. In the meantime, enjoy the initial release of Decimal coming in Boost 1.91! On the other side of the performance that we’re looking to deliver in coming versions of Boost, we must not forget the importance of safety. There exist plenty of examples of damage and death caused by arithmetic errors in computer programs. Can we create a library that provides guaranteed safety in arithmetic while minimizing performance losses and integration friction? How does one guarantee the behavior of their types? In our implementation, Boost.Safe_Numbers, we are investigating the usage of the Why3 platform for deductive program verification. By pursuing these formal methods, safety can have real meaning. We will continue to provide additional details as part of the formal verification page of our documentation. Since inevitably the library will cause an increase in the number of errors (which is a good thing), we aim to fail as early as possible, and when we do provide the most helpful error message that we can. For example, we have some static arithmetic errors reported in as few as three lines: clang-darwin.compile.c++ ../../../bin.v2/libs/safe_numbers/test/compile_fail_basic_usage_constexpr.test/clang-darwin-21/debug/arm_64/cxxstd-20-iso/threading-multi/visibility-hidden/compile_fail_basic_usage_constexpr.o ../examples/compile_fail_basic_usage_constexpr.cpp:18:22: error: constexpr variable &#39;z&#39; must be initialized by a constant expression 18 | constexpr u8 z {x + y}; | ^ ~~~~~~~ ../../../boost/safe_numbers/detail/unsigned_integer_basis.hpp:397:17: note: subexpression not valid in a constant expression 397 | throw std::overflow_error(&quot;Overflow detected in u8 addition&quot;); | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ../examples/compile_fail_basic_usage_constexpr.cpp:18:25: note: in call to &#39;operator+&lt;unsigned char&gt;({255}, {2})&#39; 18 | constexpr u8 z {x + y}; | ^~~~~ 1 error generated. Our runtime error reporting system fundamentally uses Boost.Throw_Exception so it can report not only the type, operation, file and line, but also up to an entire stack trace when leveraging the optional linking with Boost.Stacktrace. Not to forget our discussion of CUDA so quickly, the Safe_Numbers library will have CUDA support. One thing that we will continue to refine is synchronizing error reporting on device as one cannot throw an exception on device. We are always looking for users of all the libraries discussed. If you are a current or prospective user, feel free to reach out and let us know what you’re using it for, or any issues that you find." />
+<meta property="og:description" content="In my last post I mentioned that int128 library would be getting CUDA support in the future. The good news is that the future is now! Nearly all the functions in the library are available on both host and device. Any function that has BOOST_INT128_HOST_DEVICE in its signature in the documentation is available for usage. An example of how to use the types in the CUDA kernels has been added as well. These can be as simple as: using test_type = boost::int128::uint128_t; __global__ void cuda_mul(const test_type* in1, const test_type* in2, test_type* out, int num_elements) { int i = blockDim.x * blockIdx.x + threadIdx.x; if (i &lt; num_elements) { out[i] = in1[i] * in2[i]; } } Other Boost libraries are or will be beneficiaries of this effort as well. First, Boost.Charconv now supports boost::charconv::from_chars and boost::charconv::to_chars for integers being run on device. This can give you up to an order of magnitude improvement in performance. These results and benchmarks are available in the Boost.Charconv documentation. Next, in the coming months Boost.Decimal will gain CUDA support as part of this effort. We think users will benefit greatly from being able to perform massively parallel parsing, serialization, and calculations on decimal numbers. Stay tuned for this likely in Boost 1.92. In the meantime, enjoy the initial release of Decimal coming in Boost 1.91! On the other side of the performance that we’re looking to deliver in coming versions of Boost, we must not forget the importance of safety. There exist plenty of examples of damage and death caused by arithmetic errors in computer programs. Can we create a library that provides guaranteed safety in arithmetic while minimizing performance losses and integration friction? How does one guarantee the behavior of their types? In our implementation, Boost.Safe_Numbers, we are investigating the usage of the Why3 platform for deductive program verification. By pursuing these formal methods, safety can have real meaning. We will continue to provide additional details as part of the formal verification page of our documentation. Since inevitably the library will cause an increase in the number of errors (which is a good thing), we aim to fail as early as possible, and when we do provide the most helpful error message that we can. For example, we have some static arithmetic errors reported in as few as three lines: clang-darwin.compile.c++ ../../../bin.v2/libs/safe_numbers/test/compile_fail_basic_usage_constexpr.test/clang-darwin-21/debug/arm_64/cxxstd-20-iso/threading-multi/visibility-hidden/compile_fail_basic_usage_constexpr.o ../examples/compile_fail_basic_usage_constexpr.cpp:18:22: error: constexpr variable &#39;z&#39; must be initialized by a constant expression 18 | constexpr u8 z {x + y}; | ^ ~~~~~~~ ../../../boost/safe_numbers/detail/unsigned_integer_basis.hpp:397:17: note: subexpression not valid in a constant expression 397 | throw std::overflow_error(&quot;Overflow detected in u8 addition&quot;); | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ../examples/compile_fail_basic_usage_constexpr.cpp:18:25: note: in call to &#39;operator+&lt;unsigned char&gt;({255}, {2})&#39; 18 | constexpr u8 z {x + y}; | ^~~~~ 1 error generated. Our runtime error reporting system fundamentally uses Boost.Throw_Exception so it can report not only the type, operation, file and line, but also up to an entire stack trace when leveraging the optional linking with Boost.Stacktrace. Not to forget our discussion of CUDA so quickly, the Safe_Numbers library will have CUDA support. One thing that we will continue to refine is synchronizing error reporting on device as one cannot throw an exception on device. We are always looking for users of all the libraries discussed. If you are a current or prospective user, feel free to reach out and let us know what you’re using it for, or any issues that you find." />
+<link rel="canonical" href="http://cppalliance.org/matt/2026/04/06/Matts2026Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/matt/2026/04/06/Matts2026Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Speed and Safety" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"In my last post I mentioned that int128 library would be getting CUDA support in the future. The good news is that the future is now! Nearly all the functions in the library are available on both host and device. Any function that has BOOST_INT128_HOST_DEVICE in its signature in the documentation is available for usage. An example of how to use the types in the CUDA kernels has been added as well. These can be as simple as: using test_type = boost::int128::uint128_t; __global__ void cuda_mul(const test_type* in1, const test_type* in2, test_type* out, int num_elements) { int i = blockDim.x * blockIdx.x + threadIdx.x; if (i &lt; num_elements) { out[i] = in1[i] * in2[i]; } } Other Boost libraries are or will be beneficiaries of this effort as well. First, Boost.Charconv now supports boost::charconv::from_chars and boost::charconv::to_chars for integers being run on device. This can give you up to an order of magnitude improvement in performance. These results and benchmarks are available in the Boost.Charconv documentation. Next, in the coming months Boost.Decimal will gain CUDA support as part of this effort. We think users will benefit greatly from being able to perform massively parallel parsing, serialization, and calculations on decimal numbers. Stay tuned for this likely in Boost 1.92. In the meantime, enjoy the initial release of Decimal coming in Boost 1.91! On the other side of the performance that we’re looking to deliver in coming versions of Boost, we must not forget the importance of safety. There exist plenty of examples of damage and death caused by arithmetic errors in computer programs. Can we create a library that provides guaranteed safety in arithmetic while minimizing performance losses and integration friction? How does one guarantee the behavior of their types? In our implementation, Boost.Safe_Numbers, we are investigating the usage of the Why3 platform for deductive program verification. By pursuing these formal methods, safety can have real meaning. We will continue to provide additional details as part of the formal verification page of our documentation. Since inevitably the library will cause an increase in the number of errors (which is a good thing), we aim to fail as early as possible, and when we do provide the most helpful error message that we can. For example, we have some static arithmetic errors reported in as few as three lines: clang-darwin.compile.c++ ../../../bin.v2/libs/safe_numbers/test/compile_fail_basic_usage_constexpr.test/clang-darwin-21/debug/arm_64/cxxstd-20-iso/threading-multi/visibility-hidden/compile_fail_basic_usage_constexpr.o ../examples/compile_fail_basic_usage_constexpr.cpp:18:22: error: constexpr variable &#39;z&#39; must be initialized by a constant expression 18 | constexpr u8 z {x + y}; | ^ ~~~~~~~ ../../../boost/safe_numbers/detail/unsigned_integer_basis.hpp:397:17: note: subexpression not valid in a constant expression 397 | throw std::overflow_error(&quot;Overflow detected in u8 addition&quot;); | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ../examples/compile_fail_basic_usage_constexpr.cpp:18:25: note: in call to &#39;operator+&lt;unsigned char&gt;({255}, {2})&#39; 18 | constexpr u8 z {x + y}; | ^~~~~ 1 error generated. Our runtime error reporting system fundamentally uses Boost.Throw_Exception so it can report not only the type, operation, file and line, but also up to an entire stack trace when leveraging the optional linking with Boost.Stacktrace. Not to forget our discussion of CUDA so quickly, the Safe_Numbers library will have CUDA support. One thing that we will continue to refine is synchronizing error reporting on device as one cannot throw an exception on device. We are always looking for users of all the libraries discussed. If you are a current or prospective user, feel free to reach out and let us know what you’re using it for, or any issues that you find.","@type":"BlogPosting","url":"http://cppalliance.org/matt/2026/04/06/Matts2026Q1Update.html","headline":"Speed and Safety","dateModified":"2026-04-06T00:00:00+00:00","datePublished":"2026-04-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/matt/2026/04/06/Matts2026Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Speed and Safety</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/matt">
+              <img class='author-img' src='/images/people/matt.jpg' alt='Portrait of Matt Borland' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/matt">
+                  Matt Borland
+                </a> &middot; Apr 6, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>In my <a href="https://cppalliance.org/matt/2026/01/15/Matts2025Q4Update.html">last post</a> I mentioned that <a href="https://github.com/cppalliance/int128">int128</a> library would be getting CUDA support in the future.
+The good news is that the future is now!
+Nearly all the functions in the library are available on both host and device.
+Any function that has <code>BOOST_INT128_HOST_DEVICE</code> in its signature in the <a href="https://develop.int128.cpp.al/overview.html">documentation</a> is available for usage.
+<a href="https://develop.int128.cpp.al/examples.html#examples_cuda">An example</a> of how to use the types in the CUDA kernels has been added as well.
+These can be as simple as:</p>
+
+<pre><code class="language-cpp">using test_type = boost::int128::uint128_t;
+
+__global__ void cuda_mul(const test_type* in1, const test_type* in2, test_type* out, int num_elements)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (i &lt; num_elements)
+    {
+        out[i] = in1[i] * in2[i];
+    }
+}
+</code></pre>
+
+<p>Other Boost libraries are or will be beneficiaries of this effort as well.
+First, Boost.Charconv now supports <code>boost::charconv::from_chars</code> and <code>boost::charconv::to_chars</code> for integers being run on device.
+This can give you up to an order of magnitude improvement in performance.
+These results and benchmarks are available in the <a href="https://www.boost.org/doc/libs/develop/libs/charconv/doc/html/charconv.html">Boost.Charconv documentation</a>.
+Next, in the coming months Boost.Decimal will gain CUDA support as part of this effort.
+We think users will benefit greatly from being able to perform massively parallel parsing, serialization, and calculations on decimal numbers.
+Stay tuned for this likely in Boost 1.92.
+In the meantime, enjoy the initial release of Decimal coming in Boost 1.91!</p>
+
+<p>On the other side of the performance that we’re looking to deliver in coming versions of Boost, we must not forget the importance of safety.
+There exist plenty of <a href="https://en.wikipedia.org/wiki/Integer_overflow#Examples">examples of damage and death</a> caused by arithmetic errors in computer programs.
+Can we create a library that provides guaranteed safety in arithmetic while minimizing performance losses and integration friction?
+How does one guarantee the behavior of their types?
+In our implementation, <a href="https://github.com/cppalliance/safe_numbers">Boost.Safe_Numbers</a>, we are investigating the usage of the <a href="https://why3.org">Why3</a> platform for deductive program verification.
+By pursuing these formal methods, safety can have real meaning.
+We will continue to provide additional details as part of the <a href="https://develop.safe-numbers.cpp.al/verification.html">formal verification page</a> of our documentation.
+Since inevitably the library will cause an increase in the number of errors (which is a good thing), we aim to fail as early as possible, and when we do provide the most helpful error message that we can.
+For example, we have some static arithmetic errors reported in as few as three lines:</p>
+
+<pre><code class="language-cpp">clang-darwin.compile.c++ ../../../bin.v2/libs/safe_numbers/test/compile_fail_basic_usage_constexpr.test/clang-darwin-21/debug/arm_64/cxxstd-20-iso/threading-multi/visibility-hidden/compile_fail_basic_usage_constexpr.o
+../examples/compile_fail_basic_usage_constexpr.cpp:18:22: error: constexpr variable 'z' must be initialized by a constant expression
+   18 |         constexpr u8 z {x + y};
+      |                      ^ ~~~~~~~
+../../../boost/safe_numbers/detail/unsigned_integer_basis.hpp:397:17: note: subexpression not valid in a constant expression
+  397 |                 throw std::overflow_error("Overflow detected in u8 addition");
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../examples/compile_fail_basic_usage_constexpr.cpp:18:25: note: in call to 'operator+&lt;unsigned char&gt;({255}, {2})'
+   18 |         constexpr u8 z {x + y};
+      |                         ^~~~~
+1 error generated.
+</code></pre>
+
+<p>Our runtime error reporting system fundamentally uses Boost.Throw_Exception so it can report not only the type, operation, file and line, but also up to an entire stack trace when leveraging the optional linking with Boost.Stacktrace.
+Not to forget our discussion of CUDA so quickly, the Safe_Numbers library will have CUDA support.
+One thing that we will continue to refine is synchronizing error reporting on device as one cannot throw an exception on device.</p>
+
+<p>We are always looking for users of all the libraries discussed.
+If you are a current or prospective user, feel free to reach out and let us know what you’re using it for, or any issues that you find.</p>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/06/2026</span>
+          <a class='text-l news-title link' href="/matt/2026/04/06/Matts2026Q1Update.html">Speed and Safety</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2026</span>
+          <a class='text-l news-title link' href="/matt/2026/01/15/Matts2025Q4Update.html">Decimal is Accepted and Next Steps</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/06/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/10/06/Matts2025Q3Update.html">Decimal Goes Back to Review</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/14/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/07/14/Matts2025Q2Update.html">Bigger, Faster, Stronger Types</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/14/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/04/14/Matts2025Q1Update.html">Looking at the Numbers</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/matt/2025/01/10/Matts2024Q4Update.html">Another new library underway</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/10/21/Matts2024Q3Update.html">CUDA comes to Math</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/08/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/07/08/Matts2024Q2Update.html">Matt's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/22/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/04/22/MattsQ1Update.html">Matt's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/matt/2024/01/10/MattsQ4Update.html">Matt's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/matt/2023/10/27/MattsQ3Update.html">Matt's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>

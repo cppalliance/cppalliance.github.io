@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The road to C++20 modules, Capy and Redis | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>The road to C++20 modules, Capy and Redis | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="The road to C++20 modules, Capy and Redis" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Modules in using std::cpp 2026 C++20 modules have been in the standard for 6 years already, but we’re not seeing widespread adoption. The ecosystem is still getting ready. As a quick example, import std, an absolute blessing for compile times, requires build system support, and this is still experimental as of CMake 4.3.1. And yet, I’ve realized that writing module-native applications is really enjoyable. The system is well-thought and allows for better encapsulation, just as you’d write in a modern programming language. I’ve been using my Servertech Chat project (a webserver that uses Boost.Asio and companion libraries) to get a taste of what modules really look like in real code. When writing this, I saw clearly that having big dependencies that can’t be consumed via import is a big problem. With the scheme I used, compile times got 66% worse instead of improving. This is because when writing modules, you tend to have a bigger number of translation units. These are supposed to be much more lightweight, but if you’re relying on #include for third-party libraries, they’re not. For example: // // File: redis_client.cppm. Contains only the interface declaration (somehow like headers do) // module; // No import boost yet - must be in the global module fragment #include &lt;boost/asio/awaitable.hpp&gt; #include &lt;boost/system/result.hpp&gt; module servertech_chat:redis_client; import std; namespace chat { class redis_client { public: virtual ~redis_client() {} virtual boost::asio::awaitable&lt;boost::system::result&lt;std::int64_t&gt;&gt; get_int_key(std::string_view key) = 0; // ... }; } // // File: redis_client.cpp. Contains the implementation // module; #include &lt;boost/redis/connection.hpp&gt; module servertech_chat; import :redis_client; import std; namespace { class redis_client_impl final : public redis_client { /* ... */ }; } I analyze this in much more depth in the talk I’ve had the pleasure to give at using std::cpp this March in Madrid. The TL;DR is that supporting import boost natively is very important for any serious usage of Boost in the modules world. import boost is upon us As you may know, I prefer doing to saying, and I’ve been writing a prototype to support import boost natively while keeping today’s header code as is. This prototype has seen substantial advancements during these months. I’ve developed a systematic approach for modularization, and we’ve settled for the ABI-breaking style, with compatibility headers. I’ve added support for GCC (the remaining compiler) to the core libraries that we already supported (Config, Mp11, Core, Assert, ThrowException, Charconv), and I’ve added modular bindings for Variant2, Compat, Endian, System, TypeTraits, Optional, ContainerHash, IO and Asio. These are only tested under Clang yet - it’s part of a discovery process. The idea is modularizing the flagship libraries to verify that the approach works, and to measure compile time improvements. There is still a lot to do before things become functional. I’ve received helpful feedback from many community members, which has been invaluable. Redis meets Capy If you’re a user of Boost.Asio and coroutines, you probably know that there’s a new player in town - Capy and Corosio. They’re a coroutines-native Asio replacement which promise a range of benefits, from improved expressiveness to saner compile times, without performance loss. Since I maintain Boost.MySQL and co-maintain Boost.Redis, I know the pain of writing operations using the universal Asio model. Lifetime management is difficult to follow, testing is complex, and things must remain header-only (and usually heavily templatized). Coroutine code is much simpler to write and understand, and it’s what I use whenever I can. So obviously I’m interested in this project. My long-term idea is creating a v2 version of MySQL and Redis that exposes a Capy/Corosio interface. As a proof-of-concept, I migrated Boost.Redis and some of its tests. Still some polishing needed, but - it works! You can read the full report on the Boost mailing list. Some sample code as an appetizer: capy::task&lt;void&gt; run_request(connection&amp; conn) { // A request containing only a ping command. request req; req.push(&quot;PING&quot;, &quot;Hello world&quot;); // Response where the PONG response will be stored. response&lt;std::string&gt; resp; // Executes the request. auto [ec] = co_await conn.exec(req, resp); if (ec) co_return; std::cout &lt;&lt; &quot;PING value: &quot; &lt;&lt; std::get&lt;0&gt;(resp).value() &lt;&lt; std::endl; } capy::task&lt;void&gt; co_main() { connection conn{(co_await capy::this_coro::executor).context()}; co_await capy::when_any( // Sends the request run_request(conn), // Performs connection establishment, re-connection, pings... conn.run(config{}) ); } Redis PubSub improvements Working with PubSub messages in Boost.Redis has always been more involved than in other libraries. For example, we support transparent reconnection, but (before 1.91), the user had to explicitly re-establish subscriptions: request req; req.push(&quot;SUBSCRIBE&quot;, &quot;channel&quot;); while (conn-&gt;will_reconnect()) { // Reconnect to the channels. co_await conn-&gt;async_exec(req, ignore); // ... } Boost 1.91 has added PubSub state restoration. A fancy name but an easy feature: established subscriptions are recorded, and when a reconnection happens, the subscription is re-established automatically: // Subscribe to the channel &#39;mychannel&#39;. If a re-connection happens, // an appropriate SUBSCRIBE command is issued to re-establish the subscription. request req; req.subscribe({&quot;mychannel&quot;}); co_await conn-&gt;async_exec(req); Boost 1.91 also adds flat_tree, a specialized container for Redis messages with an emphasis on memory-reuse, performance and usability. This container is especially appropriate when dealing with PubSub. We’ve also added connection::async_receive2(), a higher-performance replacement for connection::async_receive() that consumes messages in batches, rather than one-by-one, eliminating re-scheduling overhead. And push_parser, a view to transform raw RESP3 nodes into user-friendly structures. With these improvements, code goes from: // Loop while reconnection is enabled while (conn-&gt;will_reconnect()) { // Reconnect to channels. co_await conn-&gt;async_exec(req, ignore); // Loop reading Redis pushs messages. for (error_code ec;;) { // First try to read any buffered pushes. conn-&gt;receive(ec); if (ec == error::sync_receive_push_failed) { ec = {}; // Wait for pushes co_await conn-&gt;async_receive(asio::redirect_error(asio::use_awaitable, ec)); } if (ec) break; // Connection lost, break so we can reconnect to channels. // Left to the user: resp contains raw RESP3 nodes, which need to be parsed manually! // Remove the nodes corresponding to one message consume_one(resp); } } To: // Loop to read Redis push messages. while (conn-&gt;will_reconnect()) { // No need to reconnect, we now have PubSub state restoration // Wait for pushes auto [ec] = co_await conn-&gt;async_receive2(asio::as_tuple); if (ec) break; // Cancelled // Consume the messages for (push_view elem : push_parser(resp.value())) std::cout &lt;&lt; &quot;Received message from channel &quot; &lt;&lt; elem.channel &lt;&lt; &quot;: &quot; &lt;&lt; elem.payload &lt;&lt; &quot;\n&quot;; // Clear all the batch resp.value().clear(); }" />
+<meta property="og:description" content="Modules in using std::cpp 2026 C++20 modules have been in the standard for 6 years already, but we’re not seeing widespread adoption. The ecosystem is still getting ready. As a quick example, import std, an absolute blessing for compile times, requires build system support, and this is still experimental as of CMake 4.3.1. And yet, I’ve realized that writing module-native applications is really enjoyable. The system is well-thought and allows for better encapsulation, just as you’d write in a modern programming language. I’ve been using my Servertech Chat project (a webserver that uses Boost.Asio and companion libraries) to get a taste of what modules really look like in real code. When writing this, I saw clearly that having big dependencies that can’t be consumed via import is a big problem. With the scheme I used, compile times got 66% worse instead of improving. This is because when writing modules, you tend to have a bigger number of translation units. These are supposed to be much more lightweight, but if you’re relying on #include for third-party libraries, they’re not. For example: // // File: redis_client.cppm. Contains only the interface declaration (somehow like headers do) // module; // No import boost yet - must be in the global module fragment #include &lt;boost/asio/awaitable.hpp&gt; #include &lt;boost/system/result.hpp&gt; module servertech_chat:redis_client; import std; namespace chat { class redis_client { public: virtual ~redis_client() {} virtual boost::asio::awaitable&lt;boost::system::result&lt;std::int64_t&gt;&gt; get_int_key(std::string_view key) = 0; // ... }; } // // File: redis_client.cpp. Contains the implementation // module; #include &lt;boost/redis/connection.hpp&gt; module servertech_chat; import :redis_client; import std; namespace { class redis_client_impl final : public redis_client { /* ... */ }; } I analyze this in much more depth in the talk I’ve had the pleasure to give at using std::cpp this March in Madrid. The TL;DR is that supporting import boost natively is very important for any serious usage of Boost in the modules world. import boost is upon us As you may know, I prefer doing to saying, and I’ve been writing a prototype to support import boost natively while keeping today’s header code as is. This prototype has seen substantial advancements during these months. I’ve developed a systematic approach for modularization, and we’ve settled for the ABI-breaking style, with compatibility headers. I’ve added support for GCC (the remaining compiler) to the core libraries that we already supported (Config, Mp11, Core, Assert, ThrowException, Charconv), and I’ve added modular bindings for Variant2, Compat, Endian, System, TypeTraits, Optional, ContainerHash, IO and Asio. These are only tested under Clang yet - it’s part of a discovery process. The idea is modularizing the flagship libraries to verify that the approach works, and to measure compile time improvements. There is still a lot to do before things become functional. I’ve received helpful feedback from many community members, which has been invaluable. Redis meets Capy If you’re a user of Boost.Asio and coroutines, you probably know that there’s a new player in town - Capy and Corosio. They’re a coroutines-native Asio replacement which promise a range of benefits, from improved expressiveness to saner compile times, without performance loss. Since I maintain Boost.MySQL and co-maintain Boost.Redis, I know the pain of writing operations using the universal Asio model. Lifetime management is difficult to follow, testing is complex, and things must remain header-only (and usually heavily templatized). Coroutine code is much simpler to write and understand, and it’s what I use whenever I can. So obviously I’m interested in this project. My long-term idea is creating a v2 version of MySQL and Redis that exposes a Capy/Corosio interface. As a proof-of-concept, I migrated Boost.Redis and some of its tests. Still some polishing needed, but - it works! You can read the full report on the Boost mailing list. Some sample code as an appetizer: capy::task&lt;void&gt; run_request(connection&amp; conn) { // A request containing only a ping command. request req; req.push(&quot;PING&quot;, &quot;Hello world&quot;); // Response where the PONG response will be stored. response&lt;std::string&gt; resp; // Executes the request. auto [ec] = co_await conn.exec(req, resp); if (ec) co_return; std::cout &lt;&lt; &quot;PING value: &quot; &lt;&lt; std::get&lt;0&gt;(resp).value() &lt;&lt; std::endl; } capy::task&lt;void&gt; co_main() { connection conn{(co_await capy::this_coro::executor).context()}; co_await capy::when_any( // Sends the request run_request(conn), // Performs connection establishment, re-connection, pings... conn.run(config{}) ); } Redis PubSub improvements Working with PubSub messages in Boost.Redis has always been more involved than in other libraries. For example, we support transparent reconnection, but (before 1.91), the user had to explicitly re-establish subscriptions: request req; req.push(&quot;SUBSCRIBE&quot;, &quot;channel&quot;); while (conn-&gt;will_reconnect()) { // Reconnect to the channels. co_await conn-&gt;async_exec(req, ignore); // ... } Boost 1.91 has added PubSub state restoration. A fancy name but an easy feature: established subscriptions are recorded, and when a reconnection happens, the subscription is re-established automatically: // Subscribe to the channel &#39;mychannel&#39;. If a re-connection happens, // an appropriate SUBSCRIBE command is issued to re-establish the subscription. request req; req.subscribe({&quot;mychannel&quot;}); co_await conn-&gt;async_exec(req); Boost 1.91 also adds flat_tree, a specialized container for Redis messages with an emphasis on memory-reuse, performance and usability. This container is especially appropriate when dealing with PubSub. We’ve also added connection::async_receive2(), a higher-performance replacement for connection::async_receive() that consumes messages in batches, rather than one-by-one, eliminating re-scheduling overhead. And push_parser, a view to transform raw RESP3 nodes into user-friendly structures. With these improvements, code goes from: // Loop while reconnection is enabled while (conn-&gt;will_reconnect()) { // Reconnect to channels. co_await conn-&gt;async_exec(req, ignore); // Loop reading Redis pushs messages. for (error_code ec;;) { // First try to read any buffered pushes. conn-&gt;receive(ec); if (ec == error::sync_receive_push_failed) { ec = {}; // Wait for pushes co_await conn-&gt;async_receive(asio::redirect_error(asio::use_awaitable, ec)); } if (ec) break; // Connection lost, break so we can reconnect to channels. // Left to the user: resp contains raw RESP3 nodes, which need to be parsed manually! // Remove the nodes corresponding to one message consume_one(resp); } } To: // Loop to read Redis push messages. while (conn-&gt;will_reconnect()) { // No need to reconnect, we now have PubSub state restoration // Wait for pushes auto [ec] = co_await conn-&gt;async_receive2(asio::as_tuple); if (ec) break; // Cancelled // Consume the messages for (push_view elem : push_parser(resp.value())) std::cout &lt;&lt; &quot;Received message from channel &quot; &lt;&lt; elem.channel &lt;&lt; &quot;: &quot; &lt;&lt; elem.payload &lt;&lt; &quot;\n&quot;; // Clear all the batch resp.value().clear(); }" />
+<link rel="canonical" href="http://cppalliance.org/ruben/2026/04/06/Ruben2026Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/ruben/2026/04/06/Ruben2026Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="The road to C++20 modules, Capy and Redis" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Modules in using std::cpp 2026 C++20 modules have been in the standard for 6 years already, but we’re not seeing widespread adoption. The ecosystem is still getting ready. As a quick example, import std, an absolute blessing for compile times, requires build system support, and this is still experimental as of CMake 4.3.1. And yet, I’ve realized that writing module-native applications is really enjoyable. The system is well-thought and allows for better encapsulation, just as you’d write in a modern programming language. I’ve been using my Servertech Chat project (a webserver that uses Boost.Asio and companion libraries) to get a taste of what modules really look like in real code. When writing this, I saw clearly that having big dependencies that can’t be consumed via import is a big problem. With the scheme I used, compile times got 66% worse instead of improving. This is because when writing modules, you tend to have a bigger number of translation units. These are supposed to be much more lightweight, but if you’re relying on #include for third-party libraries, they’re not. For example: // // File: redis_client.cppm. Contains only the interface declaration (somehow like headers do) // module; // No import boost yet - must be in the global module fragment #include &lt;boost/asio/awaitable.hpp&gt; #include &lt;boost/system/result.hpp&gt; module servertech_chat:redis_client; import std; namespace chat { class redis_client { public: virtual ~redis_client() {} virtual boost::asio::awaitable&lt;boost::system::result&lt;std::int64_t&gt;&gt; get_int_key(std::string_view key) = 0; // ... }; } // // File: redis_client.cpp. Contains the implementation // module; #include &lt;boost/redis/connection.hpp&gt; module servertech_chat; import :redis_client; import std; namespace { class redis_client_impl final : public redis_client { /* ... */ }; } I analyze this in much more depth in the talk I’ve had the pleasure to give at using std::cpp this March in Madrid. The TL;DR is that supporting import boost natively is very important for any serious usage of Boost in the modules world. import boost is upon us As you may know, I prefer doing to saying, and I’ve been writing a prototype to support import boost natively while keeping today’s header code as is. This prototype has seen substantial advancements during these months. I’ve developed a systematic approach for modularization, and we’ve settled for the ABI-breaking style, with compatibility headers. I’ve added support for GCC (the remaining compiler) to the core libraries that we already supported (Config, Mp11, Core, Assert, ThrowException, Charconv), and I’ve added modular bindings for Variant2, Compat, Endian, System, TypeTraits, Optional, ContainerHash, IO and Asio. These are only tested under Clang yet - it’s part of a discovery process. The idea is modularizing the flagship libraries to verify that the approach works, and to measure compile time improvements. There is still a lot to do before things become functional. I’ve received helpful feedback from many community members, which has been invaluable. Redis meets Capy If you’re a user of Boost.Asio and coroutines, you probably know that there’s a new player in town - Capy and Corosio. They’re a coroutines-native Asio replacement which promise a range of benefits, from improved expressiveness to saner compile times, without performance loss. Since I maintain Boost.MySQL and co-maintain Boost.Redis, I know the pain of writing operations using the universal Asio model. Lifetime management is difficult to follow, testing is complex, and things must remain header-only (and usually heavily templatized). Coroutine code is much simpler to write and understand, and it’s what I use whenever I can. So obviously I’m interested in this project. My long-term idea is creating a v2 version of MySQL and Redis that exposes a Capy/Corosio interface. As a proof-of-concept, I migrated Boost.Redis and some of its tests. Still some polishing needed, but - it works! You can read the full report on the Boost mailing list. Some sample code as an appetizer: capy::task&lt;void&gt; run_request(connection&amp; conn) { // A request containing only a ping command. request req; req.push(&quot;PING&quot;, &quot;Hello world&quot;); // Response where the PONG response will be stored. response&lt;std::string&gt; resp; // Executes the request. auto [ec] = co_await conn.exec(req, resp); if (ec) co_return; std::cout &lt;&lt; &quot;PING value: &quot; &lt;&lt; std::get&lt;0&gt;(resp).value() &lt;&lt; std::endl; } capy::task&lt;void&gt; co_main() { connection conn{(co_await capy::this_coro::executor).context()}; co_await capy::when_any( // Sends the request run_request(conn), // Performs connection establishment, re-connection, pings... conn.run(config{}) ); } Redis PubSub improvements Working with PubSub messages in Boost.Redis has always been more involved than in other libraries. For example, we support transparent reconnection, but (before 1.91), the user had to explicitly re-establish subscriptions: request req; req.push(&quot;SUBSCRIBE&quot;, &quot;channel&quot;); while (conn-&gt;will_reconnect()) { // Reconnect to the channels. co_await conn-&gt;async_exec(req, ignore); // ... } Boost 1.91 has added PubSub state restoration. A fancy name but an easy feature: established subscriptions are recorded, and when a reconnection happens, the subscription is re-established automatically: // Subscribe to the channel &#39;mychannel&#39;. If a re-connection happens, // an appropriate SUBSCRIBE command is issued to re-establish the subscription. request req; req.subscribe({&quot;mychannel&quot;}); co_await conn-&gt;async_exec(req); Boost 1.91 also adds flat_tree, a specialized container for Redis messages with an emphasis on memory-reuse, performance and usability. This container is especially appropriate when dealing with PubSub. We’ve also added connection::async_receive2(), a higher-performance replacement for connection::async_receive() that consumes messages in batches, rather than one-by-one, eliminating re-scheduling overhead. And push_parser, a view to transform raw RESP3 nodes into user-friendly structures. With these improvements, code goes from: // Loop while reconnection is enabled while (conn-&gt;will_reconnect()) { // Reconnect to channels. co_await conn-&gt;async_exec(req, ignore); // Loop reading Redis pushs messages. for (error_code ec;;) { // First try to read any buffered pushes. conn-&gt;receive(ec); if (ec == error::sync_receive_push_failed) { ec = {}; // Wait for pushes co_await conn-&gt;async_receive(asio::redirect_error(asio::use_awaitable, ec)); } if (ec) break; // Connection lost, break so we can reconnect to channels. // Left to the user: resp contains raw RESP3 nodes, which need to be parsed manually! // Remove the nodes corresponding to one message consume_one(resp); } } To: // Loop to read Redis push messages. while (conn-&gt;will_reconnect()) { // No need to reconnect, we now have PubSub state restoration // Wait for pushes auto [ec] = co_await conn-&gt;async_receive2(asio::as_tuple); if (ec) break; // Cancelled // Consume the messages for (push_view elem : push_parser(resp.value())) std::cout &lt;&lt; &quot;Received message from channel &quot; &lt;&lt; elem.channel &lt;&lt; &quot;: &quot; &lt;&lt; elem.payload &lt;&lt; &quot;\\n&quot;; // Clear all the batch resp.value().clear(); }","@type":"BlogPosting","url":"http://cppalliance.org/ruben/2026/04/06/Ruben2026Q1Update.html","headline":"The road to C++20 modules, Capy and Redis","dateModified":"2026-04-06T00:00:00+00:00","datePublished":"2026-04-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/ruben/2026/04/06/Ruben2026Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>The road to C++20 modules, Capy and Redis</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/ruben">
+              <img class='author-img' src='/images/people/ruben.jpg' alt='Portrait of Ruben Perez' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/ruben">
+                  Ruben Perez
+                </a> &middot; Apr 6, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="modules-in-using-stdcpp-2026">Modules in using std::cpp 2026</h2>
+
+<p>C++20 modules have been in the standard for 6 years already, but we’re not seeing
+widespread adoption. The ecosystem is still getting ready. As a quick example,
+<code>import std</code>, an absolute blessing for compile times, requires build system support,
+and this is still experimental as of CMake 4.3.1.</p>
+
+<p>And yet, I’ve realized that writing module-native applications is really enjoyable.
+The system is well-thought and allows for better encapsulation,
+just as you’d write in a modern programming language.
+I’ve been using my <a href="https://github.com/anarthal/servertech-chat/tree/feature/cxx20-modules">Servertech Chat project</a>
+(a webserver that uses Boost.Asio and companion libraries) to get a taste
+of what modules really look like in real code.</p>
+
+<p>When writing this, I saw clearly that having big dependencies that can’t be consumed
+via <code>import</code> is a big problem. With the scheme I used, compile times got 66% worse
+instead of improving. This is because when writing modules, you tend to have
+a bigger number of translation units. These are supposed to be much more lightweight,
+but if you’re relying on <code>#include</code> for third-party libraries, they’re not.</p>
+
+<p>For example:</p>
+
+<pre><code class="language-cpp">//
+// File: redis_client.cppm. Contains only the interface declaration (somehow like headers do)
+//
+module;
+
+// No import boost yet - must be in the global module fragment
+#include &lt;boost/asio/awaitable.hpp&gt;
+#include &lt;boost/system/result.hpp&gt;
+
+module servertech_chat:redis_client;
+import std;
+
+namespace chat {
+
+class redis_client
+{
+public:
+    virtual ~redis_client() {}
+    virtual boost::asio::awaitable&lt;boost::system::result&lt;std::int64_t&gt;&gt; get_int_key(std::string_view key) = 0;
+    // ...
+};
+
+}
+
+//
+// File: redis_client.cpp. Contains the implementation
+//
+module;
+
+#include &lt;boost/redis/connection.hpp&gt;
+
+module servertech_chat;
+import :redis_client;
+import std;
+
+namespace {
+
+class redis_client_impl final : public redis_client { /* ... */ };
+
+}
+
+</code></pre>
+
+<p>I analyze this in much more depth in
+<a href="https://youtu.be/hD9JHkt7e2Y">the talk I’ve had the pleasure to give at using std::cpp</a>
+this March in Madrid. The TL;DR is that supporting <code>import boost</code> natively
+is very important for any serious usage of Boost in the modules world.</p>
+
+<h2 id="import-boost-is-upon-us"><code>import boost</code> is upon us</h2>
+
+<p>As you may know, I prefer doing to saying, and I’ve been writing a prototype to support
+<code>import boost</code> natively while keeping today’s header code as is. This prototype has
+seen substantial advancements during these months.</p>
+
+<p>I’ve developed a <a href="https://github.com/anarthal/boost-cmake/blob/feature/cxx20-modules/modules.md">systematic approach for modularization</a>,
+and we’ve settled for the ABI-breaking style, with compatibility headers.
+I’ve added support for GCC (the remaining compiler) to the core libraries
+that we already supported (Config, Mp11, Core, Assert, ThrowException, Charconv),
+and I’ve added modular bindings for Variant2, Compat, Endian, System, TypeTraits,
+Optional, ContainerHash, IO and Asio.
+These are only tested under Clang yet - it’s part of a discovery process.
+The idea is modularizing the flagship libraries
+to verify that the approach works, and to measure compile time improvements.</p>
+
+<p>There is still a lot to do before things become functional.
+I’ve received helpful feedback from many community members, which has been invaluable.</p>
+
+<h2 id="redis-meets-capy">Redis meets Capy</h2>
+
+<p>If you’re a user of Boost.Asio and coroutines, you probably know that there’s a new player
+in town - Capy and Corosio. They’re a coroutines-native Asio replacement which promise
+a range of benefits, from improved expressiveness to saner compile times,
+without performance loss.</p>
+
+<p>Since I maintain Boost.MySQL and co-maintain Boost.Redis, I know the pain of writing
+operations using the universal Asio model. Lifetime management is difficult to follow,
+testing is complex, and things must remain header-only (and usually heavily templatized).
+Coroutine code is much simpler to write and understand, and it’s what I use whenever I can.
+So obviously I’m interested in this project.</p>
+
+<p>My long-term idea is creating a v2 version of MySQL and Redis that exposes a Capy/Corosio
+interface. As a proof-of-concept, I migrated Boost.Redis and some of its tests.
+Still some polishing needed, but - it works!
+You can read the <a href="https://lists.boost.org/archives/list/boost@lists.boost.org/thread/FSX5H3MDQSLO3VZFEOUINUZPYQFCIASB/">full report on the Boost mailing list</a>.</p>
+
+<p>Some sample code as an appetizer:</p>
+
+<pre><code class="language-cpp">
+capy::task&lt;void&gt; run_request(connection&amp; conn)
+{
+    // A request containing only a ping command.
+    request req;
+    req.push("PING", "Hello world");
+
+    // Response where the PONG response will be stored.
+    response&lt;std::string&gt; resp;
+
+    // Executes the request.
+    auto [ec] = co_await conn.exec(req, resp);
+    if (ec)
+        co_return;
+    std::cout &lt;&lt; "PING value: " &lt;&lt; std::get&lt;0&gt;(resp).value() &lt;&lt; std::endl;
+}
+
+capy::task&lt;void&gt; co_main()
+{
+    connection conn{(co_await capy::this_coro::executor).context()};
+    co_await capy::when_any(
+        // Sends the request
+        run_request(conn),
+
+        // Performs connection establishment, re-connection, pings...
+        conn.run(config{})
+    );
+}
+
+</code></pre>
+
+<h2 id="redis-pubsub-improvements">Redis PubSub improvements</h2>
+
+<p>Working with PubSub messages in Boost.Redis has always been more involved than in other libraries.
+For example, we support transparent reconnection, but (before 1.91), the user had to explicitly
+re-establish subscriptions:</p>
+
+<pre><code class="language-cpp">request req;
+req.push("SUBSCRIBE", "channel");
+while (conn-&gt;will_reconnect()) {
+    // Reconnect to the channels.
+    co_await conn-&gt;async_exec(req, ignore);
+
+    // ...
+}
+</code></pre>
+
+<p>Boost 1.91 has added PubSub state restoration. A fancy name but an easy feature:
+established subscriptions are recorded, and when a reconnection happens,
+the subscription is re-established automatically:</p>
+
+<pre><code class="language-cpp">// Subscribe to the channel 'mychannel'. If a re-connection happens,
+// an appropriate SUBSCRIBE command is issued to re-establish the subscription.
+request req;
+req.subscribe({"mychannel"});
+co_await conn-&gt;async_exec(req);
+</code></pre>
+
+<p>Boost 1.91 also adds <code>flat_tree</code>, a specialized container for Redis messages
+with an emphasis on memory-reuse, performance and usability.
+This container is especially appropriate when dealing with PubSub.
+We’ve also added <code>connection::async_receive2()</code>, a higher-performance
+replacement for <code>connection::async_receive()</code> that consumes messages in batches,
+rather than one-by-one, eliminating re-scheduling overhead.
+And <code>push_parser</code>, a view to transform raw RESP3 nodes into user-friendly structures.</p>
+
+<p>With these improvements, code goes from:</p>
+
+<pre><code class="language-cpp">// Loop while reconnection is enabled
+while (conn-&gt;will_reconnect()) {
+
+    // Reconnect to channels.
+    co_await conn-&gt;async_exec(req, ignore);
+
+    // Loop reading Redis pushs messages.
+    for (error_code ec;;) {
+        // First try to read any buffered pushes.
+        conn-&gt;receive(ec);
+        if (ec == error::sync_receive_push_failed) {
+            ec = {};
+
+            // Wait for pushes
+            co_await conn-&gt;async_receive(asio::redirect_error(asio::use_awaitable, ec));
+        }
+
+        if (ec)
+            break;  // Connection lost, break so we can reconnect to channels.
+
+        // Left to the user: resp contains raw RESP3 nodes, which need to be parsed manually!
+
+        // Remove the nodes corresponding to one message
+        consume_one(resp);
+    }
+}
+
+</code></pre>
+
+<p>To:</p>
+
+<pre><code class="language-cpp">// Loop to read Redis push messages.
+while (conn-&gt;will_reconnect()) {
+    // No need to reconnect, we now have PubSub state restoration
+    // Wait for pushes
+    auto [ec] = co_await conn-&gt;async_receive2(asio::as_tuple);
+    if (ec)
+        break; // Cancelled
+
+    // Consume the messages
+    for (push_view elem : push_parser(resp.value()))
+        std::cout &lt;&lt; "Received message from channel " &lt;&lt; elem.channel &lt;&lt; ": " &lt;&lt; elem.payload &lt;&lt; "\n";
+
+    // Clear all the batch
+    resp.value().clear();
+}
+</code></pre>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/06/2026</span>
+          <a class='text-l news-title link' href="/ruben/2026/04/06/Ruben2026Q1Update.html">The road to C++20 modules, Capy and Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/23/2026</span>
+          <a class='text-l news-title link' href="/ruben/2026/01/23/Ruben2025Q4Update.html">A postgres library for Boost</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/07/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/10/07/Ruben2025Q3Update.html">Levelling up Boost.Redis</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/07/10/Ruben2025Q2Update.html">Ready, Set, Redis!</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/10/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/04/10/Ruben2025Q1Update.html">Moving Boost forward: Asio, coroutines, and maybe even modules</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/06/2025</span>
+          <a class='text-l news-title link' href="/ruben/2025/01/06/Ruben2024Q4Update.html">Boost.MySQL 1.87 and the new Boost citizens</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/20/2024</span>
+          <a class='text-l news-title link' href="/ruben/2024/10/20/Ruben2024Q3Update.html">Boost.MySQL 1.87 features: with_params and with_diagnostics</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/ruben/2023/10/27/Rubens2023Q3Update.html">Ruben's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>

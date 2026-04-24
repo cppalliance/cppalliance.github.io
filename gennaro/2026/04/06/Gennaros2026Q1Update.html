@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="This quarter, I focused on two areas of Mr.Docs: adding first-class support for function objects, the pattern behind C++20 Niebloids and Ranges CPOs, and overhauling how the tool turns C++ metadata into documentation output (the reflection layer). Function objects: documenting what users actually call In modern C++ libraries, many “functions” are actually global objects whose type has operator() overloads. The Ranges library, for instance, defines std::ranges::sort() not as a function template but as a variable of some unspecified callable type. Users call it like a function and expect it to be documented like one. Before this quarter, Mr.Docs didn’t know the difference: it would document the variable and its cryptic implementation type. The new function-object support (roughly 4,600 lines across 38 files) bridges this gap. When Mr.Docs encounters a variable whose type is a record with no public members but operator() overloads and special member functions, it now synthesizes free-function documentation entries named after the variable. The underlying type is marked implementation-defined and hidden from the output. Multi-overload function objects are naturally grouped by the existing overload machinery. So, given: struct abs_fn { double operator()(double x) const noexcept; }; inline constexpr abs_fn abs = {}; Mr.Docs documents it as simply: double abs(double x) noexcept; For cases where auto-detection isn’t quite right — for example, when the type has extra public members — library authors can use the new @functionobject or @functor doc commands. There is also an auto-function-objects config option to control the behavior globally. The feature comes with a comprehensive test fixture covering single and multi-overload function objects, templated types, and types that live in nested detail namespaces. Reflection: from boilerplate to a single generic template The bigger effort — and the one that kept surprising me with its scope — was the reflection refactoring. Mr.Docs converts its internal C++ metadata into a DOM (a tree of lazy objects) that drives the Handlebars template engine. Before this quarter, every type in the system required a hand-written tag_invoke() overload: one function to map the type’s fields to DOM properties, another to convert it to a dom::Value. Adding a new symbol kind meant touching half a dozen files and following a pattern that was easy to get wrong. The goal was simple to state: replace all of that with a single generic template that works for any type carrying a describe macro. Phase 1: Boost.Describe The first attempt used Boost.Describe. I added BOOST_DESCRIBE_STRUCT() annotations to every metadata type and wrote generic merge() and mapReflectedType() templates that iterated over the described members. This proved the concept and eliminated a great deal of boilerplate. However, we didn’t want a public dependency on Boost.Describe, which meant the dependency was hidden in .cpp files and couldn’t be used in templates living in public heades, Phase 2: custom reflection macros So I wrote our own. MRDOCS_DESCRIBE_STRUCT() and MRDOCS_DESCRIBE_CLASS() provide the same compile-time member and base-class iteration as Boost.Describe, but with no external dependency. The macros live in Describe.hpp and produce constexpr descriptor lists that the rest of the system iterates with describe::for_each(). Phase 3: removing the overloads With the describe macros in place, I could write generic implementations of tag_invoke() for both LazyObjectMapTag (DOM mapping) and ValueFromTag (value conversion), plus a generic merge(). Each one replaces dozens of per-type overloads with a single constrained template. The mapMember() function handles the dispatch: optionals are unwrapped, vectors become lazy arrays, described enums become kebab-case strings, and compound described types become lazy objects — all automatically. Removing the overloads was not as straightforward as I had hoped. The old overloads were entangled with: The Handlebars templates, which assumed specific DOM property names. Renaming symbol to id, type to underlyingType, and description to document required updating templates and golden tests in lockstep. The XML generator, which silently skipped types that weren’t described. Adding MRDOCS_DESCRIBE_STRUCT() to TemplateInfo and MemberPointerType made the XML output more complete, requiring schema updates and golden-test regeneration. The result Out of the original 39 custom tag_invoke(LazyObjectMapTag) overloads, only 7 remain — each with genuinely non-reflectable logic (computed properties, polymorphic dispatch, or member decomposition). Roughly 60 tag_invoke(ValueFromTag) boilerplate overloads were also removed. Adding a new metadata type to Mr.Docs now requires nothing beyond MRDOCS_DESCRIBE_STRUCT() at the point of definition. The XML Generator: a full rewrite in 350 lines The XML generator was the first major payoff of the reflection work (although it was initially done when we were using Boost.Describe). The old generator had its own hand-written serialization for every metadata type, completely independent of the DOM layer. It was a parallel set of per-type functions that had to be kept in sync with every schema change. I replaced it with a generic implementation built entirely on the describe macros. The core is about 350 lines: writeMembers() walks describe_bases and describe_members, writeElement() dispatches on type traits for primitives, optionals, vectors, and enums, and writePolymorphic() handles the handful of type hierarchies (Type, TParam, TArg, Block, Inline) via .inc-generated switches. The old generator needed a new function for every type; the new one handles them all, and the 241 files changed in that commit were almost entirely golden-test updates reflecting the now-more-complete and totally changed output. Smaller fixes Alongside the two main efforts, I fixed several bugs that came up during development or were reported by users: Markdown inline formatting (bold, italic, code) and bullet lists were not rendering correctly in certain combinations. &lt;pre&gt; tags were missing around HTML code blocks. bottomUpTraverse() was silently skipping ListBlock items, causing doc-comment content to be lost. Several CI improvements: faster PR demos, better failure detection, increased test coverage for the XML generator. Looking ahead The reflection infrastructure is now in good shape, and most of the mechanical boilerplate is gone. The remaining tag_invoke() overloads are genuinely custom — they compute properties that don’t exist as C++ members, or they dispatch polymorphically across type hierarchies. Those are worth keeping. Going forward, I’d like to explore whether the describe macros can replace more of the manual visitor code throughout the codebase. As always, feedback and suggestions are welcome — feel free to open an issue or reach out on Slack." />
+<meta property="og:description" content="This quarter, I focused on two areas of Mr.Docs: adding first-class support for function objects, the pattern behind C++20 Niebloids and Ranges CPOs, and overhauling how the tool turns C++ metadata into documentation output (the reflection layer). Function objects: documenting what users actually call In modern C++ libraries, many “functions” are actually global objects whose type has operator() overloads. The Ranges library, for instance, defines std::ranges::sort() not as a function template but as a variable of some unspecified callable type. Users call it like a function and expect it to be documented like one. Before this quarter, Mr.Docs didn’t know the difference: it would document the variable and its cryptic implementation type. The new function-object support (roughly 4,600 lines across 38 files) bridges this gap. When Mr.Docs encounters a variable whose type is a record with no public members but operator() overloads and special member functions, it now synthesizes free-function documentation entries named after the variable. The underlying type is marked implementation-defined and hidden from the output. Multi-overload function objects are naturally grouped by the existing overload machinery. So, given: struct abs_fn { double operator()(double x) const noexcept; }; inline constexpr abs_fn abs = {}; Mr.Docs documents it as simply: double abs(double x) noexcept; For cases where auto-detection isn’t quite right — for example, when the type has extra public members — library authors can use the new @functionobject or @functor doc commands. There is also an auto-function-objects config option to control the behavior globally. The feature comes with a comprehensive test fixture covering single and multi-overload function objects, templated types, and types that live in nested detail namespaces. Reflection: from boilerplate to a single generic template The bigger effort — and the one that kept surprising me with its scope — was the reflection refactoring. Mr.Docs converts its internal C++ metadata into a DOM (a tree of lazy objects) that drives the Handlebars template engine. Before this quarter, every type in the system required a hand-written tag_invoke() overload: one function to map the type’s fields to DOM properties, another to convert it to a dom::Value. Adding a new symbol kind meant touching half a dozen files and following a pattern that was easy to get wrong. The goal was simple to state: replace all of that with a single generic template that works for any type carrying a describe macro. Phase 1: Boost.Describe The first attempt used Boost.Describe. I added BOOST_DESCRIBE_STRUCT() annotations to every metadata type and wrote generic merge() and mapReflectedType() templates that iterated over the described members. This proved the concept and eliminated a great deal of boilerplate. However, we didn’t want a public dependency on Boost.Describe, which meant the dependency was hidden in .cpp files and couldn’t be used in templates living in public heades, Phase 2: custom reflection macros So I wrote our own. MRDOCS_DESCRIBE_STRUCT() and MRDOCS_DESCRIBE_CLASS() provide the same compile-time member and base-class iteration as Boost.Describe, but with no external dependency. The macros live in Describe.hpp and produce constexpr descriptor lists that the rest of the system iterates with describe::for_each(). Phase 3: removing the overloads With the describe macros in place, I could write generic implementations of tag_invoke() for both LazyObjectMapTag (DOM mapping) and ValueFromTag (value conversion), plus a generic merge(). Each one replaces dozens of per-type overloads with a single constrained template. The mapMember() function handles the dispatch: optionals are unwrapped, vectors become lazy arrays, described enums become kebab-case strings, and compound described types become lazy objects — all automatically. Removing the overloads was not as straightforward as I had hoped. The old overloads were entangled with: The Handlebars templates, which assumed specific DOM property names. Renaming symbol to id, type to underlyingType, and description to document required updating templates and golden tests in lockstep. The XML generator, which silently skipped types that weren’t described. Adding MRDOCS_DESCRIBE_STRUCT() to TemplateInfo and MemberPointerType made the XML output more complete, requiring schema updates and golden-test regeneration. The result Out of the original 39 custom tag_invoke(LazyObjectMapTag) overloads, only 7 remain — each with genuinely non-reflectable logic (computed properties, polymorphic dispatch, or member decomposition). Roughly 60 tag_invoke(ValueFromTag) boilerplate overloads were also removed. Adding a new metadata type to Mr.Docs now requires nothing beyond MRDOCS_DESCRIBE_STRUCT() at the point of definition. The XML Generator: a full rewrite in 350 lines The XML generator was the first major payoff of the reflection work (although it was initially done when we were using Boost.Describe). The old generator had its own hand-written serialization for every metadata type, completely independent of the DOM layer. It was a parallel set of per-type functions that had to be kept in sync with every schema change. I replaced it with a generic implementation built entirely on the describe macros. The core is about 350 lines: writeMembers() walks describe_bases and describe_members, writeElement() dispatches on type traits for primitives, optionals, vectors, and enums, and writePolymorphic() handles the handful of type hierarchies (Type, TParam, TArg, Block, Inline) via .inc-generated switches. The old generator needed a new function for every type; the new one handles them all, and the 241 files changed in that commit were almost entirely golden-test updates reflecting the now-more-complete and totally changed output. Smaller fixes Alongside the two main efforts, I fixed several bugs that came up during development or were reported by users: Markdown inline formatting (bold, italic, code) and bullet lists were not rendering correctly in certain combinations. &lt;pre&gt; tags were missing around HTML code blocks. bottomUpTraverse() was silently skipping ListBlock items, causing doc-comment content to be lost. Several CI improvements: faster PR demos, better failure detection, increased test coverage for the XML generator. Looking ahead The reflection infrastructure is now in good shape, and most of the mechanical boilerplate is gone. The remaining tag_invoke() overloads are genuinely custom — they compute properties that don’t exist as C++ members, or they dispatch polymorphically across type hierarchies. Those are worth keeping. Going forward, I’d like to explore whether the describe macros can replace more of the manual visitor code throughout the codebase. As always, feedback and suggestions are welcome — feel free to open an issue or reach out on Slack." />
+<link rel="canonical" href="http://cppalliance.org/gennaro/2026/04/06/Gennaros2026Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/gennaro/2026/04/06/Gennaros2026Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"This quarter, I focused on two areas of Mr.Docs: adding first-class support for function objects, the pattern behind C++20 Niebloids and Ranges CPOs, and overhauling how the tool turns C++ metadata into documentation output (the reflection layer). Function objects: documenting what users actually call In modern C++ libraries, many “functions” are actually global objects whose type has operator() overloads. The Ranges library, for instance, defines std::ranges::sort() not as a function template but as a variable of some unspecified callable type. Users call it like a function and expect it to be documented like one. Before this quarter, Mr.Docs didn’t know the difference: it would document the variable and its cryptic implementation type. The new function-object support (roughly 4,600 lines across 38 files) bridges this gap. When Mr.Docs encounters a variable whose type is a record with no public members but operator() overloads and special member functions, it now synthesizes free-function documentation entries named after the variable. The underlying type is marked implementation-defined and hidden from the output. Multi-overload function objects are naturally grouped by the existing overload machinery. So, given: struct abs_fn { double operator()(double x) const noexcept; }; inline constexpr abs_fn abs = {}; Mr.Docs documents it as simply: double abs(double x) noexcept; For cases where auto-detection isn’t quite right — for example, when the type has extra public members — library authors can use the new @functionobject or @functor doc commands. There is also an auto-function-objects config option to control the behavior globally. The feature comes with a comprehensive test fixture covering single and multi-overload function objects, templated types, and types that live in nested detail namespaces. Reflection: from boilerplate to a single generic template The bigger effort — and the one that kept surprising me with its scope — was the reflection refactoring. Mr.Docs converts its internal C++ metadata into a DOM (a tree of lazy objects) that drives the Handlebars template engine. Before this quarter, every type in the system required a hand-written tag_invoke() overload: one function to map the type’s fields to DOM properties, another to convert it to a dom::Value. Adding a new symbol kind meant touching half a dozen files and following a pattern that was easy to get wrong. The goal was simple to state: replace all of that with a single generic template that works for any type carrying a describe macro. Phase 1: Boost.Describe The first attempt used Boost.Describe. I added BOOST_DESCRIBE_STRUCT() annotations to every metadata type and wrote generic merge() and mapReflectedType() templates that iterated over the described members. This proved the concept and eliminated a great deal of boilerplate. However, we didn’t want a public dependency on Boost.Describe, which meant the dependency was hidden in .cpp files and couldn’t be used in templates living in public heades, Phase 2: custom reflection macros So I wrote our own. MRDOCS_DESCRIBE_STRUCT() and MRDOCS_DESCRIBE_CLASS() provide the same compile-time member and base-class iteration as Boost.Describe, but with no external dependency. The macros live in Describe.hpp and produce constexpr descriptor lists that the rest of the system iterates with describe::for_each(). Phase 3: removing the overloads With the describe macros in place, I could write generic implementations of tag_invoke() for both LazyObjectMapTag (DOM mapping) and ValueFromTag (value conversion), plus a generic merge(). Each one replaces dozens of per-type overloads with a single constrained template. The mapMember() function handles the dispatch: optionals are unwrapped, vectors become lazy arrays, described enums become kebab-case strings, and compound described types become lazy objects — all automatically. Removing the overloads was not as straightforward as I had hoped. The old overloads were entangled with: The Handlebars templates, which assumed specific DOM property names. Renaming symbol to id, type to underlyingType, and description to document required updating templates and golden tests in lockstep. The XML generator, which silently skipped types that weren’t described. Adding MRDOCS_DESCRIBE_STRUCT() to TemplateInfo and MemberPointerType made the XML output more complete, requiring schema updates and golden-test regeneration. The result Out of the original 39 custom tag_invoke(LazyObjectMapTag) overloads, only 7 remain — each with genuinely non-reflectable logic (computed properties, polymorphic dispatch, or member decomposition). Roughly 60 tag_invoke(ValueFromTag) boilerplate overloads were also removed. Adding a new metadata type to Mr.Docs now requires nothing beyond MRDOCS_DESCRIBE_STRUCT() at the point of definition. The XML Generator: a full rewrite in 350 lines The XML generator was the first major payoff of the reflection work (although it was initially done when we were using Boost.Describe). The old generator had its own hand-written serialization for every metadata type, completely independent of the DOM layer. It was a parallel set of per-type functions that had to be kept in sync with every schema change. I replaced it with a generic implementation built entirely on the describe macros. The core is about 350 lines: writeMembers() walks describe_bases and describe_members, writeElement() dispatches on type traits for primitives, optionals, vectors, and enums, and writePolymorphic() handles the handful of type hierarchies (Type, TParam, TArg, Block, Inline) via .inc-generated switches. The old generator needed a new function for every type; the new one handles them all, and the 241 files changed in that commit were almost entirely golden-test updates reflecting the now-more-complete and totally changed output. Smaller fixes Alongside the two main efforts, I fixed several bugs that came up during development or were reported by users: Markdown inline formatting (bold, italic, code) and bullet lists were not rendering correctly in certain combinations. &lt;pre&gt; tags were missing around HTML code blocks. bottomUpTraverse() was silently skipping ListBlock items, causing doc-comment content to be lost. Several CI improvements: faster PR demos, better failure detection, increased test coverage for the XML generator. Looking ahead The reflection infrastructure is now in good shape, and most of the mechanical boilerplate is gone. The remaining tag_invoke() overloads are genuinely custom — they compute properties that don’t exist as C++ members, or they dispatch polymorphically across type hierarchies. Those are worth keeping. Going forward, I’d like to explore whether the describe macros can replace more of the manual visitor code throughout the codebase. As always, feedback and suggestions are welcome — feel free to open an issue or reach out on Slack.","@type":"BlogPosting","url":"http://cppalliance.org/gennaro/2026/04/06/Gennaros2026Q1Update.html","headline":"Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator","dateModified":"2026-04-06T00:00:00+00:00","datePublished":"2026-04-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/gennaro/2026/04/06/Gennaros2026Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/gennaro">
+              <img class='author-img' src='/images/people/gennaro.jpg' alt='Portrait of Gennaro Prota' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/gennaro">
+                  Gennaro Prota
+                </a> &middot; Apr 6, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>This quarter, I focused on two areas of Mr.Docs: adding first-class support for
+function objects, the pattern behind C++20 Niebloids and Ranges CPOs, and
+overhauling how the tool turns C++ metadata into documentation output (the
+reflection layer).</p>
+
+<h2 id="function-objects-documenting-what-users-actually-call">Function objects: documenting what users actually call</h2>
+
+<p>In modern C++ libraries, many “functions” are actually global objects whose type
+has <code>operator()</code> overloads. The Ranges library, for instance, defines
+<code>std::ranges::sort()</code> not as a function template but as a variable of some
+unspecified callable type. Users call it like a function and expect it to be
+documented like one. Before this quarter, Mr.Docs didn’t know the difference: it
+would document the variable and its cryptic implementation type.</p>
+
+<p>The new function-object support (roughly 4,600 lines across 38 files) bridges
+this gap. When Mr.Docs encounters a variable whose type is a record with no
+public members but <code>operator()</code> overloads and special member functions, it now
+synthesizes free-function documentation entries named after the variable. The
+underlying type is marked implementation-defined and hidden from the output.
+Multi-overload function objects are naturally grouped by the existing overload
+machinery. So, given:</p>
+
+<pre><code class="language-cpp">struct abs_fn {
+    double operator()(double x) const noexcept;
+};
+inline constexpr abs_fn abs = {};
+</code></pre>
+
+<p>Mr.Docs documents it as simply:</p>
+
+<pre><code>double abs(double x) noexcept;
+</code></pre>
+
+<p>For cases where auto-detection isn’t quite right — for example, when the type
+has extra public members — library authors can use the new <code>@functionobject</code> or
+<code>@functor</code> doc commands. There is also an <code>auto-function-objects</code> config option
+to control the behavior globally. The feature comes with a comprehensive test
+fixture covering single and multi-overload function objects, templated types,
+and types that live in nested <code>detail</code> namespaces.</p>
+
+<h2 id="reflection-from-boilerplate-to-a-single-generic-template">Reflection: from boilerplate to a single generic template</h2>
+
+<p>The bigger effort — and the one that kept surprising me with its scope — was the
+reflection refactoring. Mr.Docs converts its internal C++ metadata into a DOM (a
+tree of lazy objects) that drives the Handlebars template engine. Before this
+quarter, every type in the system required a hand-written <code>tag_invoke()</code>
+overload: one function to map the type’s fields to DOM properties, another to
+convert it to a <code>dom::Value</code>. Adding a new symbol kind meant touching half a
+dozen files and following a pattern that was easy to get wrong.</p>
+
+<p>The goal was simple to state: replace all of that with a single generic template
+that works for any type carrying a describe macro.</p>
+
+<h3 id="phase-1-boostdescribe">Phase 1: Boost.Describe</h3>
+
+<p>The first attempt used Boost.Describe. I added <code>BOOST_DESCRIBE_STRUCT()</code>
+annotations to every metadata type and wrote generic <code>merge()</code> and
+<code>mapReflectedType()</code> templates that iterated over the described members. This
+proved the concept and eliminated a great deal of boilerplate. However, we
+didn’t want a public dependency on Boost.Describe, which meant the dependency
+was hidden in .cpp files and couldn’t be used in templates living in public
+heades,</p>
+
+<h3 id="phase-2-custom-reflection-macros">Phase 2: custom reflection macros</h3>
+
+<p>So I wrote our own. <code>MRDOCS_DESCRIBE_STRUCT()</code> and <code>MRDOCS_DESCRIBE_CLASS()</code>
+provide the same compile-time member and base-class iteration as Boost.Describe,
+but with no external dependency. The macros live in <code>Describe.hpp</code> and produce
+<code>constexpr</code> descriptor lists that the rest of the system iterates with
+<code>describe::for_each()</code>.</p>
+
+<h3 id="phase-3-removing-the-overloads">Phase 3: removing the overloads</h3>
+
+<p>With the describe macros in place, I could write generic implementations of
+<code>tag_invoke()</code> for both <code>LazyObjectMapTag</code> (DOM mapping) and <code>ValueFromTag</code>
+(value conversion), plus a generic <code>merge()</code>. Each one replaces dozens of
+per-type overloads with a single constrained template. The <code>mapMember()</code>
+function handles the dispatch: optionals are unwrapped, vectors become lazy
+arrays, described enums become kebab-case strings, and compound described types
+become lazy objects — all automatically.</p>
+
+<p>Removing the overloads was not as straightforward as I had hoped. The old
+overloads were entangled with:</p>
+
+<ul>
+  <li><strong>The Handlebars templates</strong>, which assumed specific DOM property names.
+Renaming <code>symbol</code> to <code>id</code>, <code>type</code> to <code>underlyingType</code>, and <code>description</code> to
+<code>document</code> required updating templates and golden tests in lockstep.</li>
+  <li><strong>The XML generator</strong>, which silently skipped types that weren’t described.
+Adding <code>MRDOCS_DESCRIBE_STRUCT()</code> to <code>TemplateInfo</code> and <code>MemberPointerType</code>
+made the XML output more complete, requiring schema updates and golden-test
+regeneration.</li>
+</ul>
+
+<h3 id="the-result">The result</h3>
+
+<p>Out of the original 39 custom <code>tag_invoke(LazyObjectMapTag)</code> overloads, only 7
+remain — each with genuinely non-reflectable logic (computed properties,
+polymorphic dispatch, or member decomposition). Roughly 60
+<code>tag_invoke(ValueFromTag)</code> boilerplate overloads were also removed. Adding a new
+metadata type to Mr.Docs now requires nothing beyond <code>MRDOCS_DESCRIBE_STRUCT()</code>
+at the point of definition.</p>
+
+<h2 id="the-xml-generator-a-full-rewrite-in-350-lines">The XML Generator: a full rewrite in 350 lines</h2>
+
+<p>The XML generator was the first major payoff of the reflection work (although it
+was initially done when we were using Boost.Describe). The old generator had its
+own hand-written serialization for every metadata type, completely independent
+of the DOM layer. It was a parallel set of per-type functions that had to be
+kept in sync with every schema change.</p>
+
+<p>I replaced it with a generic implementation built entirely on the describe
+macros. The core is about 350 lines: <code>writeMembers()</code> walks <code>describe_bases</code> and
+<code>describe_members</code>, <code>writeElement()</code> dispatches on type traits for primitives,
+optionals, vectors, and enums, and <code>writePolymorphic()</code> handles the handful of
+type hierarchies (<code>Type</code>, <code>TParam</code>, <code>TArg</code>, <code>Block</code>, <code>Inline</code>) via
+.inc-generated switches. The old generator needed a new function for every type;
+the new one handles them all, and the 241 files changed in that commit were
+almost entirely golden-test updates reflecting the now-more-complete and totally
+changed output.</p>
+
+<h2 id="smaller-fixes">Smaller fixes</h2>
+
+<p>Alongside the two main efforts, I fixed several bugs that came up during
+development or were reported by users:</p>
+
+<ul>
+  <li>Markdown inline formatting (bold, italic, code) and bullet lists were not
+rendering correctly in certain combinations.</li>
+  <li><code>&lt;pre&gt;</code> tags were missing around HTML code blocks.</li>
+  <li><code>bottomUpTraverse()</code> was silently skipping <code>ListBlock</code> items, causing
+doc-comment content to be lost.</li>
+  <li>Several CI improvements: faster PR demos, better failure detection, increased
+test coverage for the XML generator.</li>
+</ul>
+
+<h2 id="looking-ahead">Looking ahead</h2>
+
+<p>The reflection infrastructure is now in good shape, and most of the mechanical
+boilerplate is gone. The remaining <code>tag_invoke()</code> overloads are genuinely custom
+— they compute properties that don’t exist as C++ members, or they dispatch
+polymorphically across type hierarchies. Those are worth keeping. Going forward,
+I’d like to explore whether the describe macros can replace more of the manual
+visitor code throughout the codebase.</p>
+
+<p>As always, feedback and suggestions are welcome — feel free to open an issue or
+reach out on Slack.</p>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/06/2026</span>
+          <a class='text-l news-title link' href="/gennaro/2026/04/06/Gennaros2026Q1Update.html">Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/14/2025</span>
+          <a class='text-l news-title link' href="/gennaro/2025/10/14/Gennaros2025Q3Update.html">DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>

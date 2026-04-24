@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MrDocs in the Wild | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>MrDocs in the Wild | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="MrDocs in the Wild" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="The questions changed. For a long time, people asked about MrDocs in the abstract: what formats will it support, how will it handle templates, when will it be ready. Then, gradually, the questions became specific. Jean-Louis Leroy, the author of Boost.OpenMethod, became one of our most active sources of feedback. His library exercises corners of C++ that most projects never touch, which means MrDocs gets tested in ways we would not have anticipated. He wanted to know why his template specializations were not sorted correctly. He wanted macro support because Boost libraries rely heavily on macros. He hit a crash when his doc comments contained HTML tables. These are not theoretical questions about a tool that might exist someday. These are questions from someone who already generated documentation with MrDocs and needs it to work better. In our previous post, we described MrDocs transitioning from prototype to product. This post is about what happened when MrDocs went into the wild. Real Projects, Real Problems The Demo Page Breadcrumbs Without a Navigation File Coordinating Two Independent Extensions Edge Cases in the Wild Rendering and Output Under the Hood The MrDocs Website Exploring the Unknowns Reflection: Replacing Boilerplate with Introspection First Steps Toward Extensions Why We Discarded MrDocs-as-Compiler Contributor Experience Automating PR Reviews CI Infrastructure Test Infrastructure Acknowledgments and Reflections Real Projects, Real Problems %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Feedback)) First impressions Unstyled demos Custom stylesheets Navigation Orphaned pages Breadcrumbs AST edge cases Parameter packs Friend targets Detail namespaces Rendering Description ordering Code blocks Anchor links Runtime JS engine switch Compiler fallback The Demo Page Right after the previous post, where we announced the MVP and encouraged people to try MrDocs, we noticed the demos page was not doing us any favors. Someone shared MrDocs on a developer community and the website started getting traffic. The landing page looked polished, but visitors clicked through to the demos and saw raw, unstyled HTML: no fonts, no spacing, no colors. The HTML generator produced correct semantic markup, and that is technically the point: users are supposed to customize the output with their own stylesheets. But on the demos page, there was no stylesheet at all, and the result looked broken rather than customizable. The custom stylesheet system added five configuration options (stylesheets, linkcss, copycss, no-default-styles, stylesdir) so projects can match their own branding. A bundled default CSS now ships with MrDocs, and it was refined to remove gradients in favor of solid, readable backgrounds. Stylesheet commits 5fe30c1 feat: custom stylesheets 33d985c chore: version is 0.8.0 Breadcrumbs Without a Navigation File MrDocs generates thousands of reference pages, one per C++ symbol. We maintain an Antora extension, the antora-cpp-reference-extension, that integrates these pages into Antora-based documentation sites. But the generated pages end up orphaned from the navigation tree. Users found the navigation confusing: clicking on “boost” in the breadcrumb did not go where expected, and reference pages had no trail showing where they belonged in the hierarchy. The obvious fix would be to list every page in Antora’s nav.adoc, but maintaining a navigation file with thousands of entries that changes every time a symbol is added or removed is not practical. Worse, Antora renders the navigation file in the sidebar, so listing every reference page would flood the UI with thousands of entries. We discussed the problem extensively with the Antora maintainer on the Antora community chat. His position was clear: Antora was designed so that pages must be in the navigation file. Programmatic editing of navigation is not supported. That was not acceptable for us. We needed breadcrumbs that work for thousands of generated pages without polluting the sidebar or requiring a hand-maintained navigation file. The Antora author’s position was reasonable from his perspective (Antora is a general-purpose documentation tool, not a reference generator), but our use case was fundamentally different from what Antora was designed for. The antora-cpp-reference-extension now builds breadcrumbs independently from the navigation file. MrDocs generates reference pages in a directory structure that mirrors the C++ namespace hierarchy (boost/urls/segments_view.adoc lives inside boost/urls/). The extension uses this structure to reconstruct the breadcrumb trail: each directory maps to a namespace, and the page title (which is the symbol name) becomes the last breadcrumb entry. The result reads naturally: Reference &gt; boost &gt; urls &gt; segments_view. Zero changes to the nav file. The sidebar stays clean. Breadcrumbs appear automatically and update when symbols are added or removed. Breadcrumb and reference extension commits antora-cpp-reference-extension ae95eb2 feat: synthesize reference breadcrumbs without nav files 10a4019 feat: add auto base URL detection 6a6c08b docs: auto-base-url option 4f7c79f refactor: enhance release asset validation Coordinating Two Independent Extensions The antora-cpp-reference-extension generates reference pages and breadcrumbs. The antora-cpp-tagfiles-extension resolves cross-library symbol links (so a reference to boost::system::error_code in Boost.URL’s docs links to the correct page in Boost.System’s docs). These are two independent Antora extensions running as separate jobs. The problem was that the reference extension generates tagfiles as a side effect of producing reference pages, and the tagfiles extension needs the most recent version of those tagfiles to resolve links correctly. MrDocs changes the tagfiles every time the corpus changes. Manually keeping them in sync was not sustainable: committing tagfiles to the repository meant they were always stale by the time the next build ran. We made the extensions coordinate directly. The reference extension now hands its tagfile to the tagfiles extension at build time, so the links always reflect the current state of the documentation. The reference extension also gained auto base URL detection, removing the need for manual path configuration when switching between development and production builds. Extension coordination commits antora-cpp-reference-extension 6e8ffcb feat: antora-cpp-tagfiles-extension coordination 8f12576 chore: version is 0.1.0 antora-cpp-tagfiles-extension 98eba40 feat: antora-cpp-reference-extension coordination 5a1723c feat: add global log level control for missing symbols 453f01b chore: version is 0.1.0 Edge Cases in the Wild As more libraries adopted MrDocs, edge cases in C++ symbol extraction surfaced. Boost.Beast exposed a duplicate ellipsis in parameter pack rendering (#1108, #1129): Before: T&amp; emplace(Args...&amp;&amp;... args) After: T&amp; emplace(Args&amp;&amp;... args) Boost.OpenMethod revealed that friend targets were not resolving correctly. Boost.Buffers uncovered a problem with detail namespaces: when a class inherits from a base in a hidden namespace, the inherited members appeared in the documentation but their doc comments were lost (#1107). We fixed this so derived classes inherit documentation from hidden bases. Unnamed structs also sparked an extended design discussion. When C++ code declares constexpr struct {} f{};, MrDocs needs a stable, unique name for hyperlinks. The team established a collaborative design process using shared documents, with Peter Dimov contributing an insight about C compatibility (typedef struct {} T; makes the struct named in C++). AST and metadata commits c85be75 fix: remove duplicate ellipsis in parameter pack expansion c3dbded fix(ast): prevent TU parent from including unmatched globals 76b7b43 fix(ast): canonicalize friend targets 05f5852 fix(metadata): copy impl-defined base docs 35cf1f6 fix: UsingSymbol is SymbolParent c406d57 fix: preserve extraction mode when copying members from derived classes 4e7ef04 fix: prevent infinite recursion when extracting non-regular base class 0a69301 fix: extract and fix some special member function helpers Rendering and Output Users noticed that the manual description of a symbol was buried below long member tables (#1105). On a class with many members, you had to scroll past the entire member listing before finding the author’s explanation of what the class does. We moved the description to appear immediately after the synopsis, matching what cppreference does. Other rendering issues included HTML code blocks not wrapped in &lt;pre&gt; tags, anchor links appearing when the wrapper element was missing, and the Handlebars template engine accumulating special name re-mappings that conflated different symbols. Rendering and output commits d90eae6 fix: hide anchor links when wrapper is not included 92491de fix: manual description comes before member lists 58bf524 fix: remove all special name re-mappings for Handlebars 2a75692 fix: HTML code blocks not wrapped in pre tags 1ebff32 fix: bottomUpTraverse() skips ListBlock items 7b118b1 fix: missing @return command in doc comment Under the Hood We fixed a compiler fallback issue where MrDocs failed when the compilation database referenced a compiler that was not available on the current machine, and corrected sanitizer flag propagation so that UBSan and TSan do not unnecessarily propagate to dependency builds. Build and toolchain commits 235f5c8 fix: fall back to system compilers when database compiler is unavailable f320581 fix: don’t pass sanitizer to dependency builds for UBSan/TSan The MrDocs Website While we were fixing the generated output, Robert Beeston and Julio Estrada were redesigning the MrDocs website. Robert led the design direction, working with a team to develop a visual identity that balances a distinctive retro aesthetic with modern readability, including a dark theme. Julio handled the implementation: mobile-responsive layout, UI styling improvements, cleaner backgrounds and styles, Open Graph and Twitter meta tags for social sharing, and a close button for the docs navigation on smaller screens. For a documentation tool, the website is the first thing potential users see. Having a polished, memorable landing page matters more than it might for other kinds of projects. Exploring the Unknowns The team made a deliberate choice: instead of following a traditional feature roadmap, we would focus on areas of uncertainty (#1113). These were open questions that blocked multiple design decisions at once: MrDocs-as-compiler (#1073): should MrDocs emit “object” files for later “linking,” like a compiler? Scripting extensions (#1128, #881): how should users extend and transform documentation output? Plugins (#58, #1044): how should third-party code register new generators? JSON-only MrDocs: should we add a JSON output format alongside (or replacing) the existing XML structured output? Reflection (#1114): how do we reduce the maintenance burden of the growing metadata model? Cross-linking (#1072): how do we reference symbols in other libraries? The motivation was practical. Each Boost library that adopted MrDocs had its own needs that could not be met by the core tool alone. Boost.URL has implementation_defined namespaces with internal code that should be hidden or transformed in the documentation. Boost.Capy has detail types that should be presented as user-facing types. Coroutines are represented as types in the AST but should be documented as functions. We want MrDocs to be smart enough, with project-specific extensions, that library authors do not have to do workarounds in the source code just to get the documentation right. Rather than hard-coding solutions for each library, the unknowns framework asked: what general mechanisms would let every library solve its own documentation problems? %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Unknowns)) Scripting extensions JS helpers Lua Plugins Generator API DLL loading Reflection Boost.Describe MrDocs.Describe Cross-linking Tagfiles Antora coordination JSON-only MrDocs MrDocs-as-compiler Reflection: Replacing Boilerplate with Introspection MrDocs models many kinds of C++ symbols: functions, classes, namespaces, enums, typedefs, concepts, and more. Each symbol type has metadata, and every piece of code that touches that metadata had to enumerate all fields by hand. Adding a single field to a symbol type meant updating it in: Schema files that describe the metadata format Generators (HTML, AsciiDoc, XML) that produce the output Templates that render individual pages Operators like comparison functions, merge functions (e.g., merging symbols from different translation units when only one is documented), and equality checks Documentation describing the metadata The code itself that populates and transforms the metadata That is roughly ten to fifteen places per field, and missing one caused CI failures that blocked everyone. This was one of the unknowns we identified: how to reduce the maintenance burden as the data model grows. Worse, downstream users who had their own templates and extensions also had to learn about the new fields and update everything accordingly. Gennaro Prota, with his strong background in generic programming and metaprogramming, took ownership of the reflection problem. The work progressed through several stages: Integrate Boost.Describe into the metadata system, replacing hand-written serialization functions Add $meta.type and $meta.bases to all DOM objects so templates can introspect the corpus Replace the XML generator with a reflection-based one (no more hand-maintained XML output) Build a custom reflection system (MrDocs.Describe) tailored to our needs Replace per-type operators with a single generic template The result eliminated the second step entirely: adding a new field to a symbol type no longer requires touching ten other files. The description drives everything, and the serialization, comparison, and merge logic derive from it automatically. Boost.Describe and Boost.Mp11 are private dependencies that do not appear in public headers. Along the way, Gennaro also added function object support, fixed Markdown inline formatting and missing dependent array bounds. Reflection and metadata commits Reflection (Gennaro Prota) d490880 refactor(metadata): integrate Boost.Describe c4dd89a feat: add $meta.type and $meta.bases to all DOM objects d4a64ef fix: replace the XML generator with a reflection-based one 6ce961f refactor: add custom reflection facilities (MrDocs.Describe) eb68494 refactor: migrate all reflection consumers to MrDocs.Describe 8f5391b refactor: replace per-type merge() one-liners with a single generic template e749144 feat: make the reflection consumers public 1ed76ad refactor: replace most per-type tag_invoke overloads with a single generic template 0246935 refactor: replace per-type operator==() and operator&lt;=&gt;() with a single generic template Features and fixes (Gennaro Prota) 93a5032 feat: add function object support f35ebcd fix: rendering of Markdown inline formatting and bullet lists 4ae305b fix: missing dependent array bounds in the output 72fba40 test: add golden tests for a partial class template specialization The reflection work is the foundation for everything that comes next: the extension system, the upcoming Lua scripting, and the metadata transformation pipeline. First Steps Toward Extensions MrDocs supports two extension points: JavaScript for Handlebars template helpers, and Lua for more powerful scripting. The JavaScript engine had been Duktape, but Duktape is no longer actively maintained and only supports ES5.1. We needed a replacement. We evaluated several alternatives (#881): Engine JS Support Windows/MSVC Size License QuickJS ES2023 No (clang-cl only) ~370 KB MIT PrimJS ES2019 No (POSIX only) ~370 KB MIT JerryScript ES5.1 + ES2022 subset Yes ~200 KB Apache 2.0 Escargot ES2025 subset Yes ~400-500 KB LGPL 2.1 MuJS ES5.1 Yes ~200-300 KB ISC Moddable XS ES2025 (~99%) Yes (via SDK) ~100-300 KB Apache/GPL/LGPL mJS Restricted ES6 Yes ~50-60 KB GPL 2.0 / Commercial Elk Minimal ES6 Yes ~20-30 KB GPL 2.0 / Commercial We first experimented with QuickJS, which had the best ES support. But it requires C11 features like &lt;stdatomic.h&gt; and __int128 that plain MSVC does not support. On Windows, users would need Clang with the Visual Studio runtime. PrimJS was POSIX-only. We settled on JerryScript: it supports Windows and MSVC natively, has a small footprint (~200 KB), and covers enough of ES2022 for template helpers. Unlike most alternatives in the table, JerryScript was designed from the ground up to be embedded in other applications, which makes it more like Lua and less like engines that target browsers or standalone runtimes. The JavaScript helpers extension was a single commit but a large one: 85 files changed, 4,287 insertions. The work included: Replacing Duktape with JerryScript across the entire codebase, including build scripts, CMake recipes, and third-party patches Rewriting the C++ JavaScript bindings (JavaScript.hpp and JavaScript.cpp) with shared context lifetime, safer value accessors, and clearer error messages A layered addon system where projects provide JavaScript helpers in a directory structure (generator/common/helpers/ for shared helpers, generator/html/helpers/ for format-specific ones). Multiple addon directories can be layered, so a project’s helpers override or extend the defaults. Golden tests for extension output (js-helper/, js-helper-layering/) to verify that helpers produce the expected documentation 1,335 lines of new JavaScript binding tests covering the engine lifecycle, value conversion, error handling, and helper registration Combined with the public API for registering custom generators, MrDocs now supports customization beyond templates. A library like Boost.Capy could write an extension that transforms its coroutine types into function documentation, without any changes to MrDocs itself. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% flowchart LR A[Clang AST] --&gt; B[Extraction] B --&gt; C[Corpus] C --&gt; D[Transformation Extensions] D --&gt; E[Handlebars Generators] E --&gt; F[Documentation Templates] F --&gt; H[HTML / AsciiDoc] F --&gt; G[Template Extensions] G --&gt; F D -.-&gt; I[XML] The vision for extensions has two layers: Transformation extensions operate on the corpus between extraction and generation. A library could transform its internal types into the documentation structure it wants. This layer is not yet implemented. Template extensions (JavaScript helpers) operate inside the Handlebars templates that produce HTML and AsciiDoc output. This is the layer we shipped. Lua scripts for more powerful scripting in both layers Extension and generator commits 0f3ecb4 feat: javascript helpers extension (85 files, 4,287 insertions) 930a5ea fix: jerry_port_context_free wrong signature causes silent corruption 8da0930 feat(lib): public API for generator registration 788c1ba feat(generators): tables for symbols have headers Why We Discarded MrDocs-as-Compiler One unknown we explored and deliberately discarded was MrDocs-as-compiler (#1073). The idea, proposed by Peter Dimov, was to treat MrDocs like a compiler: emit “object” files per translation unit, then “link” them to produce the final reference. CMake would invoke MrDocs as if it were Clang, with identical command-line options. We spent time studying tools that work this way: clang-tidy, clang-doc, include-what-you-use. What we found is that tricking CMake into thinking MrDocs is a real compiler is not trivial. Every tool that tries this approach ends up needing either a coordinator binary (reimplementing what MrDocs already has) or CMake helper scripts. Both add workflows rather than simplifying them. The experience from the Boost ecosystem reinforced this: no Boost project uses any of these compiler-like tools for static analysis, and the reason is complexity. People who find the compilation database workflow too involved are going to be even less inclined to adopt a tool that requires them to pretend to be a compiler. We decided to keep MrDocs as a single-step tool that reads a compilation database and produces output, rather than splitting it into a multi-binary pipeline that would need its own coordination layer. Contributor Experience As more people contributed to MrDocs, the gap between “clone the repo” and “submit a useful PR” needed closing. The biggest change was the bootstrap script, which reduced the entire build setup to a single python bootstrap.py command (covered in a separate post). Beyond the bootstrap, we split the contributor guide into focused sections, added reference documentation for MrDocs comment syntax (so contributors know what @copydoc, @see, and other commands do), and created a run_all_tests script that runs the full test suite locally without needing to understand the CMake test configuration. Onboarding commits b103cba docs(reference): mrdocs comments 9b7ec24 feat(util): run_all_tests script 5902699 docs: update packages 302f0a6 docs: split contribute.adoc guide Automating PR Reviews MrDocs PRs tend to be large and hard to review. A single PR might touch the AST visitor, the Handlebars templates, the Antora extension, the CI configuration, and hundreds of golden test files (when an intentional change to the output format updates the expected output for every test case). We found ourselves making the same review comments over and over. We set up Danger.js to catch these patterns before human reviewers see the PR. The most important check is detecting when source code changes do not include corresponding tests: if someone changes extraction logic but does not update the golden tests, or changes a template without updating the expected output, Danger flags it. Beyond that: Categorizes all file changes into scopes (source, tests, golden-tests, docs, CI, build, tooling) and generates a summary table showing churn per scope Validates commit messages against Conventional Commits format Warns when a single commit exceeds 2,000 lines of source churn (encouraging smaller, reviewable slices) Flags mismatched commit types (e.g., a feat: commit that only touches test files suggests test: instead) Rejects PR descriptions under 40 characters Ignores the test check for refactor-only PRs where the tests are expected to remain unchanged Even when there are no warnings, the scope summary table gives reviewers an immediate sense of what a large PR touches. On a PR that changes 500 lines of source and 3,000 lines of golden tests, the table makes it clear that the bulk of the diff is expected test output, not new logic. Danger.js commits 6f5f6e9 ci: setup danger.js 5429b2e ci(danger): align report table and add top-files summary 240921d ci(danger): split PR target ci workflows 08c46b6 ci(danger): correct file delta calculation in reports 2cfd081 ci(danger): adjust large commit threshold 71845c8 ci(danger): map root files into explicit scopes 17b0a57 ci(danger): ignore test check for refactor-only PRs 6481fd3 ci(danger): simplify CI naming fd7d248 ci(danger): omit empty sections from report 7502961 ci(danger): categorize util/bootstrap as build scope 57e191e ci(danger): better markdown format CI Infrastructure We integrated Codecov for tracking test coverage across PRs and switched from GCC to Clang for coverage (more accurate AST-based measurement). CI speed was a recurring concern: we skipped remote documentation generation on PRs, sped up release demos, and skipped long tests that were not catching new bugs. LLVM cache keys were unified to avoid redundant builds, and CTest timeouts were increased for sanitizer jobs that run significantly slower. Matheus Izvekov contributed the Clang coverage switch, fixed an infinite recursion in extraction, and moved the project to use system libs by default. CI infrastructure commits ed6b3bc ci: add codecov configuration 5426a0a ci: use clang for coverage d629173 fix(ci): unify redundant LLVM cache keys 36a3b51 ci: update actions to v1.9.1 7b2103a ci: increase CTest timeout for MSan jobs 086becc ci: increase the ctest timeout to 9000 adb6821 ci(cpp-matrix): remove the optimized-debug factor 9507a38 ci: simplify CI workflow and upgrade cpp-actions to @develop 9a5bd3c ci: skip remote documentation generation on PRs 637011f ci: detect and report demo generation failures 084322d ci: speed up release demos on PRs 471951d ci: skip long tests to speed up CI a5f160b ci: increase test coverage for the new XML generator b1fc43c ci: exclude Reflection.hpp from coverage a1f9a82 ci: accept any g++-14 version c136a46 ci(website): preserve roadmap directory during deployment 4763d86 revert(ci): remove premature roadmap report step 3462996 ci: revert coverage changes 8b2c3e9 ci: align llvm-sanitizer-config with archive basename fdff573 ci: gitignore CI node_modules 757d446 fix(ci): update the fmt branch reference from master to main a3366b0 fix(ci): name rolling release packages after the branch Test Infrastructure MrDocs uses golden tests: the expected output for every test case is stored as a file, and the test runner compares the actual output against it. The most important change was adding multipage golden tests. Previously, all golden tests were single-page, but many bugs only manifested in multi-page output (cross-references between pages, navigation links, index generation). We were missing these entirely because we had no way to test them. We also added output normalization (so platform differences do not cause false failures) and regression categories so tests can be grouped and run selectively. A run_ci_with_act.py script lets contributors run the full CI pipeline locally using act. Test infrastructure commits bf78b1b test: support multipage golden tests d7ad1ce test: output normalization ccd7f71 test: check int tests results in ctest 681b0cd chore: assign categories to regression tests 9146125 test: cover additional paths in DocCommentFinalizer.cpp 8326417 test: run_ci_with_act.py script 5527e9c test: testClang_stdCxx default is C++26 0dfdb02 test: –bad is disabled by default Acknowledgments and Reflections Going into the wild changed MrDocs. The edge cases, the customization requests, and the integration feedback shaped the direction more than any internal roadmap could. Gennaro Prota drove the reflection integration that reduces maintenance burden across the entire codebase. Matheus Izvekov hardened CI with coverage, sanitizers, and warnings-as-errors, and migrated dependency management to the bootstrap script. Julio Estrada and Robert Beeston delivered the polished public face of MrDocs. Agustín Bergé contributed AST and metadata fixes including base member shadowing and alias SFINAE detection. Jean-Louis Leroy provided detailed feedback from Boost.OpenMethod that drove multiple improvements. The most requested feature we have not solved yet is macro support (#1127). Macros are expanded before parsing and do not appear in the AST. Supporting them would require preprocessor-level integration with Clang. The work ahead also includes Lua scripting, metadata transforms, and deeper reflection, all direct responses to what users told us they need. The biggest lesson from this period is that the problems worth solving are the ones users bring. We spent time on an unknowns framework to decide what to explore, but the most impactful work came from people who showed up with a broken demo page, a missing breadcrumb, or a duplicate ellipsis in their generated docs. The complete set of changes is available in the MrDocs repository." />
+<meta property="og:description" content="The questions changed. For a long time, people asked about MrDocs in the abstract: what formats will it support, how will it handle templates, when will it be ready. Then, gradually, the questions became specific. Jean-Louis Leroy, the author of Boost.OpenMethod, became one of our most active sources of feedback. His library exercises corners of C++ that most projects never touch, which means MrDocs gets tested in ways we would not have anticipated. He wanted to know why his template specializations were not sorted correctly. He wanted macro support because Boost libraries rely heavily on macros. He hit a crash when his doc comments contained HTML tables. These are not theoretical questions about a tool that might exist someday. These are questions from someone who already generated documentation with MrDocs and needs it to work better. In our previous post, we described MrDocs transitioning from prototype to product. This post is about what happened when MrDocs went into the wild. Real Projects, Real Problems The Demo Page Breadcrumbs Without a Navigation File Coordinating Two Independent Extensions Edge Cases in the Wild Rendering and Output Under the Hood The MrDocs Website Exploring the Unknowns Reflection: Replacing Boilerplate with Introspection First Steps Toward Extensions Why We Discarded MrDocs-as-Compiler Contributor Experience Automating PR Reviews CI Infrastructure Test Infrastructure Acknowledgments and Reflections Real Projects, Real Problems %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Feedback)) First impressions Unstyled demos Custom stylesheets Navigation Orphaned pages Breadcrumbs AST edge cases Parameter packs Friend targets Detail namespaces Rendering Description ordering Code blocks Anchor links Runtime JS engine switch Compiler fallback The Demo Page Right after the previous post, where we announced the MVP and encouraged people to try MrDocs, we noticed the demos page was not doing us any favors. Someone shared MrDocs on a developer community and the website started getting traffic. The landing page looked polished, but visitors clicked through to the demos and saw raw, unstyled HTML: no fonts, no spacing, no colors. The HTML generator produced correct semantic markup, and that is technically the point: users are supposed to customize the output with their own stylesheets. But on the demos page, there was no stylesheet at all, and the result looked broken rather than customizable. The custom stylesheet system added five configuration options (stylesheets, linkcss, copycss, no-default-styles, stylesdir) so projects can match their own branding. A bundled default CSS now ships with MrDocs, and it was refined to remove gradients in favor of solid, readable backgrounds. Stylesheet commits 5fe30c1 feat: custom stylesheets 33d985c chore: version is 0.8.0 Breadcrumbs Without a Navigation File MrDocs generates thousands of reference pages, one per C++ symbol. We maintain an Antora extension, the antora-cpp-reference-extension, that integrates these pages into Antora-based documentation sites. But the generated pages end up orphaned from the navigation tree. Users found the navigation confusing: clicking on “boost” in the breadcrumb did not go where expected, and reference pages had no trail showing where they belonged in the hierarchy. The obvious fix would be to list every page in Antora’s nav.adoc, but maintaining a navigation file with thousands of entries that changes every time a symbol is added or removed is not practical. Worse, Antora renders the navigation file in the sidebar, so listing every reference page would flood the UI with thousands of entries. We discussed the problem extensively with the Antora maintainer on the Antora community chat. His position was clear: Antora was designed so that pages must be in the navigation file. Programmatic editing of navigation is not supported. That was not acceptable for us. We needed breadcrumbs that work for thousands of generated pages without polluting the sidebar or requiring a hand-maintained navigation file. The Antora author’s position was reasonable from his perspective (Antora is a general-purpose documentation tool, not a reference generator), but our use case was fundamentally different from what Antora was designed for. The antora-cpp-reference-extension now builds breadcrumbs independently from the navigation file. MrDocs generates reference pages in a directory structure that mirrors the C++ namespace hierarchy (boost/urls/segments_view.adoc lives inside boost/urls/). The extension uses this structure to reconstruct the breadcrumb trail: each directory maps to a namespace, and the page title (which is the symbol name) becomes the last breadcrumb entry. The result reads naturally: Reference &gt; boost &gt; urls &gt; segments_view. Zero changes to the nav file. The sidebar stays clean. Breadcrumbs appear automatically and update when symbols are added or removed. Breadcrumb and reference extension commits antora-cpp-reference-extension ae95eb2 feat: synthesize reference breadcrumbs without nav files 10a4019 feat: add auto base URL detection 6a6c08b docs: auto-base-url option 4f7c79f refactor: enhance release asset validation Coordinating Two Independent Extensions The antora-cpp-reference-extension generates reference pages and breadcrumbs. The antora-cpp-tagfiles-extension resolves cross-library symbol links (so a reference to boost::system::error_code in Boost.URL’s docs links to the correct page in Boost.System’s docs). These are two independent Antora extensions running as separate jobs. The problem was that the reference extension generates tagfiles as a side effect of producing reference pages, and the tagfiles extension needs the most recent version of those tagfiles to resolve links correctly. MrDocs changes the tagfiles every time the corpus changes. Manually keeping them in sync was not sustainable: committing tagfiles to the repository meant they were always stale by the time the next build ran. We made the extensions coordinate directly. The reference extension now hands its tagfile to the tagfiles extension at build time, so the links always reflect the current state of the documentation. The reference extension also gained auto base URL detection, removing the need for manual path configuration when switching between development and production builds. Extension coordination commits antora-cpp-reference-extension 6e8ffcb feat: antora-cpp-tagfiles-extension coordination 8f12576 chore: version is 0.1.0 antora-cpp-tagfiles-extension 98eba40 feat: antora-cpp-reference-extension coordination 5a1723c feat: add global log level control for missing symbols 453f01b chore: version is 0.1.0 Edge Cases in the Wild As more libraries adopted MrDocs, edge cases in C++ symbol extraction surfaced. Boost.Beast exposed a duplicate ellipsis in parameter pack rendering (#1108, #1129): Before: T&amp; emplace(Args...&amp;&amp;... args) After: T&amp; emplace(Args&amp;&amp;... args) Boost.OpenMethod revealed that friend targets were not resolving correctly. Boost.Buffers uncovered a problem with detail namespaces: when a class inherits from a base in a hidden namespace, the inherited members appeared in the documentation but their doc comments were lost (#1107). We fixed this so derived classes inherit documentation from hidden bases. Unnamed structs also sparked an extended design discussion. When C++ code declares constexpr struct {} f{};, MrDocs needs a stable, unique name for hyperlinks. The team established a collaborative design process using shared documents, with Peter Dimov contributing an insight about C compatibility (typedef struct {} T; makes the struct named in C++). AST and metadata commits c85be75 fix: remove duplicate ellipsis in parameter pack expansion c3dbded fix(ast): prevent TU parent from including unmatched globals 76b7b43 fix(ast): canonicalize friend targets 05f5852 fix(metadata): copy impl-defined base docs 35cf1f6 fix: UsingSymbol is SymbolParent c406d57 fix: preserve extraction mode when copying members from derived classes 4e7ef04 fix: prevent infinite recursion when extracting non-regular base class 0a69301 fix: extract and fix some special member function helpers Rendering and Output Users noticed that the manual description of a symbol was buried below long member tables (#1105). On a class with many members, you had to scroll past the entire member listing before finding the author’s explanation of what the class does. We moved the description to appear immediately after the synopsis, matching what cppreference does. Other rendering issues included HTML code blocks not wrapped in &lt;pre&gt; tags, anchor links appearing when the wrapper element was missing, and the Handlebars template engine accumulating special name re-mappings that conflated different symbols. Rendering and output commits d90eae6 fix: hide anchor links when wrapper is not included 92491de fix: manual description comes before member lists 58bf524 fix: remove all special name re-mappings for Handlebars 2a75692 fix: HTML code blocks not wrapped in pre tags 1ebff32 fix: bottomUpTraverse() skips ListBlock items 7b118b1 fix: missing @return command in doc comment Under the Hood We fixed a compiler fallback issue where MrDocs failed when the compilation database referenced a compiler that was not available on the current machine, and corrected sanitizer flag propagation so that UBSan and TSan do not unnecessarily propagate to dependency builds. Build and toolchain commits 235f5c8 fix: fall back to system compilers when database compiler is unavailable f320581 fix: don’t pass sanitizer to dependency builds for UBSan/TSan The MrDocs Website While we were fixing the generated output, Robert Beeston and Julio Estrada were redesigning the MrDocs website. Robert led the design direction, working with a team to develop a visual identity that balances a distinctive retro aesthetic with modern readability, including a dark theme. Julio handled the implementation: mobile-responsive layout, UI styling improvements, cleaner backgrounds and styles, Open Graph and Twitter meta tags for social sharing, and a close button for the docs navigation on smaller screens. For a documentation tool, the website is the first thing potential users see. Having a polished, memorable landing page matters more than it might for other kinds of projects. Exploring the Unknowns The team made a deliberate choice: instead of following a traditional feature roadmap, we would focus on areas of uncertainty (#1113). These were open questions that blocked multiple design decisions at once: MrDocs-as-compiler (#1073): should MrDocs emit “object” files for later “linking,” like a compiler? Scripting extensions (#1128, #881): how should users extend and transform documentation output? Plugins (#58, #1044): how should third-party code register new generators? JSON-only MrDocs: should we add a JSON output format alongside (or replacing) the existing XML structured output? Reflection (#1114): how do we reduce the maintenance burden of the growing metadata model? Cross-linking (#1072): how do we reference symbols in other libraries? The motivation was practical. Each Boost library that adopted MrDocs had its own needs that could not be met by the core tool alone. Boost.URL has implementation_defined namespaces with internal code that should be hidden or transformed in the documentation. Boost.Capy has detail types that should be presented as user-facing types. Coroutines are represented as types in the AST but should be documented as functions. We want MrDocs to be smart enough, with project-specific extensions, that library authors do not have to do workarounds in the source code just to get the documentation right. Rather than hard-coding solutions for each library, the unknowns framework asked: what general mechanisms would let every library solve its own documentation problems? %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Unknowns)) Scripting extensions JS helpers Lua Plugins Generator API DLL loading Reflection Boost.Describe MrDocs.Describe Cross-linking Tagfiles Antora coordination JSON-only MrDocs MrDocs-as-compiler Reflection: Replacing Boilerplate with Introspection MrDocs models many kinds of C++ symbols: functions, classes, namespaces, enums, typedefs, concepts, and more. Each symbol type has metadata, and every piece of code that touches that metadata had to enumerate all fields by hand. Adding a single field to a symbol type meant updating it in: Schema files that describe the metadata format Generators (HTML, AsciiDoc, XML) that produce the output Templates that render individual pages Operators like comparison functions, merge functions (e.g., merging symbols from different translation units when only one is documented), and equality checks Documentation describing the metadata The code itself that populates and transforms the metadata That is roughly ten to fifteen places per field, and missing one caused CI failures that blocked everyone. This was one of the unknowns we identified: how to reduce the maintenance burden as the data model grows. Worse, downstream users who had their own templates and extensions also had to learn about the new fields and update everything accordingly. Gennaro Prota, with his strong background in generic programming and metaprogramming, took ownership of the reflection problem. The work progressed through several stages: Integrate Boost.Describe into the metadata system, replacing hand-written serialization functions Add $meta.type and $meta.bases to all DOM objects so templates can introspect the corpus Replace the XML generator with a reflection-based one (no more hand-maintained XML output) Build a custom reflection system (MrDocs.Describe) tailored to our needs Replace per-type operators with a single generic template The result eliminated the second step entirely: adding a new field to a symbol type no longer requires touching ten other files. The description drives everything, and the serialization, comparison, and merge logic derive from it automatically. Boost.Describe and Boost.Mp11 are private dependencies that do not appear in public headers. Along the way, Gennaro also added function object support, fixed Markdown inline formatting and missing dependent array bounds. Reflection and metadata commits Reflection (Gennaro Prota) d490880 refactor(metadata): integrate Boost.Describe c4dd89a feat: add $meta.type and $meta.bases to all DOM objects d4a64ef fix: replace the XML generator with a reflection-based one 6ce961f refactor: add custom reflection facilities (MrDocs.Describe) eb68494 refactor: migrate all reflection consumers to MrDocs.Describe 8f5391b refactor: replace per-type merge() one-liners with a single generic template e749144 feat: make the reflection consumers public 1ed76ad refactor: replace most per-type tag_invoke overloads with a single generic template 0246935 refactor: replace per-type operator==() and operator&lt;=&gt;() with a single generic template Features and fixes (Gennaro Prota) 93a5032 feat: add function object support f35ebcd fix: rendering of Markdown inline formatting and bullet lists 4ae305b fix: missing dependent array bounds in the output 72fba40 test: add golden tests for a partial class template specialization The reflection work is the foundation for everything that comes next: the extension system, the upcoming Lua scripting, and the metadata transformation pipeline. First Steps Toward Extensions MrDocs supports two extension points: JavaScript for Handlebars template helpers, and Lua for more powerful scripting. The JavaScript engine had been Duktape, but Duktape is no longer actively maintained and only supports ES5.1. We needed a replacement. We evaluated several alternatives (#881): Engine JS Support Windows/MSVC Size License QuickJS ES2023 No (clang-cl only) ~370 KB MIT PrimJS ES2019 No (POSIX only) ~370 KB MIT JerryScript ES5.1 + ES2022 subset Yes ~200 KB Apache 2.0 Escargot ES2025 subset Yes ~400-500 KB LGPL 2.1 MuJS ES5.1 Yes ~200-300 KB ISC Moddable XS ES2025 (~99%) Yes (via SDK) ~100-300 KB Apache/GPL/LGPL mJS Restricted ES6 Yes ~50-60 KB GPL 2.0 / Commercial Elk Minimal ES6 Yes ~20-30 KB GPL 2.0 / Commercial We first experimented with QuickJS, which had the best ES support. But it requires C11 features like &lt;stdatomic.h&gt; and __int128 that plain MSVC does not support. On Windows, users would need Clang with the Visual Studio runtime. PrimJS was POSIX-only. We settled on JerryScript: it supports Windows and MSVC natively, has a small footprint (~200 KB), and covers enough of ES2022 for template helpers. Unlike most alternatives in the table, JerryScript was designed from the ground up to be embedded in other applications, which makes it more like Lua and less like engines that target browsers or standalone runtimes. The JavaScript helpers extension was a single commit but a large one: 85 files changed, 4,287 insertions. The work included: Replacing Duktape with JerryScript across the entire codebase, including build scripts, CMake recipes, and third-party patches Rewriting the C++ JavaScript bindings (JavaScript.hpp and JavaScript.cpp) with shared context lifetime, safer value accessors, and clearer error messages A layered addon system where projects provide JavaScript helpers in a directory structure (generator/common/helpers/ for shared helpers, generator/html/helpers/ for format-specific ones). Multiple addon directories can be layered, so a project’s helpers override or extend the defaults. Golden tests for extension output (js-helper/, js-helper-layering/) to verify that helpers produce the expected documentation 1,335 lines of new JavaScript binding tests covering the engine lifecycle, value conversion, error handling, and helper registration Combined with the public API for registering custom generators, MrDocs now supports customization beyond templates. A library like Boost.Capy could write an extension that transforms its coroutine types into function documentation, without any changes to MrDocs itself. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% flowchart LR A[Clang AST] --&gt; B[Extraction] B --&gt; C[Corpus] C --&gt; D[Transformation Extensions] D --&gt; E[Handlebars Generators] E --&gt; F[Documentation Templates] F --&gt; H[HTML / AsciiDoc] F --&gt; G[Template Extensions] G --&gt; F D -.-&gt; I[XML] The vision for extensions has two layers: Transformation extensions operate on the corpus between extraction and generation. A library could transform its internal types into the documentation structure it wants. This layer is not yet implemented. Template extensions (JavaScript helpers) operate inside the Handlebars templates that produce HTML and AsciiDoc output. This is the layer we shipped. Lua scripts for more powerful scripting in both layers Extension and generator commits 0f3ecb4 feat: javascript helpers extension (85 files, 4,287 insertions) 930a5ea fix: jerry_port_context_free wrong signature causes silent corruption 8da0930 feat(lib): public API for generator registration 788c1ba feat(generators): tables for symbols have headers Why We Discarded MrDocs-as-Compiler One unknown we explored and deliberately discarded was MrDocs-as-compiler (#1073). The idea, proposed by Peter Dimov, was to treat MrDocs like a compiler: emit “object” files per translation unit, then “link” them to produce the final reference. CMake would invoke MrDocs as if it were Clang, with identical command-line options. We spent time studying tools that work this way: clang-tidy, clang-doc, include-what-you-use. What we found is that tricking CMake into thinking MrDocs is a real compiler is not trivial. Every tool that tries this approach ends up needing either a coordinator binary (reimplementing what MrDocs already has) or CMake helper scripts. Both add workflows rather than simplifying them. The experience from the Boost ecosystem reinforced this: no Boost project uses any of these compiler-like tools for static analysis, and the reason is complexity. People who find the compilation database workflow too involved are going to be even less inclined to adopt a tool that requires them to pretend to be a compiler. We decided to keep MrDocs as a single-step tool that reads a compilation database and produces output, rather than splitting it into a multi-binary pipeline that would need its own coordination layer. Contributor Experience As more people contributed to MrDocs, the gap between “clone the repo” and “submit a useful PR” needed closing. The biggest change was the bootstrap script, which reduced the entire build setup to a single python bootstrap.py command (covered in a separate post). Beyond the bootstrap, we split the contributor guide into focused sections, added reference documentation for MrDocs comment syntax (so contributors know what @copydoc, @see, and other commands do), and created a run_all_tests script that runs the full test suite locally without needing to understand the CMake test configuration. Onboarding commits b103cba docs(reference): mrdocs comments 9b7ec24 feat(util): run_all_tests script 5902699 docs: update packages 302f0a6 docs: split contribute.adoc guide Automating PR Reviews MrDocs PRs tend to be large and hard to review. A single PR might touch the AST visitor, the Handlebars templates, the Antora extension, the CI configuration, and hundreds of golden test files (when an intentional change to the output format updates the expected output for every test case). We found ourselves making the same review comments over and over. We set up Danger.js to catch these patterns before human reviewers see the PR. The most important check is detecting when source code changes do not include corresponding tests: if someone changes extraction logic but does not update the golden tests, or changes a template without updating the expected output, Danger flags it. Beyond that: Categorizes all file changes into scopes (source, tests, golden-tests, docs, CI, build, tooling) and generates a summary table showing churn per scope Validates commit messages against Conventional Commits format Warns when a single commit exceeds 2,000 lines of source churn (encouraging smaller, reviewable slices) Flags mismatched commit types (e.g., a feat: commit that only touches test files suggests test: instead) Rejects PR descriptions under 40 characters Ignores the test check for refactor-only PRs where the tests are expected to remain unchanged Even when there are no warnings, the scope summary table gives reviewers an immediate sense of what a large PR touches. On a PR that changes 500 lines of source and 3,000 lines of golden tests, the table makes it clear that the bulk of the diff is expected test output, not new logic. Danger.js commits 6f5f6e9 ci: setup danger.js 5429b2e ci(danger): align report table and add top-files summary 240921d ci(danger): split PR target ci workflows 08c46b6 ci(danger): correct file delta calculation in reports 2cfd081 ci(danger): adjust large commit threshold 71845c8 ci(danger): map root files into explicit scopes 17b0a57 ci(danger): ignore test check for refactor-only PRs 6481fd3 ci(danger): simplify CI naming fd7d248 ci(danger): omit empty sections from report 7502961 ci(danger): categorize util/bootstrap as build scope 57e191e ci(danger): better markdown format CI Infrastructure We integrated Codecov for tracking test coverage across PRs and switched from GCC to Clang for coverage (more accurate AST-based measurement). CI speed was a recurring concern: we skipped remote documentation generation on PRs, sped up release demos, and skipped long tests that were not catching new bugs. LLVM cache keys were unified to avoid redundant builds, and CTest timeouts were increased for sanitizer jobs that run significantly slower. Matheus Izvekov contributed the Clang coverage switch, fixed an infinite recursion in extraction, and moved the project to use system libs by default. CI infrastructure commits ed6b3bc ci: add codecov configuration 5426a0a ci: use clang for coverage d629173 fix(ci): unify redundant LLVM cache keys 36a3b51 ci: update actions to v1.9.1 7b2103a ci: increase CTest timeout for MSan jobs 086becc ci: increase the ctest timeout to 9000 adb6821 ci(cpp-matrix): remove the optimized-debug factor 9507a38 ci: simplify CI workflow and upgrade cpp-actions to @develop 9a5bd3c ci: skip remote documentation generation on PRs 637011f ci: detect and report demo generation failures 084322d ci: speed up release demos on PRs 471951d ci: skip long tests to speed up CI a5f160b ci: increase test coverage for the new XML generator b1fc43c ci: exclude Reflection.hpp from coverage a1f9a82 ci: accept any g++-14 version c136a46 ci(website): preserve roadmap directory during deployment 4763d86 revert(ci): remove premature roadmap report step 3462996 ci: revert coverage changes 8b2c3e9 ci: align llvm-sanitizer-config with archive basename fdff573 ci: gitignore CI node_modules 757d446 fix(ci): update the fmt branch reference from master to main a3366b0 fix(ci): name rolling release packages after the branch Test Infrastructure MrDocs uses golden tests: the expected output for every test case is stored as a file, and the test runner compares the actual output against it. The most important change was adding multipage golden tests. Previously, all golden tests were single-page, but many bugs only manifested in multi-page output (cross-references between pages, navigation links, index generation). We were missing these entirely because we had no way to test them. We also added output normalization (so platform differences do not cause false failures) and regression categories so tests can be grouped and run selectively. A run_ci_with_act.py script lets contributors run the full CI pipeline locally using act. Test infrastructure commits bf78b1b test: support multipage golden tests d7ad1ce test: output normalization ccd7f71 test: check int tests results in ctest 681b0cd chore: assign categories to regression tests 9146125 test: cover additional paths in DocCommentFinalizer.cpp 8326417 test: run_ci_with_act.py script 5527e9c test: testClang_stdCxx default is C++26 0dfdb02 test: –bad is disabled by default Acknowledgments and Reflections Going into the wild changed MrDocs. The edge cases, the customization requests, and the integration feedback shaped the direction more than any internal roadmap could. Gennaro Prota drove the reflection integration that reduces maintenance burden across the entire codebase. Matheus Izvekov hardened CI with coverage, sanitizers, and warnings-as-errors, and migrated dependency management to the bootstrap script. Julio Estrada and Robert Beeston delivered the polished public face of MrDocs. Agustín Bergé contributed AST and metadata fixes including base member shadowing and alias SFINAE detection. Jean-Louis Leroy provided detailed feedback from Boost.OpenMethod that drove multiple improvements. The most requested feature we have not solved yet is macro support (#1127). Macros are expanded before parsing and do not appear in the AST. Supporting them would require preprocessor-level integration with Clang. The work ahead also includes Lua scripting, metadata transforms, and deeper reflection, all direct responses to what users told us they need. The biggest lesson from this period is that the problems worth solving are the ones users bring. We spent time on an unknowns framework to decide what to explore, but the most impactful work came from people who showed up with a broken demo page, a missing breadcrumb, or a duplicate ellipsis in their generated docs. The complete set of changes is available in the MrDocs repository." />
+<link rel="canonical" href="http://cppalliance.org/alan/2026/04/24/Alan.html" />
+<meta property="og:url" content="http://cppalliance.org/alan/2026/04/24/Alan.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-24T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="MrDocs in the Wild" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"The questions changed. For a long time, people asked about MrDocs in the abstract: what formats will it support, how will it handle templates, when will it be ready. Then, gradually, the questions became specific. Jean-Louis Leroy, the author of Boost.OpenMethod, became one of our most active sources of feedback. His library exercises corners of C++ that most projects never touch, which means MrDocs gets tested in ways we would not have anticipated. He wanted to know why his template specializations were not sorted correctly. He wanted macro support because Boost libraries rely heavily on macros. He hit a crash when his doc comments contained HTML tables. These are not theoretical questions about a tool that might exist someday. These are questions from someone who already generated documentation with MrDocs and needs it to work better. In our previous post, we described MrDocs transitioning from prototype to product. This post is about what happened when MrDocs went into the wild. Real Projects, Real Problems The Demo Page Breadcrumbs Without a Navigation File Coordinating Two Independent Extensions Edge Cases in the Wild Rendering and Output Under the Hood The MrDocs Website Exploring the Unknowns Reflection: Replacing Boilerplate with Introspection First Steps Toward Extensions Why We Discarded MrDocs-as-Compiler Contributor Experience Automating PR Reviews CI Infrastructure Test Infrastructure Acknowledgments and Reflections Real Projects, Real Problems %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Feedback)) First impressions Unstyled demos Custom stylesheets Navigation Orphaned pages Breadcrumbs AST edge cases Parameter packs Friend targets Detail namespaces Rendering Description ordering Code blocks Anchor links Runtime JS engine switch Compiler fallback The Demo Page Right after the previous post, where we announced the MVP and encouraged people to try MrDocs, we noticed the demos page was not doing us any favors. Someone shared MrDocs on a developer community and the website started getting traffic. The landing page looked polished, but visitors clicked through to the demos and saw raw, unstyled HTML: no fonts, no spacing, no colors. The HTML generator produced correct semantic markup, and that is technically the point: users are supposed to customize the output with their own stylesheets. But on the demos page, there was no stylesheet at all, and the result looked broken rather than customizable. The custom stylesheet system added five configuration options (stylesheets, linkcss, copycss, no-default-styles, stylesdir) so projects can match their own branding. A bundled default CSS now ships with MrDocs, and it was refined to remove gradients in favor of solid, readable backgrounds. Stylesheet commits 5fe30c1 feat: custom stylesheets 33d985c chore: version is 0.8.0 Breadcrumbs Without a Navigation File MrDocs generates thousands of reference pages, one per C++ symbol. We maintain an Antora extension, the antora-cpp-reference-extension, that integrates these pages into Antora-based documentation sites. But the generated pages end up orphaned from the navigation tree. Users found the navigation confusing: clicking on “boost” in the breadcrumb did not go where expected, and reference pages had no trail showing where they belonged in the hierarchy. The obvious fix would be to list every page in Antora’s nav.adoc, but maintaining a navigation file with thousands of entries that changes every time a symbol is added or removed is not practical. Worse, Antora renders the navigation file in the sidebar, so listing every reference page would flood the UI with thousands of entries. We discussed the problem extensively with the Antora maintainer on the Antora community chat. His position was clear: Antora was designed so that pages must be in the navigation file. Programmatic editing of navigation is not supported. That was not acceptable for us. We needed breadcrumbs that work for thousands of generated pages without polluting the sidebar or requiring a hand-maintained navigation file. The Antora author’s position was reasonable from his perspective (Antora is a general-purpose documentation tool, not a reference generator), but our use case was fundamentally different from what Antora was designed for. The antora-cpp-reference-extension now builds breadcrumbs independently from the navigation file. MrDocs generates reference pages in a directory structure that mirrors the C++ namespace hierarchy (boost/urls/segments_view.adoc lives inside boost/urls/). The extension uses this structure to reconstruct the breadcrumb trail: each directory maps to a namespace, and the page title (which is the symbol name) becomes the last breadcrumb entry. The result reads naturally: Reference &gt; boost &gt; urls &gt; segments_view. Zero changes to the nav file. The sidebar stays clean. Breadcrumbs appear automatically and update when symbols are added or removed. Breadcrumb and reference extension commits antora-cpp-reference-extension ae95eb2 feat: synthesize reference breadcrumbs without nav files 10a4019 feat: add auto base URL detection 6a6c08b docs: auto-base-url option 4f7c79f refactor: enhance release asset validation Coordinating Two Independent Extensions The antora-cpp-reference-extension generates reference pages and breadcrumbs. The antora-cpp-tagfiles-extension resolves cross-library symbol links (so a reference to boost::system::error_code in Boost.URL’s docs links to the correct page in Boost.System’s docs). These are two independent Antora extensions running as separate jobs. The problem was that the reference extension generates tagfiles as a side effect of producing reference pages, and the tagfiles extension needs the most recent version of those tagfiles to resolve links correctly. MrDocs changes the tagfiles every time the corpus changes. Manually keeping them in sync was not sustainable: committing tagfiles to the repository meant they were always stale by the time the next build ran. We made the extensions coordinate directly. The reference extension now hands its tagfile to the tagfiles extension at build time, so the links always reflect the current state of the documentation. The reference extension also gained auto base URL detection, removing the need for manual path configuration when switching between development and production builds. Extension coordination commits antora-cpp-reference-extension 6e8ffcb feat: antora-cpp-tagfiles-extension coordination 8f12576 chore: version is 0.1.0 antora-cpp-tagfiles-extension 98eba40 feat: antora-cpp-reference-extension coordination 5a1723c feat: add global log level control for missing symbols 453f01b chore: version is 0.1.0 Edge Cases in the Wild As more libraries adopted MrDocs, edge cases in C++ symbol extraction surfaced. Boost.Beast exposed a duplicate ellipsis in parameter pack rendering (#1108, #1129): Before: T&amp; emplace(Args...&amp;&amp;... args) After: T&amp; emplace(Args&amp;&amp;... args) Boost.OpenMethod revealed that friend targets were not resolving correctly. Boost.Buffers uncovered a problem with detail namespaces: when a class inherits from a base in a hidden namespace, the inherited members appeared in the documentation but their doc comments were lost (#1107). We fixed this so derived classes inherit documentation from hidden bases. Unnamed structs also sparked an extended design discussion. When C++ code declares constexpr struct {} f{};, MrDocs needs a stable, unique name for hyperlinks. The team established a collaborative design process using shared documents, with Peter Dimov contributing an insight about C compatibility (typedef struct {} T; makes the struct named in C++). AST and metadata commits c85be75 fix: remove duplicate ellipsis in parameter pack expansion c3dbded fix(ast): prevent TU parent from including unmatched globals 76b7b43 fix(ast): canonicalize friend targets 05f5852 fix(metadata): copy impl-defined base docs 35cf1f6 fix: UsingSymbol is SymbolParent c406d57 fix: preserve extraction mode when copying members from derived classes 4e7ef04 fix: prevent infinite recursion when extracting non-regular base class 0a69301 fix: extract and fix some special member function helpers Rendering and Output Users noticed that the manual description of a symbol was buried below long member tables (#1105). On a class with many members, you had to scroll past the entire member listing before finding the author’s explanation of what the class does. We moved the description to appear immediately after the synopsis, matching what cppreference does. Other rendering issues included HTML code blocks not wrapped in &lt;pre&gt; tags, anchor links appearing when the wrapper element was missing, and the Handlebars template engine accumulating special name re-mappings that conflated different symbols. Rendering and output commits d90eae6 fix: hide anchor links when wrapper is not included 92491de fix: manual description comes before member lists 58bf524 fix: remove all special name re-mappings for Handlebars 2a75692 fix: HTML code blocks not wrapped in pre tags 1ebff32 fix: bottomUpTraverse() skips ListBlock items 7b118b1 fix: missing @return command in doc comment Under the Hood We fixed a compiler fallback issue where MrDocs failed when the compilation database referenced a compiler that was not available on the current machine, and corrected sanitizer flag propagation so that UBSan and TSan do not unnecessarily propagate to dependency builds. Build and toolchain commits 235f5c8 fix: fall back to system compilers when database compiler is unavailable f320581 fix: don’t pass sanitizer to dependency builds for UBSan/TSan The MrDocs Website While we were fixing the generated output, Robert Beeston and Julio Estrada were redesigning the MrDocs website. Robert led the design direction, working with a team to develop a visual identity that balances a distinctive retro aesthetic with modern readability, including a dark theme. Julio handled the implementation: mobile-responsive layout, UI styling improvements, cleaner backgrounds and styles, Open Graph and Twitter meta tags for social sharing, and a close button for the docs navigation on smaller screens. For a documentation tool, the website is the first thing potential users see. Having a polished, memorable landing page matters more than it might for other kinds of projects. Exploring the Unknowns The team made a deliberate choice: instead of following a traditional feature roadmap, we would focus on areas of uncertainty (#1113). These were open questions that blocked multiple design decisions at once: MrDocs-as-compiler (#1073): should MrDocs emit “object” files for later “linking,” like a compiler? Scripting extensions (#1128, #881): how should users extend and transform documentation output? Plugins (#58, #1044): how should third-party code register new generators? JSON-only MrDocs: should we add a JSON output format alongside (or replacing) the existing XML structured output? Reflection (#1114): how do we reduce the maintenance burden of the growing metadata model? Cross-linking (#1072): how do we reference symbols in other libraries? The motivation was practical. Each Boost library that adopted MrDocs had its own needs that could not be met by the core tool alone. Boost.URL has implementation_defined namespaces with internal code that should be hidden or transformed in the documentation. Boost.Capy has detail types that should be presented as user-facing types. Coroutines are represented as types in the AST but should be documented as functions. We want MrDocs to be smart enough, with project-specific extensions, that library authors do not have to do workarounds in the source code just to get the documentation right. Rather than hard-coding solutions for each library, the unknowns framework asked: what general mechanisms would let every library solve its own documentation problems? %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Unknowns)) Scripting extensions JS helpers Lua Plugins Generator API DLL loading Reflection Boost.Describe MrDocs.Describe Cross-linking Tagfiles Antora coordination JSON-only MrDocs MrDocs-as-compiler Reflection: Replacing Boilerplate with Introspection MrDocs models many kinds of C++ symbols: functions, classes, namespaces, enums, typedefs, concepts, and more. Each symbol type has metadata, and every piece of code that touches that metadata had to enumerate all fields by hand. Adding a single field to a symbol type meant updating it in: Schema files that describe the metadata format Generators (HTML, AsciiDoc, XML) that produce the output Templates that render individual pages Operators like comparison functions, merge functions (e.g., merging symbols from different translation units when only one is documented), and equality checks Documentation describing the metadata The code itself that populates and transforms the metadata That is roughly ten to fifteen places per field, and missing one caused CI failures that blocked everyone. This was one of the unknowns we identified: how to reduce the maintenance burden as the data model grows. Worse, downstream users who had their own templates and extensions also had to learn about the new fields and update everything accordingly. Gennaro Prota, with his strong background in generic programming and metaprogramming, took ownership of the reflection problem. The work progressed through several stages: Integrate Boost.Describe into the metadata system, replacing hand-written serialization functions Add $meta.type and $meta.bases to all DOM objects so templates can introspect the corpus Replace the XML generator with a reflection-based one (no more hand-maintained XML output) Build a custom reflection system (MrDocs.Describe) tailored to our needs Replace per-type operators with a single generic template The result eliminated the second step entirely: adding a new field to a symbol type no longer requires touching ten other files. The description drives everything, and the serialization, comparison, and merge logic derive from it automatically. Boost.Describe and Boost.Mp11 are private dependencies that do not appear in public headers. Along the way, Gennaro also added function object support, fixed Markdown inline formatting and missing dependent array bounds. Reflection and metadata commits Reflection (Gennaro Prota) d490880 refactor(metadata): integrate Boost.Describe c4dd89a feat: add $meta.type and $meta.bases to all DOM objects d4a64ef fix: replace the XML generator with a reflection-based one 6ce961f refactor: add custom reflection facilities (MrDocs.Describe) eb68494 refactor: migrate all reflection consumers to MrDocs.Describe 8f5391b refactor: replace per-type merge() one-liners with a single generic template e749144 feat: make the reflection consumers public 1ed76ad refactor: replace most per-type tag_invoke overloads with a single generic template 0246935 refactor: replace per-type operator==() and operator&lt;=&gt;() with a single generic template Features and fixes (Gennaro Prota) 93a5032 feat: add function object support f35ebcd fix: rendering of Markdown inline formatting and bullet lists 4ae305b fix: missing dependent array bounds in the output 72fba40 test: add golden tests for a partial class template specialization The reflection work is the foundation for everything that comes next: the extension system, the upcoming Lua scripting, and the metadata transformation pipeline. First Steps Toward Extensions MrDocs supports two extension points: JavaScript for Handlebars template helpers, and Lua for more powerful scripting. The JavaScript engine had been Duktape, but Duktape is no longer actively maintained and only supports ES5.1. We needed a replacement. We evaluated several alternatives (#881): Engine JS Support Windows/MSVC Size License QuickJS ES2023 No (clang-cl only) ~370 KB MIT PrimJS ES2019 No (POSIX only) ~370 KB MIT JerryScript ES5.1 + ES2022 subset Yes ~200 KB Apache 2.0 Escargot ES2025 subset Yes ~400-500 KB LGPL 2.1 MuJS ES5.1 Yes ~200-300 KB ISC Moddable XS ES2025 (~99%) Yes (via SDK) ~100-300 KB Apache/GPL/LGPL mJS Restricted ES6 Yes ~50-60 KB GPL 2.0 / Commercial Elk Minimal ES6 Yes ~20-30 KB GPL 2.0 / Commercial We first experimented with QuickJS, which had the best ES support. But it requires C11 features like &lt;stdatomic.h&gt; and __int128 that plain MSVC does not support. On Windows, users would need Clang with the Visual Studio runtime. PrimJS was POSIX-only. We settled on JerryScript: it supports Windows and MSVC natively, has a small footprint (~200 KB), and covers enough of ES2022 for template helpers. Unlike most alternatives in the table, JerryScript was designed from the ground up to be embedded in other applications, which makes it more like Lua and less like engines that target browsers or standalone runtimes. The JavaScript helpers extension was a single commit but a large one: 85 files changed, 4,287 insertions. The work included: Replacing Duktape with JerryScript across the entire codebase, including build scripts, CMake recipes, and third-party patches Rewriting the C++ JavaScript bindings (JavaScript.hpp and JavaScript.cpp) with shared context lifetime, safer value accessors, and clearer error messages A layered addon system where projects provide JavaScript helpers in a directory structure (generator/common/helpers/ for shared helpers, generator/html/helpers/ for format-specific ones). Multiple addon directories can be layered, so a project’s helpers override or extend the defaults. Golden tests for extension output (js-helper/, js-helper-layering/) to verify that helpers produce the expected documentation 1,335 lines of new JavaScript binding tests covering the engine lifecycle, value conversion, error handling, and helper registration Combined with the public API for registering custom generators, MrDocs now supports customization beyond templates. A library like Boost.Capy could write an extension that transforms its coroutine types into function documentation, without any changes to MrDocs itself. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% flowchart LR A[Clang AST] --&gt; B[Extraction] B --&gt; C[Corpus] C --&gt; D[Transformation Extensions] D --&gt; E[Handlebars Generators] E --&gt; F[Documentation Templates] F --&gt; H[HTML / AsciiDoc] F --&gt; G[Template Extensions] G --&gt; F D -.-&gt; I[XML] The vision for extensions has two layers: Transformation extensions operate on the corpus between extraction and generation. A library could transform its internal types into the documentation structure it wants. This layer is not yet implemented. Template extensions (JavaScript helpers) operate inside the Handlebars templates that produce HTML and AsciiDoc output. This is the layer we shipped. Lua scripts for more powerful scripting in both layers Extension and generator commits 0f3ecb4 feat: javascript helpers extension (85 files, 4,287 insertions) 930a5ea fix: jerry_port_context_free wrong signature causes silent corruption 8da0930 feat(lib): public API for generator registration 788c1ba feat(generators): tables for symbols have headers Why We Discarded MrDocs-as-Compiler One unknown we explored and deliberately discarded was MrDocs-as-compiler (#1073). The idea, proposed by Peter Dimov, was to treat MrDocs like a compiler: emit “object” files per translation unit, then “link” them to produce the final reference. CMake would invoke MrDocs as if it were Clang, with identical command-line options. We spent time studying tools that work this way: clang-tidy, clang-doc, include-what-you-use. What we found is that tricking CMake into thinking MrDocs is a real compiler is not trivial. Every tool that tries this approach ends up needing either a coordinator binary (reimplementing what MrDocs already has) or CMake helper scripts. Both add workflows rather than simplifying them. The experience from the Boost ecosystem reinforced this: no Boost project uses any of these compiler-like tools for static analysis, and the reason is complexity. People who find the compilation database workflow too involved are going to be even less inclined to adopt a tool that requires them to pretend to be a compiler. We decided to keep MrDocs as a single-step tool that reads a compilation database and produces output, rather than splitting it into a multi-binary pipeline that would need its own coordination layer. Contributor Experience As more people contributed to MrDocs, the gap between “clone the repo” and “submit a useful PR” needed closing. The biggest change was the bootstrap script, which reduced the entire build setup to a single python bootstrap.py command (covered in a separate post). Beyond the bootstrap, we split the contributor guide into focused sections, added reference documentation for MrDocs comment syntax (so contributors know what @copydoc, @see, and other commands do), and created a run_all_tests script that runs the full test suite locally without needing to understand the CMake test configuration. Onboarding commits b103cba docs(reference): mrdocs comments 9b7ec24 feat(util): run_all_tests script 5902699 docs: update packages 302f0a6 docs: split contribute.adoc guide Automating PR Reviews MrDocs PRs tend to be large and hard to review. A single PR might touch the AST visitor, the Handlebars templates, the Antora extension, the CI configuration, and hundreds of golden test files (when an intentional change to the output format updates the expected output for every test case). We found ourselves making the same review comments over and over. We set up Danger.js to catch these patterns before human reviewers see the PR. The most important check is detecting when source code changes do not include corresponding tests: if someone changes extraction logic but does not update the golden tests, or changes a template without updating the expected output, Danger flags it. Beyond that: Categorizes all file changes into scopes (source, tests, golden-tests, docs, CI, build, tooling) and generates a summary table showing churn per scope Validates commit messages against Conventional Commits format Warns when a single commit exceeds 2,000 lines of source churn (encouraging smaller, reviewable slices) Flags mismatched commit types (e.g., a feat: commit that only touches test files suggests test: instead) Rejects PR descriptions under 40 characters Ignores the test check for refactor-only PRs where the tests are expected to remain unchanged Even when there are no warnings, the scope summary table gives reviewers an immediate sense of what a large PR touches. On a PR that changes 500 lines of source and 3,000 lines of golden tests, the table makes it clear that the bulk of the diff is expected test output, not new logic. Danger.js commits 6f5f6e9 ci: setup danger.js 5429b2e ci(danger): align report table and add top-files summary 240921d ci(danger): split PR target ci workflows 08c46b6 ci(danger): correct file delta calculation in reports 2cfd081 ci(danger): adjust large commit threshold 71845c8 ci(danger): map root files into explicit scopes 17b0a57 ci(danger): ignore test check for refactor-only PRs 6481fd3 ci(danger): simplify CI naming fd7d248 ci(danger): omit empty sections from report 7502961 ci(danger): categorize util/bootstrap as build scope 57e191e ci(danger): better markdown format CI Infrastructure We integrated Codecov for tracking test coverage across PRs and switched from GCC to Clang for coverage (more accurate AST-based measurement). CI speed was a recurring concern: we skipped remote documentation generation on PRs, sped up release demos, and skipped long tests that were not catching new bugs. LLVM cache keys were unified to avoid redundant builds, and CTest timeouts were increased for sanitizer jobs that run significantly slower. Matheus Izvekov contributed the Clang coverage switch, fixed an infinite recursion in extraction, and moved the project to use system libs by default. CI infrastructure commits ed6b3bc ci: add codecov configuration 5426a0a ci: use clang for coverage d629173 fix(ci): unify redundant LLVM cache keys 36a3b51 ci: update actions to v1.9.1 7b2103a ci: increase CTest timeout for MSan jobs 086becc ci: increase the ctest timeout to 9000 adb6821 ci(cpp-matrix): remove the optimized-debug factor 9507a38 ci: simplify CI workflow and upgrade cpp-actions to @develop 9a5bd3c ci: skip remote documentation generation on PRs 637011f ci: detect and report demo generation failures 084322d ci: speed up release demos on PRs 471951d ci: skip long tests to speed up CI a5f160b ci: increase test coverage for the new XML generator b1fc43c ci: exclude Reflection.hpp from coverage a1f9a82 ci: accept any g++-14 version c136a46 ci(website): preserve roadmap directory during deployment 4763d86 revert(ci): remove premature roadmap report step 3462996 ci: revert coverage changes 8b2c3e9 ci: align llvm-sanitizer-config with archive basename fdff573 ci: gitignore CI node_modules 757d446 fix(ci): update the fmt branch reference from master to main a3366b0 fix(ci): name rolling release packages after the branch Test Infrastructure MrDocs uses golden tests: the expected output for every test case is stored as a file, and the test runner compares the actual output against it. The most important change was adding multipage golden tests. Previously, all golden tests were single-page, but many bugs only manifested in multi-page output (cross-references between pages, navigation links, index generation). We were missing these entirely because we had no way to test them. We also added output normalization (so platform differences do not cause false failures) and regression categories so tests can be grouped and run selectively. A run_ci_with_act.py script lets contributors run the full CI pipeline locally using act. Test infrastructure commits bf78b1b test: support multipage golden tests d7ad1ce test: output normalization ccd7f71 test: check int tests results in ctest 681b0cd chore: assign categories to regression tests 9146125 test: cover additional paths in DocCommentFinalizer.cpp 8326417 test: run_ci_with_act.py script 5527e9c test: testClang_stdCxx default is C++26 0dfdb02 test: –bad is disabled by default Acknowledgments and Reflections Going into the wild changed MrDocs. The edge cases, the customization requests, and the integration feedback shaped the direction more than any internal roadmap could. Gennaro Prota drove the reflection integration that reduces maintenance burden across the entire codebase. Matheus Izvekov hardened CI with coverage, sanitizers, and warnings-as-errors, and migrated dependency management to the bootstrap script. Julio Estrada and Robert Beeston delivered the polished public face of MrDocs. Agustín Bergé contributed AST and metadata fixes including base member shadowing and alias SFINAE detection. Jean-Louis Leroy provided detailed feedback from Boost.OpenMethod that drove multiple improvements. The most requested feature we have not solved yet is macro support (#1127). Macros are expanded before parsing and do not appear in the AST. Supporting them would require preprocessor-level integration with Clang. The work ahead also includes Lua scripting, metadata transforms, and deeper reflection, all direct responses to what users told us they need. The biggest lesson from this period is that the problems worth solving are the ones users bring. We spent time on an unknowns framework to decide what to explore, but the most impactful work came from people who showed up with a broken demo page, a missing breadcrumb, or a duplicate ellipsis in their generated docs. The complete set of changes is available in the MrDocs repository.","@type":"BlogPosting","url":"http://cppalliance.org/alan/2026/04/24/Alan.html","headline":"MrDocs in the Wild","dateModified":"2026-04-24T00:00:00+00:00","datePublished":"2026-04-24T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/alan/2026/04/24/Alan.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>MrDocs in the Wild</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/alan">
+              <img class='author-img' src='/images/people/alan.jpg' alt='Portrait of Alan de Freitas' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/alan">
+                  Alan de Freitas
+                </a> &middot; Apr 24, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>The questions changed. For a long time, people asked about <a href="https://www.mrdocs.com">MrDocs</a> in the abstract: what formats will it support, how will it handle templates, when will it be ready. Then, gradually, the questions became specific. <a href="https://github.com/jll63">Jean-Louis Leroy</a>, the author of <strong><a href="https://github.com/boostorg/openmethod">Boost.OpenMethod</a></strong>, became one of our most active sources of feedback. His library exercises corners of C++ that most projects never touch, which means MrDocs gets tested in ways we would not have anticipated. He wanted to know why his template specializations were not sorted correctly. He wanted <strong>macro support</strong> because Boost libraries rely heavily on macros. He hit a <strong>crash</strong> when his doc comments contained HTML tables. These are not theoretical questions about a tool that might exist someday. These are questions from someone who already generated documentation with MrDocs and needs it to work better.</p>
+
+<p>In our <a href="/alan/2025/10/28/Alan.html">previous post</a>, we described MrDocs transitioning from prototype to product. This post is about what happened when MrDocs went into the wild.</p>
+
+<!-- prettier-ignore -->
+<ul id="markdown-toc">
+  <li><a href="#real-projects-real-problems" id="markdown-toc-real-projects-real-problems">Real Projects, Real Problems</a>    <ul>
+      <li><a href="#the-demo-page" id="markdown-toc-the-demo-page">The Demo Page</a></li>
+      <li><a href="#breadcrumbs-without-a-navigation-file" id="markdown-toc-breadcrumbs-without-a-navigation-file">Breadcrumbs Without a Navigation File</a></li>
+      <li><a href="#coordinating-two-independent-extensions" id="markdown-toc-coordinating-two-independent-extensions">Coordinating Two Independent Extensions</a></li>
+      <li><a href="#edge-cases-in-the-wild" id="markdown-toc-edge-cases-in-the-wild">Edge Cases in the Wild</a></li>
+      <li><a href="#rendering-and-output" id="markdown-toc-rendering-and-output">Rendering and Output</a></li>
+      <li><a href="#under-the-hood" id="markdown-toc-under-the-hood">Under the Hood</a></li>
+      <li><a href="#the-mrdocs-website" id="markdown-toc-the-mrdocs-website">The MrDocs Website</a></li>
+    </ul>
+  </li>
+  <li><a href="#exploring-the-unknowns" id="markdown-toc-exploring-the-unknowns">Exploring the Unknowns</a>    <ul>
+      <li><a href="#reflection-replacing-boilerplate-with-introspection" id="markdown-toc-reflection-replacing-boilerplate-with-introspection">Reflection: Replacing Boilerplate with Introspection</a></li>
+      <li><a href="#first-steps-toward-extensions" id="markdown-toc-first-steps-toward-extensions">First Steps Toward Extensions</a></li>
+      <li><a href="#why-we-discarded-mrdocs-as-compiler" id="markdown-toc-why-we-discarded-mrdocs-as-compiler">Why We Discarded MrDocs-as-Compiler</a></li>
+    </ul>
+  </li>
+  <li><a href="#contributor-experience" id="markdown-toc-contributor-experience">Contributor Experience</a>    <ul>
+      <li><a href="#automating-pr-reviews" id="markdown-toc-automating-pr-reviews">Automating PR Reviews</a></li>
+      <li><a href="#ci-infrastructure" id="markdown-toc-ci-infrastructure">CI Infrastructure</a></li>
+      <li><a href="#test-infrastructure" id="markdown-toc-test-infrastructure">Test Infrastructure</a></li>
+    </ul>
+  </li>
+  <li><a href="#acknowledgments-and-reflections" id="markdown-toc-acknowledgments-and-reflections">Acknowledgments and Reflections</a></li>
+</ul>
+
+<h1 id="real-projects-real-problems">Real Projects, Real Problems</h1>
+
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e4eee8", "primaryBorderColor": "#affbd6", "primaryTextColor": "#000000", "lineColor": "#baf9d9", "secondaryColor": "#f0eae4", "tertiaryColor": "#ebeaf4", "fontSize": "14px"}}}%%
+mindmap
+  root((Feedback))
+    First impressions
+      Unstyled demos
+      Custom stylesheets
+    Navigation
+      Orphaned pages
+      Breadcrumbs
+    AST edge cases
+      Parameter packs
+      Friend targets
+      Detail namespaces
+    Rendering
+      Description ordering
+      Code blocks
+      Anchor links
+    Runtime
+      JS engine switch
+      Compiler fallback
+</div>
+
+<h2 id="the-demo-page">The Demo Page</h2>
+
+<p>Right after the <a href="/alan/2025/10/28/Alan.html">previous post</a>, where we announced the MVP and encouraged people to try MrDocs, we noticed the <strong><a href="https://www.mrdocs.com/demos">demos page</a></strong> was not doing us any favors. Someone shared MrDocs on a developer community and the website started getting traffic. The landing page looked polished, but visitors clicked through to the demos and saw raw, unstyled HTML: no fonts, no spacing, no colors. The HTML generator produced correct semantic markup, and that is technically the point: users are supposed to customize the output with their own stylesheets. But on the demos page, there was no stylesheet at all, and the result looked broken rather than customizable.</p>
+
+<p>The <strong><a href="https://github.com/cppalliance/mrdocs/pull/1122">custom stylesheet system</a></strong> added five configuration options (<code>stylesheets</code>, <code>linkcss</code>, <code>copycss</code>, <code>no-default-styles</code>, <code>stylesdir</code>) so projects can match their own branding. A bundled default CSS now ships with MrDocs, and it was <a href="https://github.com/cppalliance/mrdocs/pull/1101">refined</a> to remove gradients in favor of solid, readable backgrounds.</p>
+
+<details>
+  <summary>Stylesheet commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/5fe30c1">5fe30c1</a> feat: custom stylesheets</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/33d985c">33d985c</a> chore: version is 0.8.0</li>
+  </ul>
+
+</details>
+
+<h2 id="breadcrumbs-without-a-navigation-file">Breadcrumbs Without a Navigation File</h2>
+
+<p>MrDocs generates <strong>thousands of reference pages</strong>, one per C++ symbol. We maintain an <a href="https://antora.org/">Antora</a> extension, the <strong><a href="https://github.com/cppalliance/antora-cpp-reference-extension">antora-cpp-reference-extension</a></strong>, that integrates these pages into Antora-based documentation sites. But the generated pages end up orphaned from the navigation tree. Users found the navigation confusing: clicking on “boost” in the breadcrumb did not go where expected, and reference pages had no trail showing where they belonged in the hierarchy.</p>
+
+<p>The obvious fix would be to list every page in Antora’s <code>nav.adoc</code>, but maintaining a navigation file with thousands of entries that changes every time a symbol is added or removed is not practical. Worse, Antora renders the navigation file in the <strong>sidebar</strong>, so listing every reference page would flood the UI with thousands of entries. We discussed the problem extensively with the <a href="https://antora.org/">Antora</a> maintainer on the <a href="https://antora.zulipchat.com/">Antora community chat</a>. His position was clear: Antora was designed so that pages must be in the navigation file. Programmatic editing of navigation is not supported.</p>
+
+<p>That was not acceptable for us. We needed breadcrumbs that work for thousands of generated pages without polluting the sidebar or requiring a hand-maintained navigation file. The Antora author’s position was reasonable from his perspective (Antora is a general-purpose documentation tool, not a reference generator), but our use case was fundamentally different from what Antora was designed for.</p>
+
+<p>The <strong><a href="https://github.com/cppalliance/antora-cpp-reference-extension">antora-cpp-reference-extension</a></strong> now <a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/ae95eb2">builds breadcrumbs independently</a> from the navigation file. MrDocs generates reference pages in a directory structure that mirrors the C++ namespace hierarchy (<code>boost/urls/segments_view.adoc</code> lives inside <code>boost/urls/</code>). The extension uses this structure to reconstruct the breadcrumb trail: each directory maps to a namespace, and the page title (which is the symbol name) becomes the last breadcrumb entry. The result reads naturally: <strong>Reference &gt; boost &gt; urls &gt; segments_view</strong>.</p>
+
+<p>Zero changes to the nav file. The sidebar stays clean. Breadcrumbs appear automatically and update when symbols are added or removed.</p>
+
+<details>
+  <summary>Breadcrumb and reference extension commits</summary>
+
+  <p><strong><a href="https://github.com/cppalliance/antora-cpp-reference-extension">antora-cpp-reference-extension</a></strong></p>
+  <ul>
+    <li><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/ae95eb2">ae95eb2</a> feat: synthesize reference breadcrumbs without nav files</li>
+    <li><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/10a4019">10a4019</a> feat: add auto base URL detection</li>
+    <li><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/6a6c08b">6a6c08b</a> docs: auto-base-url option</li>
+    <li><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/4f7c79f">4f7c79f</a> refactor: enhance release asset validation</li>
+  </ul>
+
+</details>
+
+<h2 id="coordinating-two-independent-extensions">Coordinating Two Independent Extensions</h2>
+
+<p>The <strong><a href="https://github.com/cppalliance/antora-cpp-reference-extension">antora-cpp-reference-extension</a></strong> generates reference pages and breadcrumbs. The <strong><a href="https://github.com/cppalliance/antora-cpp-tagfiles-extension">antora-cpp-tagfiles-extension</a></strong> resolves cross-library symbol links (so a reference to <code>boost::system::error_code</code> in Boost.URL’s docs links to the correct page in Boost.System’s docs). These are <strong>two independent Antora extensions</strong> running as separate jobs.</p>
+
+<p>The problem was that the reference extension generates <strong>tagfiles</strong> as a side effect of producing reference pages, and the tagfiles extension needs the <strong>most recent version</strong> of those tagfiles to resolve links correctly. MrDocs changes the tagfiles every time the corpus changes. Manually keeping them in sync was not sustainable: committing tagfiles to the repository meant they were always stale by the time the next build ran.</p>
+
+<p>We made the extensions <a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/6e8ffcb">coordinate directly</a>. The reference extension now hands its tagfile to the tagfiles extension at build time, so the links always reflect the current state of the documentation. The reference extension also gained <strong><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/10a4019">auto base URL detection</a></strong>, removing the need for manual path configuration when switching between development and production builds.</p>
+
+<details>
+  <summary>Extension coordination commits</summary>
+
+  <p><strong><a href="https://github.com/cppalliance/antora-cpp-reference-extension">antora-cpp-reference-extension</a></strong></p>
+  <ul>
+    <li><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/6e8ffcb">6e8ffcb</a> feat: antora-cpp-tagfiles-extension coordination</li>
+    <li><a href="https://github.com/cppalliance/antora-cpp-reference-extension/commit/8f12576">8f12576</a> chore: version is 0.1.0</li>
+  </ul>
+
+  <p><strong><a href="https://github.com/cppalliance/antora-cpp-tagfiles-extension">antora-cpp-tagfiles-extension</a></strong></p>
+  <ul>
+    <li><a href="https://github.com/cppalliance/antora-cpp-tagfiles-extension/commit/98eba40">98eba40</a> feat: antora-cpp-reference-extension coordination</li>
+    <li><a href="https://github.com/cppalliance/antora-cpp-tagfiles-extension/commit/5a1723c">5a1723c</a> feat: add global log level control for missing symbols</li>
+    <li><a href="https://github.com/cppalliance/antora-cpp-tagfiles-extension/commit/453f01b">453f01b</a> chore: version is 0.1.0</li>
+  </ul>
+
+</details>
+
+<h2 id="edge-cases-in-the-wild">Edge Cases in the Wild</h2>
+
+<p>As more libraries adopted MrDocs, edge cases in C++ symbol extraction surfaced. <a href="https://github.com/boostorg/beast">Boost.Beast</a> exposed a <strong>duplicate ellipsis</strong> in parameter pack rendering (<a href="https://github.com/cppalliance/mrdocs/issues/1108">#1108</a>, <a href="https://github.com/cppalliance/mrdocs/issues/1129">#1129</a>):</p>
+
+<p><strong>Before:</strong> <code>T&amp; emplace(Args...&amp;&amp;... args)</code></p>
+
+<p><strong>After:</strong> <code>T&amp; emplace(Args&amp;&amp;... args)</code></p>
+
+<p><a href="https://github.com/boostorg/openmethod">Boost.OpenMethod</a> revealed that <strong>friend targets</strong> were not resolving correctly. <a href="https://github.com/cppalliance/buffers">Boost.Buffers</a> uncovered a problem with <strong>detail namespaces</strong>: when a class inherits from a base in a hidden namespace, the inherited members appeared in the documentation but their doc comments were lost (<a href="https://github.com/cppalliance/mrdocs/issues/1107">#1107</a>). We <a href="https://github.com/cppalliance/mrdocs/pull/1109">fixed this</a> so derived classes inherit documentation from hidden bases.</p>
+
+<p><strong>Unnamed structs</strong> also sparked an extended design discussion. When C++ code declares <code>constexpr struct {} f{};</code>, MrDocs needs a <strong>stable, unique name</strong> for hyperlinks. The team established a collaborative design process using shared documents, with <a href="https://github.com/pdimov">Peter Dimov</a> contributing an insight about C compatibility (<code>typedef struct {} T;</code> makes the struct named in C++).</p>
+
+<details>
+  <summary>AST and metadata commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/c85be75">c85be75</a> fix: remove duplicate ellipsis in parameter pack expansion</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/c3dbded">c3dbded</a> fix(ast): prevent TU parent from including unmatched globals</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/76b7b43">76b7b43</a> fix(ast): canonicalize friend targets</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/05f5852">05f5852</a> fix(metadata): copy impl-defined base docs</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/35cf1f6">35cf1f6</a> fix: UsingSymbol is SymbolParent</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/c406d57">c406d57</a> fix: preserve extraction mode when copying members from derived classes</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/4e7ef04">4e7ef04</a> fix: prevent infinite recursion when extracting non-regular base class</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/0a69301">0a69301</a> fix: extract and fix some special member function helpers</li>
+  </ul>
+
+</details>
+
+<h2 id="rendering-and-output">Rendering and Output</h2>
+
+<p>Users noticed that the <strong>manual description</strong> of a symbol was buried below long member tables (<a href="https://github.com/cppalliance/mrdocs/issues/1105">#1105</a>). On a class with many members, you had to scroll past the entire member listing before finding the author’s explanation of what the class does. We moved the description to appear <strong>immediately after the synopsis</strong>, matching what <a href="https://en.cppreference.com/">cppreference</a> does.</p>
+
+<p>Other rendering issues included HTML code blocks not wrapped in <code>&lt;pre&gt;</code> tags, <strong>anchor links</strong> appearing when the wrapper element was missing, and the Handlebars template engine accumulating <strong>special name re-mappings</strong> that conflated different symbols.</p>
+
+<details>
+  <summary>Rendering and output commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/d90eae6">d90eae6</a> fix: hide anchor links when wrapper is not included</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/92491de">92491de</a> fix: manual description comes before member lists</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/58bf524">58bf524</a> fix: remove all special name re-mappings for Handlebars</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/2a75692">2a75692</a> fix: HTML code blocks not wrapped in pre tags</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/1ebff32">1ebff32</a> fix: bottomUpTraverse() skips ListBlock items</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/7b118b1">7b118b1</a> fix: missing @return command in doc comment</li>
+  </ul>
+
+</details>
+
+<h2 id="under-the-hood">Under the Hood</h2>
+
+<p>We fixed a <strong>compiler fallback</strong> issue where MrDocs failed when the compilation database referenced a compiler that was not available on the current machine, and corrected <strong>sanitizer flag propagation</strong> so that UBSan and TSan do not unnecessarily propagate to dependency builds.</p>
+
+<details>
+  <summary>Build and toolchain commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/235f5c8">235f5c8</a> fix: fall back to system compilers when database compiler is unavailable</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/f320581">f320581</a> fix: don’t pass sanitizer to dependency builds for UBSan/TSan</li>
+  </ul>
+
+</details>
+
+<h2 id="the-mrdocs-website">The MrDocs Website</h2>
+
+<p>While we were fixing the generated output, <strong><a href="https://github.com/rbbeeston">Robert Beeston</a></strong> and <strong><a href="https://github.com/julioest">Julio Estrada</a></strong> were redesigning the <a href="https://www.mrdocs.com">MrDocs website</a>. Robert led the design direction, working with a team to develop a visual identity that balances a distinctive retro aesthetic with modern readability, including a dark theme. Julio handled the implementation: <a href="https://github.com/cppalliance/mrdocs/pull/1032">mobile-responsive layout</a>, <a href="https://github.com/cppalliance/mrdocs/pull/1050">UI styling improvements</a>, <a href="https://github.com/cppalliance/mrdocs/commit/86ce271">cleaner backgrounds and styles</a>, <a href="https://github.com/cppalliance/mrdocs/pull/1075">Open Graph and Twitter meta tags</a> for social sharing, and a <a href="https://github.com/cppalliance/mrdocs/pull/1033">close button for the docs navigation</a> on smaller screens.</p>
+
+<p>For a documentation tool, the website is the first thing potential users see. Having a polished, memorable landing page matters more than it might for other kinds of projects.</p>
+
+<h1 id="exploring-the-unknowns">Exploring the Unknowns</h1>
+
+<p>The team made a deliberate choice: instead of following a <strong>traditional feature roadmap</strong>, we would focus on <strong>areas of uncertainty</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/1113">#1113</a>). These were <strong>open questions</strong> that blocked multiple design decisions at once:</p>
+
+<ul>
+  <li><strong>MrDocs-as-compiler</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/1073">#1073</a>): should MrDocs emit “object” files for later “linking,” like a compiler?</li>
+  <li><strong>Scripting extensions</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/1128">#1128</a>, <a href="https://github.com/cppalliance/mrdocs/issues/881">#881</a>): how should users extend and transform documentation output?</li>
+  <li><strong>Plugins</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/58">#58</a>, <a href="https://github.com/cppalliance/mrdocs/issues/1044">#1044</a>): how should third-party code register new generators?</li>
+  <li><strong>JSON-only MrDocs</strong>: should we add a JSON output format alongside (or replacing) the existing XML structured output?</li>
+  <li><strong>Reflection</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/1114">#1114</a>): how do we reduce the maintenance burden of the growing metadata model?</li>
+  <li><strong>Cross-linking</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/1072">#1072</a>): how do we reference symbols in other libraries?</li>
+</ul>
+
+<p>The motivation was practical. Each Boost library that adopted MrDocs had its own needs that could not be met by the core tool alone. <a href="https://github.com/boostorg/url">Boost.URL</a> has <code>implementation_defined</code> namespaces with internal code that should be hidden or transformed in the documentation. <a href="https://github.com/cppalliance/capy">Boost.Capy</a> has detail types that should be presented as user-facing types. Coroutines are represented as types in the AST but should be documented as functions. We want MrDocs to be smart enough, with project-specific extensions, that library authors do not have to do workarounds in the source code just to get the documentation right.</p>
+
+<p>Rather than hard-coding solutions for each library, the unknowns framework asked: what general mechanisms would let every library solve its own documentation problems?</p>
+
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#f7f9ff", "primaryBorderColor": "#9aa7e8", "primaryTextColor": "#1f2a44", "lineColor": "#b4bef2", "secondaryColor": "#fbf8ff", "tertiaryColor": "#ffffff", "fontSize": "14px"}}}%%
+mindmap
+  root((Unknowns))
+    Scripting extensions
+      JS helpers
+      Lua
+    Plugins
+      Generator API
+      DLL loading
+    Reflection
+      Boost.Describe
+      MrDocs.Describe
+    Cross-linking
+      Tagfiles
+      Antora coordination
+    JSON-only MrDocs
+    MrDocs-as-compiler
+</div>
+
+<h2 id="reflection-replacing-boilerplate-with-introspection">Reflection: Replacing Boilerplate with Introspection</h2>
+
+<p>MrDocs models many kinds of C++ symbols: functions, classes, namespaces, enums, typedefs, concepts, and more. Each symbol type has metadata, and every piece of code that touches that metadata had to <strong>enumerate all fields by hand</strong>. Adding a single field to a symbol type meant updating it in:</p>
+
+<ul>
+  <li><strong>Schema files</strong> that describe the metadata format</li>
+  <li><strong>Generators</strong> (HTML, AsciiDoc, XML) that produce the output</li>
+  <li><strong>Templates</strong> that render individual pages</li>
+  <li><strong>Operators</strong> like comparison functions, merge functions (e.g., merging symbols from different translation units when only one is documented), and equality checks</li>
+  <li><strong>Documentation</strong> describing the metadata</li>
+  <li><strong>The code itself</strong> that populates and transforms the metadata</li>
+</ul>
+
+<p>That is roughly <strong>ten to fifteen places</strong> per field, and missing one caused CI failures that blocked everyone. This was one of the <strong>unknowns</strong> we identified: how to reduce the maintenance burden as the data model grows. Worse, downstream users who had their own templates and extensions also had to learn about the new fields and update everything accordingly.</p>
+
+<p><strong><a href="https://github.com/gennaroprota">Gennaro Prota</a></strong>, with his strong background in generic programming and metaprogramming, took ownership of the reflection problem. The work progressed through several stages:</p>
+
+<ol>
+  <li><a href="https://github.com/cppalliance/mrdocs/pull/1130">Integrate Boost.Describe</a> into the metadata system, replacing hand-written serialization functions</li>
+  <li><a href="https://github.com/cppalliance/mrdocs/pull/1153">Add <code>$meta.type</code> and <code>$meta.bases</code></a> to all DOM objects so templates can introspect the corpus</li>
+  <li><a href="https://github.com/cppalliance/mrdocs/pull/1151">Replace the XML generator</a> with a reflection-based one (no more hand-maintained XML output)</li>
+  <li>Build a <a href="https://github.com/cppalliance/mrdocs/pull/1171">custom reflection system (MrDocs.Describe)</a> tailored to our needs</li>
+  <li><a href="https://github.com/cppalliance/mrdocs/pull/1177">Replace per-type operators</a> with a single generic template</li>
+</ol>
+
+<p>The result <strong>eliminated the second step entirely</strong>: adding a new field to a symbol type no longer requires touching ten other files. The description drives everything, and the serialization, comparison, and merge logic derive from it automatically. <a href="https://www.boost.org/doc/libs/release/libs/describe/">Boost.Describe</a> and <a href="https://www.boost.org/doc/libs/release/libs/mp11/">Boost.Mp11</a> are private dependencies that do not appear in public headers.</p>
+
+<p>Along the way, Gennaro also added <strong><a href="https://github.com/cppalliance/mrdocs/pull/1163">function object support</a></strong>, fixed <strong><a href="https://github.com/cppalliance/mrdocs/pull/1157">Markdown inline formatting</a></strong> and <strong><a href="https://github.com/cppalliance/mrdocs/pull/1173">missing dependent array bounds</a></strong>.</p>
+
+<details>
+  <summary>Reflection and metadata commits</summary>
+
+  <p><strong>Reflection (Gennaro Prota)</strong></p>
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/d490880">d490880</a> refactor(metadata): integrate Boost.Describe</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/c4dd89a">c4dd89a</a> feat: add $meta.type and $meta.bases to all DOM objects</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/d4a64ef">d4a64ef</a> fix: replace the XML generator with a reflection-based one</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/6ce961f">6ce961f</a> refactor: add custom reflection facilities (MrDocs.Describe)</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/eb68494">eb68494</a> refactor: migrate all reflection consumers to MrDocs.Describe</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/8f5391b">8f5391b</a> refactor: replace per-type merge() one-liners with a single generic template</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/e749144">e749144</a> feat: make the reflection consumers public</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/1ed76ad">1ed76ad</a> refactor: replace most per-type tag_invoke overloads with a single generic template</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/0246935">0246935</a> refactor: replace per-type operator==() and operator&lt;=&gt;() with a single generic template</li>
+  </ul>
+
+  <p><strong>Features and fixes (Gennaro Prota)</strong></p>
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/93a5032">93a5032</a> feat: add function object support</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/f35ebcd">f35ebcd</a> fix: rendering of Markdown inline formatting and bullet lists</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/4ae305b">4ae305b</a> fix: missing dependent array bounds in the output</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/72fba40">72fba40</a> test: add golden tests for a partial class template specialization</li>
+  </ul>
+
+</details>
+
+<blockquote>
+  <p>The reflection work is the foundation for everything that comes next: the extension system, the upcoming Lua scripting, and the metadata transformation pipeline.</p>
+</blockquote>
+
+<h2 id="first-steps-toward-extensions">First Steps Toward Extensions</h2>
+
+<p>MrDocs supports two extension points: <strong>JavaScript</strong> for Handlebars template helpers, and <strong>Lua</strong> for more powerful scripting. The JavaScript engine had been <a href="https://duktape.org/">Duktape</a>, but Duktape is no longer actively maintained and only supports ES5.1. We needed a replacement.</p>
+
+<p>We evaluated several alternatives (<a href="https://github.com/cppalliance/mrdocs/issues/881">#881</a>):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>JS Support</th>
+      <th>Windows/MSVC</th>
+      <th>Size</th>
+      <th>License</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/bellard/quickjs">QuickJS</a></td>
+      <td>ES2023</td>
+      <td>No (clang-cl only)</td>
+      <td>~370 KB</td>
+      <td>MIT</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/lynx-family/primjs">PrimJS</a></td>
+      <td>ES2019</td>
+      <td>No (POSIX only)</td>
+      <td>~370 KB</td>
+      <td>MIT</td>
+    </tr>
+    <tr>
+      <td><a href="https://jerryscript.net/">JerryScript</a></td>
+      <td>ES5.1 + ES2022 subset</td>
+      <td>Yes</td>
+      <td>~200 KB</td>
+      <td>Apache 2.0</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/Samsung/escargot">Escargot</a></td>
+      <td>ES2025 subset</td>
+      <td>Yes</td>
+      <td>~400-500 KB</td>
+      <td>LGPL 2.1</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/ArtifexSoftware/mujs">MuJS</a></td>
+      <td>ES5.1</td>
+      <td>Yes</td>
+      <td>~200-300 KB</td>
+      <td>ISC</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/Moddable-OpenSource/moddable">Moddable XS</a></td>
+      <td>ES2025 (~99%)</td>
+      <td>Yes (via SDK)</td>
+      <td>~100-300 KB</td>
+      <td>Apache/GPL/LGPL</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/cesanta/mjs">mJS</a></td>
+      <td>Restricted ES6</td>
+      <td>Yes</td>
+      <td>~50-60 KB</td>
+      <td>GPL 2.0 / Commercial</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/cesanta/elk">Elk</a></td>
+      <td>Minimal ES6</td>
+      <td>Yes</td>
+      <td>~20-30 KB</td>
+      <td>GPL 2.0 / Commercial</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>We first experimented with <strong>QuickJS</strong>, which had the best ES support. But it requires C11 features like <code>&lt;stdatomic.h&gt;</code> and <code>__int128</code> that plain MSVC does not support. On Windows, users would need Clang with the Visual Studio runtime. <strong>PrimJS</strong> was POSIX-only. We settled on <strong><a href="https://jerryscript.net/">JerryScript</a></strong>: it supports Windows and MSVC natively, has a small footprint (~200 KB), and covers enough of ES2022 for template helpers. Unlike most alternatives in the table, JerryScript was designed from the ground up to be <strong>embedded</strong> in other applications, which makes it more like <a href="https://www.lua.org/">Lua</a> and less like engines that target browsers or standalone runtimes.</p>
+
+<p>The <strong><a href="https://github.com/cppalliance/mrdocs/pull/1126">JavaScript helpers extension</a></strong> was a single commit but a large one: <strong>85 files changed, 4,287 insertions</strong>. The work included:</p>
+
+<ul>
+  <li><strong>Replacing Duktape with JerryScript</strong> across the entire codebase, including build scripts, CMake recipes, and third-party patches</li>
+  <li><strong>Rewriting the C++ JavaScript bindings</strong> (<code>JavaScript.hpp</code> and <code>JavaScript.cpp</code>) with shared context lifetime, safer value accessors, and clearer error messages</li>
+  <li><strong>A layered addon system</strong> where projects provide JavaScript helpers in a directory structure (<code>generator/common/helpers/</code> for shared helpers, <code>generator/html/helpers/</code> for format-specific ones). Multiple addon directories can be layered, so a project’s helpers override or extend the defaults.</li>
+  <li><strong>Golden tests</strong> for extension output (<code>js-helper/</code>, <code>js-helper-layering/</code>) to verify that helpers produce the expected documentation</li>
+  <li><strong>1,335 lines of new JavaScript binding tests</strong> covering the engine lifecycle, value conversion, error handling, and helper registration</li>
+</ul>
+
+<p>Combined with the <strong><a href="https://github.com/cppalliance/mrdocs/pull/1139">public API for registering custom generators</a></strong>, MrDocs now supports customization beyond templates. A library like <a href="https://develop.capy.cpp.al/capy/reference/boost/capy.html">Boost.Capy</a> could write an extension that transforms its coroutine types into function documentation, without any changes to MrDocs itself.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#f7f9ff", "primaryBorderColor": "#9aa7e8", "primaryTextColor": "#1f2a44", "lineColor": "#b4bef2", "secondaryColor": "#fbf8ff", "tertiaryColor": "#ffffff", "fontSize": "14px"}}}%%
+flowchart LR
+    A[Clang AST] --&gt; B[Extraction]
+    B --&gt; C[Corpus]
+    C --&gt; D[Transformation Extensions]
+    D --&gt; E[Handlebars Generators]
+    E --&gt; F[Documentation Templates]
+    F --&gt; H[HTML / AsciiDoc]
+    F --&gt; G[Template Extensions]
+    G --&gt; F
+    D -.-&gt; I[XML]
+</div>
+
+<p>The vision for extensions has two layers:</p>
+
+<ul>
+  <li><strong>Transformation extensions</strong> operate on the corpus between extraction and generation. A library could transform its internal types into the documentation structure it wants. This layer is not yet implemented.</li>
+  <li><strong>Template extensions</strong> (JavaScript helpers) operate inside the Handlebars templates that produce HTML and AsciiDoc output. This is the layer we shipped.</li>
+  <li><strong>Lua scripts</strong> for more powerful scripting in both layers</li>
+</ul>
+
+<details>
+  <summary>Extension and generator commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/0f3ecb4">0f3ecb4</a> feat: javascript helpers extension (85 files, 4,287 insertions)</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/930a5ea">930a5ea</a> fix: jerry_port_context_free wrong signature causes silent corruption</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/8da0930">8da0930</a> feat(lib): public API for generator registration</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/788c1ba">788c1ba</a> feat(generators): tables for symbols have headers</li>
+  </ul>
+
+</details>
+
+<h2 id="why-we-discarded-mrdocs-as-compiler">Why We Discarded MrDocs-as-Compiler</h2>
+
+<p>One unknown we explored and <strong>deliberately discarded</strong> was <a href="https://github.com/cppalliance/mrdocs/issues/1073">MrDocs-as-compiler</a> (<a href="https://github.com/cppalliance/mrdocs/issues/1073">#1073</a>). The idea, proposed by <a href="https://github.com/pdimov">Peter Dimov</a>, was to treat MrDocs like a compiler: emit “object” files per translation unit, then “link” them to produce the final reference. <a href="https://cmake.org/">CMake</a> would invoke MrDocs as if it were <a href="https://clang.llvm.org/">Clang</a>, with identical command-line options.</p>
+
+<p>We spent time studying tools that work this way: <a href="https://clang.llvm.org/extra/clang-tidy/">clang-tidy</a>, <a href="https://clang.llvm.org/extra/clang-doc/">clang-doc</a>, <a href="https://include-what-you-use.org/">include-what-you-use</a>. What we found is that <strong>tricking CMake into thinking MrDocs is a real compiler</strong> is not trivial. Every tool that tries this approach ends up needing either a coordinator binary (reimplementing what MrDocs already has) or CMake helper scripts. Both add workflows rather than simplifying them.</p>
+
+<p>The experience from the Boost ecosystem reinforced this: no Boost project uses any of these compiler-like tools for static analysis, and the reason is complexity. People who find the compilation database workflow too involved are going to be even less inclined to adopt a tool that requires them to pretend to be a compiler. We decided to keep MrDocs as a <strong>single-step tool</strong> that reads a compilation database and produces output, rather than splitting it into a multi-binary pipeline that would need its own coordination layer.</p>
+
+<h1 id="contributor-experience">Contributor Experience</h1>
+
+<p>As more people contributed to MrDocs, the gap between “clone the repo” and “submit a useful PR” needed closing. The biggest change was the <strong><a href="/alan/2026/04/15/Alan.html">bootstrap script</a></strong>, which reduced the entire build setup to a single <code>python bootstrap.py</code> command (covered in a <a href="/alan/2026/04/15/Alan.html">separate post</a>). Beyond the bootstrap, we <strong>split the contributor guide</strong> into focused sections, added <strong>reference documentation for MrDocs comment syntax</strong> (so contributors know what <code>@copydoc</code>, <code>@see</code>, and other commands do), and created a <strong><code>run_all_tests</code> script</strong> that runs the full test suite locally without needing to understand the CMake test configuration.</p>
+
+<details>
+  <summary>Onboarding commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/b103cba">b103cba</a> docs(reference): mrdocs comments</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/9b7ec24">9b7ec24</a> feat(util): run_all_tests script</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/5902699">5902699</a> docs: update packages</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/302f0a6">302f0a6</a> docs: split contribute.adoc guide</li>
+  </ul>
+
+</details>
+
+<h2 id="automating-pr-reviews">Automating PR Reviews</h2>
+
+<p>MrDocs PRs tend to be <strong>large and hard to review</strong>. A single PR might touch the AST visitor, the Handlebars templates, the Antora extension, the CI configuration, and hundreds of <strong>golden test files</strong> (when an intentional change to the output format updates the expected output for every test case). We found ourselves making the same review comments over and over.</p>
+
+<p>We set up <strong><a href="https://danger.systems/js/">Danger.js</a></strong> to catch these patterns before human reviewers see the PR. The most important check is <strong>detecting when source code changes do not include corresponding tests</strong>: if someone changes extraction logic but does not update the golden tests, or changes a template without updating the expected output, Danger flags it. Beyond that:</p>
+
+<ul>
+  <li><strong>Categorizes</strong> all file changes into scopes (source, tests, golden-tests, docs, CI, build, tooling) and generates a <strong>summary table</strong> showing churn per scope</li>
+  <li><strong>Validates</strong> commit messages against <a href="https://www.conventionalcommits.org/">Conventional Commits</a> format</li>
+  <li><strong>Warns</strong> when a single commit exceeds <strong>2,000 lines</strong> of source churn (encouraging smaller, reviewable slices)</li>
+  <li><strong>Flags</strong> mismatched commit types (e.g., a <code>feat:</code> commit that only touches test files suggests <code>test:</code> instead)</li>
+  <li><strong>Rejects</strong> PR descriptions under 40 characters</li>
+  <li><strong>Ignores</strong> the test check for refactor-only PRs where the tests are expected to remain unchanged</li>
+</ul>
+
+<p>Even when there are no warnings, the <strong>scope summary table</strong> gives reviewers an immediate sense of what a large PR touches. On a PR that changes 500 lines of source and 3,000 lines of golden tests, the table makes it clear that the bulk of the diff is expected test output, not new logic.</p>
+
+<details>
+  <summary>Danger.js commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/6f5f6e9">6f5f6e9</a> ci: setup danger.js</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/5429b2e">5429b2e</a> ci(danger): align report table and add top-files summary</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/240921d">240921d</a> ci(danger): split PR target ci workflows</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/08c46b6">08c46b6</a> ci(danger): correct file delta calculation in reports</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/2cfd081">2cfd081</a> ci(danger): adjust large commit threshold</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/71845c8">71845c8</a> ci(danger): map root files into explicit scopes</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/17b0a57">17b0a57</a> ci(danger): ignore test check for refactor-only PRs</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/6481fd3">6481fd3</a> ci(danger): simplify CI naming</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/fd7d248">fd7d248</a> ci(danger): omit empty sections from report</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/7502961">7502961</a> ci(danger): categorize util/bootstrap as build scope</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/57e191e">57e191e</a> ci(danger): better markdown format</li>
+  </ul>
+
+</details>
+
+<h2 id="ci-infrastructure">CI Infrastructure</h2>
+
+<p>We integrated <strong><a href="https://codecov.io/">Codecov</a></strong> for tracking test coverage across PRs and switched from GCC to <strong>Clang for coverage</strong> (more accurate AST-based measurement). CI speed was a recurring concern: we <strong>skipped remote documentation generation on PRs</strong>, <strong>sped up release demos</strong>, and <strong>skipped long tests</strong> that were not catching new bugs. LLVM cache keys were <strong>unified</strong> to avoid redundant builds, and CTest timeouts were increased for sanitizer jobs that run significantly slower. <strong><a href="https://github.com/mizvekov">Matheus Izvekov</a></strong> contributed the <a href="https://github.com/cppalliance/mrdocs/pull/1144">Clang coverage switch</a>, fixed an <a href="https://github.com/cppalliance/mrdocs/pull/1132">infinite recursion in extraction</a>, and moved the project to <a href="https://github.com/cppalliance/mrdocs/pull/1077">use system libs by default</a>.</p>
+
+<details>
+  <summary>CI infrastructure commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/ed6b3bc">ed6b3bc</a> ci: add codecov configuration</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/5426a0a">5426a0a</a> ci: use clang for coverage</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/d629173">d629173</a> fix(ci): unify redundant LLVM cache keys</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/36a3b51">36a3b51</a> ci: update actions to v1.9.1</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/7b2103a">7b2103a</a> ci: increase CTest timeout for MSan jobs</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/086becc">086becc</a> ci: increase the ctest timeout to 9000</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/adb6821">adb6821</a> ci(cpp-matrix): remove the optimized-debug factor</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/9507a38">9507a38</a> ci: simplify CI workflow and upgrade cpp-actions to @develop</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/9a5bd3c">9a5bd3c</a> ci: skip remote documentation generation on PRs</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/637011f">637011f</a> ci: detect and report demo generation failures</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/084322d">084322d</a> ci: speed up release demos on PRs</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/471951d">471951d</a> ci: skip long tests to speed up CI</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/a5f160b">a5f160b</a> ci: increase test coverage for the new XML generator</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/b1fc43c">b1fc43c</a> ci: exclude Reflection.hpp from coverage</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/a1f9a82">a1f9a82</a> ci: accept any g++-14 version</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/c136a46">c136a46</a> ci(website): preserve roadmap directory during deployment</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/4763d86">4763d86</a> revert(ci): remove premature roadmap report step</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/3462996">3462996</a> ci: revert coverage changes</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/8b2c3e9">8b2c3e9</a> ci: align llvm-sanitizer-config with archive basename</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/fdff573">fdff573</a> ci: gitignore CI node_modules</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/757d446">757d446</a> fix(ci): update the fmt branch reference from master to main</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/a3366b0">a3366b0</a> fix(ci): name rolling release packages after the branch</li>
+  </ul>
+
+</details>
+
+<h2 id="test-infrastructure">Test Infrastructure</h2>
+
+<p>MrDocs uses <strong>golden tests</strong>: the expected output for every test case is stored as a file, and the test runner compares the actual output against it. The most important change was adding <strong>multipage golden tests</strong>. Previously, all golden tests were single-page, but many bugs only manifested in multi-page output (cross-references between pages, navigation links, index generation). We were missing these entirely because we had no way to test them. We also added <strong>output normalization</strong> (so platform differences do not cause false failures) and <strong>regression categories</strong> so tests can be grouped and run selectively. A <strong><code>run_ci_with_act.py</code></strong> script lets contributors run the full CI pipeline locally using <a href="https://github.com/nektos/act">act</a>.</p>
+
+<details>
+  <summary>Test infrastructure commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/bf78b1b">bf78b1b</a> test: support multipage golden tests</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/d7ad1ce">d7ad1ce</a> test: output normalization</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/ccd7f71">ccd7f71</a> test: check int tests results in ctest</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/681b0cd">681b0cd</a> chore: assign categories to regression tests</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/9146125">9146125</a> test: cover additional paths in DocCommentFinalizer.cpp</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/8326417">8326417</a> test: run_ci_with_act.py script</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/5527e9c">5527e9c</a> test: testClang_stdCxx default is C++26</li>
+    <li><a href="https://github.com/cppalliance/mrdocs/commit/0dfdb02">0dfdb02</a> test: –bad is disabled by default</li>
+  </ul>
+
+</details>
+
+<h1 id="acknowledgments-and-reflections">Acknowledgments and Reflections</h1>
+
+<p>Going into the wild changed MrDocs. The edge cases, the customization requests, and the integration feedback shaped the direction more than any internal roadmap could.</p>
+
+<p><strong><a href="https://github.com/gennaroprota">Gennaro Prota</a></strong> drove the reflection integration that reduces maintenance burden across the entire codebase. <strong><a href="https://github.com/mizvekov">Matheus Izvekov</a></strong> hardened CI with coverage, sanitizers, and warnings-as-errors, and migrated dependency management to the bootstrap script. <strong><a href="https://github.com/julioest">Julio Estrada</a></strong> and <strong><a href="https://github.com/rbbeeston">Robert Beeston</a></strong> delivered the polished public face of MrDocs. <strong><a href="https://github.com/K-ballo">Agustín Bergé</a></strong> contributed AST and metadata fixes including base member shadowing and alias SFINAE detection. <strong><a href="https://github.com/jll63">Jean-Louis Leroy</a></strong> provided detailed feedback from <a href="https://github.com/boostorg/openmethod">Boost.OpenMethod</a> that drove multiple improvements.</p>
+
+<p>The most requested feature we have not solved yet is <strong>macro support</strong> (<a href="https://github.com/cppalliance/mrdocs/issues/1127">#1127</a>). Macros are expanded before parsing and do not appear in the <a href="https://en.wikipedia.org/wiki/Abstract_syntax_tree">AST</a>. Supporting them would require preprocessor-level integration with <a href="https://clang.llvm.org/">Clang</a>. The work ahead also includes <strong>Lua scripting</strong>, <strong>metadata transforms</strong>, and <strong>deeper reflection</strong>, all direct responses to what users told us they need.</p>
+
+<p>The biggest lesson from this period is that the problems worth solving are the ones users bring. We spent time on an unknowns framework to decide what to explore, but the most impactful work came from people who showed up with a broken demo page, a missing breadcrumb, or a duplicate ellipsis in their generated docs.</p>
+
+<p>The complete set of changes is available in the <a href="https://github.com/cppalliance/mrdocs">MrDocs repository</a>.</p>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad: true});</script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/24/2026</span>
+          <a class='text-l news-title link' href="/alan/2026/04/24/Alan.html">MrDocs in the Wild</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/21/2026</span>
+          <a class='text-l news-title link' href="/alan/2026/04/21/Alan.html">Boost.URL: Audited, Constexpr, and Polished</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/15/2026</span>
+          <a class='text-l news-title link' href="/alan/2026/04/15/Alan.html">MrDocs Bootstrap: One Script to Build Them All</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/28/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/10/28/Alan.html">From Prototype to Product: MrDocs in 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/07/10/Alan.html">Bringing B2-Style Test Granularity to CMake</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/01/10/AlanQ4Update.html">Scaling Documentation Pipelines Across Boost Projects</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/13/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/07/13/AlanQ2Update.html">Operationalizing MrDocs Reference for the Boost Release Workflow</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/07/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/05/07/AlanQ1Update.html">Making MrDocs Portable for Every Toolchain</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/01/12/AlanQ4Update.html">Owning Handlebars: Custom Templates for Boost.URL</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/alan/2023/10/27/AlanQ3Update.html">Building the MrDocs Reference Pipeline for Antora</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>

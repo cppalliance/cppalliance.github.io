@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joining Community, Detecting Communities, Making Community. | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Joining Community, Detecting Communities, Making Community. | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Joining Community, Detecting Communities, Making Community." />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Joining Community Early in Q1 2026, I joined the C++ Alliance. A very exciting moment. So I began to work early January under Joaquin’s mentorship, with the idea of having a clear contribution to Boost Graph by the end of Q1. After a few days of auditing the current state of the library versus the literature, it became clear that community detection methods (aka graph clustering algorithms) were sorely lacking for Boost.Graph, and that implementing one would be a great start to revitalizing the library and fill up maybe the largest methodological gap in its current algorithmic coverage. Detecting Communities The vision was (and still is) simple: i) begin to implement Louvain algorithm, ii) build upon it to extend to the more complex Leiden algorithm, iii) finally get started with the Stochastic Block Model. If the plan is straightforward, the Louvain literature is not, and the BGL abstractions even less. But under the review and guidance from Joaquin and Jeremy Murphy (maintainer of the BGL), I was able to put up a satisfying implementation: Using the Newman-Girvan Modularity as the quality function to optimize, one can simply call: double Q = boost::louvain_clustering( g, cluster_map, weight_map, gen, boost::newman_and_girvan{}, // quality function (default) 1e-7, // min_improvement_inner (per-pass convergence) 0.0 // min_improvement_outer (cross-level convergence) ); // Q = 0.42, cluster_map = {0,0,0, 1,1,1} As it happens often with heuristics, there is a large number of quality functions out there, and this is not because of a lack of consensus: in a 2002 paper, computer scientist Jon Kleinberg proved that no clustering quality function (Modularity, Goldberg density, Surprise…) can simultaneously be: scale-invariant (doubling all edges should not change the clusters), rich (all partitions should be achievable), consistent (shortening distances inside a cluster and expanding distances between clusters should lead to similar results). In other words, there is no way to implement a single function hoping it would exhibit three basic properties we would genuinely expect. All we can do is to explore different trade-offs using different quality functions. So I left some doors open to be able to inject an arbitrary quality function. If this function exposes a minimal, “naive” interface, the algorithm will statically use a slow but generic path, and iterate across all the edges of the graph to compute the quality. It is slow, yes, but it makes the study of qualities easier, as one does not have to figure out the local mathematical decomposition of the function to get started with coding: struct my_quality { template &lt;typename G, typename CMap, typename WMap&gt; typename boost::property_traits&lt;WMap&gt;::value_type quality(const G&amp; g, const CMap&amp; c, const WMap&amp; w) { // your custom partition quality function } }; double Q = boost::louvain_clustering(g, cluster_map, weight_map, gen, my_quality{}); However, the Louvain algorithm is extremely popular because it is fast, as it is able to update the quality computational state for each vertex it tries to “insert” or “remove” from a neighboring putative community. This locality decomposition has to be figured out mathematically for each quality function, so it’s not trivial. I defined a GraphPartitionQualityFunctionIncrementalConcept that refines the GraphPartitionQualityFunctionConcept : if the algorithm detects that the injected quality function exposes an interface for this incremental update, the fast path is taken. One thing I figured out is that the GraphPartitionQualityFunctionIncrementalConcept is for now too specific to the Modularity family. I am currently working on a proposal to increase its scope in future work. The current PR has been carefully tested and benchmarked for correctness and performance, and validated by Jeremy to be merged on develop branch. I wrote a paper to be submitted to the Journal of Open Source Software to publish the current results and benchmarks, as we are at least as fast as our competitors, and more generic. There is no equivalent I am aware of. Making Community Concurrently, I worked on summoning the Boost.Graph user base, and it quickly became clear a small local workshop would be a tremendous start: the Louvain algorithm community is based in Louvain (Belgium), its extension was formulated in Leiden (Netherlands) and my PhD graphs network is based in Paris (France) in what has been presented to me as “the Temple of the Stochastic Block Model” ! Quite a sign: life finds ways to run in (tight) circles. So the goal of this workshop is to bring together a small group (10-15 people) of researchers, open-source implementers, and industrial users for a day of honest conversation on May 6th 2026. Three questions will anchor the discussions: What types of graphs and data structures do you use in practice? What performance, scalability, and interpretability requirements matter most to you? What algorithms are missing today that Boost.Graph could offer? Ray and Collier from the C++ Alliance will also be there to record the lightning talks and document the process. It would also be the occasion to show off the python-based animations I put together for the French C++ User Group presentation on March 24th. Those had a nice success and received many compliments, as it pairs well with the visual and dynamic nature of graphs and their algorithms, and I hope it will contribute to the repopularization of Boost.Graph. Graphliiings asseeeeemble !" />
+<meta property="og:description" content="Joining Community Early in Q1 2026, I joined the C++ Alliance. A very exciting moment. So I began to work early January under Joaquin’s mentorship, with the idea of having a clear contribution to Boost Graph by the end of Q1. After a few days of auditing the current state of the library versus the literature, it became clear that community detection methods (aka graph clustering algorithms) were sorely lacking for Boost.Graph, and that implementing one would be a great start to revitalizing the library and fill up maybe the largest methodological gap in its current algorithmic coverage. Detecting Communities The vision was (and still is) simple: i) begin to implement Louvain algorithm, ii) build upon it to extend to the more complex Leiden algorithm, iii) finally get started with the Stochastic Block Model. If the plan is straightforward, the Louvain literature is not, and the BGL abstractions even less. But under the review and guidance from Joaquin and Jeremy Murphy (maintainer of the BGL), I was able to put up a satisfying implementation: Using the Newman-Girvan Modularity as the quality function to optimize, one can simply call: double Q = boost::louvain_clustering( g, cluster_map, weight_map, gen, boost::newman_and_girvan{}, // quality function (default) 1e-7, // min_improvement_inner (per-pass convergence) 0.0 // min_improvement_outer (cross-level convergence) ); // Q = 0.42, cluster_map = {0,0,0, 1,1,1} As it happens often with heuristics, there is a large number of quality functions out there, and this is not because of a lack of consensus: in a 2002 paper, computer scientist Jon Kleinberg proved that no clustering quality function (Modularity, Goldberg density, Surprise…) can simultaneously be: scale-invariant (doubling all edges should not change the clusters), rich (all partitions should be achievable), consistent (shortening distances inside a cluster and expanding distances between clusters should lead to similar results). In other words, there is no way to implement a single function hoping it would exhibit three basic properties we would genuinely expect. All we can do is to explore different trade-offs using different quality functions. So I left some doors open to be able to inject an arbitrary quality function. If this function exposes a minimal, “naive” interface, the algorithm will statically use a slow but generic path, and iterate across all the edges of the graph to compute the quality. It is slow, yes, but it makes the study of qualities easier, as one does not have to figure out the local mathematical decomposition of the function to get started with coding: struct my_quality { template &lt;typename G, typename CMap, typename WMap&gt; typename boost::property_traits&lt;WMap&gt;::value_type quality(const G&amp; g, const CMap&amp; c, const WMap&amp; w) { // your custom partition quality function } }; double Q = boost::louvain_clustering(g, cluster_map, weight_map, gen, my_quality{}); However, the Louvain algorithm is extremely popular because it is fast, as it is able to update the quality computational state for each vertex it tries to “insert” or “remove” from a neighboring putative community. This locality decomposition has to be figured out mathematically for each quality function, so it’s not trivial. I defined a GraphPartitionQualityFunctionIncrementalConcept that refines the GraphPartitionQualityFunctionConcept : if the algorithm detects that the injected quality function exposes an interface for this incremental update, the fast path is taken. One thing I figured out is that the GraphPartitionQualityFunctionIncrementalConcept is for now too specific to the Modularity family. I am currently working on a proposal to increase its scope in future work. The current PR has been carefully tested and benchmarked for correctness and performance, and validated by Jeremy to be merged on develop branch. I wrote a paper to be submitted to the Journal of Open Source Software to publish the current results and benchmarks, as we are at least as fast as our competitors, and more generic. There is no equivalent I am aware of. Making Community Concurrently, I worked on summoning the Boost.Graph user base, and it quickly became clear a small local workshop would be a tremendous start: the Louvain algorithm community is based in Louvain (Belgium), its extension was formulated in Leiden (Netherlands) and my PhD graphs network is based in Paris (France) in what has been presented to me as “the Temple of the Stochastic Block Model” ! Quite a sign: life finds ways to run in (tight) circles. So the goal of this workshop is to bring together a small group (10-15 people) of researchers, open-source implementers, and industrial users for a day of honest conversation on May 6th 2026. Three questions will anchor the discussions: What types of graphs and data structures do you use in practice? What performance, scalability, and interpretability requirements matter most to you? What algorithms are missing today that Boost.Graph could offer? Ray and Collier from the C++ Alliance will also be there to record the lightning talks and document the process. It would also be the occasion to show off the python-based animations I put together for the French C++ User Group presentation on March 24th. Those had a nice success and received many compliments, as it pairs well with the visual and dynamic nature of graphs and their algorithms, and I hope it will contribute to the repopularization of Boost.Graph. Graphliiings asseeeeemble !" />
+<link rel="canonical" href="http://cppalliance.org/arnaud/2026/04/08/Arnaud2026Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/arnaud/2026/04/08/Arnaud2026Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-08T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Joining Community, Detecting Communities, Making Community." />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Joining Community Early in Q1 2026, I joined the C++ Alliance. A very exciting moment. So I began to work early January under Joaquin’s mentorship, with the idea of having a clear contribution to Boost Graph by the end of Q1. After a few days of auditing the current state of the library versus the literature, it became clear that community detection methods (aka graph clustering algorithms) were sorely lacking for Boost.Graph, and that implementing one would be a great start to revitalizing the library and fill up maybe the largest methodological gap in its current algorithmic coverage. Detecting Communities The vision was (and still is) simple: i) begin to implement Louvain algorithm, ii) build upon it to extend to the more complex Leiden algorithm, iii) finally get started with the Stochastic Block Model. If the plan is straightforward, the Louvain literature is not, and the BGL abstractions even less. But under the review and guidance from Joaquin and Jeremy Murphy (maintainer of the BGL), I was able to put up a satisfying implementation: Using the Newman-Girvan Modularity as the quality function to optimize, one can simply call: double Q = boost::louvain_clustering( g, cluster_map, weight_map, gen, boost::newman_and_girvan{}, // quality function (default) 1e-7, // min_improvement_inner (per-pass convergence) 0.0 // min_improvement_outer (cross-level convergence) ); // Q = 0.42, cluster_map = {0,0,0, 1,1,1} As it happens often with heuristics, there is a large number of quality functions out there, and this is not because of a lack of consensus: in a 2002 paper, computer scientist Jon Kleinberg proved that no clustering quality function (Modularity, Goldberg density, Surprise…) can simultaneously be: scale-invariant (doubling all edges should not change the clusters), rich (all partitions should be achievable), consistent (shortening distances inside a cluster and expanding distances between clusters should lead to similar results). In other words, there is no way to implement a single function hoping it would exhibit three basic properties we would genuinely expect. All we can do is to explore different trade-offs using different quality functions. So I left some doors open to be able to inject an arbitrary quality function. If this function exposes a minimal, “naive” interface, the algorithm will statically use a slow but generic path, and iterate across all the edges of the graph to compute the quality. It is slow, yes, but it makes the study of qualities easier, as one does not have to figure out the local mathematical decomposition of the function to get started with coding: struct my_quality { template &lt;typename G, typename CMap, typename WMap&gt; typename boost::property_traits&lt;WMap&gt;::value_type quality(const G&amp; g, const CMap&amp; c, const WMap&amp; w) { // your custom partition quality function } }; double Q = boost::louvain_clustering(g, cluster_map, weight_map, gen, my_quality{}); However, the Louvain algorithm is extremely popular because it is fast, as it is able to update the quality computational state for each vertex it tries to “insert” or “remove” from a neighboring putative community. This locality decomposition has to be figured out mathematically for each quality function, so it’s not trivial. I defined a GraphPartitionQualityFunctionIncrementalConcept that refines the GraphPartitionQualityFunctionConcept : if the algorithm detects that the injected quality function exposes an interface for this incremental update, the fast path is taken. One thing I figured out is that the GraphPartitionQualityFunctionIncrementalConcept is for now too specific to the Modularity family. I am currently working on a proposal to increase its scope in future work. The current PR has been carefully tested and benchmarked for correctness and performance, and validated by Jeremy to be merged on develop branch. I wrote a paper to be submitted to the Journal of Open Source Software to publish the current results and benchmarks, as we are at least as fast as our competitors, and more generic. There is no equivalent I am aware of. Making Community Concurrently, I worked on summoning the Boost.Graph user base, and it quickly became clear a small local workshop would be a tremendous start: the Louvain algorithm community is based in Louvain (Belgium), its extension was formulated in Leiden (Netherlands) and my PhD graphs network is based in Paris (France) in what has been presented to me as “the Temple of the Stochastic Block Model” ! Quite a sign: life finds ways to run in (tight) circles. So the goal of this workshop is to bring together a small group (10-15 people) of researchers, open-source implementers, and industrial users for a day of honest conversation on May 6th 2026. Three questions will anchor the discussions: What types of graphs and data structures do you use in practice? What performance, scalability, and interpretability requirements matter most to you? What algorithms are missing today that Boost.Graph could offer? Ray and Collier from the C++ Alliance will also be there to record the lightning talks and document the process. It would also be the occasion to show off the python-based animations I put together for the French C++ User Group presentation on March 24th. Those had a nice success and received many compliments, as it pairs well with the visual and dynamic nature of graphs and their algorithms, and I hope it will contribute to the repopularization of Boost.Graph. Graphliiings asseeeeemble !","@type":"BlogPosting","url":"http://cppalliance.org/arnaud/2026/04/08/Arnaud2026Q1Update.html","headline":"Joining Community, Detecting Communities, Making Community.","dateModified":"2026-04-08T00:00:00+00:00","datePublished":"2026-04-08T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/arnaud/2026/04/08/Arnaud2026Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Joining Community, Detecting Communities, Making Community.</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/arnaud">
+              <img class='author-img' src='/images/people/arnaud.jpg' alt='Portrait of Arnaud Becheler' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/arnaud">
+                  Arnaud Becheler
+                </a> &middot; Apr 8, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h2 id="joining-community">Joining Community</h2>
+
+<p>Early in Q1 2026, I joined the C++ Alliance. A very exciting moment.</p>
+
+<p>So I began to work early January under Joaquin’s mentorship, with the idea of having a clear contribution to Boost Graph by the end of Q1. 
+After a few days of auditing the current state of the library versus the literature, it became clear that community detection methods 
+(aka graph clustering algorithms) were sorely lacking for Boost.Graph, and that implementing one would be a great start 
+to revitalizing the library and fill up maybe the largest methodological gap in its current algorithmic coverage.</p>
+
+<h2 id="detecting-communities">Detecting Communities</h2>
+
+<p>The vision was (and still is) simple: i) begin 
+to implement Louvain algorithm, ii) build upon it to extend to the more complex Leiden algorithm, iii) finally get 
+started with the Stochastic Block Model.</p>
+
+<p>If the plan is straightforward, the Louvain literature is not, and the BGL abstractions even less. 
+But under the review and guidance from Joaquin and Jeremy Murphy (maintainer of the BGL), I was able to put up a satisfying implementation:</p>
+
+<p>Using the Newman-Girvan Modularity as the quality function to optimize, one can simply call:</p>
+
+<pre><code class="language-cpp">double Q = boost::louvain_clustering(
+    g, cluster_map, weight_map, gen,
+    boost::newman_and_girvan{},  // quality function (default)
+    1e-7,                        // min_improvement_inner (per-pass convergence)
+    0.0                          // min_improvement_outer (cross-level convergence)
+);
+// Q = 0.42, cluster_map = {0,0,0, 1,1,1}
+</code></pre>
+
+<p>As it happens often with heuristics, there is a large number of quality functions out there, and this is not 
+because of a lack of consensus: in <a href="https://www.cs.cornell.edu/home/kleinber/nips15.pdf">a 2002 paper</a>, 
+computer scientist Jon Kleinberg proved that no clustering quality function 
+(Modularity, Goldberg density, Surprise…) can simultaneously be:</p>
+<ol>
+  <li>scale-invariant (doubling all edges should not change the clusters),</li>
+  <li>rich (all partitions should be achievable),</li>
+  <li>consistent (shortening distances inside a cluster and expanding distances between clusters should lead to similar results).</li>
+</ol>
+
+<p>In other words, there is no way to implement a single function hoping it would exhibit three basic properties we would genuinely expect.
+All we can do is to explore different trade-offs using different quality functions.</p>
+
+<p>So I left some doors open to be able to inject an arbitrary quality function. 
+If this function exposes a minimal, “naive” interface, the algorithm will statically use a 
+slow but generic path, and iterate across all the edges of the graph to compute the quality. 
+It is slow, yes, but it makes the study of qualities easier, as one does not have to figure out 
+the local mathematical decomposition of the function to get started with coding:</p>
+
+<pre><code class="language-cpp">struct my_quality {
+    template &lt;typename G, typename CMap, typename WMap&gt;
+    typename boost::property_traits&lt;WMap&gt;::value_type
+    quality(const G&amp; g, const CMap&amp; c, const WMap&amp; w) {
+        // your custom partition quality function
+    }
+};
+
+double Q = boost::louvain_clustering(g, cluster_map, weight_map, gen, my_quality{});
+</code></pre>
+
+<p>However, the Louvain algorithm is extremely popular because it is fast, as it is able to update the 
+quality computational state for each vertex it tries to “insert” or “remove” from a neighboring putative community. 
+This <em>locality</em> decomposition has to be figured out mathematically for each quality function, so it’s not trivial.</p>
+
+<p>I defined a <code>GraphPartitionQualityFunctionIncrementalConcept</code> that refines the <code>GraphPartitionQualityFunctionConcept</code> : 
+if the algorithm detects that the injected quality function exposes an interface for this incremental update, 
+the fast path is taken. One thing I figured out is that the <code>GraphPartitionQualityFunctionIncrementalConcept</code> is for now too specific 
+to the Modularity family. I am currently working on a proposal to increase its scope in future work.</p>
+
+<p>The current PR has been carefully tested and benchmarked for correctness and performance, and validated by 
+Jeremy to be merged on develop branch.</p>
+
+<p>I wrote a paper to be submitted to the Journal of Open Source Software to publish the current results and benchmarks, 
+as we are at least as fast as our competitors, and more generic. There is no equivalent I am aware of.</p>
+
+<h2 id="making-community">Making Community</h2>
+
+<p>Concurrently, I worked on summoning the Boost.Graph user base, and it quickly became clear a small local workshop would 
+be a tremendous start: the Louvain algorithm community is based in Louvain (Belgium), its extension was 
+formulated in Leiden (Netherlands) and my PhD graphs network is based in Paris (France) in what has been presented to me 
+as “the Temple of the Stochastic Block Model” ! Quite a sign: life finds ways to run in (tight) circles.</p>
+
+<p>So the goal of this <a href="https://github.com/boostorg/graph/discussions/466">workshop</a> is to bring together a small group 
+(10-15 people) of researchers, open-source implementers, and industrial users for 
+a day of honest conversation on May 6th 2026. Three questions will anchor the discussions:</p>
+<ol>
+  <li>What types of graphs and data structures do you use in practice?</li>
+  <li>What performance, scalability, and interpretability requirements matter most to you?</li>
+  <li>What algorithms are missing today that Boost.Graph could offer?</li>
+</ol>
+
+<p>Ray and Collier from the C++ Alliance will also be there to record the lightning talks and document the process. 
+It would also be the occasion to show off the python-based animations I put together for the <a href="https://www.youtube.com/watch?v=-OVvzRFiYLU">French C++ User Group 
+presentation on March 24th</a>. 
+Those had a nice success and received many compliments, as it pairs well with the visual and 
+dynamic nature of graphs and their algorithms, and I hope it will contribute 
+to the repopularization of Boost.Graph.</p>
+
+<p>Graphliiings asseeeeemble !</p>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2026</span>
+          <a class='text-l news-title link' href="/arnaud/2026/04/08/Arnaud2026Q1Update.html">Joining Community, Detecting Communities, Making Community.</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>

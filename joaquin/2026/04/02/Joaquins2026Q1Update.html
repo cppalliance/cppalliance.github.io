@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hubs, intervals and math | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Hubs, intervals and math | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Hubs, intervals and math" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q1 2026, I’ve been working in the following areas: boost::container::hub boost::container::hub is a nearly drop-in replacement of C++26 std::hive sporting a simpler data structure and providing competitive performance with respect to the de facto reference implementation plf::hive. When I first read about std::hive, I couldn’t help thinking how complex the internal design of the container is, and wondered if something leaner could in fact be more effective. boost::container::hub critically relies on two realizations: Identification of empty slots by way of std::countr_zero operations on a bitmask is extremely fast. Modern allocators are very fast, too: boost::container::hub does many more allocations than plf::hive, but this doesn’t degrade its performance significantly (although it affects cache locality). boost::container::hub is formally proposed for inclusion in Boost.Container and will be officially reviewed April 16-26. Ion Gaztañaga serves as the review manager. using std::cpp 2026 I gave my talk “The Mathematical Mind of a C++ Programmer” at the using std::cpp 2026 conference taking place in Madrid during March 16-19. I had a lot of fun preparing the presentation and delivering the actual talk, and some interesting discussions were had around it. This is a subject I’ve been wanting to talk about for decades, so I’m somewhat relieved I finally got it over with this year. Always happy to discuss C++ and math, so if you have feedback or want to continue the conversation, please reach out to me. Boost.Unordered Written maintenance fixes PR#328, PR#335, PR#336, PR#337, PR#339, PR#344, PR#345. Some of these fixes are related to Node.js vulnerabilities in the Antora setup used for doc building: as the number of Boost libraries using Antora is bound to grow, maybe we should think of an automated way to get these vulnerabilities automatically fixed for the whole project. Reviewed and merged PR#317, PR#332, PR#334, PR#341, PR#342. Many thanks to Sam Darwin, Braden Ganetsky and Andrey Semashev for their contributions. Boost.Bimap Merged PR#31 (std::initializer_list constructor) and provided testing and documentation for this new feature (PR#54). The original PR was silently sitting on the queue for more than four years and it was only when it was brought to my attention in a Reddit conversation that I got to take a look at it. Boost.Bimap needs an active mantainer, I guess I could become this person. Boost.ICL Recent changes in libc++ v22 code for associative container lookup have resulted in the breakage of Boost.ICL. My understanding is that the changes in libc++ are not standards conformant, and there’s an ongoing discussion on that; in the meantime, I wrote and proposed a PR to Boost.ICL that fixes the problem (pending acceptance). Support to the community I’ve been helping a bit with Mark Cooper’s very successful Boost Blueprint series on X. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC)." />
+<meta property="og:description" content="During Q1 2026, I’ve been working in the following areas: boost::container::hub boost::container::hub is a nearly drop-in replacement of C++26 std::hive sporting a simpler data structure and providing competitive performance with respect to the de facto reference implementation plf::hive. When I first read about std::hive, I couldn’t help thinking how complex the internal design of the container is, and wondered if something leaner could in fact be more effective. boost::container::hub critically relies on two realizations: Identification of empty slots by way of std::countr_zero operations on a bitmask is extremely fast. Modern allocators are very fast, too: boost::container::hub does many more allocations than plf::hive, but this doesn’t degrade its performance significantly (although it affects cache locality). boost::container::hub is formally proposed for inclusion in Boost.Container and will be officially reviewed April 16-26. Ion Gaztañaga serves as the review manager. using std::cpp 2026 I gave my talk “The Mathematical Mind of a C++ Programmer” at the using std::cpp 2026 conference taking place in Madrid during March 16-19. I had a lot of fun preparing the presentation and delivering the actual talk, and some interesting discussions were had around it. This is a subject I’ve been wanting to talk about for decades, so I’m somewhat relieved I finally got it over with this year. Always happy to discuss C++ and math, so if you have feedback or want to continue the conversation, please reach out to me. Boost.Unordered Written maintenance fixes PR#328, PR#335, PR#336, PR#337, PR#339, PR#344, PR#345. Some of these fixes are related to Node.js vulnerabilities in the Antora setup used for doc building: as the number of Boost libraries using Antora is bound to grow, maybe we should think of an automated way to get these vulnerabilities automatically fixed for the whole project. Reviewed and merged PR#317, PR#332, PR#334, PR#341, PR#342. Many thanks to Sam Darwin, Braden Ganetsky and Andrey Semashev for their contributions. Boost.Bimap Merged PR#31 (std::initializer_list constructor) and provided testing and documentation for this new feature (PR#54). The original PR was silently sitting on the queue for more than four years and it was only when it was brought to my attention in a Reddit conversation that I got to take a look at it. Boost.Bimap needs an active mantainer, I guess I could become this person. Boost.ICL Recent changes in libc++ v22 code for associative container lookup have resulted in the breakage of Boost.ICL. My understanding is that the changes in libc++ are not standards conformant, and there’s an ongoing discussion on that; in the meantime, I wrote and proposed a PR to Boost.ICL that fixes the problem (pending acceptance). Support to the community I’ve been helping a bit with Mark Cooper’s very successful Boost Blueprint series on X. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC)." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2026/04/02/Joaquins2026Q1Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2026/04/02/Joaquins2026Q1Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-02T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Hubs, intervals and math" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q1 2026, I’ve been working in the following areas: boost::container::hub boost::container::hub is a nearly drop-in replacement of C++26 std::hive sporting a simpler data structure and providing competitive performance with respect to the de facto reference implementation plf::hive. When I first read about std::hive, I couldn’t help thinking how complex the internal design of the container is, and wondered if something leaner could in fact be more effective. boost::container::hub critically relies on two realizations: Identification of empty slots by way of std::countr_zero operations on a bitmask is extremely fast. Modern allocators are very fast, too: boost::container::hub does many more allocations than plf::hive, but this doesn’t degrade its performance significantly (although it affects cache locality). boost::container::hub is formally proposed for inclusion in Boost.Container and will be officially reviewed April 16-26. Ion Gaztañaga serves as the review manager. using std::cpp 2026 I gave my talk “The Mathematical Mind of a C++ Programmer” at the using std::cpp 2026 conference taking place in Madrid during March 16-19. I had a lot of fun preparing the presentation and delivering the actual talk, and some interesting discussions were had around it. This is a subject I’ve been wanting to talk about for decades, so I’m somewhat relieved I finally got it over with this year. Always happy to discuss C++ and math, so if you have feedback or want to continue the conversation, please reach out to me. Boost.Unordered Written maintenance fixes PR#328, PR#335, PR#336, PR#337, PR#339, PR#344, PR#345. Some of these fixes are related to Node.js vulnerabilities in the Antora setup used for doc building: as the number of Boost libraries using Antora is bound to grow, maybe we should think of an automated way to get these vulnerabilities automatically fixed for the whole project. Reviewed and merged PR#317, PR#332, PR#334, PR#341, PR#342. Many thanks to Sam Darwin, Braden Ganetsky and Andrey Semashev for their contributions. Boost.Bimap Merged PR#31 (std::initializer_list constructor) and provided testing and documentation for this new feature (PR#54). The original PR was silently sitting on the queue for more than four years and it was only when it was brought to my attention in a Reddit conversation that I got to take a look at it. Boost.Bimap needs an active mantainer, I guess I could become this person. Boost.ICL Recent changes in libc++ v22 code for associative container lookup have resulted in the breakage of Boost.ICL. My understanding is that the changes in libc++ are not standards conformant, and there’s an ongoing discussion on that; in the meantime, I wrote and proposed a PR to Boost.ICL that fixes the problem (pending acceptance). Support to the community I’ve been helping a bit with Mark Cooper’s very successful Boost Blueprint series on X. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2026/04/02/Joaquins2026Q1Update.html","headline":"Hubs, intervals and math","dateModified":"2026-04-02T00:00:00+00:00","datePublished":"2026-04-02T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2026/04/02/Joaquins2026Q1Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Hubs, intervals and math</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/joaquin">
+              <img class='author-img' src='/images/people/joaquin.jpg' alt='Portrait of Joaquín M López Muñoz' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> &middot; Apr 2, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q1 2026, I’ve been working in the following areas:</p>
+
+<h3 id="boostcontainerhub"><code>boost::container::hub</code></h3>
+
+<p><a href="https://github.com/joaquintides/hub"><code>boost::container::hub</code></a> is a nearly drop-in replacement of
+C++26 <a href="https://eel.is/c++draft/sequences#hive"><code>std::hive</code></a> sporting a simpler data structure and
+providing competitive performance with respect to the de facto reference implementation
+<a href="https://github.com/mattreecebentley/plf_hive"><code>plf::hive</code></a>. When I first read about <code>std::hive</code>,
+I couldn’t help thinking how complex the internal design of the container is, and wondered
+if something leaner could in fact be more effective. <code>boost::container::hub</code> critically relies
+on two realizations:</p>
+
+<ul>
+  <li>Identification of empty slots by way of <a href="https://en.cppreference.com/w/cpp/numeric/countr_zero.html"><code>std::countr_zero</code></a>
+operations on a bitmask is extremely fast.</li>
+  <li>Modern allocators are very fast, too: <code>boost::container::hub</code> does many more allocations
+than <code>plf::hive</code>, but this doesn’t degrade its performance significantly (although it affects
+cache locality).</li>
+</ul>
+
+<p><code>boost::container::hub</code> is formally proposed for inclusion in Boost.Container and will be
+officially reviewed April 16-26. Ion Gaztañaga serves as the review manager.</p>
+
+<h3 id="using-stdcpp-2026">using std::cpp 2026</h3>
+
+<p>I gave my talk <a href="https://github.com/joaquintides/usingstdcpp2026">“The Mathematical Mind of a C++ Programmer”</a>
+at the <a href="https://eventos.uc3m.es/141471/detail/using-std-cpp-2026.html">using std::cpp 2026</a> conference
+taking place in Madrid during March 16-19. I had a lot of fun preparing the presentation and
+delivering the actual talk, and some interesting discussions  were had around it.
+This is a subject I’ve been wanting to talk about for decades, so I’m somewhat relieved I finally
+got it over with this year. Always happy to discuss C++ and math, so if you have feedback
+or want to continue the conversation, please reach out to me.</p>
+
+<h3 id="boostunordered">Boost.Unordered</h3>
+
+<ul>
+  <li>Written maintenance fixes
+<a href="https://github.com/boostorg/unordered/pull/328">PR#328</a>,
+<a href="https://github.com/boostorg/unordered/pull/335">PR#335</a>,
+<a href="https://github.com/boostorg/unordered/pull/336">PR#336</a>,
+<a href="https://github.com/boostorg/unordered/pull/337">PR#337</a>,
+<a href="https://github.com/boostorg/unordered/pull/339">PR#339</a>,
+<a href="https://github.com/boostorg/unordered/pull/344">PR#344</a>,
+<a href="https://github.com/boostorg/unordered/pull/345">PR#345</a>. Some of these fixes are related
+to Node.js vulnerabilities in the Antora setup used for doc building: as the number
+of Boost libraries using Antora is bound to grow, maybe we should think of an automated
+way to get these vulnerabilities automatically fixed for the whole project.</li>
+  <li>Reviewed and merged
+<a href="https://github.com/boostorg/unordered/pull/317">PR#317</a>,
+<a href="https://github.com/boostorg/unordered/pull/332">PR#332</a>,
+<a href="https://github.com/boostorg/unordered/pull/334">PR#334</a>,
+<a href="https://github.com/boostorg/unordered/pull/341">PR#341</a>,
+<a href="https://github.com/boostorg/unordered/pull/342">PR#342</a>. Many thanks to
+Sam Darwin, Braden Ganetsky and Andrey Semashev for their contributions.</li>
+</ul>
+
+<h3 id="boostbimap">Boost.Bimap</h3>
+
+<p>Merged
+<a href="https://github.com/boostorg/bimap/pull/31">PR#31</a> (<code>std::initializer_list</code>
+constructor) and provided testing and documentation for this new
+feature (<a href="https://github.com/boostorg/bimap/pull/54">PR#54</a>). The original
+PR was silently sitting on the queue for more than four years and it
+was only when it was brought to my attention in a Reddit conversation that
+I got to take a look at it. Boost.Bimap needs an active mantainer,
+I guess I could become this person.</p>
+
+<h3 id="boosticl">Boost.ICL</h3>
+
+<p><a href="https://github.com/llvm/llvm-project/pull/161366">Recent changes</a> in libc++ v22
+code for associative container lookup have resulted in the 
+<a href="https://github.com/boostorg/icl/issues/51">breakage of Boost.ICL</a>. 
+My understanding is that the changes in libc++ are not
+standards conformant, and there’s an <a href="https://github.com/llvm/llvm-project/issues/187667">ongoing discussion</a>
+on that; in the meantime, I wrote and proposed a <a href="https://github.com/boostorg/icl/pull/54">PR</a>
+to Boost.ICL that fixes the problem (pending acceptance).</p>
+
+<h3 id="support-to-the-community">Support to the community</h3>
+
+<ul>
+  <li>I’ve been helping a bit with Mark Cooper’s very successful
+<a href="https://x.com/search?q=%22Boost%20Blueprint%22&amp;src=typed_query&amp;f=live">Boost Blueprint</a>
+series on X.</li>
+  <li>Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).</li>
+</ul>
+
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/02/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/04/02/Joaquins2026Q1Update.html">Hubs, intervals and math</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/18/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/01/18/Joaquins2025Q4Update.html">Containers galore</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>
