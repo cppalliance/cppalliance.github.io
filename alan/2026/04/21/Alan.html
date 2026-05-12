@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boost.URL: Audited, Constexpr, and Polished | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Boost.URL: Audited, Constexpr, and Polished | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Boost.URL: Audited, Constexpr, and Polished" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="We had been putting off the Boost.URL security review for a while. There was always something more urgent. When the review finally happened, it confirmed what we hoped: the core parsing logic held up well. Around the same time, a constexpr feature request that we had been dismissing suddenly became a cross-library collaboration when other Boost maintainers started applying changes to their own libraries. And while working on Boost.Beast2 integration, we noticed friction in common URL operations that led us to clear a backlog of usability improvements. Security Review Round 1: 1,207 Findings (February 2, 2026) Round 2: 27 Findings (February 17, 2026) Round 3: 15 Findings (April 2, 2026) Compile-Time URL Parsing The Conversation That Changed Everything Error Handling at Compile Time The -Wmaybe-uninitialized Problem The Shared Library Problem The Result Usability Improvements Convenience Functions C++20 Integration Performance Acknowledgments and Reflections Security Review The C++ Alliance arranges professional security audits for the libraries we maintain. The results for Boost.Beast (2020) and Boost.JSON (2021) are publicly available. For Boost.URL, we always had the plan but kept delaying because there was so much other work to do first. That delay turned out to be a good thing: we found and fixed issues ourselves first, so the reviewers could focus on the subtle problems. Laurel Lye Systems Engineering conducted three rounds of assessment. Each finding was manually reviewed against the source code and categorized as a confirmed bug (fixed), a false positive, or a deliberate design choice. For every confirmed bug, we also proposed new test cases to prevent regressions. Round 1: 1,207 Findings (February 2, 2026) The first assessment was the broadest. Of 1,207 findings, 15 were confirmed bugs resulting in fix commits. The vast majority were false positives or by-design patterns: Verdict CRITICAL HIGH MEDIUM LOW INFO Total FIXED 1 9 0 2 3 15 FALSE POSITIVE 3 47 46 186 110 392 BY DESIGN 0 129 445 170 56 800 Total 4 185 491 358 169 1,207 The single CRITICAL fix was a loop condition in url_base that dereferenced *it before checking it != end. Three other CRITICAL findings were false positives: the audit flagged raw-pointer writes in the format engine, but these use a two-phase measure/format design that guarantees the buffer is pre-sized correctly. Most false positives fell into recognizable themes: BOOST_ASSERT as sole bounds check (29 HIGH findings): internal _unsafe functions rely on preconditions validated by the public API. The _unsafe suffix signals the contract. This is the standard Boost/STL pattern (std::vector::operator[] vs at()). Non-owning view lifetime safety (27 HIGH findings): string_view and url_view types do not own their data. The audit flagged potential use-after-free, but lifetime management is the caller’s responsibility by design. Atomic reference counting (multiple findings across all rounds): the audit tool did not recognize the #ifdef BOOST_URL_DISABLE_THREADS guard that switches between std::atomic&lt;std::size_t&gt; and plain std::size_t. Round 1 fix commits bcdc891 CRITICAL: url_base loop condition order ec15fce HIGH: encode() UB pointer arithmetic for small buffers 81fcb95 HIGH: LLONG_MIN negation UB in format 42c8fe7 HIGH: ci_less::operator() return type 76279f5 HIGH: incorrect noexcept in segments_base::front() and back() d4ae92d HIGH: recycled_ptr::get() nullptr when empty 8d98fe6 LOW: decode() noexcept on throwing template The proportion of false positives to confirmed bugs was large enough that we discussed a second round with Laurel Lye, where we shared the false positive categories we had identified so they could be more targeted. Round 2: 27 Findings (February 17, 2026) The second assessment was more targeted. The reviewers had learned from our Round 1 triage and produced fewer false positives: Verdict HIGH MEDIUM LOW INFO Total FIXED 7 3 1 1 12 FALSE POSITIVE 2 2 0 0 4 BY DESIGN 0 0 1 1 2 ALREADY FIXED 0 5 4 0 9 Total 9 10 6 2 27 9 of the 27 findings had already been fixed in Round 1 commits. The new confirmed bugs included a heap overflow in format center-alignment padding (lpad = w / 2 used total width instead of padding amount), an infinite loop in decode_view::ends_with with empty strings, and an OOB read in ci_is_less on mismatched-length strings. Both rounds are tracked in PR #982. Round 2 fix commits d06df88 HIGH: format center-alignment padding 4fe2438 HIGH: decode_view::ends_with with empty string f5727ed HIGH: stale pattern n.path after colon-encoding d045d71 HIGH: ci_is_less OOB read 88efbae HIGH: recycled_ptr copy self-assignment fe4bdf6 MEDIUM: url move self-assignment ab5d812 MEDIUM: encode_one signed char right-shift b662a8f MEDIUM: encode() noexcept on throwing template 5bc52ed LOW: port_rule has_number for port zero at end of input 9c9850f INFO: ci_equal arguments by const reference 4f466ce test: public interface boundary and fuzz tests Round 3: 15 Findings (April 2, 2026) The third round was the shortest and the most precise. Of 15 findings, 4 were confirmed bugs and 11 were false positives. No CRITICAL findings. The false positives were the same recurring themes (atomic refcounting, pre-validated format strings, preconditions guaranteed by callers). Verdict HIGH MEDIUM LOW Total FIXED 0 1 3 4 FALSE POSITIVE 4 6 1 11 Total 4 7 4 15 The confirmed bugs were more subtle: a decoded-length calculation error in segments_iter_impl::decrement() that only manifested during backward iteration over percent-encoded paths, two noexcept specifications on functions that allocate std::string (which can throw bad_alloc), and a memcpy with null source when size is zero (undefined behavior per the C standard, even though it copies nothing). This round is tracked in PR #988. Round 3 fix commits 3ca2d71 MEDIUM: segments_iter_impl decoded-length in decrement() b1f6f8e LOW: param noexcept on throwing constructor d42c748 LOW: string_view_base noexcept on throwing operator std::string() f963383 LOW: url_view memcpy with null source when size is zero The progression from 1,207 findings to 27 to 15 shows the reviewers learning the peculiarities of our codebase. The ratio of false positives dropped with each round, and the confirmed bugs got more subtle. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Confirmed Bugs)) UB in edge cases encode_one right-shift LLONG_MIN negation pointer arithmetic Self-assignment url move recycled_ptr copy OOB reads ci_is_less decode_view ends_with Incorrect noexcept encode / decode segments_base front/back param constructor string_view_base operator Iterator bugs segments decoded-length Null pointer recycled_ptr get url_view memcpy Compile-Time URL Parsing constexpr URL parsing has been one of the most recurring requests since the library’s inception. Every few months someone would ask about it, and every few months we would decide the refactoring cost was too high. The parsing engine is heavily buffer-oriented, and moving enough code into headers for constexpr evaluation required careful refactoring without breaking the shared library build. When we finally prototyped it, the diff touched thousands of lines, but most of those were code being moved from source files to headers rather than new logic. The actual new code was limited to alternative code paths to bypass non-literal types and refactoring url_view_base to eliminate a self-referencing pointer that prevented constexpr evaluation. Still, given the size of the change, we initially marked it as unactionable and moved on to the security review. Beyond the refactoring cost, we had blockers beyond our control. Our parsing code depended on boost::optional (not a literal type, no constexpr constructors), boost::variant2 (not literal when containing optional), and boost::system::result (could not be constructed with a custom error_code in constexpr because error_category::failed() is virtual). Without changes to those libraries, constexpr URL parsing was not possible regardless of how much we refactored our own code. The Conversation That Changed Everything Then Peter Dimov, the maintainer of Boost.System and Boost.Variant2, joined the conversation. We had assumed that system::result&lt;T&gt; could not be constexpr in C++14 because it wraps error_code, which uses virtual functions. Peter pointed out that system::result&lt;T&gt; is already a literal type in C++14 when T is literal and the error code is not custom. Boost.URL uses a custom error code category, and constructing a result from a custom error_code requires calling error_category::failed(), which is virtual and therefore not constexpr before C++20. Peter offered to fix this in Boost.System (#141, af53f17) for C++20 so that custom error codes would also work at compile time. Allowing constexpr virtual functions in C++20 Peter Dimov is also one of the authors of P1064: “Allowing Virtual Function Calls in Constant Expressions”, the C++ committee proposal that made constexpr virtual functions possible in C++20. The paper uses error_code and error_category as the motivating example. That shifted the problem. Instead of building our own constexpr_result&lt;T&gt; type to bypass the entire error handling system, we could use system::result directly in C++20. The scope of the refactoring shrank, and we focused on C++20 as the initial target. The remaining blocker was that system::result&lt;T&gt; requires T to be a literal type, and we use boost::optional heavily in our parsing code. boost::optional was not a literal type. Andrzej Krzemieński, the Boost.Optional maintainer, started working on it. The conversation went back and forth on the C++14 constraints: std::addressof is not constexpr until C++17, mandatory copy elision is only available in C++17, and there were questions about what subset of constructors could realistically become constexpr in C++14. After several iterations (including a feature/constexpr branch), the constexpr implementation landed on develop. With optional becoming literal, boost::variant2 containing optional could also become literal. All three blockers were now resolved. Peter had fixed Boost.System, Andrzej had fixed Boost.Optional, and we contributed fixes to Boost.Variant2. There was no going back: we could no longer dismiss the constexpr feature after three library maintainers had already done their part. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% flowchart TD A[Boost.URL constexpr parsing] --&gt; B[Boost.Optional] A --&gt; C[Boost.Variant2] A --&gt; D[Boost.System] B --&gt; E[boost::optional constexpr] C --&gt; F[boost::variant2::variant constexpr] D --&gt; G[boost::system::result constexpr] D --&gt; H[boost::system::error_code constexpr] Cross-library commits for constexpr support Boost.URL (PR #976, PR #981) 0a2c39f feat: constexpr URL parsing for C++20 b9db439 build: remove -Wno-maybe-uninitialized from GCC flags (see below) 59b4540 fix: suppress GCC false-positive -Wmaybe-uninitialized in tuple_rule (see below) Boost.Optional (issue #143, PR #145) 3df2337 make optional constexpr in C++14 046357c add more robust constexpr support 88e2378 add -Wmaybe-uninitialized pragma (see below) Boost.Variant2 (PR #57) b6ce8ac add missing -Wmaybe-uninitialized pragma (see below) Boost.System (issue #141) af53f17 add constexpr to virtual functions on C++20 or later Error Handling at Compile Time Boost.URL attaches source location information to error codes for better diagnostics at runtime. In a constexpr context, BOOST_CURRENT_LOCATION is not available, so the BOOST_URL_CONSTEXPR_RETURN_EC macro branches on __builtin_is_constant_evaluated(): at compile time it returns the error enum directly, at runtime it attaches the source location. #if defined(BOOST_URL_HAS_CXX20_CONSTEXPR) # define BOOST_URL_CONSTEXPR_RETURN_EC(ev) \ do { \ if (__builtin_is_constant_evaluated()) { \ return (ev); \ } \ return [](auto e) { \ BOOST_URL_RETURN_EC(e); \ }(ev); \ } while(0) #endif The -Wmaybe-uninitialized Problem GCC’s -Wmaybe-uninitialized flagged code inside boost::optional and boost::variant2 union storage constructors. The root cause was neither library. The inlining chain: Boost.URL’s parsing code constructs a variant2::variant that contains an optional alternative. At -O3, GCC inlines the entire chain: Parse function Variant construction variant2 storage optional storage Union constructor After inlining, GCC sees a union with a dummy_ member and a value_ member, and it cannot prove which member is active. It conflates the “uninitialized dummy” path with the “initialized value” path. The in_place_index_t&lt;I&gt; dispatch guarantees which member is initialized, but GCC’s data flow analysis loses track across the nested layers. -fsanitize=address makes it worse by changing inlining thresholds. The compiler blames the wrong library. The root cause is in variant2’s union storage, but when variant2 contains an optional, GCC reports the warning in optional’s code. The pragma has to go where GCC reports it, not where the issue originates. We contributed pragmas to both Boost.Optional and Boost.Variant2, and replaced Boost.URL’s blanket -Wno-maybe-uninitialized flag with targeted pragmas. This particular false positive requires GCC 14+, -O3, ASan, on x86_64 Linux, with a variant2::variant containing a boost::optional, constructed through a system::result dereference. Change any one of those conditions and the warning disappears. This leaves an open question for the Boost ecosystem: when a false positive surfaces because library A’s optimizer behavior interacts with library B’s union storage and gets reported in library C’s code, who is responsible for the pragma? For now, we placed pragmas where GCC reports the issue, but the underlying problem recurs every time a new combination of types triggers the same inlining pattern. The Shared Library Problem Making URL parsing constexpr means the parsing functions must be available in headers. But Boost.URL is a compiled library, and on MSVC, __declspec(dllexport) on a class exports all members, including inline and constexpr ones. This causes LNK2005 (duplicate symbol) errors for any class that mixes compiled and header-only members. Each class must follow exactly one of two policies: (a) Fully compiled: class BOOST_URL_DECL C. All members in .cpp files. No inline or constexpr members. (b) Fully header-only: class BOOST_SYMBOL_VISIBLE C. All inline/constexpr/template. No .cpp file. We documented the full rationale in config.hpp. We suspect other C++ libraries have not encountered this because they either do not test shared library builds as extensively as we do, or they are header-only. The Result Boost.URL can now parse URLs at compile time under C++20 (PR #976). All parse functions (parse_uri, parse_uri_reference, parse_relative_ref, parse_absolute_uri, and parse_origin_form) are fully constexpr. A malformed URL literal becomes a compile error rather than a runtime failure: // Parsed and validated at compile time. // A malformed literal would fail to compile. constexpr url_view api_base = parse_uri(&quot;https://api.example.com/v2&quot;).value(); Pre-parsed constexpr URL views also serve as zero-cost constants: because all parsing happens during compilation, components like scheme, host, and port are available at runtime with no parsing overhead. This is useful for applications that compare against well-known endpoints, pre-populate configuration defaults, or build routing tables without paying for string parsing at startup. The constexpr feature taught us that dismissing a request because the cost seems too high for one library misses the bigger picture. Once Peter Dimov and the other maintainers got involved, the cost was shared and the scope shrank. In the Boost ecosystem, a feature that seems expensive in isolation can become practical when the dependencies cooperate. Usability Improvements While integrating Boost.URL into Boost.Beast2, the Beast2 authors noticed friction in common operations that worked correctly but required more code than they should. At the same time, several community issues had been open for a while. We used this as an opportunity to address both. Convenience Functions The most requested feature was get_or for query containers: look up a query parameter by key and return a default value if it is not present. Before: auto it = url.params().find(&quot;page&quot;); auto page = it != url.params().end() ? (*it).value : &quot;1&quot;; After: auto page = url.params().get_or(&quot;page&quot;, &quot;1&quot;); We also added standalone decode functions for working with individual URL components without constructing a full URL object: auto plain = decode(&quot;My%20Stuff&quot;); assert(plain &amp;&amp; *plain == &quot;My Stuff&quot;); auto n = decoded_size(&quot;Program%20Files&quot;); assert(n &amp;&amp; *n == 13); C++20 Integration enable_borrowed_range is now specialized for 10 Boost.URL view types (segments_view, params_view, decode_view, and others). Unlike a std::vector, which owns its data, Boost.URL views point into the URL’s buffer without owning it. When a temporary view is destroyed, its iterators still point to valid memory. enable_borrowed_range tells the compiler this is safe, so algorithms like std::ranges::find can return iterators from temporary views without the compiler rejecting the code: segments_view::iterator it; { segments_view ps(&quot;/path/to/file.txt&quot;); it = ps.begin(); } // iterator is still valid (points to external buffer) assert(*it == &quot;path&quot;); The grammar system gained user-provided RangeRule support. Custom grammar rules for parsing URL components satisfy a concept requiring first() and next() methods returning system::result&lt;value_type&gt;: struct my_range_rule { using value_type = core::string_view; system::result&lt;value_type&gt; first(char const*&amp; it, char const* end) const noexcept; system::result&lt;value_type&gt; next(char const*&amp; it, char const* end) const noexcept; }; The motivation was performance and API clarity (#943). Previously, grammar::range&lt;T&gt; always type-erased the rule through a recycled_ptr with string storage. Stateless rules were paying for storage they did not need. With user-provided RangeRule, range&lt;T, RangeRule&gt; detects empty rules and avoids the type-erasure overhead entirely. Performance Component offsets in url_impl changed from size_t to uint32_t, reducing the size of every URL object on 64-bit platforms. The maximum URL size is capped at UINT32_MAX - 1 (enforced by a static_assert). Constructing a segments_view or segments_encoded_view from a URL is now a constant-time operation: offsets are computed directly from iterator indices without scanning the path. Other improvements Fixes a87998a params_iter_impl::decrement() computed incorrect decoded key/value sizes when a query parameter’s value contains literal = characters (PR #978, #972) 60c281a decode_view::remove_prefix/remove_suffix asserted n &lt;= size() instead of preventing undefined behavior (PR #978, #973) 01e0571 decode_view was forward-declared but not complete when pct_string_view::operator*() was declared (PR #963) cbaf493 parse_query guard for empty string_view inputs from null data (PR #949) 161cf73 example router is now move-only (PR #959) 13f0110 natvis: add visualizers for segments (PR #962) Refactors e809ee4 token_rule_t now uses the empty base optimization via empty_value and provides conditional default construction (PR #964) Documentation 32c3ddc new design rationale page 000476c restore library-detail.adoc with shorter description Legacy QuickBook documentation removed in favor of Antora-based docs 8c7c4c7 plus scheme convention documented 6d396a4 format examples show full URL e4e6644 SVG diagrams with medium brightness backgrounds c93553c simplify SVG documentation images e618e69 avoid shadow warnings while improving param_view docs 4f63aea antora-downloads-extension integration 7f08ce2 update antora extensions 67bcd2d build script sets root dirs 888cd8c MrDocs-generated tagfiles for cross-referencing with other Boost libraries Tests e946887 URL with ? in query string (PR #978, #926) 3228399 URL natvis instantiations Most of these improvements came from real usage. The Beast2 integration exposed friction that we would not have found from inside the library, and the community issues represented patterns that multiple users had independently hit. The best usability feedback comes from people who are actually building something with the library. Acknowledgments and Reflections The constexpr work benefited from the contributions of Peter Dimov (Boost.System, Boost.Variant2) and Andrzej Krzemieński (Boost.Optional), who applied fixes to their libraries so that Boost.URL could proceed. The Beast2 usability feedback came from the Beast2 authors as they integrated Boost.URL into the new design. The work on Boost.URL has shifted. The problems we are solving now (edge cases found by professional auditors, compiler limitations for constexpr, usability friction from real integrations) are different from the problems we used to solve. They are smaller and more specific, but they matter more because real people hit them. The complete set of changes is available in the Boost.URL repository." />
+<meta property="og:description" content="We had been putting off the Boost.URL security review for a while. There was always something more urgent. When the review finally happened, it confirmed what we hoped: the core parsing logic held up well. Around the same time, a constexpr feature request that we had been dismissing suddenly became a cross-library collaboration when other Boost maintainers started applying changes to their own libraries. And while working on Boost.Beast2 integration, we noticed friction in common URL operations that led us to clear a backlog of usability improvements. Security Review Round 1: 1,207 Findings (February 2, 2026) Round 2: 27 Findings (February 17, 2026) Round 3: 15 Findings (April 2, 2026) Compile-Time URL Parsing The Conversation That Changed Everything Error Handling at Compile Time The -Wmaybe-uninitialized Problem The Shared Library Problem The Result Usability Improvements Convenience Functions C++20 Integration Performance Acknowledgments and Reflections Security Review The C++ Alliance arranges professional security audits for the libraries we maintain. The results for Boost.Beast (2020) and Boost.JSON (2021) are publicly available. For Boost.URL, we always had the plan but kept delaying because there was so much other work to do first. That delay turned out to be a good thing: we found and fixed issues ourselves first, so the reviewers could focus on the subtle problems. Laurel Lye Systems Engineering conducted three rounds of assessment. Each finding was manually reviewed against the source code and categorized as a confirmed bug (fixed), a false positive, or a deliberate design choice. For every confirmed bug, we also proposed new test cases to prevent regressions. Round 1: 1,207 Findings (February 2, 2026) The first assessment was the broadest. Of 1,207 findings, 15 were confirmed bugs resulting in fix commits. The vast majority were false positives or by-design patterns: Verdict CRITICAL HIGH MEDIUM LOW INFO Total FIXED 1 9 0 2 3 15 FALSE POSITIVE 3 47 46 186 110 392 BY DESIGN 0 129 445 170 56 800 Total 4 185 491 358 169 1,207 The single CRITICAL fix was a loop condition in url_base that dereferenced *it before checking it != end. Three other CRITICAL findings were false positives: the audit flagged raw-pointer writes in the format engine, but these use a two-phase measure/format design that guarantees the buffer is pre-sized correctly. Most false positives fell into recognizable themes: BOOST_ASSERT as sole bounds check (29 HIGH findings): internal _unsafe functions rely on preconditions validated by the public API. The _unsafe suffix signals the contract. This is the standard Boost/STL pattern (std::vector::operator[] vs at()). Non-owning view lifetime safety (27 HIGH findings): string_view and url_view types do not own their data. The audit flagged potential use-after-free, but lifetime management is the caller’s responsibility by design. Atomic reference counting (multiple findings across all rounds): the audit tool did not recognize the #ifdef BOOST_URL_DISABLE_THREADS guard that switches between std::atomic&lt;std::size_t&gt; and plain std::size_t. Round 1 fix commits bcdc891 CRITICAL: url_base loop condition order ec15fce HIGH: encode() UB pointer arithmetic for small buffers 81fcb95 HIGH: LLONG_MIN negation UB in format 42c8fe7 HIGH: ci_less::operator() return type 76279f5 HIGH: incorrect noexcept in segments_base::front() and back() d4ae92d HIGH: recycled_ptr::get() nullptr when empty 8d98fe6 LOW: decode() noexcept on throwing template The proportion of false positives to confirmed bugs was large enough that we discussed a second round with Laurel Lye, where we shared the false positive categories we had identified so they could be more targeted. Round 2: 27 Findings (February 17, 2026) The second assessment was more targeted. The reviewers had learned from our Round 1 triage and produced fewer false positives: Verdict HIGH MEDIUM LOW INFO Total FIXED 7 3 1 1 12 FALSE POSITIVE 2 2 0 0 4 BY DESIGN 0 0 1 1 2 ALREADY FIXED 0 5 4 0 9 Total 9 10 6 2 27 9 of the 27 findings had already been fixed in Round 1 commits. The new confirmed bugs included a heap overflow in format center-alignment padding (lpad = w / 2 used total width instead of padding amount), an infinite loop in decode_view::ends_with with empty strings, and an OOB read in ci_is_less on mismatched-length strings. Both rounds are tracked in PR #982. Round 2 fix commits d06df88 HIGH: format center-alignment padding 4fe2438 HIGH: decode_view::ends_with with empty string f5727ed HIGH: stale pattern n.path after colon-encoding d045d71 HIGH: ci_is_less OOB read 88efbae HIGH: recycled_ptr copy self-assignment fe4bdf6 MEDIUM: url move self-assignment ab5d812 MEDIUM: encode_one signed char right-shift b662a8f MEDIUM: encode() noexcept on throwing template 5bc52ed LOW: port_rule has_number for port zero at end of input 9c9850f INFO: ci_equal arguments by const reference 4f466ce test: public interface boundary and fuzz tests Round 3: 15 Findings (April 2, 2026) The third round was the shortest and the most precise. Of 15 findings, 4 were confirmed bugs and 11 were false positives. No CRITICAL findings. The false positives were the same recurring themes (atomic refcounting, pre-validated format strings, preconditions guaranteed by callers). Verdict HIGH MEDIUM LOW Total FIXED 0 1 3 4 FALSE POSITIVE 4 6 1 11 Total 4 7 4 15 The confirmed bugs were more subtle: a decoded-length calculation error in segments_iter_impl::decrement() that only manifested during backward iteration over percent-encoded paths, two noexcept specifications on functions that allocate std::string (which can throw bad_alloc), and a memcpy with null source when size is zero (undefined behavior per the C standard, even though it copies nothing). This round is tracked in PR #988. Round 3 fix commits 3ca2d71 MEDIUM: segments_iter_impl decoded-length in decrement() b1f6f8e LOW: param noexcept on throwing constructor d42c748 LOW: string_view_base noexcept on throwing operator std::string() f963383 LOW: url_view memcpy with null source when size is zero The progression from 1,207 findings to 27 to 15 shows the reviewers learning the peculiarities of our codebase. The ratio of false positives dropped with each round, and the confirmed bugs got more subtle. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Confirmed Bugs)) UB in edge cases encode_one right-shift LLONG_MIN negation pointer arithmetic Self-assignment url move recycled_ptr copy OOB reads ci_is_less decode_view ends_with Incorrect noexcept encode / decode segments_base front/back param constructor string_view_base operator Iterator bugs segments decoded-length Null pointer recycled_ptr get url_view memcpy Compile-Time URL Parsing constexpr URL parsing has been one of the most recurring requests since the library’s inception. Every few months someone would ask about it, and every few months we would decide the refactoring cost was too high. The parsing engine is heavily buffer-oriented, and moving enough code into headers for constexpr evaluation required careful refactoring without breaking the shared library build. When we finally prototyped it, the diff touched thousands of lines, but most of those were code being moved from source files to headers rather than new logic. The actual new code was limited to alternative code paths to bypass non-literal types and refactoring url_view_base to eliminate a self-referencing pointer that prevented constexpr evaluation. Still, given the size of the change, we initially marked it as unactionable and moved on to the security review. Beyond the refactoring cost, we had blockers beyond our control. Our parsing code depended on boost::optional (not a literal type, no constexpr constructors), boost::variant2 (not literal when containing optional), and boost::system::result (could not be constructed with a custom error_code in constexpr because error_category::failed() is virtual). Without changes to those libraries, constexpr URL parsing was not possible regardless of how much we refactored our own code. The Conversation That Changed Everything Then Peter Dimov, the maintainer of Boost.System and Boost.Variant2, joined the conversation. We had assumed that system::result&lt;T&gt; could not be constexpr in C++14 because it wraps error_code, which uses virtual functions. Peter pointed out that system::result&lt;T&gt; is already a literal type in C++14 when T is literal and the error code is not custom. Boost.URL uses a custom error code category, and constructing a result from a custom error_code requires calling error_category::failed(), which is virtual and therefore not constexpr before C++20. Peter offered to fix this in Boost.System (#141, af53f17) for C++20 so that custom error codes would also work at compile time. Allowing constexpr virtual functions in C++20 Peter Dimov is also one of the authors of P1064: “Allowing Virtual Function Calls in Constant Expressions”, the C++ committee proposal that made constexpr virtual functions possible in C++20. The paper uses error_code and error_category as the motivating example. That shifted the problem. Instead of building our own constexpr_result&lt;T&gt; type to bypass the entire error handling system, we could use system::result directly in C++20. The scope of the refactoring shrank, and we focused on C++20 as the initial target. The remaining blocker was that system::result&lt;T&gt; requires T to be a literal type, and we use boost::optional heavily in our parsing code. boost::optional was not a literal type. Andrzej Krzemieński, the Boost.Optional maintainer, started working on it. The conversation went back and forth on the C++14 constraints: std::addressof is not constexpr until C++17, mandatory copy elision is only available in C++17, and there were questions about what subset of constructors could realistically become constexpr in C++14. After several iterations (including a feature/constexpr branch), the constexpr implementation landed on develop. With optional becoming literal, boost::variant2 containing optional could also become literal. All three blockers were now resolved. Peter had fixed Boost.System, Andrzej had fixed Boost.Optional, and we contributed fixes to Boost.Variant2. There was no going back: we could no longer dismiss the constexpr feature after three library maintainers had already done their part. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% flowchart TD A[Boost.URL constexpr parsing] --&gt; B[Boost.Optional] A --&gt; C[Boost.Variant2] A --&gt; D[Boost.System] B --&gt; E[boost::optional constexpr] C --&gt; F[boost::variant2::variant constexpr] D --&gt; G[boost::system::result constexpr] D --&gt; H[boost::system::error_code constexpr] Cross-library commits for constexpr support Boost.URL (PR #976, PR #981) 0a2c39f feat: constexpr URL parsing for C++20 b9db439 build: remove -Wno-maybe-uninitialized from GCC flags (see below) 59b4540 fix: suppress GCC false-positive -Wmaybe-uninitialized in tuple_rule (see below) Boost.Optional (issue #143, PR #145) 3df2337 make optional constexpr in C++14 046357c add more robust constexpr support 88e2378 add -Wmaybe-uninitialized pragma (see below) Boost.Variant2 (PR #57) b6ce8ac add missing -Wmaybe-uninitialized pragma (see below) Boost.System (issue #141) af53f17 add constexpr to virtual functions on C++20 or later Error Handling at Compile Time Boost.URL attaches source location information to error codes for better diagnostics at runtime. In a constexpr context, BOOST_CURRENT_LOCATION is not available, so the BOOST_URL_CONSTEXPR_RETURN_EC macro branches on __builtin_is_constant_evaluated(): at compile time it returns the error enum directly, at runtime it attaches the source location. #if defined(BOOST_URL_HAS_CXX20_CONSTEXPR) # define BOOST_URL_CONSTEXPR_RETURN_EC(ev) \ do { \ if (__builtin_is_constant_evaluated()) { \ return (ev); \ } \ return [](auto e) { \ BOOST_URL_RETURN_EC(e); \ }(ev); \ } while(0) #endif The -Wmaybe-uninitialized Problem GCC’s -Wmaybe-uninitialized flagged code inside boost::optional and boost::variant2 union storage constructors. The root cause was neither library. The inlining chain: Boost.URL’s parsing code constructs a variant2::variant that contains an optional alternative. At -O3, GCC inlines the entire chain: Parse function Variant construction variant2 storage optional storage Union constructor After inlining, GCC sees a union with a dummy_ member and a value_ member, and it cannot prove which member is active. It conflates the “uninitialized dummy” path with the “initialized value” path. The in_place_index_t&lt;I&gt; dispatch guarantees which member is initialized, but GCC’s data flow analysis loses track across the nested layers. -fsanitize=address makes it worse by changing inlining thresholds. The compiler blames the wrong library. The root cause is in variant2’s union storage, but when variant2 contains an optional, GCC reports the warning in optional’s code. The pragma has to go where GCC reports it, not where the issue originates. We contributed pragmas to both Boost.Optional and Boost.Variant2, and replaced Boost.URL’s blanket -Wno-maybe-uninitialized flag with targeted pragmas. This particular false positive requires GCC 14+, -O3, ASan, on x86_64 Linux, with a variant2::variant containing a boost::optional, constructed through a system::result dereference. Change any one of those conditions and the warning disappears. This leaves an open question for the Boost ecosystem: when a false positive surfaces because library A’s optimizer behavior interacts with library B’s union storage and gets reported in library C’s code, who is responsible for the pragma? For now, we placed pragmas where GCC reports the issue, but the underlying problem recurs every time a new combination of types triggers the same inlining pattern. The Shared Library Problem Making URL parsing constexpr means the parsing functions must be available in headers. But Boost.URL is a compiled library, and on MSVC, __declspec(dllexport) on a class exports all members, including inline and constexpr ones. This causes LNK2005 (duplicate symbol) errors for any class that mixes compiled and header-only members. Each class must follow exactly one of two policies: (a) Fully compiled: class BOOST_URL_DECL C. All members in .cpp files. No inline or constexpr members. (b) Fully header-only: class BOOST_SYMBOL_VISIBLE C. All inline/constexpr/template. No .cpp file. We documented the full rationale in config.hpp. We suspect other C++ libraries have not encountered this because they either do not test shared library builds as extensively as we do, or they are header-only. The Result Boost.URL can now parse URLs at compile time under C++20 (PR #976). All parse functions (parse_uri, parse_uri_reference, parse_relative_ref, parse_absolute_uri, and parse_origin_form) are fully constexpr. A malformed URL literal becomes a compile error rather than a runtime failure: // Parsed and validated at compile time. // A malformed literal would fail to compile. constexpr url_view api_base = parse_uri(&quot;https://api.example.com/v2&quot;).value(); Pre-parsed constexpr URL views also serve as zero-cost constants: because all parsing happens during compilation, components like scheme, host, and port are available at runtime with no parsing overhead. This is useful for applications that compare against well-known endpoints, pre-populate configuration defaults, or build routing tables without paying for string parsing at startup. The constexpr feature taught us that dismissing a request because the cost seems too high for one library misses the bigger picture. Once Peter Dimov and the other maintainers got involved, the cost was shared and the scope shrank. In the Boost ecosystem, a feature that seems expensive in isolation can become practical when the dependencies cooperate. Usability Improvements While integrating Boost.URL into Boost.Beast2, the Beast2 authors noticed friction in common operations that worked correctly but required more code than they should. At the same time, several community issues had been open for a while. We used this as an opportunity to address both. Convenience Functions The most requested feature was get_or for query containers: look up a query parameter by key and return a default value if it is not present. Before: auto it = url.params().find(&quot;page&quot;); auto page = it != url.params().end() ? (*it).value : &quot;1&quot;; After: auto page = url.params().get_or(&quot;page&quot;, &quot;1&quot;); We also added standalone decode functions for working with individual URL components without constructing a full URL object: auto plain = decode(&quot;My%20Stuff&quot;); assert(plain &amp;&amp; *plain == &quot;My Stuff&quot;); auto n = decoded_size(&quot;Program%20Files&quot;); assert(n &amp;&amp; *n == 13); C++20 Integration enable_borrowed_range is now specialized for 10 Boost.URL view types (segments_view, params_view, decode_view, and others). Unlike a std::vector, which owns its data, Boost.URL views point into the URL’s buffer without owning it. When a temporary view is destroyed, its iterators still point to valid memory. enable_borrowed_range tells the compiler this is safe, so algorithms like std::ranges::find can return iterators from temporary views without the compiler rejecting the code: segments_view::iterator it; { segments_view ps(&quot;/path/to/file.txt&quot;); it = ps.begin(); } // iterator is still valid (points to external buffer) assert(*it == &quot;path&quot;); The grammar system gained user-provided RangeRule support. Custom grammar rules for parsing URL components satisfy a concept requiring first() and next() methods returning system::result&lt;value_type&gt;: struct my_range_rule { using value_type = core::string_view; system::result&lt;value_type&gt; first(char const*&amp; it, char const* end) const noexcept; system::result&lt;value_type&gt; next(char const*&amp; it, char const* end) const noexcept; }; The motivation was performance and API clarity (#943). Previously, grammar::range&lt;T&gt; always type-erased the rule through a recycled_ptr with string storage. Stateless rules were paying for storage they did not need. With user-provided RangeRule, range&lt;T, RangeRule&gt; detects empty rules and avoids the type-erasure overhead entirely. Performance Component offsets in url_impl changed from size_t to uint32_t, reducing the size of every URL object on 64-bit platforms. The maximum URL size is capped at UINT32_MAX - 1 (enforced by a static_assert). Constructing a segments_view or segments_encoded_view from a URL is now a constant-time operation: offsets are computed directly from iterator indices without scanning the path. Other improvements Fixes a87998a params_iter_impl::decrement() computed incorrect decoded key/value sizes when a query parameter’s value contains literal = characters (PR #978, #972) 60c281a decode_view::remove_prefix/remove_suffix asserted n &lt;= size() instead of preventing undefined behavior (PR #978, #973) 01e0571 decode_view was forward-declared but not complete when pct_string_view::operator*() was declared (PR #963) cbaf493 parse_query guard for empty string_view inputs from null data (PR #949) 161cf73 example router is now move-only (PR #959) 13f0110 natvis: add visualizers for segments (PR #962) Refactors e809ee4 token_rule_t now uses the empty base optimization via empty_value and provides conditional default construction (PR #964) Documentation 32c3ddc new design rationale page 000476c restore library-detail.adoc with shorter description Legacy QuickBook documentation removed in favor of Antora-based docs 8c7c4c7 plus scheme convention documented 6d396a4 format examples show full URL e4e6644 SVG diagrams with medium brightness backgrounds c93553c simplify SVG documentation images e618e69 avoid shadow warnings while improving param_view docs 4f63aea antora-downloads-extension integration 7f08ce2 update antora extensions 67bcd2d build script sets root dirs 888cd8c MrDocs-generated tagfiles for cross-referencing with other Boost libraries Tests e946887 URL with ? in query string (PR #978, #926) 3228399 URL natvis instantiations Most of these improvements came from real usage. The Beast2 integration exposed friction that we would not have found from inside the library, and the community issues represented patterns that multiple users had independently hit. The best usability feedback comes from people who are actually building something with the library. Acknowledgments and Reflections The constexpr work benefited from the contributions of Peter Dimov (Boost.System, Boost.Variant2) and Andrzej Krzemieński (Boost.Optional), who applied fixes to their libraries so that Boost.URL could proceed. The Beast2 usability feedback came from the Beast2 authors as they integrated Boost.URL into the new design. The work on Boost.URL has shifted. The problems we are solving now (edge cases found by professional auditors, compiler limitations for constexpr, usability friction from real integrations) are different from the problems we used to solve. They are smaller and more specific, but they matter more because real people hit them. The complete set of changes is available in the Boost.URL repository." />
+<link rel="canonical" href="http://cppalliance.org/alan/2026/04/21/Alan.html" />
+<meta property="og:url" content="http://cppalliance.org/alan/2026/04/21/Alan.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-21T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Boost.URL: Audited, Constexpr, and Polished" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"We had been putting off the Boost.URL security review for a while. There was always something more urgent. When the review finally happened, it confirmed what we hoped: the core parsing logic held up well. Around the same time, a constexpr feature request that we had been dismissing suddenly became a cross-library collaboration when other Boost maintainers started applying changes to their own libraries. And while working on Boost.Beast2 integration, we noticed friction in common URL operations that led us to clear a backlog of usability improvements. Security Review Round 1: 1,207 Findings (February 2, 2026) Round 2: 27 Findings (February 17, 2026) Round 3: 15 Findings (April 2, 2026) Compile-Time URL Parsing The Conversation That Changed Everything Error Handling at Compile Time The -Wmaybe-uninitialized Problem The Shared Library Problem The Result Usability Improvements Convenience Functions C++20 Integration Performance Acknowledgments and Reflections Security Review The C++ Alliance arranges professional security audits for the libraries we maintain. The results for Boost.Beast (2020) and Boost.JSON (2021) are publicly available. For Boost.URL, we always had the plan but kept delaying because there was so much other work to do first. That delay turned out to be a good thing: we found and fixed issues ourselves first, so the reviewers could focus on the subtle problems. Laurel Lye Systems Engineering conducted three rounds of assessment. Each finding was manually reviewed against the source code and categorized as a confirmed bug (fixed), a false positive, or a deliberate design choice. For every confirmed bug, we also proposed new test cases to prevent regressions. Round 1: 1,207 Findings (February 2, 2026) The first assessment was the broadest. Of 1,207 findings, 15 were confirmed bugs resulting in fix commits. The vast majority were false positives or by-design patterns: Verdict CRITICAL HIGH MEDIUM LOW INFO Total FIXED 1 9 0 2 3 15 FALSE POSITIVE 3 47 46 186 110 392 BY DESIGN 0 129 445 170 56 800 Total 4 185 491 358 169 1,207 The single CRITICAL fix was a loop condition in url_base that dereferenced *it before checking it != end. Three other CRITICAL findings were false positives: the audit flagged raw-pointer writes in the format engine, but these use a two-phase measure/format design that guarantees the buffer is pre-sized correctly. Most false positives fell into recognizable themes: BOOST_ASSERT as sole bounds check (29 HIGH findings): internal _unsafe functions rely on preconditions validated by the public API. The _unsafe suffix signals the contract. This is the standard Boost/STL pattern (std::vector::operator[] vs at()). Non-owning view lifetime safety (27 HIGH findings): string_view and url_view types do not own their data. The audit flagged potential use-after-free, but lifetime management is the caller’s responsibility by design. Atomic reference counting (multiple findings across all rounds): the audit tool did not recognize the #ifdef BOOST_URL_DISABLE_THREADS guard that switches between std::atomic&lt;std::size_t&gt; and plain std::size_t. Round 1 fix commits bcdc891 CRITICAL: url_base loop condition order ec15fce HIGH: encode() UB pointer arithmetic for small buffers 81fcb95 HIGH: LLONG_MIN negation UB in format 42c8fe7 HIGH: ci_less::operator() return type 76279f5 HIGH: incorrect noexcept in segments_base::front() and back() d4ae92d HIGH: recycled_ptr::get() nullptr when empty 8d98fe6 LOW: decode() noexcept on throwing template The proportion of false positives to confirmed bugs was large enough that we discussed a second round with Laurel Lye, where we shared the false positive categories we had identified so they could be more targeted. Round 2: 27 Findings (February 17, 2026) The second assessment was more targeted. The reviewers had learned from our Round 1 triage and produced fewer false positives: Verdict HIGH MEDIUM LOW INFO Total FIXED 7 3 1 1 12 FALSE POSITIVE 2 2 0 0 4 BY DESIGN 0 0 1 1 2 ALREADY FIXED 0 5 4 0 9 Total 9 10 6 2 27 9 of the 27 findings had already been fixed in Round 1 commits. The new confirmed bugs included a heap overflow in format center-alignment padding (lpad = w / 2 used total width instead of padding amount), an infinite loop in decode_view::ends_with with empty strings, and an OOB read in ci_is_less on mismatched-length strings. Both rounds are tracked in PR #982. Round 2 fix commits d06df88 HIGH: format center-alignment padding 4fe2438 HIGH: decode_view::ends_with with empty string f5727ed HIGH: stale pattern n.path after colon-encoding d045d71 HIGH: ci_is_less OOB read 88efbae HIGH: recycled_ptr copy self-assignment fe4bdf6 MEDIUM: url move self-assignment ab5d812 MEDIUM: encode_one signed char right-shift b662a8f MEDIUM: encode() noexcept on throwing template 5bc52ed LOW: port_rule has_number for port zero at end of input 9c9850f INFO: ci_equal arguments by const reference 4f466ce test: public interface boundary and fuzz tests Round 3: 15 Findings (April 2, 2026) The third round was the shortest and the most precise. Of 15 findings, 4 were confirmed bugs and 11 were false positives. No CRITICAL findings. The false positives were the same recurring themes (atomic refcounting, pre-validated format strings, preconditions guaranteed by callers). Verdict HIGH MEDIUM LOW Total FIXED 0 1 3 4 FALSE POSITIVE 4 6 1 11 Total 4 7 4 15 The confirmed bugs were more subtle: a decoded-length calculation error in segments_iter_impl::decrement() that only manifested during backward iteration over percent-encoded paths, two noexcept specifications on functions that allocate std::string (which can throw bad_alloc), and a memcpy with null source when size is zero (undefined behavior per the C standard, even though it copies nothing). This round is tracked in PR #988. Round 3 fix commits 3ca2d71 MEDIUM: segments_iter_impl decoded-length in decrement() b1f6f8e LOW: param noexcept on throwing constructor d42c748 LOW: string_view_base noexcept on throwing operator std::string() f963383 LOW: url_view memcpy with null source when size is zero The progression from 1,207 findings to 27 to 15 shows the reviewers learning the peculiarities of our codebase. The ratio of false positives dropped with each round, and the confirmed bugs got more subtle. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#e4eee8&quot;, &quot;primaryBorderColor&quot;: &quot;#affbd6&quot;, &quot;primaryTextColor&quot;: &quot;#000000&quot;, &quot;lineColor&quot;: &quot;#baf9d9&quot;, &quot;secondaryColor&quot;: &quot;#f0eae4&quot;, &quot;tertiaryColor&quot;: &quot;#ebeaf4&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% mindmap root((Confirmed Bugs)) UB in edge cases encode_one right-shift LLONG_MIN negation pointer arithmetic Self-assignment url move recycled_ptr copy OOB reads ci_is_less decode_view ends_with Incorrect noexcept encode / decode segments_base front/back param constructor string_view_base operator Iterator bugs segments decoded-length Null pointer recycled_ptr get url_view memcpy Compile-Time URL Parsing constexpr URL parsing has been one of the most recurring requests since the library’s inception. Every few months someone would ask about it, and every few months we would decide the refactoring cost was too high. The parsing engine is heavily buffer-oriented, and moving enough code into headers for constexpr evaluation required careful refactoring without breaking the shared library build. When we finally prototyped it, the diff touched thousands of lines, but most of those were code being moved from source files to headers rather than new logic. The actual new code was limited to alternative code paths to bypass non-literal types and refactoring url_view_base to eliminate a self-referencing pointer that prevented constexpr evaluation. Still, given the size of the change, we initially marked it as unactionable and moved on to the security review. Beyond the refactoring cost, we had blockers beyond our control. Our parsing code depended on boost::optional (not a literal type, no constexpr constructors), boost::variant2 (not literal when containing optional), and boost::system::result (could not be constructed with a custom error_code in constexpr because error_category::failed() is virtual). Without changes to those libraries, constexpr URL parsing was not possible regardless of how much we refactored our own code. The Conversation That Changed Everything Then Peter Dimov, the maintainer of Boost.System and Boost.Variant2, joined the conversation. We had assumed that system::result&lt;T&gt; could not be constexpr in C++14 because it wraps error_code, which uses virtual functions. Peter pointed out that system::result&lt;T&gt; is already a literal type in C++14 when T is literal and the error code is not custom. Boost.URL uses a custom error code category, and constructing a result from a custom error_code requires calling error_category::failed(), which is virtual and therefore not constexpr before C++20. Peter offered to fix this in Boost.System (#141, af53f17) for C++20 so that custom error codes would also work at compile time. Allowing constexpr virtual functions in C++20 Peter Dimov is also one of the authors of P1064: “Allowing Virtual Function Calls in Constant Expressions”, the C++ committee proposal that made constexpr virtual functions possible in C++20. The paper uses error_code and error_category as the motivating example. That shifted the problem. Instead of building our own constexpr_result&lt;T&gt; type to bypass the entire error handling system, we could use system::result directly in C++20. The scope of the refactoring shrank, and we focused on C++20 as the initial target. The remaining blocker was that system::result&lt;T&gt; requires T to be a literal type, and we use boost::optional heavily in our parsing code. boost::optional was not a literal type. Andrzej Krzemieński, the Boost.Optional maintainer, started working on it. The conversation went back and forth on the C++14 constraints: std::addressof is not constexpr until C++17, mandatory copy elision is only available in C++17, and there were questions about what subset of constructors could realistically become constexpr in C++14. After several iterations (including a feature/constexpr branch), the constexpr implementation landed on develop. With optional becoming literal, boost::variant2 containing optional could also become literal. All three blockers were now resolved. Peter had fixed Boost.System, Andrzej had fixed Boost.Optional, and we contributed fixes to Boost.Variant2. There was no going back: we could no longer dismiss the constexpr feature after three library maintainers had already done their part. %%{init: {&quot;theme&quot;: &quot;base&quot;, &quot;themeVariables&quot;: {&quot;primaryColor&quot;: &quot;#f7f9ff&quot;, &quot;primaryBorderColor&quot;: &quot;#9aa7e8&quot;, &quot;primaryTextColor&quot;: &quot;#1f2a44&quot;, &quot;lineColor&quot;: &quot;#b4bef2&quot;, &quot;secondaryColor&quot;: &quot;#fbf8ff&quot;, &quot;tertiaryColor&quot;: &quot;#ffffff&quot;, &quot;fontSize&quot;: &quot;14px&quot;}}}%% flowchart TD A[Boost.URL constexpr parsing] --&gt; B[Boost.Optional] A --&gt; C[Boost.Variant2] A --&gt; D[Boost.System] B --&gt; E[boost::optional constexpr] C --&gt; F[boost::variant2::variant constexpr] D --&gt; G[boost::system::result constexpr] D --&gt; H[boost::system::error_code constexpr] Cross-library commits for constexpr support Boost.URL (PR #976, PR #981) 0a2c39f feat: constexpr URL parsing for C++20 b9db439 build: remove -Wno-maybe-uninitialized from GCC flags (see below) 59b4540 fix: suppress GCC false-positive -Wmaybe-uninitialized in tuple_rule (see below) Boost.Optional (issue #143, PR #145) 3df2337 make optional constexpr in C++14 046357c add more robust constexpr support 88e2378 add -Wmaybe-uninitialized pragma (see below) Boost.Variant2 (PR #57) b6ce8ac add missing -Wmaybe-uninitialized pragma (see below) Boost.System (issue #141) af53f17 add constexpr to virtual functions on C++20 or later Error Handling at Compile Time Boost.URL attaches source location information to error codes for better diagnostics at runtime. In a constexpr context, BOOST_CURRENT_LOCATION is not available, so the BOOST_URL_CONSTEXPR_RETURN_EC macro branches on __builtin_is_constant_evaluated(): at compile time it returns the error enum directly, at runtime it attaches the source location. #if defined(BOOST_URL_HAS_CXX20_CONSTEXPR) # define BOOST_URL_CONSTEXPR_RETURN_EC(ev) \\ do { \\ if (__builtin_is_constant_evaluated()) { \\ return (ev); \\ } \\ return [](auto e) { \\ BOOST_URL_RETURN_EC(e); \\ }(ev); \\ } while(0) #endif The -Wmaybe-uninitialized Problem GCC’s -Wmaybe-uninitialized flagged code inside boost::optional and boost::variant2 union storage constructors. The root cause was neither library. The inlining chain: Boost.URL’s parsing code constructs a variant2::variant that contains an optional alternative. At -O3, GCC inlines the entire chain: Parse function Variant construction variant2 storage optional storage Union constructor After inlining, GCC sees a union with a dummy_ member and a value_ member, and it cannot prove which member is active. It conflates the “uninitialized dummy” path with the “initialized value” path. The in_place_index_t&lt;I&gt; dispatch guarantees which member is initialized, but GCC’s data flow analysis loses track across the nested layers. -fsanitize=address makes it worse by changing inlining thresholds. The compiler blames the wrong library. The root cause is in variant2’s union storage, but when variant2 contains an optional, GCC reports the warning in optional’s code. The pragma has to go where GCC reports it, not where the issue originates. We contributed pragmas to both Boost.Optional and Boost.Variant2, and replaced Boost.URL’s blanket -Wno-maybe-uninitialized flag with targeted pragmas. This particular false positive requires GCC 14+, -O3, ASan, on x86_64 Linux, with a variant2::variant containing a boost::optional, constructed through a system::result dereference. Change any one of those conditions and the warning disappears. This leaves an open question for the Boost ecosystem: when a false positive surfaces because library A’s optimizer behavior interacts with library B’s union storage and gets reported in library C’s code, who is responsible for the pragma? For now, we placed pragmas where GCC reports the issue, but the underlying problem recurs every time a new combination of types triggers the same inlining pattern. The Shared Library Problem Making URL parsing constexpr means the parsing functions must be available in headers. But Boost.URL is a compiled library, and on MSVC, __declspec(dllexport) on a class exports all members, including inline and constexpr ones. This causes LNK2005 (duplicate symbol) errors for any class that mixes compiled and header-only members. Each class must follow exactly one of two policies: (a) Fully compiled: class BOOST_URL_DECL C. All members in .cpp files. No inline or constexpr members. (b) Fully header-only: class BOOST_SYMBOL_VISIBLE C. All inline/constexpr/template. No .cpp file. We documented the full rationale in config.hpp. We suspect other C++ libraries have not encountered this because they either do not test shared library builds as extensively as we do, or they are header-only. The Result Boost.URL can now parse URLs at compile time under C++20 (PR #976). All parse functions (parse_uri, parse_uri_reference, parse_relative_ref, parse_absolute_uri, and parse_origin_form) are fully constexpr. A malformed URL literal becomes a compile error rather than a runtime failure: // Parsed and validated at compile time. // A malformed literal would fail to compile. constexpr url_view api_base = parse_uri(&quot;https://api.example.com/v2&quot;).value(); Pre-parsed constexpr URL views also serve as zero-cost constants: because all parsing happens during compilation, components like scheme, host, and port are available at runtime with no parsing overhead. This is useful for applications that compare against well-known endpoints, pre-populate configuration defaults, or build routing tables without paying for string parsing at startup. The constexpr feature taught us that dismissing a request because the cost seems too high for one library misses the bigger picture. Once Peter Dimov and the other maintainers got involved, the cost was shared and the scope shrank. In the Boost ecosystem, a feature that seems expensive in isolation can become practical when the dependencies cooperate. Usability Improvements While integrating Boost.URL into Boost.Beast2, the Beast2 authors noticed friction in common operations that worked correctly but required more code than they should. At the same time, several community issues had been open for a while. We used this as an opportunity to address both. Convenience Functions The most requested feature was get_or for query containers: look up a query parameter by key and return a default value if it is not present. Before: auto it = url.params().find(&quot;page&quot;); auto page = it != url.params().end() ? (*it).value : &quot;1&quot;; After: auto page = url.params().get_or(&quot;page&quot;, &quot;1&quot;); We also added standalone decode functions for working with individual URL components without constructing a full URL object: auto plain = decode(&quot;My%20Stuff&quot;); assert(plain &amp;&amp; *plain == &quot;My Stuff&quot;); auto n = decoded_size(&quot;Program%20Files&quot;); assert(n &amp;&amp; *n == 13); C++20 Integration enable_borrowed_range is now specialized for 10 Boost.URL view types (segments_view, params_view, decode_view, and others). Unlike a std::vector, which owns its data, Boost.URL views point into the URL’s buffer without owning it. When a temporary view is destroyed, its iterators still point to valid memory. enable_borrowed_range tells the compiler this is safe, so algorithms like std::ranges::find can return iterators from temporary views without the compiler rejecting the code: segments_view::iterator it; { segments_view ps(&quot;/path/to/file.txt&quot;); it = ps.begin(); } // iterator is still valid (points to external buffer) assert(*it == &quot;path&quot;); The grammar system gained user-provided RangeRule support. Custom grammar rules for parsing URL components satisfy a concept requiring first() and next() methods returning system::result&lt;value_type&gt;: struct my_range_rule { using value_type = core::string_view; system::result&lt;value_type&gt; first(char const*&amp; it, char const* end) const noexcept; system::result&lt;value_type&gt; next(char const*&amp; it, char const* end) const noexcept; }; The motivation was performance and API clarity (#943). Previously, grammar::range&lt;T&gt; always type-erased the rule through a recycled_ptr with string storage. Stateless rules were paying for storage they did not need. With user-provided RangeRule, range&lt;T, RangeRule&gt; detects empty rules and avoids the type-erasure overhead entirely. Performance Component offsets in url_impl changed from size_t to uint32_t, reducing the size of every URL object on 64-bit platforms. The maximum URL size is capped at UINT32_MAX - 1 (enforced by a static_assert). Constructing a segments_view or segments_encoded_view from a URL is now a constant-time operation: offsets are computed directly from iterator indices without scanning the path. Other improvements Fixes a87998a params_iter_impl::decrement() computed incorrect decoded key/value sizes when a query parameter’s value contains literal = characters (PR #978, #972) 60c281a decode_view::remove_prefix/remove_suffix asserted n &lt;= size() instead of preventing undefined behavior (PR #978, #973) 01e0571 decode_view was forward-declared but not complete when pct_string_view::operator*() was declared (PR #963) cbaf493 parse_query guard for empty string_view inputs from null data (PR #949) 161cf73 example router is now move-only (PR #959) 13f0110 natvis: add visualizers for segments (PR #962) Refactors e809ee4 token_rule_t now uses the empty base optimization via empty_value and provides conditional default construction (PR #964) Documentation 32c3ddc new design rationale page 000476c restore library-detail.adoc with shorter description Legacy QuickBook documentation removed in favor of Antora-based docs 8c7c4c7 plus scheme convention documented 6d396a4 format examples show full URL e4e6644 SVG diagrams with medium brightness backgrounds c93553c simplify SVG documentation images e618e69 avoid shadow warnings while improving param_view docs 4f63aea antora-downloads-extension integration 7f08ce2 update antora extensions 67bcd2d build script sets root dirs 888cd8c MrDocs-generated tagfiles for cross-referencing with other Boost libraries Tests e946887 URL with ? in query string (PR #978, #926) 3228399 URL natvis instantiations Most of these improvements came from real usage. The Beast2 integration exposed friction that we would not have found from inside the library, and the community issues represented patterns that multiple users had independently hit. The best usability feedback comes from people who are actually building something with the library. Acknowledgments and Reflections The constexpr work benefited from the contributions of Peter Dimov (Boost.System, Boost.Variant2) and Andrzej Krzemieński (Boost.Optional), who applied fixes to their libraries so that Boost.URL could proceed. The Beast2 usability feedback came from the Beast2 authors as they integrated Boost.URL into the new design. The work on Boost.URL has shifted. The problems we are solving now (edge cases found by professional auditors, compiler limitations for constexpr, usability friction from real integrations) are different from the problems we used to solve. They are smaller and more specific, but they matter more because real people hit them. The complete set of changes is available in the Boost.URL repository.","@type":"BlogPosting","url":"http://cppalliance.org/alan/2026/04/21/Alan.html","headline":"Boost.URL: Audited, Constexpr, and Polished","dateModified":"2026-04-21T00:00:00+00:00","datePublished":"2026-04-21T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/alan/2026/04/21/Alan.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Boost.URL: Audited, Constexpr, and Polished</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/alan">
+              <img class='author-img' src='/images/people/alan.jpg' alt='Portrait of Alan de Freitas' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/alan">
+                  Alan de Freitas
+                </a> &middot; Apr 21, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>We had been putting off the <a href="https://github.com/boostorg/url">Boost.URL</a> security review for a while. There was always something more urgent. When the review finally happened, it confirmed what we hoped: the core parsing logic held up well. Around the same time, a constexpr feature request that we had been dismissing suddenly became a cross-library collaboration when other Boost maintainers started applying changes to their own libraries. And while working on <a href="https://github.com/cppalliance/beast2">Boost.Beast2</a> integration, we noticed friction in common URL operations that led us to clear a backlog of usability improvements.</p>
+
+<!-- prettier-ignore -->
+<ul id="markdown-toc">
+  <li><a href="#security-review" id="markdown-toc-security-review">Security Review</a>    <ul>
+      <li><a href="#round-1-1207-findings-february-2-2026" id="markdown-toc-round-1-1207-findings-february-2-2026">Round 1: 1,207 Findings (February 2, 2026)</a></li>
+      <li><a href="#round-2-27-findings-february-17-2026" id="markdown-toc-round-2-27-findings-february-17-2026">Round 2: 27 Findings (February 17, 2026)</a></li>
+      <li><a href="#round-3-15-findings-april-2-2026" id="markdown-toc-round-3-15-findings-april-2-2026">Round 3: 15 Findings (April 2, 2026)</a></li>
+    </ul>
+  </li>
+  <li><a href="#compile-time-url-parsing" id="markdown-toc-compile-time-url-parsing">Compile-Time URL Parsing</a>    <ul>
+      <li><a href="#the-conversation-that-changed-everything" id="markdown-toc-the-conversation-that-changed-everything">The Conversation That Changed Everything</a></li>
+      <li><a href="#error-handling-at-compile-time" id="markdown-toc-error-handling-at-compile-time">Error Handling at Compile Time</a></li>
+      <li><a href="#the--wmaybe-uninitialized-problem" id="markdown-toc-the--wmaybe-uninitialized-problem">The <code>-Wmaybe-uninitialized</code> Problem</a></li>
+      <li><a href="#the-shared-library-problem" id="markdown-toc-the-shared-library-problem">The Shared Library Problem</a></li>
+      <li><a href="#the-result" id="markdown-toc-the-result">The Result</a></li>
+    </ul>
+  </li>
+  <li><a href="#usability-improvements" id="markdown-toc-usability-improvements">Usability Improvements</a>    <ul>
+      <li><a href="#convenience-functions" id="markdown-toc-convenience-functions">Convenience Functions</a></li>
+      <li><a href="#c20-integration" id="markdown-toc-c20-integration">C++20 Integration</a></li>
+      <li><a href="#performance" id="markdown-toc-performance">Performance</a></li>
+    </ul>
+  </li>
+  <li><a href="#acknowledgments-and-reflections" id="markdown-toc-acknowledgments-and-reflections">Acknowledgments and Reflections</a></li>
+</ul>
+
+<h1 id="security-review">Security Review</h1>
+
+<p>The <a href="https://cppalliance.org/">C++ Alliance</a> arranges professional security audits for the libraries we maintain. The results for <a href="https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/quick_start/security_review_bishop_fox.html">Boost.Beast (2020)</a> and <a href="https://cppalliance.org/pdf/C%20Plus%20Plus%20Alliance%20-%20Boost%20JSON%20Security%20Assessment%202020%20-%20Assessment%20Report%20-%2020210317.pdf">Boost.JSON (2021)</a> are publicly available. For Boost.URL, we always had the plan but kept delaying because there was so much other work to do first. That delay turned out to be a good thing: we found and fixed issues ourselves first, so the reviewers could focus on the subtle problems.</p>
+
+<p><a href="https://www.laurellye.com/">Laurel Lye Systems Engineering</a> conducted <strong>three rounds</strong> of assessment. Each finding was manually reviewed against the source code and categorized as a confirmed bug (fixed), a false positive, or a deliberate design choice. For every confirmed bug, we also proposed new test cases to prevent regressions.</p>
+
+<h2 id="round-1-1207-findings-february-2-2026">Round 1: 1,207 Findings (February 2, 2026)</h2>
+
+<p>The first assessment was the broadest. Of 1,207 findings, <strong>15 were confirmed bugs</strong> resulting in fix commits. The vast majority were false positives or by-design patterns:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Verdict</th>
+      <th>CRITICAL</th>
+      <th>HIGH</th>
+      <th>MEDIUM</th>
+      <th>LOW</th>
+      <th>INFO</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>FIXED</strong></td>
+      <td>1</td>
+      <td>9</td>
+      <td>0</td>
+      <td>2</td>
+      <td>3</td>
+      <td><strong>15</strong></td>
+    </tr>
+    <tr>
+      <td><strong>FALSE POSITIVE</strong></td>
+      <td>3</td>
+      <td>47</td>
+      <td>46</td>
+      <td>186</td>
+      <td>110</td>
+      <td><strong>392</strong></td>
+    </tr>
+    <tr>
+      <td><strong>BY DESIGN</strong></td>
+      <td>0</td>
+      <td>129</td>
+      <td>445</td>
+      <td>170</td>
+      <td>56</td>
+      <td><strong>800</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td><strong>4</strong></td>
+      <td><strong>185</strong></td>
+      <td><strong>491</strong></td>
+      <td><strong>358</strong></td>
+      <td><strong>169</strong></td>
+      <td><strong>1,207</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The single <strong>CRITICAL</strong> fix was a loop condition in <code>url_base</code> that dereferenced <code>*it</code> before checking <code>it != end</code>. Three other CRITICAL findings were false positives: the audit flagged raw-pointer writes in the format engine, but these use a two-phase measure/format design that guarantees the buffer is pre-sized correctly.</p>
+
+<p>Most false positives fell into recognizable themes:</p>
+<ul>
+  <li><strong><code>BOOST_ASSERT</code> as sole bounds check</strong> (29 HIGH findings): internal <code>_unsafe</code> functions rely on preconditions validated by the public API. The <code>_unsafe</code> suffix signals the contract. This is the standard Boost/STL pattern (<code>std::vector::operator[]</code> vs <code>at()</code>).</li>
+  <li><strong>Non-owning view lifetime safety</strong> (27 HIGH findings): <code>string_view</code> and <code>url_view</code> types do not own their data. The audit flagged potential use-after-free, but lifetime management is the caller’s responsibility by design.</li>
+  <li><strong>Atomic reference counting</strong> (multiple findings across all rounds): the audit tool did not recognize the <code>#ifdef BOOST_URL_DISABLE_THREADS</code> guard that switches between <code>std::atomic&lt;std::size_t&gt;</code> and plain <code>std::size_t</code>.</li>
+</ul>
+
+<details>
+  <summary>Round 1 fix commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/bcdc891">bcdc891</a> CRITICAL: url_base loop condition order</li>
+    <li><a href="https://github.com/boostorg/url/commit/ec15fce">ec15fce</a> HIGH: encode() UB pointer arithmetic for small buffers</li>
+    <li><a href="https://github.com/boostorg/url/commit/81fcb95">81fcb95</a> HIGH: LLONG_MIN negation UB in format</li>
+    <li><a href="https://github.com/boostorg/url/commit/42c8fe7">42c8fe7</a> HIGH: ci_less::operator() return type</li>
+    <li><a href="https://github.com/boostorg/url/commit/76279f5">76279f5</a> HIGH: incorrect noexcept in segments_base::front() and back()</li>
+    <li><a href="https://github.com/boostorg/url/commit/d4ae92d">d4ae92d</a> HIGH: recycled_ptr::get() nullptr when empty</li>
+    <li><a href="https://github.com/boostorg/url/commit/8d98fe6">8d98fe6</a> LOW: decode() noexcept on throwing template</li>
+  </ul>
+
+</details>
+
+<p>The proportion of false positives to confirmed bugs was large enough that we discussed a second round with Laurel Lye, where we shared the false positive categories we had identified so they could be more targeted.</p>
+
+<h2 id="round-2-27-findings-february-17-2026">Round 2: 27 Findings (February 17, 2026)</h2>
+
+<p>The second assessment was more targeted. The reviewers had learned from our Round 1 triage and produced fewer false positives:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Verdict</th>
+      <th>HIGH</th>
+      <th>MEDIUM</th>
+      <th>LOW</th>
+      <th>INFO</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>FIXED</strong></td>
+      <td>7</td>
+      <td>3</td>
+      <td>1</td>
+      <td>1</td>
+      <td><strong>12</strong></td>
+    </tr>
+    <tr>
+      <td><strong>FALSE POSITIVE</strong></td>
+      <td>2</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td><strong>4</strong></td>
+    </tr>
+    <tr>
+      <td><strong>BY DESIGN</strong></td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td><strong>2</strong></td>
+    </tr>
+    <tr>
+      <td><strong>ALREADY FIXED</strong></td>
+      <td>0</td>
+      <td>5</td>
+      <td>4</td>
+      <td>0</td>
+      <td><strong>9</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td><strong>9</strong></td>
+      <td><strong>10</strong></td>
+      <td><strong>6</strong></td>
+      <td><strong>2</strong></td>
+      <td><strong>27</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>9 of the 27 findings had <strong>already been fixed</strong> in Round 1 commits. The new confirmed bugs included a heap overflow in format center-alignment padding (<code>lpad = w / 2</code> used total width instead of padding amount), an infinite loop in <code>decode_view::ends_with</code> with empty strings, and an OOB read in <code>ci_is_less</code> on mismatched-length strings.</p>
+
+<p>Both rounds are tracked in <a href="https://github.com/boostorg/url/pull/982">PR #982</a>.</p>
+
+<details>
+  <summary>Round 2 fix commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/d06df88">d06df88</a> HIGH: format center-alignment padding</li>
+    <li><a href="https://github.com/boostorg/url/commit/4fe2438">4fe2438</a> HIGH: decode_view::ends_with with empty string</li>
+    <li><a href="https://github.com/boostorg/url/commit/f5727ed">f5727ed</a> HIGH: stale pattern n.path after colon-encoding</li>
+    <li><a href="https://github.com/boostorg/url/commit/d045d71">d045d71</a> HIGH: ci_is_less OOB read</li>
+    <li><a href="https://github.com/boostorg/url/commit/88efbae">88efbae</a> HIGH: recycled_ptr copy self-assignment</li>
+    <li><a href="https://github.com/boostorg/url/commit/fe4bdf6">fe4bdf6</a> MEDIUM: url move self-assignment</li>
+    <li><a href="https://github.com/boostorg/url/commit/ab5d812">ab5d812</a> MEDIUM: encode_one signed char right-shift</li>
+    <li><a href="https://github.com/boostorg/url/commit/b662a8f">b662a8f</a> MEDIUM: encode() noexcept on throwing template</li>
+    <li><a href="https://github.com/boostorg/url/commit/5bc52ed">5bc52ed</a> LOW: port_rule has_number for port zero at end of input</li>
+    <li><a href="https://github.com/boostorg/url/commit/9c9850f">9c9850f</a> INFO: ci_equal arguments by const reference</li>
+    <li><a href="https://github.com/boostorg/url/commit/4f466ce">4f466ce</a> test: public interface boundary and fuzz tests</li>
+  </ul>
+
+</details>
+
+<h2 id="round-3-15-findings-april-2-2026">Round 3: 15 Findings (April 2, 2026)</h2>
+
+<p>The third round was the shortest and the most precise. Of 15 findings, <strong>4 were confirmed bugs</strong> and <strong>11 were false positives</strong>. No CRITICAL findings. The false positives were the same recurring themes (atomic refcounting, pre-validated format strings, preconditions guaranteed by callers).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Verdict</th>
+      <th>HIGH</th>
+      <th>MEDIUM</th>
+      <th>LOW</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>FIXED</strong></td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td><strong>4</strong></td>
+    </tr>
+    <tr>
+      <td><strong>FALSE POSITIVE</strong></td>
+      <td>4</td>
+      <td>6</td>
+      <td>1</td>
+      <td><strong>11</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td><strong>4</strong></td>
+      <td><strong>7</strong></td>
+      <td><strong>4</strong></td>
+      <td><strong>15</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The confirmed bugs were more subtle: a decoded-length calculation error in <code>segments_iter_impl::decrement()</code> that only manifested during backward iteration over percent-encoded paths, two <a href="https://en.cppreference.com/w/cpp/language/noexcept_spec"><code>noexcept</code></a> specifications on functions that allocate <code>std::string</code> (which can throw <code>bad_alloc</code>), and a <code>memcpy</code> with null source when size is zero (undefined behavior per the C standard, even though it copies nothing).</p>
+
+<p>This round is tracked in <a href="https://github.com/boostorg/url/pull/988">PR #988</a>.</p>
+
+<details>
+  <summary>Round 3 fix commits</summary>
+
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/3ca2d71">3ca2d71</a> MEDIUM: segments_iter_impl decoded-length in decrement()</li>
+    <li><a href="https://github.com/boostorg/url/commit/b1f6f8e">b1f6f8e</a> LOW: param noexcept on throwing constructor</li>
+    <li><a href="https://github.com/boostorg/url/commit/d42c748">d42c748</a> LOW: string_view_base noexcept on throwing operator std::string()</li>
+    <li><a href="https://github.com/boostorg/url/commit/f963383">f963383</a> LOW: url_view memcpy with null source when size is zero</li>
+  </ul>
+
+</details>
+
+<p>The progression from 1,207 findings to 27 to 15 shows the reviewers learning the peculiarities of our codebase. The ratio of false positives dropped with each round, and the confirmed bugs got more subtle.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e4eee8", "primaryBorderColor": "#affbd6", "primaryTextColor": "#000000", "lineColor": "#baf9d9", "secondaryColor": "#f0eae4", "tertiaryColor": "#ebeaf4", "fontSize": "14px"}}}%%
+mindmap
+  root((Confirmed Bugs))
+    UB in edge cases
+      encode_one right-shift
+      LLONG_MIN negation
+      pointer arithmetic
+    Self-assignment
+      url move
+      recycled_ptr copy
+    OOB reads
+      ci_is_less
+      decode_view ends_with
+    Incorrect noexcept
+      encode / decode
+      segments_base front/back
+      param constructor
+      string_view_base operator
+    Iterator bugs
+      segments decoded-length
+    Null pointer
+      recycled_ptr get
+      url_view memcpy
+</div>
+
+<h1 id="compile-time-url-parsing">Compile-Time URL Parsing</h1>
+
+<p><a href="https://github.com/boostorg/url/issues/890"><code>constexpr</code> URL parsing</a> has been one of the most recurring requests since the library’s inception. Every few months someone would ask about it, and every few months we would decide the refactoring cost was too high. The parsing engine is heavily buffer-oriented, and moving enough code into headers for <a href="https://en.cppreference.com/w/cpp/language/constexpr"><code>constexpr</code></a> evaluation required careful refactoring without breaking the shared library build.</p>
+
+<p>When we finally prototyped it, the diff touched thousands of lines, but most of those were <strong>code being moved from source files to headers</strong> rather than new logic. The actual new code was limited to alternative code paths to bypass non-literal types and refactoring <code>url_view_base</code> to eliminate a self-referencing pointer that prevented <code>constexpr</code> evaluation. Still, given the size of the change, we initially marked it as unactionable and moved on to the security review.</p>
+
+<p>Beyond the refactoring cost, we had <strong>blockers beyond our control</strong>. Our parsing code depended on <a href="https://github.com/boostorg/optional/issues/143"><code>boost::optional</code></a> (not a literal type, no constexpr constructors), <a href="https://github.com/boostorg/variant2"><code>boost::variant2</code></a> (not literal when containing <code>optional</code>), and <a href="https://github.com/boostorg/system/issues/141"><code>boost::system::result</code></a> (could not be constructed with a custom <code>error_code</code> in constexpr because <a href="https://www.boost.org/doc/libs/release/libs/system/doc/html/system.html#ref_error_category"><code>error_category::failed()</code></a> is virtual). Without changes to those libraries, constexpr URL parsing was not possible regardless of how much we refactored our own code.</p>
+
+<h2 id="the-conversation-that-changed-everything">The Conversation That Changed Everything</h2>
+
+<p>Then <a href="https://github.com/pdimov">Peter Dimov</a>, the maintainer of <a href="https://github.com/boostorg/system">Boost.System</a> and <a href="https://github.com/boostorg/variant2">Boost.Variant2</a>, joined the <a href="https://github.com/boostorg/url/issues/890">conversation</a>. We had assumed that <code>system::result&lt;T&gt;</code> could not be <code>constexpr</code> in C++14 because it wraps <code>error_code</code>, which uses virtual functions. Peter <a href="https://github.com/boostorg/url/issues/890#issuecomment-2720949684">pointed out</a> that <strong><code>system::result&lt;T&gt;</code> is already a literal type</strong> in C++14 when <code>T</code> is literal and the error code is not custom. Boost.URL uses a <strong>custom error code category</strong>, and constructing a <code>result</code> from a custom <code>error_code</code> requires calling <code>error_category::failed()</code>, which is virtual and therefore not <code>constexpr</code> before C++20. Peter <a href="https://github.com/boostorg/url/issues/890#issuecomment-3869061934">offered to fix this</a> in Boost.System (<a href="https://github.com/boostorg/system/issues/141">#141</a>, <a href="https://github.com/boostorg/system/commit/af53f17">af53f17</a>) for C++20 so that custom error codes would also work at compile time.</p>
+
+<div class="admonition"><div class="admonition-title">Allowing constexpr virtual functions in C++20</div>
+<p>Peter Dimov is also one of the authors of <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1064r0.html">P1064: “Allowing Virtual Function Calls in Constant Expressions”</a>, the C++ committee proposal that made <code>constexpr</code> virtual functions possible in C++20. The paper uses <code>error_code</code> and <code>error_category</code> as the motivating example.</p>
+</div>
+
+<p>That <strong>shifted the problem</strong>. Instead of building our own <code>constexpr_result&lt;T&gt;</code> type to bypass the entire error handling system, we could use <code>system::result</code> directly in C++20. The scope of the refactoring shrank, and we focused on <strong>C++20 as the initial target</strong>. The remaining blocker was that <code>system::result&lt;T&gt;</code> requires <code>T</code> to be a literal type, and we use <code>boost::optional</code> heavily in our parsing code. <strong><code>boost::optional</code> was not a literal type.</strong></p>
+
+<p><a href="https://github.com/akrzemi1">Andrzej Krzemieński</a>, the Boost.Optional maintainer, <a href="https://github.com/boostorg/optional/issues/143">started working on it</a>. The conversation went back and forth on the <strong>C++14 constraints</strong>: <code>std::addressof</code> is not <code>constexpr</code> until C++17, mandatory copy elision is only available in C++17, and there were questions about what subset of constructors could realistically become <code>constexpr</code> in C++14. After several iterations (including a <code>feature/constexpr</code> branch), the <a href="https://github.com/boostorg/optional/commit/3df2337"><strong>constexpr implementation</strong> landed on <code>develop</code></a>.</p>
+
+<p>With <strong><code>optional</code> becoming literal</strong>, <code>boost::variant2</code> containing <code>optional</code> could also become literal. All three blockers were now resolved. Peter had fixed Boost.System, Andrzej had fixed Boost.Optional, and we contributed fixes to Boost.Variant2. <strong>There was no going back</strong>: we could no longer dismiss the constexpr feature after three library maintainers had already done their part.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#f7f9ff", "primaryBorderColor": "#9aa7e8", "primaryTextColor": "#1f2a44", "lineColor": "#b4bef2", "secondaryColor": "#fbf8ff", "tertiaryColor": "#ffffff", "fontSize": "14px"}}}%%
+flowchart TD
+    A[Boost.URL constexpr parsing] --&gt; B[Boost.Optional]
+    A --&gt; C[Boost.Variant2]
+    A --&gt; D[Boost.System]
+    B --&gt; E[boost::optional constexpr]
+    C --&gt; F[boost::variant2::variant constexpr]
+    D --&gt; G[boost::system::result constexpr]
+    D --&gt; H[boost::system::error_code constexpr]
+</div>
+
+<details>
+  <summary>Cross-library commits for constexpr support</summary>
+
+  <p><strong>Boost.URL</strong> (<a href="https://github.com/boostorg/url/pull/976">PR #976</a>, <a href="https://github.com/boostorg/url/pull/981">PR #981</a>)</p>
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/0a2c39f">0a2c39f</a> feat: constexpr URL parsing for C++20</li>
+    <li><a href="https://github.com/boostorg/url/commit/b9db439">b9db439</a> build: remove -Wno-maybe-uninitialized from GCC flags (see <a href="#the--wmaybe-uninitialized-problem">below</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/59b4540">59b4540</a> fix: suppress GCC false-positive -Wmaybe-uninitialized in tuple_rule (see <a href="#the--wmaybe-uninitialized-problem">below</a>)</li>
+  </ul>
+
+  <p><strong>Boost.Optional</strong> (<a href="https://github.com/boostorg/optional/issues/143">issue #143</a>, <a href="https://github.com/boostorg/optional/pull/145">PR #145</a>)</p>
+  <ul>
+    <li><a href="https://github.com/boostorg/optional/commit/3df2337">3df2337</a> make optional constexpr in C++14</li>
+    <li><a href="https://github.com/boostorg/optional/commit/046357c">046357c</a> add more robust constexpr support</li>
+    <li><a href="https://github.com/boostorg/optional/commit/88e2378">88e2378</a> add -Wmaybe-uninitialized pragma (see <a href="#the--wmaybe-uninitialized-problem">below</a>)</li>
+  </ul>
+
+  <p><strong>Boost.Variant2</strong> (<a href="https://github.com/boostorg/variant2/pull/57">PR #57</a>)</p>
+  <ul>
+    <li><a href="https://github.com/boostorg/variant2/commit/b6ce8ac">b6ce8ac</a> add missing -Wmaybe-uninitialized pragma (see <a href="#the--wmaybe-uninitialized-problem">below</a>)</li>
+  </ul>
+
+  <p><strong>Boost.System</strong> (<a href="https://github.com/boostorg/system/issues/141">issue #141</a>)</p>
+  <ul>
+    <li><a href="https://github.com/boostorg/system/commit/af53f17">af53f17</a> add constexpr to virtual functions on C++20 or later</li>
+  </ul>
+
+</details>
+
+<h2 id="error-handling-at-compile-time">Error Handling at Compile Time</h2>
+
+<p>Boost.URL attaches <a href="https://en.cppreference.com/w/cpp/utility/source_location">source location</a> information to error codes for better diagnostics at runtime. In a <code>constexpr</code> context, <code>BOOST_CURRENT_LOCATION</code> is not available, so the <code>BOOST_URL_CONSTEXPR_RETURN_EC</code> macro branches on <a href="https://en.cppreference.com/w/cpp/types/is_constant_evaluated"><code>__builtin_is_constant_evaluated()</code></a>: at compile time it returns the error enum directly, at runtime it attaches the source location.</p>
+
+<pre><code class="language-cpp">#if defined(BOOST_URL_HAS_CXX20_CONSTEXPR)
+# define BOOST_URL_CONSTEXPR_RETURN_EC(ev) \
+    do { \
+        if (__builtin_is_constant_evaluated()) { \
+            return (ev); \
+        } \
+        return [](auto e) { \
+            BOOST_URL_RETURN_EC(e); \
+        }(ev); \
+    } while(0)
+#endif
+</code></pre>
+
+<h2 id="the--wmaybe-uninitialized-problem">The <code>-Wmaybe-uninitialized</code> Problem</h2>
+
+<p>GCC’s <a href="https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmaybe-uninitialized"><code>-Wmaybe-uninitialized</code></a> flagged code inside <code>boost::optional</code> and <code>boost::variant2</code> union storage constructors. The root cause was neither library.</p>
+
+<p><strong>The inlining chain:</strong> Boost.URL’s parsing code constructs a <code>variant2::variant</code> that contains an <code>optional</code> alternative. At <strong><code>-O3</code></strong>, GCC inlines the entire chain:</p>
+
+<ul>
+  <li>Parse function</li>
+  <li>Variant construction</li>
+  <li><code>variant2</code> storage</li>
+  <li><code>optional</code> storage</li>
+  <li>Union constructor</li>
+</ul>
+
+<p>After inlining, GCC sees a union with a <code>dummy_</code> member and a <code>value_</code> member, and it cannot prove which member is active. It conflates the “uninitialized dummy” path with the “initialized value” path. The <code>in_place_index_t&lt;I&gt;</code> dispatch guarantees which member is initialized, but GCC’s data flow analysis loses track across the nested layers. <a href="https://clang.llvm.org/docs/AddressSanitizer.html"><code>-fsanitize=address</code></a> makes it worse by changing inlining thresholds.</p>
+
+<p><strong>The compiler blames the wrong library.</strong> The root cause is in <code>variant2</code>’s union storage, but when <code>variant2</code> contains an <code>optional</code>, GCC reports the warning in <code>optional</code>’s code. The pragma has to go where GCC reports it, not where the issue originates. We contributed pragmas to both <a href="https://github.com/boostorg/optional/pull/145">Boost.Optional</a> and <a href="https://github.com/boostorg/variant2/pull/57">Boost.Variant2</a>, and replaced Boost.URL’s blanket <code>-Wno-maybe-uninitialized</code> flag with <a href="https://github.com/boostorg/url/pull/981">targeted pragmas</a>.</p>
+
+<blockquote>
+  <p>This particular false positive requires <strong>GCC 14+</strong>, <strong><code>-O3</code></strong>, <strong>ASan</strong>, on <strong>x86_64 Linux</strong>, with a <code>variant2::variant</code> containing a <code>boost::optional</code>, constructed through a <code>system::result</code> dereference. Change any one of those conditions and the warning disappears.</p>
+</blockquote>
+
+<p>This leaves an open question for the Boost ecosystem: when a false positive surfaces because library A’s optimizer behavior interacts with library B’s union storage and gets reported in library C’s code, who is responsible for the pragma? For now, we placed pragmas where GCC reports the issue, but the underlying problem recurs every time a new combination of types triggers the same inlining pattern.</p>
+
+<h2 id="the-shared-library-problem">The Shared Library Problem</h2>
+
+<p>Making URL parsing <code>constexpr</code> means the parsing functions must be available in headers. But Boost.URL is a compiled library, and on MSVC, <a href="https://learn.microsoft.com/en-us/cpp/cpp/dllexport-dllimport?view=msvc-170"><code>__declspec(dllexport)</code></a> on a class exports <strong>all</strong> members, including inline and <code>constexpr</code> ones. This causes <a href="https://learn.microsoft.com/en-us/cpp/error-messages/tool-errors/linker-tools-error-lnk2005?view=msvc-170"><code>LNK2005</code></a> (duplicate symbol) errors for any class that mixes compiled and header-only members.</p>
+
+<p>Each class must follow exactly one of two policies:</p>
+
+<ul>
+  <li><strong>(a)</strong> Fully compiled: <code>class BOOST_URL_DECL C</code>. All members in <code>.cpp</code> files. No inline or <code>constexpr</code> members.</li>
+  <li><strong>(b)</strong> Fully header-only: <code>class BOOST_SYMBOL_VISIBLE C</code>. All inline/<code>constexpr</code>/template. No <code>.cpp</code> file.</li>
+</ul>
+
+<p>We documented the full rationale in <a href="https://github.com/boostorg/url/blob/develop/include/boost/url/detail/config.hpp"><code>config.hpp</code></a>. We suspect other C++ libraries have not encountered this because they either do not test shared library builds as extensively as we do, or they are header-only.</p>
+
+<h2 id="the-result">The Result</h2>
+
+<p>Boost.URL can now parse URLs at compile time under C++20 (<a href="https://github.com/boostorg/url/pull/976">PR #976</a>). All parse functions (<code>parse_uri</code>, <code>parse_uri_reference</code>, <code>parse_relative_ref</code>, <code>parse_absolute_uri</code>, and <code>parse_origin_form</code>) are fully <code>constexpr</code>. A malformed URL literal becomes a compile error rather than a runtime failure:</p>
+
+<pre><code class="language-cpp">// Parsed and validated at compile time.
+// A malformed literal would fail to compile.
+constexpr url_view api_base =
+    parse_uri("https://api.example.com/v2").value();
+</code></pre>
+
+<p>Pre-parsed <code>constexpr</code> URL views also serve as <strong>zero-cost constants</strong>: because all parsing happens during compilation, components like scheme, host, and port are available at runtime with no parsing overhead. This is useful for applications that compare against well-known endpoints, pre-populate configuration defaults, or build routing tables without paying for string parsing at startup.</p>
+
+<p>The constexpr feature taught us that dismissing a request because the cost seems too high for one library misses the bigger picture. Once Peter Dimov and the other maintainers got involved, the cost was shared and the scope shrank. In the Boost ecosystem, a feature that seems expensive in isolation can become practical when the dependencies cooperate.</p>
+
+<h1 id="usability-improvements">Usability Improvements</h1>
+
+<p>While integrating Boost.URL into <a href="https://github.com/cppalliance/beast2">Boost.Beast2</a>, the Beast2 authors noticed friction in common operations that worked correctly but required more code than they should. At the same time, several community issues had been open for a while. We used this as an opportunity to address both.</p>
+
+<h2 id="convenience-functions">Convenience Functions</h2>
+
+<p>The most requested feature was <strong><a href="https://github.com/boostorg/url/pull/953"><code>get_or</code></a></strong> for query containers: look up a query parameter by key and return a default value if it is not present.</p>
+
+<p><strong>Before:</strong></p>
+
+<pre><code class="language-cpp">auto it = url.params().find("page");
+auto page = it != url.params().end() ? (*it).value : "1";
+</code></pre>
+
+<p><strong>After:</strong></p>
+
+<pre><code class="language-cpp">auto page = url.params().get_or("page", "1");
+</code></pre>
+
+<p>We also added <strong><a href="https://github.com/boostorg/url/pull/952">standalone decode functions</a></strong> for working with individual URL components without constructing a full URL object:</p>
+
+<pre><code class="language-cpp">auto plain = decode("My%20Stuff");
+assert(plain &amp;&amp; *plain == "My Stuff");
+
+auto n = decoded_size("Program%20Files");
+assert(n &amp;&amp; *n == 13);
+</code></pre>
+
+<h2 id="c20-integration">C++20 Integration</h2>
+
+<p><a href="https://github.com/boostorg/url/pull/966"><code>enable_borrowed_range</code></a> is now specialized for 10 Boost.URL view types (<code>segments_view</code>, <code>params_view</code>, <code>decode_view</code>, and others). Unlike a <code>std::vector</code>, which owns its data, Boost.URL views point into the URL’s buffer without owning it. When a temporary view is destroyed, its iterators still point to valid memory. <a href="https://en.cppreference.com/w/cpp/ranges/borrowed_range"><code>enable_borrowed_range</code></a> tells the compiler this is safe, so algorithms like <a href="https://en.cppreference.com/w/cpp/algorithm/ranges/find"><code>std::ranges::find</code></a> can return iterators from temporary views without the compiler rejecting the code:</p>
+
+<pre><code class="language-cpp">segments_view::iterator it;
+{
+    segments_view ps("/path/to/file.txt");
+    it = ps.begin();
+}
+// iterator is still valid (points to external buffer)
+assert(*it == "path");
+</code></pre>
+
+<p>The grammar system gained <strong><a href="https://github.com/boostorg/url/pull/950">user-provided RangeRule support</a></strong>. Custom grammar rules for parsing URL components satisfy a concept requiring <code>first()</code> and <code>next()</code> methods returning <code>system::result&lt;value_type&gt;</code>:</p>
+
+<pre><code class="language-cpp">struct my_range_rule
+{
+    using value_type = core::string_view;
+
+    system::result&lt;value_type&gt;
+    first(char const*&amp; it, char const* end) const noexcept;
+
+    system::result&lt;value_type&gt;
+    next(char const*&amp; it, char const* end) const noexcept;
+};
+</code></pre>
+
+<p>The motivation was performance and API clarity (<a href="https://github.com/boostorg/url/issues/943">#943</a>). Previously, <code>grammar::range&lt;T&gt;</code> always type-erased the rule through a <code>recycled_ptr</code> with string storage. <strong>Stateless rules were paying for storage they did not need.</strong> With user-provided RangeRule, <code>range&lt;T, RangeRule&gt;</code> detects empty rules and avoids the type-erasure overhead entirely.</p>
+
+<h2 id="performance">Performance</h2>
+
+<p>Component offsets in <code>url_impl</code> changed from <code>size_t</code> to <strong><a href="https://github.com/boostorg/url/pull/969"><code>uint32_t</code></a></strong>, reducing the size of every URL object on 64-bit platforms. The maximum URL size is capped at <code>UINT32_MAX - 1</code> (enforced by a <code>static_assert</code>). Constructing a <code>segments_view</code> or <code>segments_encoded_view</code> from a URL is now a <strong>constant-time operation</strong>: offsets are computed directly from iterator indices without scanning the path.</p>
+
+<details>
+  <summary>Other improvements</summary>
+
+  <p><strong>Fixes</strong></p>
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/a87998a">a87998a</a> <code>params_iter_impl::decrement()</code> computed incorrect decoded key/value sizes when a query parameter’s value contains literal <code>=</code> characters (<a href="https://github.com/boostorg/url/pull/978">PR #978</a>, <a href="https://github.com/boostorg/url/issues/972">#972</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/60c281a">60c281a</a> <code>decode_view::remove_prefix</code>/<code>remove_suffix</code> asserted <code>n &lt;= size()</code> instead of preventing undefined behavior (<a href="https://github.com/boostorg/url/pull/978">PR #978</a>, <a href="https://github.com/boostorg/url/issues/973">#973</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/01e0571">01e0571</a> <code>decode_view</code> was forward-declared but not complete when <code>pct_string_view::operator*()</code> was declared (<a href="https://github.com/boostorg/url/pull/963">PR #963</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/cbaf493">cbaf493</a> <code>parse_query</code> guard for empty <code>string_view</code> inputs from null data (<a href="https://github.com/boostorg/url/pull/949">PR #949</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/161cf73">161cf73</a> example router is now move-only (<a href="https://github.com/boostorg/url/pull/959">PR #959</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/13f0110">13f0110</a> natvis: add visualizers for segments (<a href="https://github.com/boostorg/url/pull/962">PR #962</a>)</li>
+  </ul>
+
+  <p><strong>Refactors</strong></p>
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/e809ee4">e809ee4</a> <code>token_rule_t</code> now uses the <a href="https://en.cppreference.com/w/cpp/language/ebo">empty base optimization</a> via <a href="https://www.boost.org/doc/libs/release/libs/core/doc/html/core/empty_value.html"><code>empty_value</code></a> and provides conditional default construction (<a href="https://github.com/boostorg/url/pull/964">PR #964</a>)</li>
+  </ul>
+
+  <p><strong>Documentation</strong></p>
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/32c3ddc">32c3ddc</a> new <strong><a href="https://github.com/boostorg/url/pull/987">design rationale page</a></strong></li>
+    <li><a href="https://github.com/boostorg/url/commit/000476c">000476c</a> restore library-detail.adoc with shorter description</li>
+    <li>Legacy QuickBook documentation removed in favor of Antora-based docs</li>
+    <li><a href="https://github.com/boostorg/url/commit/8c7c4c7">8c7c4c7</a> <strong><a href="https://github.com/boostorg/url/pull/970">plus scheme convention</a></strong> documented</li>
+    <li><a href="https://github.com/boostorg/url/commit/6d396a4">6d396a4</a> format examples show full URL</li>
+    <li><a href="https://github.com/boostorg/url/commit/e4e6644">e4e6644</a> SVG diagrams with medium brightness backgrounds</li>
+    <li><a href="https://github.com/boostorg/url/commit/c93553c">c93553c</a> simplify SVG documentation images</li>
+    <li><a href="https://github.com/boostorg/url/commit/e618e69">e618e69</a> avoid shadow warnings while improving param_view docs</li>
+    <li><a href="https://github.com/boostorg/url/commit/4f63aea">4f63aea</a> antora-downloads-extension integration</li>
+    <li><a href="https://github.com/boostorg/url/commit/7f08ce2">7f08ce2</a> update antora extensions</li>
+    <li><a href="https://github.com/boostorg/url/commit/67bcd2d">67bcd2d</a> build script sets root dirs</li>
+    <li><a href="https://github.com/boostorg/url/commit/888cd8c">888cd8c</a> <strong><a href="https://github.com/boostorg/url/pull/951">MrDocs-generated tagfiles</a></strong> for cross-referencing with other Boost libraries</li>
+  </ul>
+
+  <p><strong>Tests</strong></p>
+  <ul>
+    <li><a href="https://github.com/boostorg/url/commit/e946887">e946887</a> URL with <code>?</code> in query string (<a href="https://github.com/boostorg/url/pull/978">PR #978</a>, <a href="https://github.com/boostorg/url/issues/926">#926</a>)</li>
+    <li><a href="https://github.com/boostorg/url/commit/3228399">3228399</a> URL natvis instantiations</li>
+  </ul>
+
+</details>
+
+<p>Most of these improvements came from real usage. The Beast2 integration exposed friction that we would not have found from inside the library, and the community issues represented patterns that multiple users had independently hit. The best usability feedback comes from people who are actually building something with the library.</p>
+
+<h1 id="acknowledgments-and-reflections">Acknowledgments and Reflections</h1>
+
+<p>The constexpr work benefited from the contributions of <strong><a href="https://github.com/pdimov">Peter Dimov</a></strong> (<a href="https://github.com/boostorg/system">Boost.System</a>, <a href="https://github.com/boostorg/variant2">Boost.Variant2</a>) and <strong><a href="https://github.com/akrzemi1">Andrzej Krzemieński</a></strong> (<a href="https://github.com/boostorg/optional">Boost.Optional</a>), who applied fixes to their libraries so that Boost.URL could proceed. The Beast2 usability feedback came from the Beast2 authors as they integrated Boost.URL into the new design.</p>
+
+<p>The work on Boost.URL has shifted. The problems we are solving now (edge cases found by professional auditors, compiler limitations for constexpr, usability friction from real integrations) are different from the problems we used to solve. They are smaller and more specific, but they matter more because real people hit them.</p>
+
+<p>The complete set of changes is available in the <a href="https://github.com/boostorg/url">Boost.URL repository</a>.</p>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad: true});</script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/24/2026</span>
+          <a class='text-l news-title link' href="/alan/2026/04/24/Alan.html">MrDocs in the Wild</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/21/2026</span>
+          <a class='text-l news-title link' href="/alan/2026/04/21/Alan.html">Boost.URL: Audited, Constexpr, and Polished</a>
+        </li>
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/15/2026</span>
+          <a class='text-l news-title link' href="/alan/2026/04/15/Alan.html">MrDocs Bootstrap: One Script to Build Them All</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/28/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/10/28/Alan.html">From Prototype to Product: MrDocs in 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/07/10/Alan.html">Bringing B2-Style Test Granularity to CMake</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2025</span>
+          <a class='text-l news-title link' href="/alan/2025/01/10/AlanQ4Update.html">Scaling Documentation Pipelines Across Boost Projects</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/13/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/07/13/AlanQ2Update.html">Operationalizing MrDocs Reference for the Boost Release Workflow</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>05/07/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/05/07/AlanQ1Update.html">Making MrDocs Portable for Every Toolchain</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/12/2024</span>
+          <a class='text-l news-title link' href="/alan/2024/01/12/AlanQ4Update.html">Owning Handlebars: Custom Templates for Boost.URL</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/alan/2023/10/27/AlanQ3Update.html">Building the MrDocs Reference Pipeline for Antora</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>
