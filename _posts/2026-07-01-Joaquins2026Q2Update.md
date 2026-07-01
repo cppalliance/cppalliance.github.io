@@ -59,7 +59,7 @@ from Jonathan Wakely.
 ### Boost.ICL
 
 As discussed in a [previous entry](https://cppalliance.org/joaquin/2026/04/02/Joaquins2026Q1Update.html#boosticl),
-recent changes in libc++ v2 broke this library. These changes are related to the fact
+recent changes in libc++ v22 broke this library. These changes are related to the fact
 that non-heterogeneous lookup for associative containers is poorly specified in
 the C++ standard. I filed a [LWG issue](https://cplusplus.github.io/LWG/issue4572) and
 defended a resolution with the LWEG that was consistent with the original semantic
