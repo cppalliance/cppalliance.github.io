@@ -19,7 +19,7 @@ Alexander Grund, Andrzej Krzemieński, Christian Mazakas, Peter Turcan.
 During April-June I implemented the feedback received ([PR#20](https://github.com/joaquintides/hub/pull/20)),
 and after that Ion took over and migrated the code and 
 [documentation](https://www.boost.org/doc/libs/develop/doc/html/container/non_standard_containers.html#container.non_standard_containers.hub)
-to Boost.Container (including backporting to C++03 and some interesting performance improvements
+to Boost.Container (adding some interesting performance improvements
 that I helped a bit with). `boost::container::hub` will be released in Boost 1.92
 (August 2026), after which the [original repo](https://github.com/joaquintides/hub) will be
 deprecated or removed.
