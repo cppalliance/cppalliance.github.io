@@ -15,7 +15,7 @@ The Boost official review took place April 16-26. The library
 [was accepted](https://lists.boost.org/archives/list/boost@lists.boost.org/thread/7WZ7QTPE2YDYD5OYCKXKKV2N74JHJRZL/)
 as part of Boost.Container. Many thanks to the review manager, Ion Gaztañaga, and all the people who participated:
 Arnaud Becheler, Matt Bentley, Matt Borland, Dominique Devienne, Peter Dimov, Emil Dotchevski,
-Alexander Grund, Andrzej Krzemieński, Christian Mazakas, Peter Turcan. 
+Amlal El Mahrouss, Alexander Grund, Seth Heeren, Andrzej Krzemieński, Christian Mazakas, Andrey Semashev, Peter Turcan. 
 During April-June I implemented the feedback received ([PR#20](https://github.com/joaquintides/hub/pull/20)),
 and after that Ion took over and migrated the code and 
 [documentation](https://www.boost.org/doc/libs/develop/doc/html/container/non_standard_containers.html#container.non_standard_containers.hub)
