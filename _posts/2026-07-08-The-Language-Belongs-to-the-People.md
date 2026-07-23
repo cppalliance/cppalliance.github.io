@@ -1,9 +1,9 @@
 ---
 layout: post
 nav-class: dark
-categories: rob
+categories: robert
 title: The Language Belongs to the People Who Write It
-author-id: rob
+author-id: robert
 author-name: Rob Beeston
 ---
 
