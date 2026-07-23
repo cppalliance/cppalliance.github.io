@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Systems, CI Updates Q2 2026 | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Systems, CI Updates Q2 2026 | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Systems, CI Updates Q2 2026" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Doc Previews and Doc Builds Progress on isomorphic-git: after the pull request “support git commands run in submodules” was merged and released, Antora updated their version of isomorphic-git so the new features are live there also. The maintainer of Antora added more CI tests aimed at this functionality, and uncovered a problem that the program failed in certain circumstances on Microsoft Windows where line-endings are different. Bouncing the issue back to isomorphic-git again, it seems no Windows tests were ever written in this 10-year-old codebase. While solving all Windows bugs seemed initially out-of-scope, it did appear necessary to add new Windows tests and at least apply them to submodules. This soon led to modifying and fixing other functions and files which were not part of the original pull request, with a more general goal of ensuring isomorphic-git passes all tests on Windows. The maintainer, being short-staffed, and in an effort to leverage any outside assistance whenever possible, made a point to insist that the Windows CI passed with “all green” before accepting Windows fixes. As often happens, it is faster to just solve the bugs first, and ask questions afterwards, rather than discuss the issues endlessly. I debugged outstanding Windows bugs, checked them into git, and the CI was passing. The situation still dragged on for weeks trying to reach agreement about the right method to solve the platform incompatibility. The final result: Windows updates merged in isomorphic-git. Antora referenced the newer version. Problem resolved. Also, Doc previews for boostorg/graph. boostorg/redis. cppalliance/burl. Investigating issues after a major upgrade of mrdocs. Discovered and reported findings. Fixed quickly. Great. Edit-this-page links: capy, decimal, others. Code Coverage Reports - designing new GCOVR templates The “boost” templates were finally merged into https://github.com/gcovr/gcovr. Fantastic work by Julio Estrada on the template development. Any users of gcovr/gcovr (the main branch) may now choose --html-theme boost.green and use the theme. During this quarter, debugging multi-level child directories which contain one file. Replaced collapseSingleChildDirs with joinSingleChildDirs. remove deduplicateTree. set a default for window.GCOVR_TREE_DATA to avoid crashes. troubleshoot the formatting of tree items with long paths instead of just showing the filename in the sidebar. solved a symlink bug where gcovr was “resolving” symlinks and it disrupted the tree output display. Boost website boostorg/website-v2 Debugging and correcting Fastly purge during releases. Website logs were filling up with “violates not-null constraint” when saving cached content. At first this seemed to be merely an annoyance when reading log entries but otherwise not substantive. However the sheer quantity of messages was eventually filling up and crashing redis. This triggered a review of redis settings. Improved cache purging. Also, fixed the non-null bug in website-v2 itself. Installed plausible api key entries on website-v2. Mailman3 Locked down remote api access to certain IP addresses when statistics are gathered, to avoid triggering long-running DB queries, and solved a problem of the server and database machines CPU being overloaded. Collaborating with Teo on website-v2 -&gt; mailman3 sign-up features. Allowed the mailman-core api to be reachable from the website via nginx proxy. Added lynx package, enabling Hyperkitty to decipher html-only emails. Slack Ubuntu’s auto-upgrade package feature broke Paperbot. Rolled back apt packages. Pinned package versions. Back online. Ansible Composed an ansible role ansible-postgresql based on existing scripts which installs postgresql databases, as well as backups to the cloud. Researched topics of icu collation, pgbouncer. Applied the role on multiple alliance projects/servers. Boost release process boostorg/release-tools Continued work to generate a 26.04 superproject image to build releases. Sent another round of pull requests to certain boost libraries that are not yet compatible. Assisted release managers in accessing cloud storage for maintenance. Replacing lbzip2 with pbzip2 as compression executable in release-tools, ongoing. WG21 Launched lists.wg21.org mailing lists. During this past quarter, progress towards single-sign-on between wg21.org and lists.wg21.org using django-allauth. Runbook generated by Will Pak. Testing on staging instance. Experimented with various hosted AI systems. Installed pods at runpod.ai. Designed customized docker images to protect the AI instance from internet traffic behind nginx. https://github.com/cppalliance/runpod Drone Sent pull requests to 9 boost libs boost.sh -&gt; drone.sh, standardizing the name of the file which allows it to be completely omitted, and thus simplifying all entries in .drone.star files, where it’s no longer necessary to specify “drone.sh” as the script file. New drone image Ubuntu 26.04. Internal, Corporate New onboarding script. DMARC, DKIM for Gmail. regression.boost.org Retry ftp failures in the CircleCI jobs. Multiple scripts are involved in processing results at https://regression.boost.org/. Migrated the CircleCI job itself, and associated scripts, from Python2 to Python3. Completed. (Other scripts remain to-do)." />
+<meta property="og:description" content="Doc Previews and Doc Builds Progress on isomorphic-git: after the pull request “support git commands run in submodules” was merged and released, Antora updated their version of isomorphic-git so the new features are live there also. The maintainer of Antora added more CI tests aimed at this functionality, and uncovered a problem that the program failed in certain circumstances on Microsoft Windows where line-endings are different. Bouncing the issue back to isomorphic-git again, it seems no Windows tests were ever written in this 10-year-old codebase. While solving all Windows bugs seemed initially out-of-scope, it did appear necessary to add new Windows tests and at least apply them to submodules. This soon led to modifying and fixing other functions and files which were not part of the original pull request, with a more general goal of ensuring isomorphic-git passes all tests on Windows. The maintainer, being short-staffed, and in an effort to leverage any outside assistance whenever possible, made a point to insist that the Windows CI passed with “all green” before accepting Windows fixes. As often happens, it is faster to just solve the bugs first, and ask questions afterwards, rather than discuss the issues endlessly. I debugged outstanding Windows bugs, checked them into git, and the CI was passing. The situation still dragged on for weeks trying to reach agreement about the right method to solve the platform incompatibility. The final result: Windows updates merged in isomorphic-git. Antora referenced the newer version. Problem resolved. Also, Doc previews for boostorg/graph. boostorg/redis. cppalliance/burl. Investigating issues after a major upgrade of mrdocs. Discovered and reported findings. Fixed quickly. Great. Edit-this-page links: capy, decimal, others. Code Coverage Reports - designing new GCOVR templates The “boost” templates were finally merged into https://github.com/gcovr/gcovr. Fantastic work by Julio Estrada on the template development. Any users of gcovr/gcovr (the main branch) may now choose --html-theme boost.green and use the theme. During this quarter, debugging multi-level child directories which contain one file. Replaced collapseSingleChildDirs with joinSingleChildDirs. remove deduplicateTree. set a default for window.GCOVR_TREE_DATA to avoid crashes. troubleshoot the formatting of tree items with long paths instead of just showing the filename in the sidebar. solved a symlink bug where gcovr was “resolving” symlinks and it disrupted the tree output display. Boost website boostorg/website-v2 Debugging and correcting Fastly purge during releases. Website logs were filling up with “violates not-null constraint” when saving cached content. At first this seemed to be merely an annoyance when reading log entries but otherwise not substantive. However the sheer quantity of messages was eventually filling up and crashing redis. This triggered a review of redis settings. Improved cache purging. Also, fixed the non-null bug in website-v2 itself. Installed plausible api key entries on website-v2. Mailman3 Locked down remote api access to certain IP addresses when statistics are gathered, to avoid triggering long-running DB queries, and solved a problem of the server and database machines CPU being overloaded. Collaborating with Teo on website-v2 -&gt; mailman3 sign-up features. Allowed the mailman-core api to be reachable from the website via nginx proxy. Added lynx package, enabling Hyperkitty to decipher html-only emails. Slack Ubuntu’s auto-upgrade package feature broke Paperbot. Rolled back apt packages. Pinned package versions. Back online. Ansible Composed an ansible role ansible-postgresql based on existing scripts which installs postgresql databases, as well as backups to the cloud. Researched topics of icu collation, pgbouncer. Applied the role on multiple alliance projects/servers. Boost release process boostorg/release-tools Continued work to generate a 26.04 superproject image to build releases. Sent another round of pull requests to certain boost libraries that are not yet compatible. Assisted release managers in accessing cloud storage for maintenance. Replacing lbzip2 with pbzip2 as compression executable in release-tools, ongoing. WG21 Launched lists.wg21.org mailing lists. During this past quarter, progress towards single-sign-on between wg21.org and lists.wg21.org using django-allauth. Runbook generated by Will Pak. Testing on staging instance. Experimented with various hosted AI systems. Installed pods at runpod.ai. Designed customized docker images to protect the AI instance from internet traffic behind nginx. https://github.com/cppalliance/runpod Drone Sent pull requests to 9 boost libs boost.sh -&gt; drone.sh, standardizing the name of the file which allows it to be completely omitted, and thus simplifying all entries in .drone.star files, where it’s no longer necessary to specify “drone.sh” as the script file. New drone image Ubuntu 26.04. Internal, Corporate New onboarding script. DMARC, DKIM for Gmail. regression.boost.org Retry ftp failures in the CircleCI jobs. Multiple scripts are involved in processing results at https://regression.boost.org/. Migrated the CircleCI job itself, and associated scripts, from Python2 to Python3. Completed. (Other scripts remain to-do)." />
+<link rel="canonical" href="http://cppalliance.org/sam/2026/07/06/SamsQ2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/sam/2026/07/06/SamsQ2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-07-06T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Systems, CI Updates Q2 2026" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Doc Previews and Doc Builds Progress on isomorphic-git: after the pull request “support git commands run in submodules” was merged and released, Antora updated their version of isomorphic-git so the new features are live there also. The maintainer of Antora added more CI tests aimed at this functionality, and uncovered a problem that the program failed in certain circumstances on Microsoft Windows where line-endings are different. Bouncing the issue back to isomorphic-git again, it seems no Windows tests were ever written in this 10-year-old codebase. While solving all Windows bugs seemed initially out-of-scope, it did appear necessary to add new Windows tests and at least apply them to submodules. This soon led to modifying and fixing other functions and files which were not part of the original pull request, with a more general goal of ensuring isomorphic-git passes all tests on Windows. The maintainer, being short-staffed, and in an effort to leverage any outside assistance whenever possible, made a point to insist that the Windows CI passed with “all green” before accepting Windows fixes. As often happens, it is faster to just solve the bugs first, and ask questions afterwards, rather than discuss the issues endlessly. I debugged outstanding Windows bugs, checked them into git, and the CI was passing. The situation still dragged on for weeks trying to reach agreement about the right method to solve the platform incompatibility. The final result: Windows updates merged in isomorphic-git. Antora referenced the newer version. Problem resolved. Also, Doc previews for boostorg/graph. boostorg/redis. cppalliance/burl. Investigating issues after a major upgrade of mrdocs. Discovered and reported findings. Fixed quickly. Great. Edit-this-page links: capy, decimal, others. Code Coverage Reports - designing new GCOVR templates The “boost” templates were finally merged into https://github.com/gcovr/gcovr. Fantastic work by Julio Estrada on the template development. Any users of gcovr/gcovr (the main branch) may now choose --html-theme boost.green and use the theme. During this quarter, debugging multi-level child directories which contain one file. Replaced collapseSingleChildDirs with joinSingleChildDirs. remove deduplicateTree. set a default for window.GCOVR_TREE_DATA to avoid crashes. troubleshoot the formatting of tree items with long paths instead of just showing the filename in the sidebar. solved a symlink bug where gcovr was “resolving” symlinks and it disrupted the tree output display. Boost website boostorg/website-v2 Debugging and correcting Fastly purge during releases. Website logs were filling up with “violates not-null constraint” when saving cached content. At first this seemed to be merely an annoyance when reading log entries but otherwise not substantive. However the sheer quantity of messages was eventually filling up and crashing redis. This triggered a review of redis settings. Improved cache purging. Also, fixed the non-null bug in website-v2 itself. Installed plausible api key entries on website-v2. Mailman3 Locked down remote api access to certain IP addresses when statistics are gathered, to avoid triggering long-running DB queries, and solved a problem of the server and database machines CPU being overloaded. Collaborating with Teo on website-v2 -&gt; mailman3 sign-up features. Allowed the mailman-core api to be reachable from the website via nginx proxy. Added lynx package, enabling Hyperkitty to decipher html-only emails. Slack Ubuntu’s auto-upgrade package feature broke Paperbot. Rolled back apt packages. Pinned package versions. Back online. Ansible Composed an ansible role ansible-postgresql based on existing scripts which installs postgresql databases, as well as backups to the cloud. Researched topics of icu collation, pgbouncer. Applied the role on multiple alliance projects/servers. Boost release process boostorg/release-tools Continued work to generate a 26.04 superproject image to build releases. Sent another round of pull requests to certain boost libraries that are not yet compatible. Assisted release managers in accessing cloud storage for maintenance. Replacing lbzip2 with pbzip2 as compression executable in release-tools, ongoing. WG21 Launched lists.wg21.org mailing lists. During this past quarter, progress towards single-sign-on between wg21.org and lists.wg21.org using django-allauth. Runbook generated by Will Pak. Testing on staging instance. Experimented with various hosted AI systems. Installed pods at runpod.ai. Designed customized docker images to protect the AI instance from internet traffic behind nginx. https://github.com/cppalliance/runpod Drone Sent pull requests to 9 boost libs boost.sh -&gt; drone.sh, standardizing the name of the file which allows it to be completely omitted, and thus simplifying all entries in .drone.star files, where it’s no longer necessary to specify “drone.sh” as the script file. New drone image Ubuntu 26.04. Internal, Corporate New onboarding script. DMARC, DKIM for Gmail. regression.boost.org Retry ftp failures in the CircleCI jobs. Multiple scripts are involved in processing results at https://regression.boost.org/. Migrated the CircleCI job itself, and associated scripts, from Python2 to Python3. Completed. (Other scripts remain to-do).","@type":"BlogPosting","url":"http://cppalliance.org/sam/2026/07/06/SamsQ2Update.html","headline":"Systems, CI Updates Q2 2026","dateModified":"2026-07-06T00:00:00+00:00","datePublished":"2026-07-06T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/sam/2026/07/06/SamsQ2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Systems, CI Updates Q2 2026</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/sam">
+              <img class='author-img' src='/images/people/sam.jpg' alt='Portrait of Sam Darwin' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/sam">
+                  Sam Darwin
+                </a> &middot; Jul 6, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <h3 id="doc-previews-and-doc-builds">Doc Previews and Doc Builds</h3>
+
+<p>Progress on isomorphic-git: after the pull request “support git commands run in submodules” was merged and released, Antora updated their version of isomorphic-git so the new features are live there also. The maintainer of Antora added more CI tests aimed at this functionality, and uncovered a problem that the program failed in certain circumstances on Microsoft Windows where line-endings are different. Bouncing the issue back to isomorphic-git again, it seems no Windows tests were ever written in this 10-year-old codebase. While solving all Windows bugs seemed initially out-of-scope, it did appear necessary to add new Windows tests and at least apply them to submodules. This soon led to modifying and fixing other functions and files which were not part of the original pull request, with a more general goal of ensuring isomorphic-git passes all tests on Windows. The maintainer, being short-staffed, and in an effort to leverage any outside assistance whenever possible, made a point to insist that the Windows CI passed with “all green” before accepting Windows fixes. As often happens, it is faster to just solve the bugs first, and ask questions afterwards, rather than discuss the issues endlessly. I debugged outstanding Windows bugs, checked them into git, and the CI was passing. The situation still dragged on for weeks trying to reach agreement about the right method to solve the platform incompatibility. The final result: Windows updates merged in isomorphic-git. Antora referenced the newer version. Problem resolved.</p>
+
+<p>Also,</p>
+<ul>
+  <li>Doc previews for boostorg/graph. boostorg/redis. cppalliance/burl.</li>
+  <li>Investigating issues after a major upgrade of mrdocs. Discovered and reported findings. Fixed quickly. Great.</li>
+  <li>Edit-this-page links: capy, decimal, others.</li>
+</ul>
+
+<h3 id="code-coverage-reports---designing-new-gcovr-templates">Code Coverage Reports - designing new GCOVR templates</h3>
+
+<p>The “boost” templates were finally merged into https://github.com/gcovr/gcovr. Fantastic work by Julio Estrada on the template development.</p>
+
+<p>Any users of gcovr/gcovr (the main branch) may now choose <code>--html-theme boost.green</code> and use the theme.</p>
+
+<p>During this quarter,</p>
+<ul>
+  <li>debugging multi-level child directories which contain one file. Replaced collapseSingleChildDirs with joinSingleChildDirs.</li>
+  <li>remove deduplicateTree.</li>
+  <li>set a default for window.GCOVR_TREE_DATA to avoid crashes.</li>
+  <li>troubleshoot the formatting of tree items with long paths instead of just showing the filename in the sidebar.</li>
+  <li>solved a symlink bug where gcovr was “resolving” symlinks and it disrupted the tree output display.</li>
+</ul>
+
+<h3 id="boost-website-boostorgwebsite-v2">Boost website boostorg/website-v2</h3>
+
+<p>Debugging and correcting Fastly purge during releases.</p>
+
+<p>Website logs were filling up with “violates not-null constraint” when saving cached content. At first this seemed to be merely an annoyance when reading log entries but otherwise not substantive.  However the sheer quantity of messages was eventually filling up and crashing redis. This triggered a review of redis settings. Improved cache purging. Also, fixed the non-null bug in website-v2 itself.</p>
+
+<p>Installed plausible api key entries on website-v2.</p>
+
+<h3 id="mailman3">Mailman3</h3>
+
+<p>Locked down remote api access to certain IP addresses when statistics are gathered, to avoid triggering long-running DB queries, and solved a problem of the server and database machines CPU being overloaded.</p>
+
+<p>Collaborating with Teo on website-v2 -&gt; mailman3 sign-up features. Allowed the mailman-core api to be reachable from the website via nginx proxy.</p>
+
+<p>Added lynx package, enabling Hyperkitty to decipher html-only emails.</p>
+
+<h3 id="slack">Slack</h3>
+
+<p>Ubuntu’s auto-upgrade package feature broke Paperbot. Rolled back apt packages. Pinned package versions. Back online.</p>
+
+<h3 id="ansible">Ansible</h3>
+
+<p>Composed an ansible role <code>ansible-postgresql</code> based on existing scripts which installs postgresql databases, as well as backups to the cloud. Researched topics of icu collation, pgbouncer. Applied the role on multiple alliance projects/servers.</p>
+
+<h3 id="boost-release-process-boostorgrelease-tools">Boost release process boostorg/release-tools</h3>
+
+<p>Continued work to generate a 26.04 superproject image to build releases. Sent another round of pull requests to certain boost libraries that are not yet compatible.</p>
+
+<p>Assisted release managers in accessing cloud storage for maintenance.</p>
+
+<p>Replacing lbzip2 with pbzip2 as compression executable in release-tools, ongoing.</p>
+
+<h3 id="wg21">WG21</h3>
+
+<p>Launched <code>lists.wg21.org</code> mailing lists.</p>
+
+<p>During this past quarter, progress towards single-sign-on between wg21.org and lists.wg21.org using django-allauth. Runbook generated by Will Pak. Testing on staging instance.</p>
+
+<p>Experimented with various hosted AI systems. Installed pods at runpod.ai. Designed customized docker images to protect the AI instance from internet traffic behind nginx. <code>https://github.com/cppalliance/runpod</code></p>
+
+<h3 id="drone">Drone</h3>
+
+<p>Sent pull requests to 9 boost libs boost.sh -&gt; drone.sh, standardizing the name of the file which allows it to be completely omitted, and thus simplifying all entries in .drone.star files, where it’s no longer necessary to specify “drone.sh” as the script file.</p>
+
+<p>New drone image Ubuntu 26.04.</p>
+
+<h3 id="internal-corporate">Internal, Corporate</h3>
+
+<p>New onboarding script.</p>
+
+<p>DMARC, DKIM for Gmail.</p>
+
+<h3 id="regressionboostorg">regression.boost.org</h3>
+
+<p>Retry ftp failures in the CircleCI jobs.</p>
+
+<p>Multiple scripts are involved in processing results at https://regression.boost.org/. Migrated the CircleCI job itself, and associated scripts, from Python2 to Python3. Completed. (Other scripts remain to-do).</p>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2026</span>
+          <a class='text-l news-title link' href="/sam/2026/07/06/SamsQ2Update.html">Systems, CI Updates Q2 2026</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>03/31/2026</span>
+          <a class='text-l news-title link' href="/sam/2026/03/31/SamsQ1Update.html">Systems, CI Updates Q1 2026</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/22/2026</span>
+          <a class='text-l news-title link' href="/sam/2026/01/22/SamsQ4Update.html">Systems, CI Updates Q4 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/05/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/10/05/SamsQ3Update.html">Systems, CI Updates Q3 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/07/10/SamsQ2Update.html">Mailman3 and Website-V2</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/09/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/04/09/SamsQ1Update.html">Cloud and Infrastructure Update Q1 2025</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/07/2025</span>
+          <a class='text-l news-title link' href="/sam/2025/01/07/SamsQ4Update.html">Doc Previews Revisited Q4 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/21/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/10/21/SamsQ3Update.html">Cloud  and Infrastructure Update Q3 2024</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/07/10/SamsQ2Update.html">Sam's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/05/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/04/05/SamsQ1Update.html">Sam's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/sam/2024/01/10/SamsQ4Update.html">Sam's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/25/2023</span>
+          <a class='text-l news-title link' href="/sam/2023/10/25/SamsQ3Update.html">Sam's Q3 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/15/2021</span>
+          <a class='text-l news-title link' href="/sam/2021/01/15/DroneCI.html">Drone CI</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>06/04/2020</span>
+          <a class='text-l news-title link' href="/sam/2020/06/04/WebsitePreviews.html">Automated Documentation Previews</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>
