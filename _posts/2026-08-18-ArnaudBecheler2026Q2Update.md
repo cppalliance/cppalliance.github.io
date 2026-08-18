@@ -58,11 +58,28 @@ Boost.Graph is among the heaviest libraries in the ecosystem (72 dependencies).
 So another bot was created that, for each PR, reports any change in dependency weight
 (included headers) and number of transitive dependencies.
 This helps orient dependency-reduction operations and will prevent future contributors
-from bringing back heavy weights. After removing the Boost dependencies
-that C++14 made outdated (Boost.SmartPtr, Boost.Math, Boost.TTI, Boost.Move,
-Boost.Foreach, Boost.Conversion, Boost.Typeof, Boost.Bind, Boost.Lambda, Boost.MPL, ...),
-I opened a number of PRs to drop the mammoth culprits: Boost.Spirit, Boost.Bimap, Boost.PropertyTree,
-Boost.Serialization. When merged, they will considerably lighten the transitive dependency chain.
+from bringing back heavy weights. 
+
+I first removed the Boost dependencies that C++14 made outdated:
+- Boost.SmartPtr, 
+- Boost.Math, 
+- Boost.TTI, 
+- Boost.Move,
+- Boost.Foreach, 
+- Boost.Conversion, 
+- Boost.Typeof, 
+- Boost.Bind, 
+- Boost.Bimap, 
+- Boost.Lambda, 
+- Boost.MPL ...
+
+I opened a number of PRs to drop the mammoth culprits: 
+- Boost.Spirit, 
+- Boost.PropertyTree,
+- Boost.Serialization
+
+When merged, they will considerably lighten the transitive dependency chain.
+
 In local benchmarks I could already measure considerable performance gains both in memory and speed
 when dropping PropertyTree (3x better in speed and memory), while dropping Xpressive brings ~3600 fewer warnings in CI with `-Wall -Wextra` enabled.
 
@@ -74,6 +91,7 @@ skills are fragmented, collaboration thrives!
 
 So I continued my way through the backlog of unsolved issues and stale/unmerged PRs, contacting authors and supporting new contributors.
 Notably, a coming PR for a very popular Personalized PageRank algorithm by a new contributor (Emmanouil Manios Krasanakis) is close to acceptance.
+
 This is a very exciting moment because the entire PR will be used as a reference for testing our [new Algorithm Submission Process](https://github.com/boostorg/graph/discussions/495).
 
 In short, this is our response to user complaints about unresponsive review process. It has been designed in 3 phases to avoid monolithic PRs that are hard or impossible to review, and to favor quick iteration and collaboration between graph theorists and Boost.Graph maintainers:
@@ -84,7 +102,9 @@ In short, this is our response to user complaints about unresponsive review proc
 
 ### Forging a New Shiny Thing
 
-And of course, because bringing in new features is an essential part of library maintenance, I have used the Boost.Graph 2026 workshop output (part of Joaquin's proposal) to implement a C++14 proof of concept for a unified semantics of graph property map manipulation based on operator overloading. It may be part of the next release if it is proven to avoid the pitfalls of named parameters (this feature began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation).
+And of course, because bringing in new features is an essential part of library maintenance, I have used the Boost.Graph 2026 workshop output (part of Joaquin's proposal) to implement a C++14 proof of concept for a unified semantics of graph property map manipulation based on operator overloading.
+
+It may be part of the next release if it is proven to avoid the pitfalls of named parameters (named parameters began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation).
 
 ### Side Quests in Loath-lorien
 
