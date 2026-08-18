@@ -55,7 +55,7 @@ author-id: mark              # maps to people/mark.html
     max-width: 100%; /* keeps the 560px frame from overflowing on small screens */
   }
   .cta {
-    text-align: center;
+    text-align: center !important;
     margin: 2.5em 0 0;
   }
   .cta a.button {
