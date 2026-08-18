@@ -24,6 +24,8 @@ But most are more concerning because they impact metrics users care about:
 - memory usage
 - transitive dependency count.
 
+Work items for this quarter overwhelmingly fell into one or several of these dimensions, aiming at making technical debt visible and actionable.
+
 ### One Doc to Find Them All
 
 If you can't find a feature in the doc, does it really exist?
@@ -107,6 +109,8 @@ And of course, because bringing in new features is an essential part of library 
 It may be part of the next release if it is proven to avoid the pitfalls of named parameters (named parameters began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation).
 
 ### Side Quests in Loath-lorien
+
+I drafted a PR to activated UBSan, currently working on fixing the UBs it identified.
 
 I also had the pleasure to manage Boost.Int128's review for Matt Borland (Accepted!) and to review his Boost.Decimal paper in the Journal of Open Source Software (Accepted!).
 
