@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Extending support to more character types</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3876",
+    "revision": 1,
+    "document": "P3876R1",
+    "title": "Extending support to more character types",
+    "authors": "Jan Schultke, Peter Bindels",
+    "audience": "SG16",
+    "date": "2026-02-22",
+    "comments": 8,
+    "upvotes": 34,
+    "upvote_pct": "78%",
+    "poster": "mailing_watcher_2024",
+    "heat": "cold",
+    "interest": "niche",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3876R1 - Extending support to more character types <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/mailing_watcher_2024 &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Jan Schultke, Peter Bindels<br>
+        <strong>Document:</strong> P3876R1<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Target:</strong> SG16<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3876r1">wg21.link/p3876r1</a></p>
+
+        <p>Jan Schultke and Peter Bindels propose extending <code>std::to_chars</code> and <code>std::from_chars</code> to work with <code>char8_t</code>, <code>char16_t</code>, <code>char32_t</code>, and <code>wchar_t</code> - not just <code>char</code>. The motivation is straightforward: if you're building a JSON parser with <code>char8_t</code> strings, you currently can't convert numbers without going through <code>char</code> first. Since every digit and sign that charconv touches is Basic Latin (ASCII), supporting other character types is mechanically simple.</p>
+
+        <p>The main design challenge is avoiding overload explosion. Adding non-template overloads for every character type times every arithmetic type would give you around 110 functions, so the paper uses function templates constrained by a <code>character-type</code> concept instead. The existing result types (<code>to_chars_result</code>, <code>from_chars_result</code>) can't be templated without breaking ABI, so new per-character-type result structs are introduced along with alias templates.</p>
+
+        <p>SG16 reviewed R0 in early 2026 with consensus in favor, though <code>char16_t</code> support only got weak consensus. R1 incorporates that feedback with minor fixes and rebased wording.</p>
+      </div>
+      <div class="vote-count">&#9650; 34 points (78% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/deprecate_everything</span>
+            <span class="score">47 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>wchar_t support is slightly less motivated, and wchar_t isn't used much outside of Windows environments</blockquote>
+            <p>The year is 2026 and we're standardizing <code>wchar_t</code> overloads for <code>charconv</code>. I love this timeline.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_LPCWSTR</span>
+                  <span class="score">14 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Some of us deal with Win32 APIs every single day. Being able to <code>to_chars</code> directly into a <code>wchar_t</code> buffer instead of converting through <code>char</code> and then <code>MultiByteToWideChar</code> is genuinely useful. Not everything is Linux.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_utf8</span>
+            <span class="score">38 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Finally. I've been doing <code>reinterpret_cast&lt;const char*&gt;</code> on my <code>u8string_view</code> buffers before feeding them to <code>from_chars</code> for two years now. It works but it feels deeply wrong.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/format_string_refugee</span>
+                  <span class="score">22 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Now do <code>std::format</code> with <code>char8_t</code> format strings. And <code>std::print(u8"")</code>. Please. I'm begging.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">en.cppreference.com</div>
+        <div class="promoted-body">You were going to look it up anyway.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/reads_the_minutes</span>
+            <span class="score">18 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>SG16 already polled on this during Q1 2026. Consensus was clear for <code>to_chars</code>, <code>from_chars</code>, <code>char8_t</code>, <code>char32_t</code>, and <code>wchar_t</code>. But <code>char16_t</code> only got weak consensus - 4 strongly in favor, 0 in favor, 4 neutral, 1 against.</p>
+            <p>I wouldn't be surprised if <code>char16_t</code> gets pushed back when this reaches LEWG. The motivation for it basically boils down to "well, if we're doing the other Unicode types, might as well." That's not exactly compelling when it adds more overloads to an already enormous surface area.</p>
+            <p>The <a href="https://github.com/sg16-unicode/sg16/issues/38">SG16 issue</a> has been open since 2018. Eight years from "paper needed" label to R1. Committee speed is something else.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/charconv_intern</span>
+            <span class="score">11 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>If we also added a non-template overload for each character type, this would result in an absurd overload set of 110 functions</blockquote>
+            <p>The function-template approach is fine, but the result type situation is going to confuse people. You end up with <code>to_chars_result</code>, <code>u8to_chars_result</code>, <code>u16to_chars_result</code>, <code>u32to_chars_result</code>, <code>wto_chars_result</code>, and then the same five for <code>from_chars</code>. Ten new types because ABI prevents templating the existing ones.</p>
+            <p>The <code>to_chars_result_t&lt;T&gt;</code> alias helps but it's the kind of thing that makes teaching <code>charconv</code> harder. "What does <code>to_chars</code> return?" "Depends on the character type. Let me show you the alias template."</p>
+            <p>Best part of the paper is the implementation survey. All three major standard libraries already have the conversion logic in internal templates. This is essentially just exposing what already exists with a public API. The <code>static_cast&lt;charT&gt;('+')</code> fix for libc++ is about as complex as it gets.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/encoding_pessimist</span>
+            <span class="score">6 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The real problem isn't that <code>to_chars</code> doesn't support <code>char8_t</code>. The real problem is that nothing in the standard library accepts <code>char8_t</code> in a useful way. You can't construct a <code>std::string</code> from a <code>u8</code> literal without a cast. You can't pass <code>u8"hello"</code> to <code>std::cout</code>. Adding <code>char8_t</code> to <code>charconv</code> is nice but it's like installing a new faucet in a house that has no plumbing.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_ship_utf8</span>
+                  <span class="score">5 points</span>
+                  <span class="time">42 min. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This <em>is</em> the plumbing. The paper literally says <code>char8_t</code> <code>to_chars</code> is a prerequisite for <code>char8_t</code> <code>std::format</code> which is a prerequisite for <code>char8_t</code> <code>std::print</code>. You have to start somewhere.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - User-defined element types in std::simd through trait-based vectorizable definition</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P2964",
+  "revision": 2,
+  "document": "P2964R2",
+  "title": "User-defined element types in std::simd through trait-based vectorizable definition",
+  "authors": "Daniel Towner, Ruslan Arutyunyan",
+  "audience": "LEWG",
+  "date": "2026-02-19",
+  "comments": 9,
+  "upvotes": 32,
+  "upvote_pct": "89%",
+  "poster": "simd_paper_watcher",
+  "heat": "cold",
+  "interest": "niche",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P2964R2 - User-defined element types in std::simd through trait-based vectorizable definition <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/simd_paper_watcher</span> &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p2964r2">P2964R2</a><br>
+        <strong>Authors:</strong> Daniel Towner, Ruslan Arutyunyan (Intel)<br>
+        <strong>Date:</strong> 2026-02-19<br>
+        <strong>Audience:</strong> LEWG<br>
+        <strong>Revision:</strong> R2</p>
+
+        <p>The current <code>std::simd</code> restricts element types to arithmetic types and <code>std::complex</code>. This paper proposes replacing that closed list with trait-based constraints - if your type is trivially copyable, the right size (1, 2, 4, 8, or 16 bytes), and not over-aligned, it's vectorizable. That's it. Change the gatekeeper, keep everything else the same.</p>
+
+        <p>This means you get <code>simd&lt;Meters&gt;</code> with a strong typedef, <code>simd&lt;Color&gt;</code> with a scoped enum, <code>simd&lt;std::byte&gt;</code> for packet processing, and <code>simd&lt;fixed_point_16s8&gt;</code> for DSP - all without modifying operation semantics. The key bet is that compilers can auto-vectorize element-wise operations on user-defined types well enough that you don't need explicit customization for most cases.</p>
+
+        <p>The paper includes proposed wording, implementation evidence from Intel showing Clang and oneAPI generate assembly identical to built-in types for common operations, and an optional ADL-based customization mechanism (<code>simd_operator</code> / <code>simd_convert</code>) for the cases where compilers need a hand.</p>
+      </div>
+      <div class="vote-count">&#9650; 32 points (89% upvoted) &middot; 9 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Top comment: tangent about simd availability -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/still_on_gcc12</span>
+            <span class="score">22 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>They're extending <code>std::simd</code> with user-defined types and most of us still can't use plain <code>std::simd</code> in production. Great priorities.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/reads_the_appendix</span>
+                  <span class="score">5 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>std::simd</code> was voted into the C++26 working draft via P1928. libstdc++ has had experimental support for years. This paper is targeting C++29.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/template_curious_2025</span>
+                        <span class="score">2 points</span>
+                        <span class="time">3 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Fair enough. C++29 timeline makes more sense, I keep mixing up which papers landed where.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick positive reaction -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_curious_2025</span>
+            <span class="score">18 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Nice. The enum and <code>std::byte</code> support alone makes this worth it. Strong typedefs in <code>simd</code> without losing type safety is a solid quality-of-life improvement.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: opt-out design concern -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/opt_in_advocate</span>
+            <span class="score">11 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The opt-out design gives me pause. From section 2.3:</p>
+            <blockquote>A type T is now vectorizable if: <code>is_trivially_copyable_v&lt;T&gt;</code> is true, <code>sizeof(T)</code> is 1, 2, 4, 8, or 16, <code>alignof(T) &lt;= sizeof(T)</code>, <code>disable_vectorization&lt;T&gt;</code> is false</blockquote>
+            <p>So every trivially-copyable struct of the right size is vectorizable by default. That's a <em>lot</em> of types. Any <code>struct { int x; }</code> anywhere in your codebase now silently qualifies for <code>simd&lt;T&gt;</code>. You'll get a compile error if you try to use <code>operator+</code> and it doesn't exist, sure. But the concept of "vectorizable" now covers way more types than anyone intended to vectorize.</p>
+            <p>Why not opt-in? A specialization of <code>enable_vectorization&lt;T&gt; = true</code> feels more intentional than a banned-types list patching holes in the opt-out approach. The list in section 4.6 is already getting long and they say "implementations may provide additional specializations." That's the kind of sentence that leads to portability headaches.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: compiler coverage concern -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_sse_intrinsics_dev</span>
+            <span class="score">9 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The assembly results in the appendix are impressive. <code>vec&lt;Meters&gt;</code> addition compiles to the same <code>vaddps</code> as <code>vec&lt;float&gt;</code>. Zero overhead for the strong typedef. Saturating add goes straight to <code>vpaddsw</code>. The permutation example optimizes to a single <code>vprold</code>.</p>
+            <p>But the paper is very upfront about the compiler coverage:</p>
+            <blockquote>Testing was performed with Clang 20 and Intel oneAPI 2025.0 targeting Intel Sapphire Rapids.</blockquote>
+            <p>That's two compilers, one architecture, and both from vendors with a strong interest in this landing. The reduction case in section 6.3 already shows the approach falling apart - the saturating add reduction degenerates to scalar after two vector instructions, even on a good compiler.</p>
+            <p>The customization points in section 7 are the escape hatch, but if most users end up needing them to get reasonable codegen, the "just change the gatekeeper" pitch starts to look like the simple explanation for a complicated reality.</p>
+            <p><span class="edit">Edit: to be fair, the paper explicitly frames compiler variance as QoI and says compilers will improve. That's probably right long-term. I'd just like to see GCC and MSVC numbers before this advances.</span></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interstitial ad -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - because you need to see the assembly.</div>
+        <div class="promoted-body">Compiler Explorer. Instant assembly output for 60+ compilers. No setup required.</div>
+      </div>
+
+      <!-- Signal: heterogeneous ops gap -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/dimensional_analysis_fan</span>
+            <span class="score">7 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Good first step, and the trait-based approach is clean. But I keep coming back to section 2.4.2:</p>
+            <blockquote>Heterogeneous type operations, where <code>simd&lt;T&gt; op simd&lt;U&gt; -&gt; simd&lt;V&gt;</code>, are explicitly excluded from this proposal.</blockquote>
+            <p>The most compelling use case for putting user-defined types in <code>simd</code> is dimensional analysis. <code>simd&lt;Meters&gt; / simd&lt;Seconds&gt;</code> should give you <code>simd&lt;MetersPerSecond&gt;</code>. That's what <a href="https://github.com/mpusz/mp-units">mp-units</a> users would expect. Instead, you get a compile error.</p>
+            <p>I understand why they deferred it - the type-level computation for result types is genuinely harder. But shipping the strong typedef wrapper without the type algebra feels like delivering half the motivation. The paper's forward-compatibility argument in 2.4.3 is reassuring at least.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_ship_it_already</span>
+                  <span class="score">14 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The paper literally says "no concrete use cases for allowing unit-like operations in <code>simd</code> have been presented." Let them ship what works and iterate. Perfect is the enemy of shipped.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Short noise comment -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/xmm_register_enjoyer</span>
+            <span class="score">3 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>simd&lt;std::byte&gt;</code> for packet processing is the sleeper hit of this paper. Everything else is nice-to-have.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

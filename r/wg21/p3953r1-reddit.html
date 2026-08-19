@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Rename std::runtime_format</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3953",
+    "revision": 1,
+    "document": "P3953R1",
+    "title": "Rename std::runtime_format",
+    "authors": "Victor Zverovich",
+    "audience": "LEWG",
+    "date": "2026-01-17",
+    "comments": 26,
+    "upvotes": 156,
+    "upvote_pct": "84%",
+    "poster": "daily_standards_reader",
+    "heat": "warm",
+    "interest": "relevant",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3953R1 - Rename std::runtime_format <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/daily_standards_reader &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Victor Zverovich<br>
+        <strong>Document:</strong> P3953R1<br>
+        <strong>Date:</strong> 2026-01-17<br>
+        <strong>Target:</strong> LEWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3953r1">wg21.link/p3953r1</a></p>
+
+        <p>Victor Zverovich (yes, the <a href="https://github.com/fmtlib/fmt">{fmt}</a> guy) is proposing to rename <code>std::runtime_format</code> to <code>std::dynamic_format</code>. The motivation is straightforward: now that <a href="https://wg21.link/p3391r2">P3391</a> made <code>std::format</code> work in constexpr contexts, calling something <code>runtime_format</code> when it can be evaluated at compile time is misleading at best.</p>
+
+        <p>The paper argues that the real distinction isn't about evaluation time - it's about how the format string is provided. A "dynamic" format string is one that isn't a compile-time constant, regardless of when the formatting actually happens. This aligns with existing naming in the format library like <code>check_dynamic_spec</code>.</p>
+
+        <p>Short paper. Two revisions because R0 had the proposed name wrong in the example, which is kind of poetic for a paper about naming.</p>
+      </div>
+      <div class="vote-count">&#9650; 156 points (84% upvoted) &middot; 26 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- AutoModerator pinned -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="score">1 point</span>
+            <span class="time">8 hr. ago</span>
+            <span class="flair">pinned comment</span>
+          </div>
+          <div class="comment-text">
+            <p><strong>P3953R1 - Rename std::runtime_format</strong></p>
+            <p>Author: Victor Zverovich | Date: 2026-01-17 | Audience: LEWG</p>
+            <p>Paper link: <a href="https://wg21.link/p3953r1">wg21.link/p3953r1</a></p>
+            <p><em>I am a bot, and this action was performed automatically. Please contact the moderators of this subreddit if you have any questions or concerns.</em></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- lord_bikeshed - 187 points -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lord_bikeshed</span>
+            <span class="score">187 points</span>
+            <span class="time">4 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>There are only two hard things in Computer Science: cache invalidation, naming things, and getting LEWG to agree on what to name things.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/off_by_one_error_43</span>
+                  <span class="score">94 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Three. Three hard things. And off-by-one errors.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything</span>
+                  <span class="score">42 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Four. Four hard things. And <code>constexpr</code> making your carefully chosen names wrong.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- committee_gonna_committee - 134 points -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/committee_gonna_committee</span>
+            <span class="score">134 points</span>
+            <span class="time">5 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>This is the most LEWG paper of all time and I mean that as a compliment.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- actually_reads_papers - 89 points - TEASER -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/actually_reads_papers</span>
+            <span class="score">89 points</span>
+            <span class="time">6 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>OK so I actually sat down and compared the naming options because this thread is going to turn into a bikeshed anyway, might as well be a <em>structured</em> bikeshed.</p>
+            <p><strong><code>runtime_format</code></strong> - Established, shipped in implementations. Contradicts constexpr usage.</p>
+            <p><strong><code>dynamic_format</code></strong> - Matches <code>check_dynamic_spec</code>. "Dynamic" overloaded in C++.</p>
+            <p><strong><code>unchecked_format</code></strong> - Clear about what it does. Implies no checking, but there IS checking (just deferred).</p>
+            <p><strong><code>deferred_format</code></strong> - Accurate re: deferred validation. Nobody says "deferred format string."</p>
+            <p><code>dynamic_format</code> is the least bad option. The <code>check_dynamic_spec</code> alignment is the strongest argument in the paper - it means the format library already uses "dynamic" for this concept internally. The paper undersells this point.</p>
+            <blockquote><p>The real distinction is not when formatting occurs, but how the format string is provided and validated.</p></blockquote>
+            <p>The biggest gap in the paper: it doesn't seriously address <code>unchecked_format</code> as an alternative. "Unchecked" has precedent too. Victor probably has reasons but they're not in the paper.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_wizard_2019</span>
+                  <span class="score">23 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>You forgot <code>format_dynamic</code> following the convention where the action comes first. We have <code>to_string</code>, <code>from_chars</code>, etc.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="score">31 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Honestly <code>unchecked_format</code> would be my first choice. It says exactly what the user is doing: opting out of compile-time checking. Whether it runs at "runtime" or is "dynamic" is an implementation detail nobody cares about when they're reaching for this function.</p>
+<pre><code>// unchecked_format says what you're DOING
+auto msg = std::format(std::unchecked_format(user_input), args...);
+// dynamic_format says... what exactly? dynamic how?
+auto msg = std::format(std::dynamic_format(user_input), args...);</code></pre>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- ENCOUNTER START - depth 2 -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/ships_code_daily</span>
+                        <span class="score">52 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I've been using <code>runtime_format</code> in production since our toolchain shipped <code>&lt;format&gt;</code>. Literally nobody on the team was confused by the name. You see <code>runtime_format(some_string)</code> and you understand: "this format string isn't a literal, skip the compile-time check."</p>
+                        <p>The naming "problem" this paper describes is entirely theoretical. Has anyone <em>actually</em> been confused, or is this a purity argument?</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- ENCOUNTER depth 3 -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/not_a_professor</span>
+                              <span class="score">71 points</span>
+                              <span class="time">6 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Teaching. I teach a C++ course. When I show constexpr format to students and they see <code>runtime_format</code> inside consteval code, the immediate question is "why is it called runtime if we're at compile time?" Every semester. The name actively teaches the wrong mental model.</p>
+                              <blockquote><p>Despite its name, std::runtime_format can be evaluated at compile time. This creates a semantic mismatch</p></blockquote>
+                              <p>The paper isn't describing a theoretical problem. It's describing what actually happens when people learn this API without context.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <!-- ENCOUNTER depth 4 -->
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/ships_code_daily</span>
+                                    <span class="score">38 points</span>
+                                    <span class="time">5 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Fair point on teaching. But <code>dynamic_format</code> isn't much better there - students will draw a parallel to <code>dynamic_cast</code> and think it involves some kind of type-checking mechanism. You're trading one source of confusion for another.</p>
+                                    <p>At least with <code>runtime_format</code> you can say "it takes a runtime string" and be done. <code>dynamic_format</code> requires explaining that "dynamic" here means something different from every other use of "dynamic" in the language.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies">
+
+                                    <!-- ENCOUNTER RESOLUTION depth 5 -->
+                                    <div class="comment" data-depth="5">
+                                      <div class="votebar">
+                                        <span class="arrow up">&#9650;</span>
+                                        <span class="arrow down">&#9660;</span>
+                                      </div>
+                                      <div class="comment-body">
+                                        <div class="comment-header">
+                                          <span class="username">u/not_a_professor</span>
+                                          <span class="score">28 points</span>
+                                          <span class="time">4 hr. ago</span>
+                                        </div>
+                                        <div class="comment-text">
+                                          <p>Maybe. But at least "dynamic" doesn't <em>actively contradict</em> what's happening. When a student calls <code>runtime_format</code> in a constexpr function, "runtime" is a lie. "Dynamic" is just vague. I'll take vague over wrong.</p>
+                                        </div>
+                                        <div class="comment-footer">
+                                          <span class="action">Reply</span>
+                                          <span class="action">Share</span>
+                                          <span class="action">Report</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- async_systems_dev - 67 points - signal anchor: runtime still defensible -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_systems_dev</span>
+            <span class="score">67 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Hot take: <code>runtime_format</code> is still the correct name.</p>
+            <p>"Runtime" in C++ naming doesn't mean "evaluated at runtime." It means "determined at runtime" - i.e., not a compile-time constant. We say "runtime polymorphism" for virtual dispatch. We say "runtime type information" for RTTI. Nobody argues those names are wrong because you can technically use them in consteval functions.</p>
+<pre><code>constexpr auto f(std::string_view fmt, int value) {
+    // fmt is a "runtime value" - not a literal
+    // the evaluation context doesn't change what it IS
+    return std::format(std::runtime_format(fmt), value);
+}</code></pre>
+            <blockquote><p>As a result, std::runtime_format can now be evaluated at compile time, making its name misleading.</p></blockquote>
+            <p>The paper conflates "can be evaluated at compile time" with "is a compile-time value." Those are different things.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/format_string_enjoyer</span>
+                  <span class="score">45 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Except the standard itself already uses "dynamic" for this exact concept. [basic.format.string] p2 uses "dynamic format specification" for the non-literal case. <code>check_dynamic_spec</code> exists. The naming convention is <em>already</em> <code>dynamic</code> in the format library.</p>
+                  <p><code>runtime_format</code> is the outlier, not the baseline. This paper is making the library self-consistent, not introducing a new term.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/build_system_victim</span>
+                  <span class="score">12 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>bike. shed.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- dynamic_cast_survivor - 58 points - signal anchor: dynamic has baggage -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/dynamic_cast_survivor</span>
+            <span class="score">58 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The problem with <code>dynamic_format</code> is that "dynamic" is already overloaded in C++:</p>
+            <p>- <code>dynamic_cast</code> - runtime type checking + conversion<br>
+            - <code>dynamic_pointer_cast</code> - shared_ptr variant<br>
+            - dynamic allocation - heap allocation<br>
+            - dynamic linkage - shared libraries</p>
+            <p>In all of these, "dynamic" implies a runtime mechanism with overhead. <code>dynamic_cast</code> can fail. Dynamic allocation goes to the heap. The common thread is "runtime mechanism with cost."</p>
+            <p><code>std::dynamic_format</code> isn't any of those things. It's just "I got this format string from a variable." We're borrowing a word that already means something specific in C++ and using it to mean something vaguer.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad 1 - {fmt} -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">{fmt} - Fast, safe, modern formatting</div>
+        <div class="promoted-body">The library behind std::format. <a href="https://github.com/fmtlib/fmt">github.com/fmtlib/fmt</a></div>
+      </div>
+
+      <!-- former_boost_contributor - 47 points -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor</span>
+            <span class="score">47 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile <code>std::execution</code> and networking continue to not exist. But sure, let's spend committee cycles renaming a function that works fine.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_a_cpp_dev</span>
+                  <span class="score">65 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is a 2-page paper. LEWG can walk and chew gum at the same time. The author spent more time writing it than the committee will spend reviewing it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- definitely_knows_what_volatile_does - 43 points -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_knows_what_volatile_does</span>
+            <span class="score">43 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Worth noting this paper is by Victor Zverovich - the guy who created <a href="https://github.com/fmtlib/fmt">{fmt}</a> and designed the API that <code>std::format</code> is based on. The original <code>fmt::runtime()</code> in {fmt} predates the standardized version. If anyone has standing to say "we named this wrong," it's him.</p>
+            <p>Though it's also worth noting that {fmt} itself still uses <code>fmt::runtime()</code>, not <code>fmt::dynamic()</code>. So even Victor's own library uses the old name.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- segfault_enjoyer - 24 points, controversial -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/segfault_enjoyer</span>
+            <span class="score">24 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Two revisions to rename a function. This is why C++ standardization takes forever.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_everything</span>
+                  <span class="score">56 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>R1 exists because R0 had the wrong name in the "after" example. A paper about naming had a naming mistake. That's art.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- turbo_llama_9000 - 15 points -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/turbo_llama_9000</span>
+            <span class="score">15 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>just <code>using dynamic_format = std::runtime_format;</code> and stop letting the committee rename your code for you</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- [deleted] -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[deleted]</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- oxidize_everything - 3 points - Rust tangent -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/oxidize_everything</span>
+            <span class="score">3 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>In Rust the format string is always a literal and this entire category of problem doesn't exist. Just saying.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_boost_contributor</span>
+                  <span class="score">29 points</span>
+                  <span class="time">47 minutes ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Sir, this is r/wg21.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad 2 - Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">godbolt.org - because you need to see the assembly. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- compiles_first_try - -8 points, controversial, collapsed -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score negative">-8 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>tell me you've never shipped production code without telling me you've never shipped production code. who cares what the function is called, just ship it</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

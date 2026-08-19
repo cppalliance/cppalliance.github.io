@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - The Sender Sub-Language</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P4014",
+  "revision": 0,
+  "document": "P4014R0",
+  "title": "The Sender Sub-Language",
+  "authors": "Vinnie Falco, Mungo Gill",
+  "audience": "LEWG",
+  "date": "2026-02-22",
+  "comments": 62,
+  "upvotes": 487,
+  "upvote_pct": "81%",
+  "poster": "execution_observer_26",
+  "heat": "hot",
+  "interest": "magnetic",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P4014R0 - The Sender Sub-Language <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/execution_observer_26</span> &middot; 14 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p4014r0">P4014R0</a><br>
+        <strong>Authors:</strong> Vinnie Falco, Mungo Gill<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>The paper frames <code>std::execution</code> (P2300) as a continuation-passing-style sub-language within C++ - with its own control flow primitives, variable binding model, error handling, and iteration strategy. It maps every major C++ control flow construct to its sender equivalent, traces the theoretical roots to monads and CPS, and walks through progressively complex examples from a simple pipeline to a full retry algorithm.</p>
+
+        <p>The argument: the complexity serves GPU dispatch, HFT, and embedded well, but networking and I/O should have the same freedom to choose their own model. Ends with two suggested straw polls for LEWG. Same authors as <a href="https://wg21.link/p4007r0">P4007R0</a> and <a href="https://wg21.link/p4003r0">P4003R0</a>.</p>
+      </div>
+      <div class="vote-count">&#9650; 487 points (81% upvoted) &middot; 62 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">14 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>Paper:</strong> P4014R0 &middot; <strong>Target:</strong> LEWG &middot; <strong>Type:</strong> Directional</p>
+              <p><em>I am a bot, and this action was performed automatically. Please <a href="#">contact the moderators</a> of this subreddit if you have any questions or concerns.</em></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_partisan</span>
+            <span class="score">312 points</span>
+            <span class="time">13 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The retry algorithm comparison is the whole paper in one slide.</p>
+            <p>Sender version: 100+ lines, deferred construction helper, receiver adaptor with CRTP, operation state lifecycle with <code>std::optional</code>, completion signature transformation, template metaprogramming across four struct definitions.</p>
+            <p>Coroutine version:</p>
+            <pre><code>template &lt;class F&gt;
+auto retry(F make_sender) -&gt; task&lt;T&gt; {
+    for (;;) {
+        try {
+            co_return co_await make_sender();
+        } catch (...) {}
+    }
+}</code></pre>
+            <p>Seven lines. Same behavior. I understand why the sender version exists - it handles the full completion signature algebra. But for the other 90% of us, this is the paper's strongest argument.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sender_apologist</span>
+                  <span class="score">89 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The coroutine version allocates a frame on every retry. The sender version doesn't. The sender version propagates completion signatures through the type system so the compiler sees the full pipeline at once. The coroutine version type-erases through <code>task&lt;T&gt;</code>.</p>
+                  <p>These aren't the same algorithm with different syntax. They have different performance characteristics and different composition properties. The paper shows the syntax difference without showing the semantic difference.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/coroutine_partisan</span>
+                        <span class="score">54 points</span>
+                        <span class="time">11 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The question isn't whether the sender version does more. It's whether anyone retrying a network request needs it to. I've written retry loops for HTTP clients, database connections, message queue consumers. Not once did I need zero-allocation retry with compile-time signature transformation.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/hft_latency_nerd</span>
+                              <span class="score">28 points</span>
+                              <span class="time">10 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>I have. But I'm not going to pretend my use case is everyone's use case. That's literally what the paper is arguing.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_historian</span>
+            <span class="score">187 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 4 is going to make some people uncomfortable. The paper traces Eric Niebler's published writing from 2017 to 2024 and documents the shift from "90% of all async code should be coroutines" to "senders are the foundation, coroutines are one way to consume them." It's all public blog posts with direct quotes and links. No private communications, no inference.</p>
+            <p>Whether you read this as "the emphasis changed as the target problems changed" or "the vision drifted" depends on which side of the sender/coroutine divide you sit on. But the timeline itself is just facts.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/api_design_matters</span>
+                  <span class="score">67 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>People's views evolve as they work on harder problems. Calling it "emphasis change" rather than "intellectual growth" is a framing choice. Niebler started working on GPU dispatch and discovered that senders could do things coroutines structurally cannot. His views changed because the problem space expanded. That's normal.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/async_historian</span>
+                        <span class="score">41 points</span>
+                        <span class="time">11 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Agreed. The paper says exactly that - "the emphasis naturally shifted as the target problems changed." It's not accusing anyone of bad faith. It's documenting a design trajectory so the committee can see where the current design came from and decide if the balance is right for all the domains C++ serves.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_ship_it_already</span>
+                  <span class="score">34 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The timeline is just links to his own blog posts. If anything it's a service - now I don't have to find them myself.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-language framing signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/library_design_snob</span>
+            <span class="score">142 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Whether you agree with the paper's conclusions or not, calling <code>std::execution</code> a "sub-language" is not loaded - it's accurate. The equivalence table in Section 2 maps sequential statements, local variables, return, try/catch, for/while, if/else, throw, and break/continue to sender primitives. When a library provides its own versions of every fundamental control flow construct, it has become a programming model, not an API.</p>
+            <p>Template metaprogramming is a sub-language. constexpr evaluation is a sub-language. The preprocessor is a sub-language. Calling senders a sub-language puts them in that category, which is descriptive, not pejorative. The paper even says it's "an achievement."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ranges_v3_survivor</span>
+                  <span class="score">78 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>You could make the same argument about ranges. <code>views::filter | views::transform | views::take</code> replaces for loops and conditionals with a pipeline model. Nobody calls it a sub-language.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/library_design_snob</span>
+                        <span class="score">63 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Ranges replace iteration patterns. Senders replace control flow, variable binding, error handling, iteration, AND resource management. Ranges compose over values. Senders compose over computations. The paper's Section 3 table maps senders to CPS, monadic bind, and algebraic effect theory. Ranges don't reach that level of abstraction.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">NVIDIA stdexec - Reference implementation of P2300 std::execution</div>
+        <div class="promoted-body">Structured concurrency for C++. <a href="https://github.com/NVIDIA/stdexec">github.com/NVIDIA/stdexec</a></div>
+      </div>
+
+      <!-- Missing algorithms noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/stop_when_enjoyer</span>
+            <span class="score">108 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Three of four algorithms in the P2300R7 motivating example aren't in C++26. <code>stop_when</code>: removed. <code>timeout</code>: never proposed. <code>first_successful</code>: never proposed.</p>
+            <p>The motivating example motivates a library that doesn't exist.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div name="comment-body" class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sender_apologist</span>
+                  <span class="score">56 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>They exist in <a href="https://github.com/NVIDIA/stdexec">stdexec</a>. Just not in the standard. Which is kind of the point of iterating - ship the core, add algorithms in C++29.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/networking_in_2035</span>
+                        <span class="score">22 points</span>
+                        <span class="time">11 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>"Ship the core, add the algorithms later, and the coroutine integration is tracked by 29 open issues in a companion paper." What a pitch.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Encounter 1: GPU vs I/O -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/gpu_dispatch_daily</span>
+            <span class="score">94 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I work on GPU dispatch pipelines. Senders give me zero-allocation composition with compile-time work graphs that the compiler can optimize end-to-end. Nothing else in C++ does this. The "complexity" in Section 5 is the complexity of expressing what I need expressed. If you don't need it, don't write sender algorithms - compose the existing ones.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/io_context_veteran</span>
+                  <span class="score">72 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Nobody's asking to take that away. The paper explicitly says senders serve your domain well. The question is whether networking developers should also have to route every <code>co_await</code> through the sender composition layer when they don't need zero-allocation pipelines or compile-time work graphs. <a href="https://wg21.link/p2583r0">P2583R0</a> shows that the sender bridge structurally prevents symmetric transfer. That's a real cost for I/O.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/gpu_dispatch_daily</span>
+                        <span class="score">38 points</span>
+                        <span class="time">10 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>You already have coroutines. They're in the language. You can use them right now without senders.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/io_context_veteran</span>
+                              <span class="score">24 points</span>
+                              <span class="time">9 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Without a standard task type that works well for I/O, without standard I/O objects, without a standard event loop. The coroutine language feature shipped in C++20. The library support for using it on I/O is still Boost-or-roll-your-own six years later. Meanwhile <code>std::execution::task</code> is in the WP with a companion paper tracking 29 open issues.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/gpu_dispatch_daily</span>
+                                    <span class="score">12 points</span>
+                                    <span class="time">8 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Fair. P3796R1 is... a document.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                  <div class="replies"></div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Fold/backtracker noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/code_review_bot_9000</span>
+            <span class="score">86 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 5.6, the backtracker example. I've read it three times. I still can't trace where the <code>fail</code> continuation goes through three levels of <code>std::move</code> and two nested <code>let_value</code> lambdas. This is a code review rejection in any codebase I've worked in.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_writes_senders</span>
+                  <span class="score">42 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>In practice you compose the algorithms, you don't write them. I've used stdexec for over a year and I've never implemented a custom sender algorithm. <code>just | then | let_value</code> covers 95% of what I need. The paper is showing the internals to make a point, but users don't normally touch that layer.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/code_review_bot_9000</span>
+                        <span class="score">31 points</span>
+                        <span class="time">9 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Right, and the fold example in Section 5.5 - the one that <em>users</em> would write - requires <code>any_sender_of&lt;&gt;</code> for type erasure because the recursive type would be infinite. A type-erased sender. For folding a range. The coroutine version is four lines with a for loop.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Encounter 2: Committee process -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lewg_process_watcher</span>
+            <span class="score">78 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The suggested straw polls are well-constructed. "std::execution serves coroutine-driven async I/O less ideally than heterogeneous compute." I don't think anyone on LEWG would disagree with that. The question is whether they'll actually take it and what follows from it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/committee_tea_leaves</span>
+                  <span class="score">53 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Taking the poll would require acknowledging that the coroutine integration was under-designed relative to the sender algorithms. That's politically expensive when you've just shipped <code>std::execution</code> into the WP.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/lewg_process_watcher</span>
+                        <span class="score">27 points</span>
+                        <span class="time">9 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p><a href="https://wg21.link/p3796r1">P3796R1</a> already acknowledged it. Twenty-nine issues. The paper's authors aren't making a controversial claim - they're building on what K&uuml;hl and M&uuml;ller already documented.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- GPU precedent signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/abstraction_skeptic</span>
+            <span class="score">71 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The nvexec precedent argument in Section 6.2 is clever but it proves more than intended. nvexec reimplements <em>every</em> standard sender algorithm with CUDA extensions - <code>bulk</code>, <code>then</code>, <code>when_all</code>, <code>continues_on</code>, <code>let_value</code>, <code>split</code>, <code>reduce</code> - all in <code>.cuh</code> files. And it requires a non-standard compiler.</p>
+            <p>If the domain that senders were specifically designed for needs a complete reimplementation with non-standard extensions, maybe "universal asynchrony abstraction" was always the wrong goal. Maybe the right goal is domain-specific models that share boundaries. Which is... what the paper argues.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sender_apologist</span>
+                  <span class="score">45 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>nvexec reimplements the algorithms because GPU kernels can't run standard C++. That's a hardware limitation, not a design failure. The sender abstraction is what lets the same pipeline description target either CPU or GPU with different algorithm implementations. That's the universality working as designed.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Author disclosure -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/disclosure_appreciator</span>
+            <span class="score">64 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Points for putting the disclosure section first. The authors are upfront about having written <a href="https://wg21.link/p4003r0">P4003R0</a> (Coroutines for I/O) and <a href="https://wg21.link/p4007r0">P4007R0</a> (Senders and Coroutines). They have a position. They're telling you what it is before the argument starts.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/three_papers_one_take</span>
+                  <span class="score">37 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It's a trilogy at this point. P4007 documents integration costs. P2583 documents symmetric transfer. P4014 documents what the sender model IS. Three different lenses on the same structural question. Agree or disagree, that's a thorough job.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - Early bird ends May 15.</div>
+        <div class="promoted-body">The conference for the C++ community.</div>
+      </div>
+
+      <!-- Noise: CPS theory -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/plt_crossover_fan</span>
+            <span class="score">58 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The theoretical foundations table in Section 3 - Moggi (1991), Lambda Papers (1975), Danvy and Filinski (1990) - is the nerdiest thing I've read this week and I loved every line. They're really going back to first principles to explain why senders look the way they do. This should be required reading for anyone implementing a sender algorithm.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Noise: compile times tangent -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/ci_budget_exceeded</span>
+            <span class="score">52 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The trade-off table in Section 6.1 lists "long compile times" as a cost. I just want compile times to go down. Every new template-heavy feature makes it worse and my CI already takes 45 minutes.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/hft_latency_nerd</span>
+                  <span class="score">17 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The compile time IS the feature. That's where the optimizer sees the entire work graph and eliminates allocations. You're paying at compile time so you don't pay at runtime.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/ci_budget_exceeded</span>
+                        <span class="score">8 points</span>
+                        <span class="time">8 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>My boss does not consider compile time a feature.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Noise: networking -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/networking_in_2035</span>
+            <span class="score">47 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Can we get networking in the standard before I retire. I started this job writing C++ in 2018.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/just_use_boost_beast</span>
+                  <span class="score">19 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Bold of you to assume you'll retire before C++32.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- [removed] -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score">score hidden</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/what_did_they_say</span>
+                  <span class="score">14 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>What did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/just_ship_it_already</span>
+                        <span class="score">23 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Something about how P2300 was a conspiracy to sell more GPUs. You know, the usual.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Noise: one-liners and short takes -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_dungeon_42</span>
+            <span class="score">39 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Senders: solving yesterday's problems with tomorrow's compile times since 2020.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/p2300_concepts_parallel</span>
+            <span class="score">32 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Is P2300 the new concepts? Years of design, massive committee investment, and a significant chunk of the community wondering if the cure is worse than the disease.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/concepts_defender_2020</span>
+                  <span class="score">18 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Concepts actually work and are universally useful now. We're at year 1 of senders. Give it time.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="score">28 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The zero-allocation property matters to me. In my world, <code>malloc</code> is a bug. Senders give me composable async without touching the heap. That's real. But I also write approximately zero networking code, so I have no opinion on the I/O question.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/everyone_can_win</span>
+            <span class="score">24 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>The standard is stronger when each domain gets the model it needs, and neither is forced to use the other's tool.</blockquote>
+            <p>This is the most reasonable conclusion I've seen in any of the sender/coroutine papers. Nobody loses anything. GPU keeps senders. I/O gets coroutines. Both exist. Both are standardized. Done.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/committee_tea_leaves</span>
+                  <span class="score">11 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The hard part isn't the principle. The hard part is implementation: who designs the I/O model, who reviews it, and how long does it take through the process. We've been waiting for networking since 2005.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/haskell_refugee_2021</span>
+            <span class="score">21 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>As someone who used Haskell for five years before switching to C++, seeing <code>just</code> mapped to monadic return and <code>let_value</code> mapped to bind made my entire career flash before my eyes. The paper is right that this is CPS. It's also right that most C++ developers never asked for CPS.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/senior_cpp_dev_tired</span>
+            <span class="score">18 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><em>*laughs in Boost.Asio still working fine for my use case*</em></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/rust_mentioned_drink</span>
+            <span class="score">15 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Meanwhile Rust shipped async/await, Tokio is the de facto standard runtime, and nobody argues about whether the abstraction is a sub-language. It just works.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_writes_senders</span>
+                  <span class="score">9 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust doesn't target GPUs with the same abstraction. Different problem space, different solution space.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/implementation_reality</span>
+            <span class="score">13 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I implemented a sender-based connection pool at work last year. Took three weeks. Reimplemented it with coroutines in four days. Both versions handle 40K concurrent connections. The coroutine version is 400 lines shorter and two junior devs can maintain it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/conference_talk_addict</span>
+            <span class="score">11 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For anyone who wants more context, watch Eric Niebler's <a href="https://www.youtube.com/watch?v=xiaqNvqRB2E">CppCon 2024 talk on senders</a> and Lewis Baker's <a href="https://www.youtube.com/watch?v=EavC8EVs0YA">symmetric transfer talk</a>. Two different perspectives from two people who both understand the design deeply.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score">8 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper acknowledges that senders are "an achievement" and says the committee should be "proud of it." That's not a hit piece. It's asking for coexistence. I don't understand why that's controversial.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/error_code_appreciator</span>
+            <span class="score">6 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The "concurrent selection" row in the equivalence table being marked (absent) is doing a lot of quiet work. <code>when_all</code> shipped but its dual didn't. You can fork but you can't race.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/great_another_10_years</span>
+            <span class="score">4 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Great, another paper that will take 10 years to get through LEWG.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Collapsed low-score spam -->
+      <div class="comment collapsed deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score negative">-8 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

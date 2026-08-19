@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - New reflection metafunction - is_structural_type</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3856",
+  "revision": 4,
+  "document": "P3856R4",
+  "title": "New reflection metafunction - is_structural_type",
+  "authors": "Jagrut Dave, Alisdair Meredith",
+  "audience": "LEWG/LWG",
+  "date": "2026-01-17",
+  "comments": 8,
+  "upvotes": 42,
+  "upvote_pct": "92%",
+  "poster": "reflection_paper_feed",
+  "heat": "cold",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3856R4 - New reflection metafunction - is_structural_type <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/reflection_paper_feed</span> &middot; 6 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3856r4">P3856R4</a><br>
+        <strong>Authors:</strong> Jagrut Dave, Alisdair Meredith<br>
+        <strong>Date:</strong> 2026-01-17<br>
+        <strong>Audience:</strong> LEWG/LWG</p>
+
+        <p>Addresses US NB comment 49. The standard uses "structural type" in several places (NTTPs, <code>std::array</code>) and library mandates require it, but there's no way to query whether a type is structural. This paper adds <code>is_structural_type(info)</code> as a reflection metafunction and <code>std::is_structural&lt;T&gt;</code> as a type trait. Comes with a proof-of-concept implementation on Bloomberg's Clang fork using P2996 reflection.</p>
+      </div>
+      <div class="vote-count">&#9650; 42 points (92% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/nttp_power_user</span>
+            <span class="score">34 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>It's wild that we've had structural types since C++20 NTTPs and there's been no way to check at compile time whether a type qualifies. Library code that wants to wrap values as NTTPs has been guessing. The motivating example with <code>const_wrapper</code> is exactly the pattern I've wanted - SFINAE-friendly selection between NTTP path and runtime path based on whether the type is structural.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/reflection_metafunction_fan</span>
+            <span class="score">28 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 4 on type traits vs metafunctions is a valuable discussion beyond the scope of this paper. Should <code>is_structural&lt;T&gt;</code> and <code>is_structural_type(^^T)</code> be independent implementations or should one wrap the other? The paper argues independence - different paradigms, different side effects, different error handling. That seems right.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/poc_implementation_reader</span>
+            <span class="score">22 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The proof of concept is interesting because it shows what P2996 reflection can and can't do. It can check public/non-mutable/structural recursively. It can't query "is this function constexpr" or "is this a lambda closure type" - so the literal type check is conservative. The paper identifies these as gaps that future metafunctions should fill.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/bloomberg_cpp_watcher</span>
+            <span class="score">16 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Bloomberg papers tend to be focused and implementable. Two authors, one metafunction, one type trait, proof of concept on their Clang fork. This is what a good NB comment resolution looks like.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/is_literal_type_rip</span>
+            <span class="score">12 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 3.3 notes that <code>std::is_literal_type</code> was removed in C++20 and there's no reflection replacement. The paper's implementation has to work around this absence. Feels like we removed a useful trait and never replaced it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/r4_cleanup</span>
+            <span class="score">8 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>R4 removed <code>is_destructurable_type</code> per LEWG feedback and dropped the access context parameter from the signature. Clean scoping - one concept, one metafunction, one trait. Ship it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/godbolt_link_required</span>
+            <span class="score">5 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper includes a <a href="https://godbolt.org">Godbolt link</a> to the proof of concept. You can actually run the static_asserts. More papers should do this.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

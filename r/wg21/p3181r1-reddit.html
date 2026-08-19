@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Atomic stores and object lifetimes</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3181",
+  "revision": 1,
+  "document": "P3181R1",
+  "title": "Atomic stores and object lifetimes",
+  "authors": "Hans Boehm, Dave Clausen, David Goldblatt",
+  "audience": "SG1",
+  "date": "2026-02-22",
+  "comments": 10,
+  "upvotes": 18,
+  "upvote_pct": "85%",
+  "poster": "concurrency_nerd_99",
+  "heat": "cold",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3181R1 - Atomic stores and object lifetimes <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/concurrency_nerd_99</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3181r1">P3181R1</a><br>
+        <strong>Authors:</strong> Hans Boehm, Dave Clausen, David Goldblatt<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Audience:</strong> SG1<br>
+        <strong>Target:</strong> C++26</p>
+
+        <p>The current object lifetime rules say the last update to an object must happen-before its destruction. Sounds reasonable. The problem is that a <code>release_store</code> to an atomic satisfies this, but <code>fence(release)</code> followed by a <code>relaxed_store</code> does not - even though the fence+relaxed pattern is intuitively at least as strong. The paper argues this is overly conservative, doesn't match any real hardware, and breaks the mental model that standalone fences are a valid alternative to integrated ordering.</p>
+
+        <p>The practical fallout hits reference counting. If you decrement a refcount with <code>fetch_sub(1, acq_rel)</code> and then delete on zero, you're fine. Rewrite that as <code>fence(release); fetch_sub(1, relaxed); fence(acquire)</code> and it's technically UB. The proposed fix modifies [basic.life] to relax the "before" definition so that an atomic store counts as before end of lifetime if a load observes its value and that load happens-before the destruction. First discussed in Tokyo and St. Louis, now with concrete wording.</p>
+      </div>
+      <div class="vote-count">&#9650; 18 points (85% upvoted) &middot; 10 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_ub_enjoyer</span>
+            <span class="score">34 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This is one of those papers where I understand every word individually but the sentences make me feel inadequate.</p>
+            <blockquote>"the store in A happens-before the deletion in the release-store case; in the fence case it does not"</blockquote>
+            <p>I'll just stick to mutex, thanks.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/lockfree_or_bust</span>
+            <span class="score">27 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Hans Boehm writing a paper about the C++ memory model. The year is 2026. Some things are eternal.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/needs_more_seq_cst</span>
+                  <span class="score">14 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>He literally designed the memory model. If he found a bug in it I'd call that a warranty claim.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/fence_evangelist</span>
+            <span class="score">22 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The refcount example is the whole paper in six lines:</p>
+            <pre><code>int count = x-&gt;refcount.fetch_sub(1, acq_rel);
+if (count == 1) delete x;  // fine</code></pre>
+            <p>Rewrite with fences:</p>
+            <pre><code>atomic_thread_fence(release);
+int count = x-&gt;refcount.fetch_sub(1, relaxed);
+atomic_thread_fence(acquire);
+if (count == 1) delete x;  // technically UB</code></pre>
+            <p>These should be equivalent. Every hardware implementation treats them as equivalent. The standard says they're not. The paper's fix is small and correct. Ship it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - Early bird ends May 15.</div>
+        <div class="promoted-body">The conference for the C++ community.</div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/mm_practitioner</span>
+            <span class="score">19 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The interesting design choice is modifying [basic.life]'s definition of "before" and "after" rather than inventing a new happens-before flavor. The paper makes a solid case for why the alternative would be worse - a new HB variant that doesn't compose with sequenced-before on the left would effectively turn relaxed stores into release stores, which nobody wants.</p>
+            <p>The proposed wording is surprisingly local: if a load observes the value stored by an atomic store AND that load happens-before end of lifetime, then the store is considered "before" end of lifetime. It doesn't touch the happens-before relation itself. Clean.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/relaxed_semantics</span>
+                  <span class="score">9 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Right. And the coherence / modification-order argument in the paper is basically saying "this is already what every real implementation does." The safety proof works as long as non-atomic stores behave like relaxed atomics at the hardware level, and the paper's own admission is that the last architecture where that wasn't trivially true was Itanium. The <a href="https://www.hboehm.info/c++mm/">Boehm memory model notes</a> have more background on why fences ended up with these weird edge cases.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_boost_contributor</span>
+            <span class="score">16 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The "synchronize your own destruction" property is underappreciated. If you embed a mutex or condition variable inside a ref-counted object, the last thread to touch it needs to unlock and then destroy. If fences don't provide that guarantee, you lose the ability to use fence+relaxed as a drop-in for release/acquire in refcount code.</p>
+            <p>We hit exactly this pattern in <a href="https://github.com/boostorg/smart_ptr">Boost.SmartPtr</a>. The fix in this paper makes the standard match what every correct implementation already assumes.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/the_real_itanium_user</span>
+                  <span class="score">7 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I love that the paper namedrops Itanium as the one architecture where the safety argument doesn't trivially hold. IA-64 keeps showing up in memory model papers like a ghost at the feast.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_wizard_42</span>
+            <span class="score">5 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Serious question: does anyone in 2026 actually use standalone fences instead of just putting the ordering on the atomic operation? Every time I try I end up with a bug that takes three days to find.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compile_this_if_you_can</span>
+            <span class="score">3 points</span>
+            <span class="time">42 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Still waiting for the day when the memory model is simple enough that I can explain it to an intern without a whiteboard and two hours.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

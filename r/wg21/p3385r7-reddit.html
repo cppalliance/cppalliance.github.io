@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Attributes reflection</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3385",
+    "revision": 7,
+    "document": "P3385R7",
+    "title": "Attributes reflection",
+    "authors": "Aurelien Cassagnes",
+    "audience": "SG7, EWG, LEWG",
+    "date": "2026-01-13",
+    "comments": 47,
+    "upvotes": 214,
+    "upvote_pct": "89%",
+    "poster": "reflection_watcher_26",
+    "heat": "hot",
+    "interest": "magnetic",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3385R7 - Attributes reflection <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/reflection_watcher_26 &middot; 10 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Aurelien Cassagnes<br>
+        <strong>Document:</strong> P3385R7<br>
+        <strong>Date:</strong> 2026-01-13<br>
+        <strong>Target:</strong> SG7, EWG, LEWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3385r7">wg21.link/p3385r7</a></p>
+
+        <p>Now that <a href="https://wg21.link/p2996">P2996</a> reflection has landed in C++26, the next question is obvious: what about attributes? P3385 proposes the building blocks for reflecting on C++ attributes at compile time - query what attributes appertain to an entity, compare them, and feed them into code generation via <code>define_aggregate</code>.</p>
+
+        <p>The core API is clean: <code>^^[[nodiscard]]</code> gives you a reflection value, <code>attributes_of(^^MyClass)</code> returns all attributes on an entity, and <code>has_attribute()</code> lets you check for specific attributes with optional fuzzy matching via a bitmask (ignore namespace, ignore arguments). The motivating example filters out <code>[[deprecated]]</code> members when migrating a struct at compile time.</p>
+
+        <p>Scope is deliberately narrow. Standard attributes and well-behaved vendor attributes (like <code>[[gnu::constructor(100)]]</code>) are in. Unknown attributes and expression-argument attributes like <code>[[assume]]</code> are explicitly out - R7 drops <code>[[assume]]</code> support entirely and rebases the wording. Seven revisions in, this has been through the SG7 gauntlet with mixed signals from EWG at Sofia. The question isn't whether attribute reflection is useful - it's whether this particular slice is the right one to standardize.</p>
+      </div>
+      <div class="vote-count">&#9650; 214 points (89% upvoted) &middot; 47 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- AutoModerator pinned -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="score">1 point</span>
+            <span class="time">10 hr. ago</span>
+            <span class="flair">pinned comment</span>
+          </div>
+          <div class="comment-text">
+            <p><strong>P3385R7 - Attributes reflection</strong></p>
+            <p>Author: Aurelien Cassagnes | Date: 2026-01-13 | Audience: SG7, EWG, LEWG</p>
+            <p>Paper link: <a href="https://wg21.link/p3385r7">wg21.link/p3385r7</a></p>
+            <p><em>I am a bot, and this action was performed automatically. Please contact the moderators of this subreddit if you have any questions or concerns.</em></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- paper_trail_2019 mod pin -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/paper_trail_2019</span>
+            <span class="score">1 point</span>
+            <span class="time">10 hr. ago</span>
+            <span class="flair">pinned comment</span>
+          </div>
+          <div class="comment-text">
+            <p>Reminder: paper authors sometimes read these threads. Critique the design, not the person.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- compiles_first_try - 178 points - noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/compiles_first_try</span>
+            <span class="score">178 points</span>
+            <span class="time">9 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>Seven revisions. <em>Seven.</em> And along the way they removed <code>[[assume]]</code> support entirely. The committee giveth and the committee taketh away.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_cmake_victim</span>
+                  <span class="score">42 points</span>
+                  <span class="time">8 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>In fairness, reflecting on <code>assume</code> expressions sounds like a headache even for compiler devs. The paper basically says "we can't agree on what equality means for expressions, so we're punting." Refreshingly honest for a standards paper.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- axioms_all_the_way - 97 points - TEASER -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/axioms_all_the_way</span>
+            <span class="score">97 points</span>
+            <span class="time">8 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>I've read the whole thing and I think the interesting tension in this paper isn't the API surface - it's the categorization system it creates. The paper establishes a three-tier hierarchy of attributes:</p>
+            <p>1. Standard attributes (fully supported, reflection guaranteed)<br>
+            2. Vendor attributes (conditionally supported, up to the implementation)<br>
+            3. Unknown attributes (unsupported, ill-formed to reflect)</p>
+            <p>And then it codifies this with two rules:</p>
+            <blockquote><p>Creating reflection of unsupported attribute is ill-formed (diagnostic required)</p></blockquote>
+            <blockquote><p>attributes_of does not return unsupported attributes</p></blockquote>
+            <p>This means the reflection system now has a visible seam between "attributes the implementation knows about" and "attributes it doesn't." Before this paper, that seam was invisible to user code - the compiler silently ignored unknown attributes. After this paper, your metaprogram can observe the difference, because <code>attributes_of</code> will return different results on different compilers depending on which vendor attributes they've opted into supporting.</p>
+            <p>That's a defensible design choice - the alternative (reflecting unknown attributes as opaque tokens) would be much harder to specify. But it means that generic code using attribute reflection is inherently non-portable across implementations. The paper acknowledges this in section 3.2, but I think it deserves more attention than a paragraph. This is the kind of thing that bites library authors three years after the feature ships.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sfinae_survivor</span>
+                  <span class="score">34 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is the right framing. And it gets worse when you add the <code>attribute_comparison</code> bitmask to the picture. You have <code>ignore_namespace</code> and <code>ignore_argument</code> as flags, which means you can ask "does this entity have something that looks like <code>deprecated</code> regardless of vendor prefix?" But the answer depends on whether the implementation considers <code>[[gnu::deprecated]]</code> a supported attribute in the first place.</p>
+                  <p>So you have three axes of portability concern: which attributes exist, which the implementation supports for reflection, and which comparison flags you use. That's a lot of surface area for "I just want to know if a member is deprecated."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/axioms_all_the_way</span>
+                        <span class="score">21 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Exactly. And in practice every real codebase has a mix of <code>[[deprecated]]</code> and <code>[[gnu::deprecated("...")]]</code> depending on which compiler warnings they were silencing that week. The <code>ignore_namespace | ignore_argument</code> combo is designed for exactly this case, but you have to know it exists and remember to use it. I'd bet most users will write <code>has_attribute(member, ^^[[deprecated]])</code> and then file a bug when it misses the GNU-prefixed variant.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/reflection_watcher_26</span>
+                  <span class="score">12 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Good analysis. The paper does address this in section 3.2 with the "self consistency" framing, but I agree the portability implications could use a dedicated subsection. Especially since the motivating example in section 2.1 uses only standard attributes, which sidesteps the problem entirely.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- turbo_llama_9000 - 142 points - noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/turbo_llama_9000</span>
+            <span class="score">142 points</span>
+            <span class="time">8 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The <a href="https://godbolt.org/z/35Y3Tf773">godbolt link</a> in the paper is the first time I've seen <code>^^[[</code> in the wild and honestly it looks like line noise that gained sentience.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_first_try</span>
+                  <span class="score">89 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><em>laughs in template template parameter syntax</em></p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/senior_dangling_ref</span>
+                        <span class="score">52 points</span>
+                        <span class="time">6 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p><code>^^[[nodiscard("please")]]</code> reads like a cat walked across the keyboard, hit enter, and it compiled.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- enterprise_cxx_2021 - 62 points - signal: no_unique_address deprecation -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/enterprise_cxx_2021</span>
+            <span class="score">62 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The change to <code>data_member_options</code> is going to bite anyone already using P2996's <code>define_aggregate</code>. The paper deprecates <code>no_unique_address</code> as a boolean field and replaces it with a general-purpose <code>vector&lt;info&gt; attributes</code> member. That's a cleaner design, sure, but every existing call site that has <code>.no_unique_address = true</code> now gets a deprecation warning.</p>
+            <p>What's the migration story here? The paper shows the replacement:</p>
+<pre><code>.attributes = {^^[[no_unique_address]]}</code></pre>
+            <p>But that's a more verbose spelling for the same thing, and it means you need the attribute reflection machinery just to set a layout property. I get why it's better architecturally - you can now attach any attribute, not just the one they hard-coded - but the deprecation timing feels aggressive for a feature that just shipped.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/consteval_enjoyer</span>
+                  <span class="score">28 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The migration is straightforward though:</p>
+<pre><code>// Before
+data_member_spec(^^Empty, {.name = "e",
+                           .no_unique_address = true})
+
+// After
+data_member_spec(^^Empty, {.name = "e",
+                           .attributes = {^^[[no_unique_address]]}})</code></pre>
+                  <p>And the upside is real - you can now do <code>.attributes = {^^[[msvc::no_unique_address]]}</code> for the MSVC variant, which was impossible before. The old boolean only gave you the standard attribute.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/enterprise_cxx_2021</span>
+                        <span class="score">15 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Fair, the MSVC variant argument is compelling. I just wish they'd kept the boolean as a non-deprecated convenience alongside the new vector. Deprecation-then-removal for something that shipped in C++26 and gets replaced in C++29 is a tight timeline.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- clang_adjacent - 54 points - signal: [[assume]] exclusion -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/clang_adjacent</span>
+            <span class="score">54 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The <code>[[assume]]</code> exclusion is the right call and the paper is honest about why. The core problem is expression identity:</p>
+            <blockquote><p>Should ^^[[assume(i + 1)]] compare equal to ^^[[assume(1 + i)]]?</p></blockquote>
+            <p>Canonicalizing arbitrary expressions is an unsolved problem in the general case. You either do token comparison (which gives surprising results - <code>i + 1</code> != <code>1 + i</code>) or you try to normalize (which is undecidable for complex expressions). The paper's experimental implementation uses token comparison, which works but would be a terrible thing to standardize.</p>
+            <p>The practical impact is near zero anyway. <code>[[assume]]</code> can only appertain to the null statement, so <code>attributes_of</code> would never return one. The only way to get an assume reflection is to construct one explicitly, and there's no use case for that.</p>
+            <p class="edit">Edit: I should clarify - the <a href="https://github.com/bloomberg/clang-p2996">Bloomberg Clang fork</a> does have experimental support for expression-argument attributes using token comparison. It works fine in practice. The issue is purely about what semantics to bless in the standard.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_metaprogrammer_4k</span>
+                  <span class="score">19 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Token comparison? So <code>^^[[assume(i + 1)]]</code> != <code>^^[[assume(1 + i)]]</code>? I can already hear the stackoverflow questions.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/clang_adjacent</span>
+                        <span class="score">22 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Yes, and that's exactly why they're punting. Better to ship without it than to standardize surprising semantics that we're stuck with forever. The door stays open for a future paper once we have reflection of expressions worked out.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- just_want_annotations - 89 points - tangent thread -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_want_annotations</span>
+            <span class="score">89 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I'm more interested in when C++ will get user-defined attributes. The paper explicitly says unknown attributes are "unsupported" and reflecting on them is ill-formed. So we get to inspect the attributes the committee blesses, but anything from my own codebase is invisible to reflection. Every other language with a reflection system figured out that user annotations are the killer feature.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/cpp_mass_migration_when</span>
+                  <span class="score">45 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust has had proc macros and custom derive for years. You can <code>#[derive(Serialize)]</code> and the macro has full access to your struct's attributes, fields, types. This paper is reflecting on <code>[[nodiscard]]</code> which is nice I guess but it's not even in the same ballpark.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/yet_another_cpp_dev</span>
+                        <span class="score">67 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Every single thread. Without fail.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/daily_cmake_victim</span>
+                              <span class="score">38 points</span>
+                              <span class="time">4 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>You're telling me r/wg21 has a Rust tangent? I'm shocked. <em>Shocked.</em></p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Interstitial ad: Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body"><a href="https://godbolt.org">godbolt.org</a> - because you need to see the assembly.</div>
+      </div>
+
+      <!-- [removed by moderator] -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/UB_enjoyer_69</span>
+                  <span class="score">3 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>What did they say?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/linker_errors_daily</span>
+                        <span class="score">7 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Something about how attributes are just "comments with extra steps" and we should stop pretending the committee cares about usability. You know, the usual.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- consteval_enjoyer - 44 points - signal: code example + creation gap -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/consteval_enjoyer</span>
+            <span class="score">44 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The motivating example is actually compelling. Filtering out deprecated members at compile time:</p>
+<pre><code>for (auto member : nonstatic_data_members_of(^^T, ctx)) {
+  if (!has_attribute(member, ^^[[deprecated]])) {
+    migratedMembers.push_back(
+      data_member_spec(type_of(member),
+        {.name = identifier_of(member)}));
+  }
+}</code></pre>
+            <p>Clean, readable, does what it says. But notice what's missing: this is read-only. You can inspect attributes and filter on them, but you can't create new attributes or programmatically attach attributes to entities that don't have them. The <code>define_aggregate</code> extensions let you carry attributes forward, but there's no <code>add_attribute</code> or equivalent.</p>
+            <p>For the "migrate away from deprecated" use case that's fine. For the "generate Python bindings with <code>@deprecated</code> decorators" use case mentioned in the intro, you still need an external code generator to produce the Python side. The reflection helps you identify <em>what</em> to tag, but you're on your own for the tagging.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username op">u/reflection_watcher_26</span>
+                  <span class="score">12 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Right, attribute creation is explicitly out of scope. The paper is read-only for attributes - introspection, not manipulation. Which is probably the right scope for a first paper, but it does limit the use cases.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/just_want_annotations</span>
+                        <span class="score">16 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Which loops back to my point. Read-only reflection on a fixed set of standard attributes is useful but limited. The moment you want to annotate your own types with domain-specific metadata - serialization hints, RPC tags, validation rules - you're back to the macro hacks we've been using for 20 years.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- coroutine_hater_2024 - 72 points - noise, dagger -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_hater_2024</span>
+            <span class="score">72 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>P2996 barely got into C++26 and we're already stacking extensions on top. Can we at least wait for implementations to stabilize before bolting on more features? Or is that too much to ask.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_compiler_dev</span>
+                  <span class="score">48 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>That's... literally how the standard process works. You ship the base feature, then you build on it in the next cycle. This paper is targeting C++29, not trying to squeeze into C++26. Would you rather they wait three years doing nothing and then ship a bigger paper that takes six years to review?</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/coroutine_hater_2024</span>
+                        <span class="score">31 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I mean yes? Modules shipped half-baked and we're still paying for it five years later. Coroutines shipped without library support and it took three more standards cycles to get <code>std::execution</code> somewhere usable. Maybe "ship the base and iterate" isn't the win people think it is when the base keeps moving under you.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- committee_archaeologist - 47 points - signal: EWG poll analysis -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/committee_archaeologist</span>
+            <span class="score">47 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The committee poll history on this paper is worth reading carefully. SG7 gave unanimous encouragement on R1, but then the consensus fractured:</p>
+            <p>- Dec 2024: no consensus on reflecting full expression arguments (expected)<br>
+            - Dec 2024: no consensus on forwarding target - C++26 or C++29 (interesting)<br>
+            - Feb 2025: consensus to forward to EWG/LEWG as-is<br>
+            - Sofia: EWG told them to drop <code>appertain</code> and focus on querying</p>
+            <p>But here's the one that matters: "EWG encourages more work on reflecting attributes in the direction of the paper" got a <strong>1/14/12/3/2</strong> split (SF/F/N/A/SA). That's fourteen in favor, twelve neutral, and five against. Not consensus. Fourteen neutral-to-negative votes on a directional question is the committee saying "we're not sure this is the right shape."</p>
+            <p>R7 responds by dropping <code>appertain</code> and <code>[[assume]]</code> - which is what EWG asked for. The question is whether the slimmed-down version satisfies the skeptics or whether they wanted a fundamentally different approach.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/standards_gossip_2025</span>
+                  <span class="score">19 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The author has indicated they'd rather not discuss P3385 at Croydon, so this is probably targeting a future telecon or Budapest. More time to iterate isn't necessarily bad given the EWG temperature.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Interstitial ad: C++ Alliance -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">C++ Alliance</div>
+        <div class="promoted-body">Open source C++ libraries. Community infrastructure. Advancing the language. <a href="https://cppalliance.org">cppalliance.org</a></div>
+      </div>
+
+      <!-- so_many_proposals - 61 points - noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/so_many_proposals</span>
+            <span class="score">61 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Ah yes, my favorite C++ activity: reading a 20-page paper to find out that I still can't do what Java developers do with <code>@Deprecated</code> and a single line of reflection code. We're getting there though. Only two more standards cycles and a dozen more papers.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>At least Java's <code>@Deprecated</code> doesn't require you to understand bitmask comparison flags, conditional implementation support, and expression identity semantics. The C++ version of "is this deprecated" is a research paper.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- generic_lib_author - 41 points - signal + encounter trigger -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/generic_lib_author</span>
+            <span class="score">41 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>One use case the paper undersells: automatic Python/Lua binding generation. If you're already using P2996 to enumerate members and generate bindings at compile time, attribute reflection lets you skip deprecated members, respect <code>[[nodiscard]]</code> in the binding wrapper, and carry <code>[[maybe_unused]]</code> through to suppress warnings in generated code. That's a real quality-of-life improvement over the current approach where binding generators either ignore attributes entirely or require a separate annotation mechanism.</p>
+            <p>The <code>attributes_of</code> API is the right primitive for this. My concern is with the return type: <code>vector&lt;info&gt;</code> with unspecified ordering. For code generation you need deterministic output.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ordering_matters_42</span>
+                  <span class="score">31 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This is a real problem. "Unspecified ordering" means the implementation is free to return attributes in any order, and it can change between compilations. For reproducible builds - which matter in embedded, safety-critical, and regulated environments - that's a non-starter if you're using <code>attributes_of</code> to drive code generation output.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/generic_lib_author</span>
+                        <span class="score">28 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I'd push back slightly. The ordering of attributes in source code doesn't carry semantic meaning in C++. <code>[[nodiscard, deprecated]]</code> and <code>[[deprecated, nodiscard]]</code> are identical. Making <code>attributes_of</code> return a source-ordered vector would create the false expectation that attribute order is meaningful, which it explicitly isn't.</p>
+                        <p>For reproducible codegen, you can sort the result yourself by <code>identifier_of</code>. That's one line of code and it gives you a canonical ordering that doesn't depend on the source.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/ordering_matters_42</span>
+                              <span class="score">22 points</span>
+                              <span class="time">2 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>I'm not asking for source-ordered or semantically-ordered. I'm asking for <em>deterministic</em>. If I call <code>attributes_of</code> on the same entity twice in the same translation unit, I need the same vector. "Unspecified" technically allows the implementation to return a different order each time. That's the gap.</p>
+                              <p>The sort-by-identifier workaround is fine, but it shouldn't be necessary. P2996's <code>members_of</code> returns a deterministic order. <code>attributes_of</code> should do the same.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies">
+
+                              <div class="comment" data-depth="4">
+                                <div class="votebar">
+                                  <span class="arrow up">&#9650;</span>
+                                  <span class="arrow down">&#9660;</span>
+                                </div>
+                                <div class="comment-body">
+                                  <div class="comment-header">
+                                    <span class="username">u/generic_lib_author</span>
+                                    <span class="score">18 points</span>
+                                    <span class="time">1 hr. ago</span>
+                                  </div>
+                                  <div class="comment-text">
+                                    <p>Fair point on the within-TU guarantee. I'd concede that at minimum it should be deterministic within a translation unit. Every implementation will do that in practice anyway - the question is whether to spell it in the wording. Cross-TU consistency is a harder ask and probably not worth the constraint on implementers. But "deterministic within a TU" costs nothing to specify and removes a real footgun.</p>
+                                  </div>
+                                  <div class="comment-footer">
+                                    <span class="action">Reply</span>
+                                    <span class="action">Share</span>
+                                    <span class="action">Report</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- async_embedded_dev - 35 points - signal: vendor attributes -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_embedded_dev</span>
+            <span class="score">35 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>For embedded, vendor attributes are the ones that matter: <code>[[gnu::section("...")]]</code>, <code>[[gnu::packed]]</code>, <code>[[clang::no_sanitize("...")]]</code>. The standard attributes are nice for library ergonomics, but the vendor ones control memory layout, linking, and codegen in ways that affect whether your firmware fits in flash.</p>
+            <p>The paper makes vendor attributes "conditionally supported" which is the right design. But the practical question is whether GCC and Clang will actually opt in. If the major compilers don't support reflecting on their own vendor attributes, this feature is limited to checking <code>[[nodiscard]]</code> and <code>[[deprecated]]</code> on types you already control. Useful, but not transformative.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/clang_adjacent</span>
+                  <span class="score">20 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>In the <a href="https://github.com/bloomberg/clang-p2996">Bloomberg fork</a>, we support a subset of Clang vendor attributes for reflection. The paper deliberately leaves this as implementation-defined so compilers can opt in at their own pace. My expectation is that the "easy" vendor attributes - the ones with no arguments or simple string/integer arguments - will get supported quickly. The complex ones like <code>clang::availability</code> with positional arguments will take longer.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_metaprogrammer_4k</span>
+                  <span class="score">8 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"Conditionally supported" is the new SFINAE. Technically it works. Practically you need <code>#ifdef</code> ladders to find out.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- definitely_not_bjarne - 42 points - noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/definitely_not_bjarne</span>
+            <span class="score">42 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I for one welcome our new consteval overlords.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/needs_more_constexpr</span>
+                  <span class="score">24 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p><code>^^[[consteval_overlord]]</code> - ill-formed, unsupported attribute. Even our overlords have limits.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- throwaway_84729 - 22 points - noise, dagger -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/throwaway_84729</span>
+            <span class="score">22 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Genuine question: does anyone actually use <code>[[nodiscard]]</code> with a message string? I've been writing C++ for 8 years and I've never seen <code>[[nodiscard("reason")]]</code> in production code. The entire argument-clause comparison machinery feels over-engineered for an argument type that nobody uses.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/enterprise_cxx_2021</span>
+                  <span class="score">31 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>We use it extensively. <code>[[nodiscard("check error code before proceeding")]]</code> on every function returning <code>error_code</code>. The message shows up in the compiler warning output, which means developers actually read it instead of just seeing "return value discarded" and adding <code>(void)</code>. It's one of those features you don't miss until you have it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sfinae_survivor</span>
+                  <span class="score">18 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Every single <code>error_code</code> return type in our codebase has it. The message is for the next person who reads the warning at 2 AM wondering whether they can safely ignore it. Spoiler: they can't.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- build_system_casualty - collapsed, -8 points -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/build_system_casualty</span>
+            <span class="score negative">-8 points</span>
+            <span class="time">47 minutes ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Slightly off topic but does anyone know if modules work with cmake 3.30 yet? I've been trying to get import std working with GCC 15 and it keeps failing with "unable to find module interface." I know this isn't the right thread but the cmake subreddit is dead.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

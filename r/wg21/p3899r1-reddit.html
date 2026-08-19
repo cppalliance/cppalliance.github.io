@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Clarify the behavior of floating-point overflow</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3899",
+  "revision": 1,
+  "document": "P3899R1",
+  "title": "Clarify the behavior of floating-point overflow",
+  "authors": "Jan Schultke, Matthias Kretz",
+  "audience": "SG6, EWG, CWG",
+  "date": "2026-02-20",
+  "comments": 8,
+  "upvotes": 67,
+  "upvote_pct": "96%",
+  "poster": "floating_point_watcher",
+  "heat": "cold",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3899R1 - Clarify the behavior of floating-point overflow <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/floating_point_watcher</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3899r1">P3899R1</a><br>
+        <strong>Authors:</strong> Jan Schultke, Matthias Kretz<br>
+        <strong>Date:</strong> 2026-02-20<br>
+        <strong>Audience:</strong> SG6, EWG, CWG</p>
+
+        <p>CWG cannot agree on whether floating-point overflow is undefined behavior. Is <code>FLT_MAX * 2</code> UB? Is <code>infinity() + 1</code> UB? Is merely yielding infinity UB? Extensive CWG discussion found no consensus on what the current wording says. This paper proposes to clarify: overflow on IEEE 754 types produces infinity (defined behavior), and allows infinity arithmetic including in constant expressions. Non-IEEE types get implementation-defined behavior.</p>
+      </div>
+      <div class="vote-count">&#9650; 67 points (96% upvoted) &middot; 8 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/ieee754_absolutist</span>
+            <span class="score">52 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The fact that CWG couldn't agree on whether <code>FLT_MAX * 2</code> is UB in 2026 is genuinely disturbing. Every compiler produces infinity. IEEE 754 defines the result. The standard should have said this twenty years ago.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/non_ieee_platforms_exist</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The "every compiler" part is only true for IEEE 754 targets. Some embedded DSPs and historical mainframes don't use IEEE floats. The paper handles this correctly - defined behavior for IEEE, implementation-defined for everything else. Both sides win.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/constexpr_infinity_fan</span>
+            <span class="score">38 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Allowing infinity in constant expressions is the right call. If <code>constexpr float x = 1e38f * 1e38f;</code> is ill-formed but the runtime version produces infinity, that's an inconsistency between compile-time and runtime semantics. The paper eliminates the inconsistency.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/optimizer_writer</span>
+            <span class="score">24 points</span>
+            <span name="time" class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>If overflow is UB, optimizers can assume it never happens. That enables <code>-ffinite-math-only</code> style optimizations by default. Making overflow defined behavior means compilers lose that optimization freedom on IEEE targets. The performance cost is likely negligible in practice but it's worth noting the tradeoff.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ieee754_absolutist</span>
+                  <span class="score">14 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>No compiler currently assumes overflow is UB for optimization purposes. <code>-ffinite-math-only</code> is an explicit opt-in flag precisely because assuming no infinities breaks real code. The paper is standardizing existing practice, not changing it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/underflow_question</span>
+            <span class="score">11 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>R1 adds underflow investigation and decides to allow it in constant expressions too. Consistent: if the runtime produces denormals on underflow, the compile-time should too. Good to see both edge cases handled together.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/schultke_kretz_duo</span>
+            <span class="score">7 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Schultke and Kretz again. The <code>std::array</code> paper, the simd papers, now floating-point clarification. They're systematically cleaning up spec corners. The committee should buy them coffee.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Task's Allocator Use</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3980",
+  "revision": 0,
+  "document": "P3980R0",
+  "title": "Task's Allocator Use",
+  "authors": "Dietmar K&uuml;hl",
+  "audience": "LEWG",
+  "date": "2026-02-22",
+  "comments": 16,
+  "upvotes": 52,
+  "upvote_pct": "84%",
+  "poster": "task_allocator_watcher",
+  "heat": "warm",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3980R0 - Task's Allocator Use <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/task_allocator_watcher</span> &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3980r0">P3980R0</a><br>
+        <strong>Author:</strong> Dietmar K&uuml;hl<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>Addresses four NB comments about how <code>std::execution::task</code> uses allocators. The key separation: the allocator for the coroutine frame and the allocator for child sender environments should be handled independently. The frame allocator comes from the task's constructor arguments; the child environment allocator comes from the receiver. Presents three wording approaches (A, B, C) with different levels of strictness on <code>allocator_arg</code> positioning.</p>
+      </div>
+      <div class="vote-count">&#9650; 52 points (84% upvoted) &middot; 16 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/allocator_propagation_veteran</span>
+            <span class="score">38 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Separating frame allocator from child environment allocator is the right design. The frame allocator controls where the coroutine itself lives. The environment allocator controls what the task's children see. These are different concerns with different lifetimes, and conflating them was the source of three of the four NB comments.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/p3796_issue_tracker</span>
+            <span class="score">31 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This is one of the 29 issues from <a href="https://wg21.link/p3796r1">P3796R1</a>. The task type was adopted and then immediately needed rework. The allocator model is particularly tricky because <code>operator new</code> in the coroutine frame runs before the promise constructor - the allocator has to be available before the coroutine body starts.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/coroutine_timing_expert</span>
+                  <span class="score">18 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The timing problem is exactly what <a href="https://wg21.link/p4003r0">P4003R0</a> solves with thread-local propagation. Different approach, same underlying constraint: the allocator must be present at invocation time.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/three_wording_options</span>
+            <span class="score">24 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Three wording approaches for one NB comment resolution. Option A constrains <code>allocator_arg</code> to first position. Option B allows flexible positioning matching <code>std::generator</code>. Option C is a middle ground. This is LEWG design space exploration - they'll poll and pick one.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/generator_consistency</span>
+            <span class="score">17 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Consistency with <code>std::generator</code>'s allocator model should be the priority. Both are coroutine types. Both need allocators for frame allocation. Users shouldn't learn two different allocator conventions for two standard coroutine types.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/four_nb_comments_one_paper</span>
+            <span class="score">12 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Four NB comments on allocator use for a single type. This is what happens when you ship a design and discover the allocator story wasn't fully baked. K&uuml;hl is doing the cleanup work. Necessary, not glamorous.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/receiver_environment_allocator</span>
+            <span class="score">9 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Taking the child allocator from the receiver's environment is elegant. The receiver already carries the execution context. Adding the allocator to that context means child tasks automatically inherit the allocation strategy without explicit propagation.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/task_type_pessimist</span>
+            <span class="score">6 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Six months after adoption and we're reworking the allocator model. Between this, P3796R1's 29 issues, and P3801R0's design concerns, <code>std::execution::task</code> is getting more post-adoption patches than C++11 <code>std::regex</code> got complaints.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

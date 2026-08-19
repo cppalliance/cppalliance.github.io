@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Unicode in the Library, Part 1: UTF Transcoding</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P2728",
+    "revision": 11,
+    "document": "P2728R11",
+    "title": "Unicode in the Library, Part 1: UTF Transcoding",
+    "authors": "Eddie Nolan, Zach Laine",
+    "audience": "SG9, SG16",
+    "date": "2026-03-15",
+    "comments": 25,
+    "upvotes": 186,
+    "upvote_pct": "91%",
+    "poster": "unicode_standardista",
+    "heat": "warm",
+    "interest": "relevant",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P2728R11 - Unicode in the Library, Part 1: UTF Transcoding <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/unicode_standardista &middot; 18 hr. ago</div>
+      <div class="body">
+        <p><strong>Authors:</strong> Eddie Nolan, Zach Laine<br>
+        <strong>Document:</strong> P2728R11<br>
+        <strong>Date:</strong> 2026-03-15<br>
+        <strong>Target:</strong> SG9, SG16<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p2728r11">wg21.link/p2728r11</a></p>
+
+        <p>P2728 is the paper that's been quietly building the foundation for real Unicode support in C++. Eleven revisions in, it proposes range adaptors for transcoding between UTF-8, UTF-16, and UTF-32 - pipe-style, lazy, composable with the rest of <code>&lt;ranges&gt;</code>.</p>
+
+        <p>The core API is straightforward: <code>u8"hello" | views::to_utf32</code> gives you a lazy view of UTF-32 code points. Error handling comes in two flavors - the default views substitute the Unicode replacement character (U+FFFD) for invalid sequences, and the <code>_or_error</code> variants produce <code>std::expected</code> values with a detailed error enum telling you exactly what went wrong.</p>
+
+        <p>Implementation experience from multiple directions: a <a href="https://github.com/bemanproject/utf_view">Beman project reference implementation</a>, <a href="https://github.com/tzlaine/text">Boost.Text</a> with hundreds of GitHub stars, and Jonathan Wakely's implementation in libstdc++. The paper only works with <code>char8_t</code>/<code>char16_t</code>/<code>char32_t</code> - if your UTF-8 is in <code>char</code>, you pipe through <code>as_char8_t</code> first.</p>
+      </div>
+      <div class="vote-count">&#9650; 186 points (91% upvoted) &middot; 25 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- Comment 1: AutoModerator pinned -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="score">1 point</span>
+            <span class="time">18 hr. ago</span>
+            <span class="flair">pinned comment</span>
+          </div>
+          <div class="mod-pin">
+            <p><strong>Paper:</strong> P2728R11 - Unicode in the Library, Part 1: UTF Transcoding | <strong>Authors:</strong> Eddie Nolan, Zach Laine | <strong>Date:</strong> 2026-03-15 | <strong>Audience:</strong> SG9, SG16 | <strong>Link:</strong> <a href="https://wg21.link/p2728r11">wg21.link/p2728r11</a></p>
+            <p>Reminder: paper authors sometimes read these threads. Be civil, be specific, critique the paper not the person. Rule 2 violations will be removed.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 2: Revision count joke -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/template_meta_enjoyer</span>
+            <span class="score">87 points</span>
+            <span class="time">17 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Eleven revisions. This paper has been through more design iterations than my startup's business model.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 3: Reply defending revision count -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_when</span>
+                  <span class="score">23 points</span>
+                  <span class="time">16 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>To be fair the API between R0 and R11 is completely different. They removed eager algorithms, changed error handling from exceptions to expected, split out null_term into its own paper, merged all the separate view classes into one. It's basically a new paper wearing old clothes.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 4: char/wchar_t tax (SIGNAL) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/char_was_fine_actually</span>
+            <span class="score">67 points</span>
+            <span class="time">16 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>Because virtually all UTF-8 text processed by C++ is stored in <code>char</code></blockquote>
+            <p>The paper says this itself! And then requires <code>as_char8_t</code> anyway. So to transcode my perfectly normal <code>std::string</code> UTF-8 text I need:</p>
+            <pre><code>my_str | views::as_char8_t | views::to_utf32</code></pre>
+            <p>instead of just</p>
+            <pre><code>my_str | views::to_utf32</code></pre>
+            <p>I understand the type-safety argument but this optimizes for the type system at the expense of the user who's sitting there with a <code>std::string</code> full of UTF-8 and wants to do something with it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 5: SG16 defense -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sg16_lurker</span>
+                  <span class="score">31 points</span>
+                  <span class="time">15 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>This was an explicit SG16 design decision. <code>char</code> doesn't carry encoding information - it could be Latin-1, it could be Shift-JIS, it could be UTF-8. <code>char8_t</code> exists precisely to mark "this is UTF-8." The one-time cast at the boundary is the cost of not lying about your encoding.</p>
+                  <p>Also, <code>as_char8_t</code> is literally a <code>static_cast</code> in a view. Zero-cost at runtime and composes naturally in a pipeline.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Comment 6: Pushback -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/char_was_fine_actually</span>
+                        <span class="score">18 points</span>
+                        <span class="time">14 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I know the encoding of my strings at compile time. I set the compiler flags. The literal encoding hasn't surprised me since 2003. Making me declare what I already know every time I touch a string feels like ceremony, not safety.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- Comment 7: SG16 poll quote -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/ranges_guy_2021</span>
+                              <span class="score">12 points</span>
+                              <span class="time">13 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <blockquote>UTF transcoding interfaces provided by the C++ standard library should operate on charN_t types, with support for other types provided by adapters</blockquote>
+                              <p>That SG16 poll was SF:5 F:1 N:0 A:0 SA:1. Almost unanimous. At some point you have to accept the committee made a direction call and build on it rather than relitigate every time a paper follows the direction.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 8: Performance (SIGNAL / ENCOUNTER start) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/simd_or_bust</span>
+            <span class="score">44 points</span>
+            <span class="time">15 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Zero discussion of performance in this paper. <a href="https://github.com/simdutf/simdutf">simdutf</a> validates and transcodes UTF-8 at multiple GB/s using SIMD. These views store an <code>inplace_vector</code> buffer, a parent pointer, an index, and do one-code-point-at-a-time transcoding through a virtual dispatch on the underlying range.</p>
+            <p>That's fine for small strings and lazy composition, but the paper doesn't even acknowledge the tradeoff. Someone who searches "C++ UTF transcoding" after C++29 ships is going to find this, use it for bulk transcoding of a 50MB JSON file, and wonder why it's 20x slower than it needs to be.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 9: Encounter reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/lazy_eval_appreciator</span>
+                  <span class="score">38 points</span>
+                  <span class="time">14 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>You're comparing a bulk batch API to a composable lazy view. They serve fundamentally different purposes. Nobody expects <code>views::transform</code> to compete with hand-rolled SIMD either - the value is composability and zero-allocation.</p>
+                  <pre><code>input | views::as_char8_t | views::to_utf32
+      | views::filter(is_letter)
+      | views::to_utf8
+      | ranges::to&lt;string&gt;()</code></pre>
+                  <p>Try doing that pipeline with simdutf. You'd need three intermediate allocations.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Comment 10: Encounter escalation -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/simd_or_bust</span>
+                        <span class="score">19 points</span>
+                        <span class="time">13 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Fair distinction. But shouldn't the paper at least mention this? A user who sees "UTF transcoding" in the standard library and doesn't know simdutf exists will assume this is <em>the</em> way to do it. A non-normative note pointing to SIMD libraries for bulk workloads would cost two sentences and save a lot of Stack Overflow questions.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- Comment 11: Encounter resolution -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/lazy_eval_appreciator</span>
+                              <span class="score">14 points</span>
+                              <span class="time">12 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Actually yeah, that's a reasonable ask. A note in the design discussion section acknowledging the performance-vs-composability tradeoff wouldn't hurt. Something like what <code>ranges::sort</code> says about... wait, <code>views::sort</code> doesn't exist. Bad example. But you get the idea.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 12: ICU noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_icu_user</span>
+            <span class="score negative">-3 points</span>
+            <span class="time">14 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>just use ICU</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 13: ICU rebuttal -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/string_theory_42</span>
+                  <span class="score">25 points</span>
+                  <span class="time">13 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>ICU is a 30MB dependency that does collation, BiDi, transliteration, break iteration, and date formatting. This paper is a zero-overhead range adaptor for UTF conversion. Recommending ICU for transcoding is like recommending Photoshop for cropping a screenshot.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: Compiler Explorer -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">godbolt.org - because you need to see the assembly.</div>
+        <div class="promoted-body">Compiler Explorer: Run code, see assembly, compare compilers. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <!-- Comment 14: Error handling (SIGNAL / TEASER) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/error_code_maximalist</span>
+            <span class="score">35 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The error handling design here is the best part of the paper and I don't think it's getting enough attention.</p>
+            <blockquote>a multiplayer RPG server could be crashed by malicious users sending invalid UTF</blockquote>
+            <p>The paper cites <a href="https://nvd.nist.gov/vuln/detail/CVE-2007-3917">CVE-2007-3917</a> where a game server crashed from invalid UTF-8 because the transcoding function threw exceptions and nobody caught them. The old <code>codecvt</code> facets had exactly this problem - exceptions as error handling for untrusted input is a denial-of-service vulnerability waiting to happen.</p>
+            <p>The <code>_or_error</code> views produce <code>std::expected</code> values, so invalid input doesn't throw, doesn't crash, doesn't silently corrupt. You get an error enum telling you exactly what went wrong (<code>truncated_utf8_sequence</code>, <code>unpaired_high_surrogate</code>, <code>encoded_surrogate</code>, etc). The default <code>to_utf8</code> view substitutes U+FFFD per the Unicode spec. Two good defaults covering two common needs.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 15: Error handling followup -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/definitely_not_a_compiler_dev</span>
+                  <span class="score">19 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The nice thing is that <code>_or_error</code> is explicitly a basis operation - section 10.2 shows you can rebuild the replacement behavior from the <code>or_error</code> view with a <code>transform</code> and <code>join</code>. So the error-aware path is the primitive and the convenience path is layered on top. Clean factoring.</p>
+                  <p>Also the double-transcode optimization in 10.4 is clever. If you pipe through <code>to_utf32</code> and then <code>to_utf16</code>, the CPO detects the nesting and elides the intermediate view. Same pattern as <code>views::reverse</code> undoing itself.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 16: Networking gripe -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_skeptic</span>
+            <span class="score">34 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>can we please get networking in the standard before we start on unicode</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 17: Rebuttal -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/coroutine_hater</span>
+                  <span class="score">52 points</span>
+                  <span class="time">10 hr. ago</span>
+                  <span class="awards">&#127942;</span>
+                </div>
+                <div class="comment-text">
+                  <p>we can want two things</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 18: Rust tangent (TANGENT THREAD) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_driver_rust</span>
+            <span class="score">12 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>In Rust, strings are UTF-8 by default and validated at construction time. No transcoding views needed. The whole <code>char8_t</code> dance doesn't exist because the language got the default encoding right from day one.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 19: Rust rebuttal -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/string_theory_42</span>
+                  <span class="score">48 points</span>
+                  <span class="time">8 hr. ago</span>
+                  <span class="awards">&#127942;</span>
+                </div>
+                <div class="comment-text">
+                  <p>Rust also has <code>OsStr</code>, <code>OsString</code>, <code>CStr</code>, <code>CString</code>, <code>str</code>, <code>String</code>, <code>Path</code>, <code>PathBuf</code>, <code>Cow&lt;str&gt;</code>, and the <code>From&lt;&amp;[u8]&gt;</code> escape hatch when you need non-UTF-8 bytes. The grass isn't as green as the evangelists claim.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Comment 20: Concession -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/daily_driver_rust</span>
+                        <span class="score">5 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>fair enough, though those exist for FFI boundaries not everyday use. But this isn't r/rust so I'll stop.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: cppreference -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">en.cppreference.com - You were going to look it up anyway.</div>
+        <div class="promoted-body">The community-maintained reference for C and C++. Always current. <a href="https://en.cppreference.com">en.cppreference.com</a></div>
+      </div>
+
+      <!-- Comment 21: Dependencies (SIGNAL) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/boost_contributor_throwaway</span>
+            <span class="score">29 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Dependencies concern: this paper needs <a href="https://wg21.link/p3117r1">P3117</a> for conditionally borrowed ranges, P3705 for <code>null_term</code>, and P4030 for endian views if you want the full UTF-16 LE/BE story from section 6.6. That's three papers that need to land alongside this one for the complete picture.</p>
+            <p>What's the C++29 dependency DAG looking like? Is anyone tracking whether these will actually be ready for the same standard?</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Comment 22: Dependencies reply -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/ranges_guy_2021</span>
+                  <span class="score">16 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>P3117 is already being reviewed in LEWG. P3705 was literally carved out of this paper - it'll track together. P4030 is a nice-to-have, not a hard dependency. The core transcoding views work fine without endian views; section 6.6 is just showing what's possible when you compose them.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 23: Playing card delight -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/the_real_move_semantics</span>
+            <span class="score">42 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 6.5 with the playing card suit-changing example is the most delightful thing I've seen in a standards paper. Someone actually had fun writing that section and it shows. We need more <code>PLAYING CARD ACE OF SPADES</code> in normative references.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 24: Revision churn (controversial dagger) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_ship_it_already</span>
+            <span class="score">19 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The changelog in section 11 is longer than the actual changes in R11. Two bullet points of new work, eleven subsections of "what we changed three years ago." The <code>codecvt</code> facets were deprecated in C++17. It's 2026. That's nine years to replace something everyone agreed was broken.</p>
+            <p class="edit">Edit: yes I know the paper does more than replace codecvt. My point is about timeline, not scope.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Comment 25: Deleted -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score negative">-7 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[deleted]</p>
+          </div>
+          <div class="comment-footer"></div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

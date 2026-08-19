@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Scheduler Affinity</title>
+  <script type="application/json" id="thread-meta">
+  {
+    "paper": "P3941",
+    "revision": 2,
+    "document": "P3941R2",
+    "title": "Scheduler Affinity",
+    "authors": "Dietmar K\u00fchl",
+    "audience": "LEWG",
+    "date": "2026-03-14",
+    "comments": 24,
+    "upvotes": 89,
+    "upvote_pct": "84%",
+    "poster": "execution_enjoyer_23",
+    "heat": "warm",
+    "interest": "relevant",
+    "flair": "WG21",
+    "generated": "2026-04-03"
+  }
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header"></div>
+
+    <div class="submission">
+      <div class="title">P3941R2 - Scheduler Affinity <span class="flair">WG21</span></div>
+      <div class="meta">Posted by u/execution_enjoyer_23 &middot; 8 hr. ago</div>
+      <div class="body">
+        <p><strong>Author:</strong> Dietmar K&uuml;hl<br>
+        <strong>Document:</strong> P3941R2<br>
+        <strong>Date:</strong> 2026-03-14<br>
+        <strong>Target:</strong> LEWG<br>
+        <strong>Link:</strong> <a href="https://wg21.link/p3941r2">wg21.link/p3941r2</a></p>
+
+        <p>Dietmar K&uuml;hl's latest tackles the messy state of <code>affine_on</code> in <code>std::execution::task</code> - the algorithm responsible for making sure your coroutine resumes on the same scheduler it was running on before a <code>co_await</code>. R2 addresses five NB comments at once, all stemming from concerns raised in <a href="https://wg21.link/p3796r1">P3796R1</a>.</p>
+
+        <p>The headline changes: <code>affine_on</code> drops its scheduler parameter and pulls it from the receiver's environment instead. Schedulers used with <code>affine_on</code> must now be infallible - no <code>set_error</code> or <code>set_stopped</code> completions allowed when you're trying to resume. <code>inline_scheduler</code>, <code>task_scheduler</code>, and <code>run_loop::scheduler</code> can meet this bar. <code>parallel_scheduler</code> probably can't.</p>
+
+        <p>The paper also removes <code>change_coroutine_scheduler</code> entirely, arguing that locals destroyed on the wrong scheduler and invisible overhead for all tasks make it a net negative. The replacement is nesting a task with <code>starts_on</code> - more verbose but structurally cleaner. There's also an optional new query <code>get_start_scheduler</code> to separate "where should I schedule new work" from "where was I started."</p>
+      </div>
+      <div class="vote-count">&#9650; 89 points (84% upvoted) &middot; 24 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <!-- AutoModerator pinned -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username mod">u/AutoModerator</span>
+            <span class="score">1 point</span>
+            <span class="time">8 hr. ago</span>
+            <span class="flair">Pinned</span>
+          </div>
+          <div class="comment-text">
+            <div class="mod-pin">
+              <p><strong>P3941R2</strong> | Scheduler Affinity | Dietmar K&uuml;hl | LEWG<br>
+              <a href="https://wg21.link/p3941r2">https://wg21.link/p3941r2</a></p>
+              <p>Reminder: be civil. The paper authors sometimes read these threads.</p>
+            </div>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Noise: early sarcasm (high upvotes) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/turbo_llama_9000</span>
+            <span class="score">156 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>great, another execution paper. at this rate we'll have async hello world standardized by C++32</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_segfault</span>
+                  <span class="score">89 points</span>
+                  <span class="time">7 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I've read this paper three times and I still can't explain what <code>affine_on</code> does to my coworkers without drawing a diagram on a whiteboard and then erasing the whole thing halfway through</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username op">u/execution_enjoyer_23</span>
+                        <span class="score">14 points</span>
+                        <span class="time">7 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>It means your coroutine goes back to the scheduler it came from after a <code>co_await</code>. Like a boomerang. A boomerang made of templates and completion signatures.</p>
+                        <p>Seriously though, it's NB comment resolution - this is on the fast track for C++26, not a new feature proposal.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Naming bikeshed (high upvotes, award) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_hater_42</span>
+            <span class="score">134 points</span>
+            <span class="time">7 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <blockquote><p>The name affine_on isn't great. It may be worth giving the algorithm a better name.</p></blockquote>
+            <p>That's Section 3.7. In its entirety. The full analysis. A 15-page paper rewriting the algorithm's parameters, constraints, and semantics, and the naming section is two sentences.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/template_wizard_2019</span>
+                  <span class="score">71 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>WG21 naming committee in action. "We have identified the problem. Meeting adjourned."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/compiles_first_try</span>
+                        <span class="score">45 points</span>
+                        <span class="time">5 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>be grateful. it could have been <code>basic_affine_on_view_adaptor_closure_t</code></p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- TEASER: parallel_scheduler gap (signal, award) -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/scheduler_herder</span>
+            <span class="score">52 points</span>
+            <span class="time">6 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The elephant in the room is <code>parallel_scheduler</code>.</p>
+            <p>The paper requires infallible schedulers for <code>affine_on</code>, then says:</p>
+            <blockquote><p>It seems unlikely that all schedulers can be constrained to be infallible.</p></blockquote>
+            <p>And specifically about <code>parallel_scheduler</code>:</p>
+            <blockquote><p>It seems unlikely that this interface can be constrained to make it infallible.</p></blockquote>
+            <p>So we're standardizing <code>task</code> with scheduler affinity baked in, and one of the four standard schedulers can't participate. The paper acknowledges this but offers "the user can adapt the scheduler" without providing any such adapter in the standard library. The only adaptation strategies listed are (1) call <code>std::terminate</code> on failure, or (2) silently break affinity and hope nobody notices.</p>
+            <p>I understand why infallibility is the right constraint - if scheduling fails you genuinely cannot guarantee resumption on the right execution agent. But the practical consequence is that <code>task</code> + <code>parallel_scheduler</code> is a compile error. That seems like something LEWG should discuss explicitly rather than discover after the fact.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/embedded_for_20_years</span>
+                  <span class="score">33 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>From where I sit this is exactly right. On embedded targets we need deterministic guarantees about where code runs. If scheduling can fail mid-<code>co_await</code> and you end up on the wrong execution agent, that's not an error you can recover from - it's a category violation. Your ISR handler is now running user-mode code.</p>
+                  <p>The <code>parallel_scheduler</code> gap is real but I'd rather have a hard constraint I can reason about than a soft one that silently degrades. Make fallible schedulers opt-in with an explicit adapter and force the user to confront what "scheduling failed" means for their domain.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/scheduler_herder</span>
+                        <span class="score">19 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Fair point for embedded. My concern is more server-side: we're building executors for thread pools and work-stealing queues where scheduling failure is a real operational condition (pool at capacity, thread creation failure). Requiring the user to write an adapter before they can use <code>task</code> with the standard thread pool scheduler is a usability cliff that won't show up until someone tries it in production.</p>
+                        <p>The paper's own Section 3.3.3 basically says "if this turns out to be too strong we can relax it later." That's usually committee-speak for "we'll ship it and see who complains."</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: dual wording problem -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/actually_reads_papers</span>
+            <span class="score">38 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Something I haven't seen anyone mention: Section 4 contains <em>two complete alternative wordings</em>. One adds <code>get_start_scheduler</code> as a new query that defaults to <code>get_scheduler</code>. The other overloads the existing <code>get_scheduler</code> with the "started on" semantics.</p>
+            <p>The paper identifies a real dual-use problem - <code>get_scheduler</code> currently means both "which scheduler should I use for new work" and "which scheduler was I started on." Those aren't the same thing. But instead of picking a direction, it ships both options to LEWG.</p>
+            <p>I'd bet on <code>get_start_scheduler</code> getting consensus. The fallback-to-<code>get_scheduler</code> default means existing code keeps working, and the separation of concerns is cleaner. But LEWG is going to need to poll this explicitly, and I don't see it flagged as an open question in the change history.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/former_sg1_lurker</span>
+                  <span class="score">24 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The dual-use ambiguity was already causing confusion in <a href="https://wg21.link/p3796r1">P3796R1</a>. Having a single query that means different things depending on who's asking is the kind of thing that generates four more papers and a study group.</p>
+                  <p><code>get_start_scheduler</code> is the right call. The alternative is having every algorithm that cares about "where was I started" document which interpretation of <code>get_scheduler</code> it uses.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: change_coroutine_scheduler removal + encounter -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/async_skeptic</span>
+            <span class="score">31 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I agree the two problems with <code>change_coroutine_scheduler</code> are real. Locals on the wrong scheduler is a correctness issue, and the invisible storage cost for all tasks is unfortunate. But look at the proposed alternative:</p>
+            <blockquote><p>co_await ex::starts_on(s, [](parameters)-&gt;task&lt;T, E&gt; { logic }(arguments));</p></blockquote>
+            <p>You're asking users to create a lambda, invoke it immediately, wrap it in <code>starts_on</code>, and <code>co_await</code> the result. That's four concepts chained together to do what <code>co_await change_coroutine_scheduler(s)</code> did in one line.</p>
+            <p>The paper calls this "a bit verbose." That's underselling it. The mental model goes from "I'm now on scheduler S" to "I'm spawning a nested coroutine that runs on scheduler S and I get the result back." Those are different programming models with different failure surfaces.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <!-- Encounter: scheduler_herder disagrees -->
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/scheduler_herder</span>
+                  <span class="score">21 points</span>
+                  <span class="time">4 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The verbosity <em>is</em> the feature. <code>change_coroutine_scheduler</code> makes it look like changing a local variable when it's actually restructuring the execution graph. The nested task makes the scope explicit - you can see exactly where the different scheduler starts and ends.</p>
+                  <p>Compare:</p>
+<pre><code>// Before: scheduler change leaks
+co_await change_coroutine_scheduler(pool);
+auto result = co_await heavy_compute();
+// locals above still on old scheduler
+
+// After: scheduler change is scoped
+auto result = co_await starts_on(pool,
+    []() -&gt; task&lt;Result&gt; {
+        return co_await heavy_compute();
+    }());</code></pre>
+                  <p>The second form makes the lifetime boundary visible. You can't accidentally destroy locals on the wrong scheduler because they live in a different coroutine frame.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <!-- Encounter: async_skeptic pushes back -->
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/async_skeptic</span>
+                        <span class="score">16 points</span>
+                        <span class="time">3 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>I take your point on scoping. The correctness argument is sound. My worry is adoption cost. People coming from Asio or libunifex have a mental model where changing execution context is a lightweight operation. We're replacing it with "wrap your logic in a nested coroutine" which, even if structurally better, is going to be a migration stumbling block.</p>
+                        <p>And the lambda-immediately-invoked pattern is going to confuse anyone who isn't steeped in this idiom.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <!-- Encounter: resolution -->
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/scheduler_herder</span>
+                              <span class="score">12 points</span>
+                              <span class="time">2 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>Yeah, the adoption concern is real. I think the right move is: remove <code>change_coroutine_scheduler</code> (the paper is correct on the problems), but make sure the ecosystem has a convenience wrapper - something like <code>run_on(scheduler, callable)</code> - that hides the lambda-IILE-<code>co_await</code> boilerplate. It doesn't need to be in this paper, but it should exist before people start writing production <code>task</code> code.</p>
+                              <p class="edit">Edit: actually, <code>on(sch, nested_task)</code> already exists. The gap is more about discoverability than missing functionality.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: NVIDIA stdexec -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">NVIDIA stdexec - Reference implementation of P2300 std::execution</div>
+        <div class="promoted-body">Structured concurrency for C++. Senders, receivers, and schedulers. <a href="https://github.com/NVIDIA/stdexec">github.com/NVIDIA/stdexec</a></div>
+      </div>
+
+      <!-- Tangent: Rust comparison -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_use_rust_lol</span>
+            <span class="score">5 points</span>
+            <span class="dagger">&dagger;</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>In Tokio you just <code>spawn</code> a task and the runtime handles affinity. Fifteen pages of wording changes to achieve what a runtime scheduler does by default.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/not_a_real_cxx_dev</span>
+                  <span class="score negative">-3 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>C++ doesn't have a runtime. That's literally the design constraint. You're comparing a language with a built-in task scheduler to one where the scheduler is a library type the user provides.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/build_system_victim</span>
+                        <span class="score">9 points</span>
+                        <span class="time">4 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>this is exactly why sender/receiver will be the next Concepts - technically correct and nobody outside the committee and two companies will use it for a decade</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Signal: author context / advocacy -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/former_sg1_lurker</span>
+            <span class="score">17 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Worth noting context: K&uuml;hl is a long-time <a href="https://wg21.link/p2300">P2300</a> contributor at Bloomberg and the author of <a href="https://wg21.link/p3552">P3552</a> (<code>std::execution::task</code>). This isn't a drive-by - he's fixing problems in his own design based on feedback from NB review.</p>
+            <p>That said, the paper's recommendation to require infallible schedulers for <code>affine_on</code> naturally favors the execution model where schedulers are lightweight and deterministic - which is the Bloomberg use case. LEWG might want to hear from implementers whose thread pool schedulers can't easily guarantee infallibility before treating the constraint as settled.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- Signal: infallible design with code -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="score">28 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Putting the infallibility constraint in concrete terms. The paper is proposing a static check at <code>connect</code> time:</p>
+<pre><code>// The completion signatures of schedule(sch)
+// with an unstoppable_token environment
+// must be exactly:
+//   completion_signatures&lt;set_value_t()&gt;
+//
+// If your scheduler can complete with
+// set_error_t(E) or set_stopped_t(),
+// affine_on(sndr) won't compile.</code></pre>
+            <p>This is actually elegant. You find out at compile time, not when your server is handling 10k connections at 3 AM, that your scheduler can't guarantee affinity. The trade-off is that <code>parallel_scheduler</code> is locked out, but <a href="https://github.com/NVIDIA/stdexec">stdexec</a>'s <code>static_thread_pool</code> already meets this bar in practice - it just needs the signatures to declare it.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiles_first_try</span>
+                  <span class="score">5 points</span>
+                  <span class="time">2 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>TIL <code>unstoppable_token</code> exists. The sender/receiver API surface is truly something</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsed bad take -->
+      <div class="comment collapsed" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/throws_at_runtime_420</span>
+            <span class="score negative">-11 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Why not just use <code>continues_on</code> and skip all this complexity? It does the same thing.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/daily_segfault</span>
+                  <span class="score">7 points</span>
+                  <span class="time">1 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>It doesn't. <code>continues_on</code> takes the scheduler as a parameter and forwards stop tokens. <code>affine_on</code> gets the scheduler from the receiver environment, requires infallibility, and blocks stop token propagation to the scheduling operation. The constraints are what make affinity guaranteeable - <code>continues_on</code> can't promise it'll actually land on the target scheduler if the scheduling gets cancelled.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad: CppCon 2026 -->
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - Early bird ends May 15</div>
+        <div class="promoted-body">The conference for the C++ community. Talks, workshops, and the people who write the standard.</div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

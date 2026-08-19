@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - P3724R3 - Integer division</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P3724",
+  "revision": 3,
+  "document": "P3724R3",
+  "title": "Integer division",
+  "authors": "Jan Schultke",
+  "audience": "LEWG",
+  "date": "2026-02-20",
+  "comments": 25,
+  "upvotes": 56,
+  "upvote_pct": "86%",
+  "poster": "div_quot_realist",
+  "heat": "warm",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P3724R3 - Integer division <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/div_quot_realist</span> &middot; 5 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p3724r3">P3724R3</a><br>
+        <strong>Author:</strong> Jan Schultke<br>
+        <strong>Date:</strong> 2026-02-20<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>C++ only gives you truncating <code>/</code> and a remainder whose sign follows the dividend. That combo is fine until you want ceiling buckets, Python-style floor division, or nearest-with-ties rules - then the Stack Overflow answers start lying, overflowing, or invoking UB on <code>INT_MIN</code>. Schultke proposes a full family of <code>std::div_*</code> and <code>std::div_rem_*</code> plus a dedicated <code>std::mod</code> for the divisor-sign remainder you want in real modular arithmetic.</p>
+
+        <p>R3 rebases the wording on N5032, expands the language survey (including Julia-style rounding modes), and spells out tie-breaking motivation. SG6 already voted out <code>div_to_even</code> style top-level modes and sent an R2-shaped paper toward LEWG. The painful bit the paper hammers home: for any rounding mode except toward zero, computing <code>remainder = x - q*y</code> naively can multiply back into overflow even when the division itself is defined.</p>
+      </div>
+      <div class="vote-count">&#9650; 56 points (86% upvoted) &middot; 25 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">5 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>Paper:</strong> P3724R3 &middot; <strong>Authors:</strong> Jan Schultke &middot; <strong>Target:</strong> LEWG &middot; <strong>Date:</strong> 2026-02-20</p>
+              <p><em>I am a bot, and this action was performed automatically. Please <a href="#">contact the moderators</a> of this subreddit if you have any questions or concerns.</em></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/daily_overflow_hunter</span>
+            <span class="score">42 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper is worth reading for section 3.2 alone. Everyone &quot;knows&quot; <code>remainder = x - quotient * divisor</code>. For truncating division that is the identity you expect. For ceiling-style quotients it is not - the worked <code>INT_MAX</code> example is the kind of thing that passes code review because the intermediate <code>q</code> looks obviously right.</p>
+            <p>That is why killing off paired <code>div_rem_*</code> would be malpractice. The wording even puts the note in Returns so people stop cargo-culting the subtraction.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/constexpr_godbolt_monkey</span>
+                  <span class="score">18 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>I duplicated the example on Godbolt with <code>-ftrapv</code> once and the compiler basically laughed at me. The scary part is how silent it is in normal builds.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/yet_another_rust_evangelist</span>
+            <span class="score">31 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Rust <code>/</code> on integers truncates toward zero, same trap as C++. At least the paper&#x27;s language table owns that instead of pretending the problem is unique to C++. Different languages, identical footgun.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/axiom_first_casualty</span>
+            <span class="score">28 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>From the paper, on the classic &quot;ceil division&quot; snippet:</p>
+            <blockquote>The quotient q would be 1, not 0 for inputs x = -1 and y = 2, which is obviously wrong because it rounds -0.5 up to 1, skipping zero.</blockquote>
+            <p>That is the comment thread in a microcosm - dozens of upvotes, subtle sign bug, nobody updates the disclaimer for ten years.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/pedagogy_and_parentheses</span>
+            <span class="score">22 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Teaching lens: students hit <code>%</code> and think they got mathematical modulo. Then they port Python mental models and wonder why <code>(a / b) * b + (a % b)</code> stopped being the identity they memorized. Having spelled-out <code>div_to_neg_inf</code> and <code>mod</code> in the standard library is the kind of thing that stops a whole week of office hours.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/api_surface_karen</span>
+            <span class="score">19 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>LEWG is going to look at the synopsis and twitch. That is a lot of identifiers. I get why a runtime <code>rounding</code> parameter lost - the paper shows the switch exploding into totally different micro-kernels - but emotionally I still want one entry point and a short enum.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/branch_predictor_gore</span>
+                  <span class="score">31 points</span>
+                  <span class="time">3 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>The whole point is the mode is almost always compile-time fixed. You want <code>div_to_pos_inf(x, y)</code> to inline into the happy path for &quot;how many buckets&quot; without feeding a dead enum through the frontend so the optimizer has to prove the switch collapses.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/api_surface_karen</span>
+                        <span class="score">8 points</span>
+                        <span class="time">2 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>Fair. I will still whine about autocomplete noise on principle.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies"></div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/third_rail_modulo</span>
+            <span class="score">17 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>std::mod</code> is the one that will confuse people who only read the name. The paper basically admits <code>mod</code> is a loaded word, then argues it is still the least bad label because it matches Haskell and friends for &quot;remainder when you floor toward negative infinity&quot;. Worth reading §4.2.4 before bikeshedding on Reddit.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">Compiler Explorer</div>
+        <div class="promoted-body">See whether your naive ceil-div optimizes to what you think. <a href="https://godbolt.org">godbolt.org</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/sg6_minutes_cryptid</span>
+            <span class="score">16 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Process note: SG6 took a consensus poll to drop <code>div_to_even</code> / <code>div_to_odd</code> because nobody could name a real workload. The author even argues the names were easy to confuse with tie-breaking variants. If you miss them, you are officially on the wrong side of a unanimous-ish room.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/numeric_folk_wisdom</span>
+            <span class="score">14 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The ISO/IEC 60559 alignment table is clever politics. You can point at the floating-point rounding attributes and say &quot;we are not inventing a zoo, we are mirroring the zoo that already ate numerical analysis.&quot;</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_buckets_only_positive</span>
+            <span class="score">12 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Embedded angle: a lot of firmware code never sees negative indices, so the scary examples look academic - until the day someone feeds a backwards iterator into your ring-buffer math and your hand-rolled ceil macro goes nonlinear. I will take boring library names over another copy of the three-branch hack from 2004.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/namespace_std_enthusiast</span>
+            <span class="score">11 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>div_result</code> with <code>operator&lt;=&gt;</code> is the quiet modernization win - comparable pairs without dragging <code>div_t</code> weirdness into generics. P3161 energy, except division-shaped.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/simd_patience_zero</span>
+            <span class="score">9 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>§4.6 punts SIMD overloads to a follow-up. Smart - <code>div_rem</code> returning something comparable with masks opens a second paper&#x27;s worth of design questions. Still, game-math Twitter is going to ask anyway.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/boost_safe_numeric_passing_by</span>
+            <span class="score">8 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Boost.SafeNumerics solves a different problem (policy-checked arithmetic). Nice complement if you need both rounding discipline and &quot;no surprises on overflow&quot; at the type level. <a href="https://github.com/boostorg/safe_numerics">github.com/boostorg/safe_numerics</a></p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/previous_paper_witness</span>
+            <span class="score">7 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>P0105 got huge and stalled. P1889 carried pieces until it did not. This paper is basically &quot;what if we shipped the division slice without reuniting the entire Crowl agenda.&quot; Historical baggage is half the discussion.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/noexcept_is_a_lie_lol</span>
+            <span class="score">19 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>&quot;Not noexcept because it inherits division&#x27;s UB contract&quot; is the correct call. People will still file issues asking for <code>expected</code> overloads. Prepare emotionally.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/julia_escapee_drunkposting</span>
+            <span class="score">25 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>R3 adds Julia rounding modes to the survey table and half of you will still comment &quot;lol just use Python //&quot; without reading the signed case. Sir this is a Wendy's with defined wrap semantics.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/eisenwave_github_tourist</span>
+            <span class="score">6 points</span>
+            <span class="time">52 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Reference implementation lives at <a href="https://github.com/Eisenwave/integer-division">github.com/Eisenwave/integer-division</a> if you want to diff against your favorite macro soup.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/naming_masochist</span>
+            <span class="score">5 points</span>
+            <span class="time">41 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I hated <code>div_to_pos_inf</code> until I tried explaining <code>floor</code> vs toward negative infinity to a intern on a whiteboard. Self-documenting wins even if it is verbose.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/feature_macro_hound</span>
+            <span class="score">4 points</span>
+            <span class="time">33 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>__cpp_lib_integer_division</code> placeholder in the draft wording - nice that they remembered the macro story alongside saturating arithmetic neighbors.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/committee_gonna_committee_lmao</span>
+            <span class="score">38 points</span>
+            <span class="time">28 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>great, another paper that will take 10 years to get through LEWG</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/div_t_was_always_weird</span>
+            <span class="score">4 points</span>
+            <span class="time">19 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Honestly <code>std::div</code> from C89 is the awkward ancestor everyone pretends not to know at parties. These new names at least tell you which ring you are working in.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/probably_not_a_committee_member</span>
+            <span class="score">3 points</span>
+            <span class="time">8 min. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>P3724 on GitHub: <a href="https://wg21.link/P3724/github">wg21.link/P3724/github</a> - issue bot already has the revision chain if you want the tick-tock.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

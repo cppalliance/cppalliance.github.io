@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Clean Modular Mode: Legacy Opt-out for C++</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P4008",
+  "revision": 0,
+  "document": "P4008R0",
+  "title": "Clean Modular Mode: Legacy Opt-out for C++",
+  "authors": "Zhiyi Lin",
+  "audience": "EWG",
+  "date": "2026-02-08",
+  "comments": 18,
+  "upvotes": 64,
+  "upvote_pct": "78%",
+  "poster": "evolution_paper_watcher",
+  "heat": "warm",
+  "interest": "relevant",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P4008R0 - Clean Modular Mode: Legacy Opt-out for C++ <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/evolution_paper_watcher</span> &middot; 7 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p4008r0">P4008R0</a><br>
+        <strong>Author:</strong> Zhiyi Lin<br>
+        <strong>Date:</strong> 2026-02-08<br>
+        <strong>Audience:</strong> EWG<br>
+        <strong>Target:</strong> C++29 / C++31</p>
+
+        <p>Proposes splitting the standard into three fixed modules: <code>std.core</code> (non-excludable low-level primitives), <code>std.modern</code> (safe modern library), and <code>std.legacy</code> (C compatibility pitfalls like array decay, C-style casts, implicit narrowing). Users opt into "clean mode" with <code>exclude std.legacy</code>. The pitch: keep full backward compatibility by default, let new code opt out of historical baggage per translation unit.</p>
+      </div>
+      <div class="vote-count">&#9650; 64 points (78% upvoted) &middot; 18 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/profiles_already_exist</span>
+            <span class="score">82 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This is essentially what Profiles (P3970R0, P3984R0) are trying to do, but with a different mechanism. Profiles use compiler-enforced rule sets. This uses module-level opt-out. The DG has already committed to the Profiles framework. I'm not sure EWG will entertain a parallel approach when the committee has repeatedly voted for Profiles as the direction.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/fresh_perspective_matters</span>
+                  <span class="score">34 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Not every paper needs to align with the DG's preferred framework. The idea of tying safety modes to modules rather than compiler flags is worth exploring even if Profiles win. Different mechanisms can inform each other.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/array_decay_defender</span>
+            <span class="score">56 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The vision is appealing but the details are thin. "Array decay is disabled" - what does that mean for functions that take <code>const char*</code>? String literals decay to pointers everywhere. Do you lose string literals in clean mode? The paper doesn't address this. The boundary between "legacy pitfall" and "essential C interop" is much fuzzier than the three-module split implies.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/c_interop_matters</span>
+                  <span class="score">28 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Exactly. Every C API uses array decay. Every platform header. Every system call wrapper. <code>exclude std.legacy</code> would break interop with the OS unless you exempt FFI boundaries, at which point you need the complexity of Profiles to specify where the rules apply and where they don't.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/axiom_first_skeptic</span>
+            <span class="score">47 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <blockquote>Low-level capability &ne; historical garbage<br>Historical baggage = opt-outable</blockquote>
+            <p>The axioms are catchy but they assume a clean separation that doesn't exist. <code>reinterpret_cast</code> is low-level and dangerous. Pointer arithmetic is low-level and dangerous. These are in <code>std.core</code> (non-excludable). The paper's own framework means you can't opt out of the most dangerous features.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">C++ Core Guidelines - Write better C++. Stroustrup and Sutter.</div>
+        <div class="promoted-body"><a href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines">isocpp.github.io/CppCoreGuidelines</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/teachability_matters</span>
+            <span class="score">38 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The "teachable again" angle resonates. New developers starting in clean mode without array decay, C-style casts, or implicit narrowing would have a much better experience. Whether this specific mechanism is the right way to achieve it is debatable, but the goal is worth pursuing.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/exclude_syntax_concerns</span>
+            <span class="score">31 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p><code>exclude std.legacy</code> as new syntax is a non-starter for C++29. New keywords and syntax additions need EWG review, CWG wording, compiler implementation, and years of transition. The paper targets C++29 Phase 1 but the mechanism requires language changes that typically take two cycles to stabilize.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/dialect_split_worried</span>
+            <span class="score">24 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper says "not dialect fragmentation." But if clean-mode code can't call legacy-mode code without adapters, and legacy-mode code can't include clean-mode headers that use features legacy mode would reject... that's fragmentation. The interop story needs much more detail.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/good_intentions_r0</span>
+            <span class="score">18 points</span>
+            <span class="time">4 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>R0 papers are for opening discussion, not for shipping. The vision is clear even if the mechanism needs work. If the author engages with EWG feedback and iterates, the core idea - per-TU opt-out of specific legacy behaviors - could evolve into something useful. Or it could merge into the Profiles effort.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/module_system_realist</span>
+            <span class="score">14 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>"Builds on C++20 Modules" - but modules control visibility and linkage, not language semantics. Making <code>import std.legacy</code> change which language features are available would be a fundamental extension of what modules do. It's not just "using mature infrastructure."</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/great_another_10_years</span>
+            <span class="score">8 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The "axioms" section reads like a manifesto. I appreciate the energy but EWG papers usually benefit from less philosophy and more wording.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/narrow_cast_enjoyer</span>
+            <span class="score">5 points</span>
+            <span class="time">1 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The code example replaces <code>(int)d</code> with <code>std::narrow_cast&lt;int&gt;(d)</code>. That's already best practice. You don't need a module system to enforce it - a linter does the job. The paper is proposing heavy machinery for something clang-tidy already checks.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

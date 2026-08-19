@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>r/wg21 - Symmetric Transfer and Sender Composition</title>
+  <script type="application/json" id="thread-meta">
+{
+  "paper": "P2583",
+  "revision": 0,
+  "document": "P2583R0",
+  "title": "Symmetric Transfer and Sender Composition",
+  "authors": "Mungo Gill, Vinnie Falco",
+  "audience": "LEWG",
+  "date": "2026-02-22",
+  "comments": 56,
+  "upvotes": 394,
+  "upvote_pct": "82%",
+  "poster": "coroutine_chain_observer",
+  "heat": "hot",
+  "interest": "magnetic",
+  "flair": "WG21",
+  "generated": "2026-04-03"
+}
+  </script>
+  <link rel="stylesheet" href="reddit-thread.css">
+</head>
+<body>
+  <div class="thread">
+    <div class="subreddit-header">r/wg21</div>
+
+    <div class="submission">
+      <div class="title">P2583R0 - Symmetric Transfer and Sender Composition <span class="flair">WG21</span></div>
+      <div class="meta">Posted by <span class="username op">u/coroutine_chain_observer</span> &middot; 14 hr. ago</div>
+      <div class="body">
+        <p><strong>Document:</strong> <a href="https://wg21.link/p2583r0">P2583R0</a><br>
+        <strong>Authors:</strong> Mungo Gill, Vinnie Falco<br>
+        <strong>Date:</strong> 2026-02-22<br>
+        <strong>Audience:</strong> LEWG</p>
+
+        <p>C++20 symmetric transfer (P0913) lets <code>await_suspend</code> return a <code>coroutine_handle&lt;&gt;</code> so one coroutine suspends and another resumes as a tail call - constant stack space. <code>std::execution</code> sender algorithms create receivers that are structs, not coroutines. No <code>coroutine_handle&lt;&gt;</code> exists at any intermediate point. When a coroutine <code>co_await</code>s a sender that completes synchronously, the stack grows by one frame per completion.</p>
+
+        <p>The paper argues this isn't a missing feature - it's architectural. The sender model's zero-allocation composition and symmetric transfer's constant-stack property can't both be satisfied. Surveys six production coroutine libraries - five of six use symmetric transfer. Documents that <code>std::execution::task</code>'s proposed fix only covers task-to-task, not the general case. Same author line as P4003R0 and P4007R0.</p>
+      </div>
+      <div class="vote-count">&#9650; 394 points (82% upvoted) &middot; 56 comments</div>
+    </div>
+
+    <div class="sort-bar">sorted by: best</div>
+
+    <div class="comments">
+
+      <div class="mod-pin">
+        <div class="comment" data-depth="0">
+          <div class="votebar">
+            <span class="arrow up">&#9650;</span>
+            <span class="arrow down">&#9660;</span>
+          </div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="username mod">u/AutoModerator</span>
+              <span class="score">1 point</span>
+              <span class="time">14 hr. ago</span>
+              <span class="flair">pinned comment</span>
+            </div>
+            <div class="comment-text">
+              <p><strong>Paper:</strong> P2583R0 &middot; <strong>Target:</strong> LEWG &middot; <strong>Type:</strong> Directional</p>
+              <p><em>I am a bot, and this action was performed automatically. Please <a href="#">contact the moderators</a> of this subreddit if you have any questions or concerns.</em></p>
+            </div>
+            <div class="comment-footer">
+              <span class="action">Reply</span>
+              <span class="action">Share</span>
+              <span class="action">Report</span>
+            </div>
+            <div class="replies"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top comment -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/stack_overflow_preventer</span>
+            <span class="score">267 points</span>
+            <span class="time">13 hr. ago</span>
+            <span class="awards">&#127942;</span>
+          </div>
+          <div class="comment-text">
+            <p>The four facts in Section 5 are the whole paper:</p>
+            <blockquote>1. Sender algorithms create receivers that are structs, not coroutines. These structs have no coroutine_handle&lt;&gt;.<br>
+            2. Even coroutine-backed receivers complete through void-returning set_value.<br>
+            3. The handle exists inside the receiver but the protocol provides no way to return it.<br>
+            4. await_suspend cannot return what neither the composition layer nor the protocol provides.</blockquote>
+            <p>That's the proof. You can't symmetric-transfer to a struct. You can't return a handle from a void function. The gap is structural.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/sender_algorithm_author</span>
+                  <span class="score">104 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Facts 1-4 are correct. The conclusion - that it's "architectural" rather than "missing" - is where it gets debatable. If <code>set_value</code> returned <code>coroutine_handle&lt;&gt;</code>, the handle would propagate. The paper dismisses this because "every non-coroutine receiver would need to produce one." But <code>noop_coroutine()</code> exists for exactly this case.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies">
+
+                  <div class="comment" data-depth="2">
+                    <div class="votebar">
+                      <span class="arrow up">&#9650;</span>
+                      <span class="arrow down">&#9660;</span>
+                    </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="username">u/stack_overflow_preventer</span>
+                        <span class="score">72 points</span>
+                        <span class="time">11 hr. ago</span>
+                      </div>
+                      <div class="comment-text">
+                        <p>The paper addresses this. Returning <code>noop_coroutine()</code> transfers control to a no-op. The continuation remains suspended. You'd need to resume it separately, defeating the purpose. Symmetric transfer is a tail call to the continuation. <code>noop_coroutine</code> makes it a tail call to nothing.</p>
+                      </div>
+                      <div class="comment-footer">
+                        <span class="action">Reply</span>
+                        <span class="action">Share</span>
+                        <span class="action">Report</span>
+                      </div>
+                      <div class="replies">
+
+                        <div class="comment" data-depth="3">
+                          <div class="votebar">
+                            <span class="arrow up">&#9650;</span>
+                            <span class="arrow down">&#9660;</span>
+                          </div>
+                          <div class="comment-body">
+                            <div class="comment-header">
+                              <span class="username">u/sender_algorithm_author</span>
+                              <span class="score">38 points</span>
+                              <span class="time">10 hr. ago</span>
+                            </div>
+                            <div class="comment-text">
+                              <p>OK, fair point. The struct receiver in the middle doesn't have a continuation to transfer to - it completes by calling <code>set_value</code> on the next receiver. The handle only exists at the terminal coroutine-backed receiver. So you'd need every intermediate struct to somehow propagate the handle backward. Which is... changing the receiver abstraction.</p>
+                            </div>
+                            <div class="comment-footer">
+                              <span class="action">Reply</span>
+                              <span class="action">Share</span>
+                              <span class="action">Report</span>
+                            </div>
+                            <div class="replies"></div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Library survey signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/cppcoro_enjoyer</span>
+            <span class="score">178 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The library survey is convincing. <a href="https://github.com/lewissbaker/cppcoro">cppcoro</a>, <a href="https://github.com/facebook/folly/tree/main/folly/coro">folly::coro</a>, <a href="https://github.com/boostorg/cobalt">Boost.Cobalt</a>, <a href="https://github.com/jbaldwin/libcoro">libcoro</a>, <a href="https://github.com/cppalliance/capy">Boost.Capy</a> - five of six libraries independently converged on <code>coroutine_handle&lt;&gt;</code>-returning <code>await_suspend</code> in their final awaiters. That's not a design choice. That's the ecosystem telling you what the right answer is.</p>
+            <p>Lewis Baker literally implemented symmetric transfer in cppcoro and then co-authored P2300. He knows both models.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/asyncpp_author_adjacent</span>
+                  <span class="score">47 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>asyncpp is the sixth - it uses event-based notification instead of symmetric transfer. Worth noting that it's the outlier, not the rule.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Tradeoff signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/zero_alloc_or_die</span>
+            <span class="score">142 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper is honest about the tradeoff. Making sender algorithms into coroutines would give you handles for symmetric transfer. It would also give you heap-allocated frames at every intermediate point. Senders' zero-allocation composition is the entire value proposition for GPU and HFT use cases. You can't have both.</p>
+            <blockquote>The sender model's zero-allocation composition property and symmetric transfer's constant-stack property cannot both be satisfied. One requires structs. The other requires coroutines.</blockquote>
+            <p>This is a real engineering tradeoff, not a design flaw.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/io_context_veteran</span>
+                  <span class="score">68 points</span>
+                  <span class="time">11 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Right. And the paper's conclusion isn't "senders are bad." It's "the domains that need zero-allocation composition should use senders, and the domains that need constant-stack coroutine chains should use coroutines." Different tools for different problems. The issue is that <code>std::execution::task</code> forces coroutines through the sender composition layer whether they need it or not.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">CppCon 2026 - Aurora, CO - Early bird ends May 15.</div>
+        <div class="promoted-body">The conference for the C++ community.</div>
+      </div>
+
+      <!-- task limitation signal -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/task_type_watcher</span>
+            <span class="score">118 points</span>
+            <span class="time">13 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 6 on <code>std::execution::task</code> is the most concrete part. K&uuml;hl's P3796R1 says the spec doesn't mention symmetric transfer and the task gets wrapped in <code>affine_on</code> which produces a different sender type. M&uuml;ller's P3801R0 shows the iterative-code-that's-actually-recursive stack overflow. Both acknowledge the fix is partial.</p>
+            <p>The paper adds Section 8: neither <code>sync_wait</code> nor <code>spawn</code> avoids the sender composition layer. Every path into <code>std::execution::task</code> goes through sender algorithms. Every path out loses symmetric transfer.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/inline_scheduler_victim</span>
+                  <span class="score">74 points</span>
+                  <span class="time">12 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>M&uuml;ller's quote is devastating:</p>
+                  <blockquote>Having iterative code that is actually recursive is a potential security vulnerability.</blockquote>
+                  <p>A for loop that calls <code>co_await f(i)</code> N times with <code>inline_scheduler</code> grows O(N) stack frames. With symmetric transfer, it's O(1). The proposed task-to-task fix only handles the case where both sides are tasks. A task awaiting any other sender still grows the stack.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Trampoline mitigation noise -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/trampoline_scheduler_fan</span>
+            <span class="score">83 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The paper is too dismissive of trampoline schedulers. Yes, they add runtime overhead. Yes, P0913 was designed to eliminate that overhead. But trampolines work in practice. Java's virtual threads use a similar approach. Go's goroutines use a stack-switching model. Runtime mitigation isn't elegant but it ships.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/zero_cost_absolutist</span>
+                  <span class="score">52 points</span>
+                  <span class="time">10 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>"Don't pay for what you don't use." The language already has a zero-cost mechanism for this specific problem. Using a runtime mitigation instead is paying for something you already paid for at language design time. The paper says exactly this: "the runtime overhead in the completion path that P0913R1 was specifically adopted to eliminate."</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Noise batch -->
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/disclosure_reader</span>
+            <span class="score">58 points</span>
+            <span class="time">12 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 1 disclosure is appreciated. The authors developed P4003R0 and P4007R0. They have a position. They state it upfront. The limitation they document exists independently of their position - K&uuml;hl and M&uuml;ller documented the same issue from different angles.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/tail_call_dreamer</span>
+            <span class="score">46 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>M&uuml;ller identifies guaranteed tail calls as the language-level fix. If <code>set_value</code> could be a tail call, the stack wouldn't grow. But C++ doesn't have guaranteed tail calls. And adding them is a much bigger lift than fixing the sender model.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/compiler_impl_perspective</span>
+                  <span class="score">28 points</span>
+                  <span class="time">9 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Guaranteed tail calls in C++ would be a massive language feature. Destructors, exception handling, stack unwinding - all of these interact with tail call optimization. It's not impossible but it's a multi-year EWG effort. The paper is right to mention it and right not to propose it.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/implementation_first</span>
+            <span class="score">38 points</span>
+            <span class="time">11 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 8.4 shows a coroutine-native launcher (<a href="https://github.com/cppalliance/capy">Boost.Capy</a>) that avoids the sender pipeline entirely. The task chain uses symmetric transfer throughout. The gap doesn't arise because the composition layer is the awaitable protocol, not the sender protocol. That's the existence proof that the problem is specific to the sender launch path.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/spawn_doesnt_compile</span>
+            <span class="score">34 points</span>
+            <span class="time">9 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Section 8.2: <code>spawn(task, token)</code> doesn't compile because the task is scheduler-affine and <code>counting_scope</code> doesn't provide a scheduler. The working pattern wraps in <code>on(sch, task)</code>. But <code>on</code> is a sender algorithm - Section 5 proved those can't support symmetric transfer. So the only launch mechanism that works also loses symmetric transfer. Catch-22.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="promoted">
+        <div class="promoted-label">Promoted</div>
+        <div class="promoted-title">C++ Alliance - Open source C++ libraries. Community infrastructure.</div>
+        <div class="promoted-body"><a href="https://cppalliance.org">cppalliance.org</a></div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/coroutine_partisan</span>
+            <span class="score">29 points</span>
+            <span class="time">8 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Between this paper, P4007R0, and P4014R0 there are now three papers making the same argument from different angles: symmetric transfer (this paper), interface costs (P4007), and the sub-language analysis (P4014). The committee can't say they weren't warned.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <!-- [removed] -->
+      <div class="comment deleted" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">[deleted]</span>
+            <span class="score">score hidden</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>[removed by moderator]</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/what_did_they_say</span>
+                  <span class="score">11 points</span>
+                  <span class="time">6 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>Something about symmetric transfer being "a solution looking for a problem." Rule 2.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/p0913_author_adjacent</span>
+            <span class="score">24 points</span>
+            <span class="time">10 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Gor Nishanov's original motivation for P0913:</p>
+            <blockquote>Recursive generators, zero-overhead futures and other facilities require efficient coroutine to coroutine control transfer.</blockquote>
+            <p>P0913 was adopted to solve exactly the problem this paper documents. Six years later, the standard task type doesn't use the mechanism. That should concern people.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/great_another_10_years</span>
+            <span class="score">19 points</span>
+            <span class="time">7 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>This is why we can't have nice things.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/just_use_rust_already</span>
+            <span class="score">15 points</span>
+            <span class="time">6 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>Tokio doesn't have this problem because Rust's async model doesn't try to unify GPU dispatch and TCP sockets under the same abstraction. Different tools for different jobs. C++ keeps trying to build one tool that does everything and ending up with a tool that does everything poorly.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies">
+
+            <div class="comment" data-depth="1">
+              <div class="votebar">
+                <span class="arrow up">&#9650;</span>
+                <span class="arrow down">&#9660;</span>
+              </div>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <span class="username">u/actually_writes_cpp</span>
+                  <span class="score">8 points</span>
+                  <span class="time">5 hr. ago</span>
+                </div>
+                <div class="comment-text">
+                  <p>That's literally what this paper is arguing for. Different models for different domains. You're agreeing with the paper while thinking you're dunking on C++.</p>
+                </div>
+                <div class="comment-footer">
+                  <span class="action">Reply</span>
+                  <span class="action">Share</span>
+                  <span class="action">Report</span>
+                </div>
+                <div class="replies"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/embedded_for_20_years</span>
+            <span class="score">12 points</span>
+            <span class="time">5 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>The O(N) stack growth for N synchronous completions is not just a performance concern. In embedded, stack is a fixed resource. An iterative loop that grows the stack unboundedly is a hard failure, not a soft one. If <code>std::execution::task</code> can't prevent that for the general case, it's unusable for us.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/skill_issue_42</span>
+            <span class="score">6 points</span>
+            <span class="time">3 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>I read the whole paper, understood every word, and now I'm depressed. Symmetric transfer is beautiful. The fact that it can't work through sender algorithms is genuinely sad.</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+      <div class="comment" data-depth="0">
+        <div class="votebar">
+          <span class="arrow up">&#9650;</span>
+          <span class="arrow down">&#9660;</span>
+        </div>
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="username">u/committee_gonna_committee</span>
+            <span class="score">3 points</span>
+            <span class="time">2 hr. ago</span>
+          </div>
+          <div class="comment-text">
+            <p>committee gonna committee</p>
+          </div>
+          <div class="comment-footer">
+            <span class="action">Reply</span>
+            <span class="action">Share</span>
+            <span class="action">Report</span>
+          </div>
+          <div class="replies"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
