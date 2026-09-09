@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reflection All the Way Down | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Reflection All the Way Down | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Reflection All the Way Down" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="MrDocs models everything it extracts (namespaces, records, functions, types, doc comments, and so on) as a tree of C++ structs. Every one of those structs has to be compared, serialized, and exposed to Handlebars templates as a DOM object. Historically, each of those jobs meant another hand-written function or function template per type, and each new field meant touching all of them. Miss one and nothing breaks loudly; the field just quietly fails to appear in the output. Much of what follows comes from attacking that problem at the root, and then spending the room it freed up on letting users extend MrDocs without building it. MrDocs.Describe The starting point was issue #1149: Alan wondered whether the BOOST_DESCRIBE_xxx() invocations we relied on were hurting compile times for translation units that pulled in Reflection.hpp. The honest answer was that compile times weren’t actually a problem, but investigating it made clear how much we were bending Boost.Describe and Boost.Mp11 to fit a job they were never designed for, and how much implementation knowledge that bending required. So #1171 replaced them with our own public reflection facilities, MrDocs.Describe. It is a large change, a little over four hundred files, but the point of it was subtraction: with metadata we control, the per-type boilerplate can be written once, generically, instead of once per type. There are now something like a hundred and thirty described types in the tree, a hundred and eleven of them in the metadata model alone, so “once per type” was never going to scale. The first dividend was #1177. Comparison operators for the metadata types had accumulated as a long tail of near-identical overloads: compare the bases, then compare the members, in order, for type after type. That is now a single generic operator&lt;=&gt;(), plus an operator==() that delegates to it, in Support/Reflection/CompareReflectedType.hpp. It walks the described bases first, in description order, then the described members, short-circuiting as soon as it finds an inequality. Almost every per-type overload went away, and it is no longer possible to add a field to a metadata struct and forget to compare it. The one wrinkle worth recording is that the constraint on those operators is spelled as a requires-expression rather than the obvious trait, because MSVC has a bug where a constrained operator&lt;=&gt;() in the same namespace breaks constraint evaluation for an unrelated merge() template. Writing it as a distinct atomic constraint works around it. Generic code is a fine thing right up to the point where three compilers have to agree on it. Three ways to extend MrDocs without a compiler The other half of the quarter went to extensibility, on a simple principle: a user who wants a different output format, or a small transformation of the corpus, should not have to build MrDocs to get it. That arrived in three rungs, and the shape it finally took is joint work with Alan. My first cut exposed a narrower, more rigid interface; the registration API and the single context object that replaced it are his design, and they are better than what I had. The discovery walk and the output sink are mine, and the language bindings, the registry, and the script generator we wrote between us. Scripts (#1196). Lua joins JavaScript as a first-class language for Handlebars helpers, and both can now host extensions proper. Any .lua or .js file directly under an addon’s extensions/ directory is an extension; the discovery walk sorts by full path, interleaving the two languages, so behaviour depends only on file names and never on which language you happened to pick. Running a script’s top level registers things rather than doing them: mrdocs.register_transform(id, fn) for a corpus transform, mrdocs.register_generator(id, fn) for an output generator, any number of each per file. Nothing is applied at load time: the host collects the registrations and invokes them later. Each one is called with a single context object carrying ctx.corpus, ctx.config, and ctx.params (that last being the script’s own options block from transform-options.&lt;id&gt;), so new extension kinds can be added later without changing the signature. A transform mutates the corpus in place; reads go through the same DOM the generators already see, so scripts and templates have one shape to learn rather than two. The reflection work pays for itself a second time here. Rather than a hand-maintained binding table that would drift from the C++ model the moment anyone added a type, the bridge is driven by the metadata: a MRDOCS_DESCRIBE_KINDS macro registers the closed set of concrete derived classes of a polymorphic base, and each per-base list is #included straight from the existing *Nodes.inc X-macro files. One source of truth for what kinds exist, shared by the visitors and the script bindings. Data-driven generators (#1197). Any directory under an addon’s generator/ directory, named after the generator it defines, is now discovered at config-resolve time and installed as a generator, described by a mrdocs-generator.yml alongside its templates. The manifest is small on purpose, just two keys: an escape table of per-character replacements, and an extends key that inherits another generator’s templates so a new format only has to state its differences. The directory name does the rest, serving as the generator’s id, its file extension, and its display name. The Markdown example’s manifest is eight lines of YAML: extends: html, plus the six characters Markdown needs backslash-escaped. The LaTeX one then extends the Markdown one, so the key chains: tex inherits from md, which inherits from html, and each link states only what it changes. Making that work meant making the generator subsystem data-driven, and the built-in generators are what shows it: AdocGenerator and HTMLGenerator are now about forty lines each, a constructor and an escape() override over a shared HandlebarsGenerator. Three data-driven examples ship in the tree (jsonl, md, and tex), none of which needs a line of C++ to work. Script-driven generators (#1218). The third rung hands the whole emit loop to a registered script function, which owns every decision about what files to write. Because it owns the loop, it can produce output shapes the per-page generators structurally cannot, such as a single artifact aggregated over every symbol, and the two shipped examples are exactly that: a whole-corpus json dump and a search-index. Two details I liked building. First, the host has no idea which language it is running: a script generator is a dom::Function that self-owns its scripting VM, so one implementation drives a Lua generator and a JavaScript one without branching. Second, the file-writing API, bound into the script as output.write, resolves every path under the output directory and rejects anything absolute or escaping, so a generator cannot write anywhere on disk; and it takes an append flag, so a script assembling something large can stream it in chunks instead of holding the whole artifact in memory. Macros #1192 taught MrDocs about the preprocessor. A clang::PPCallbacks subclass records each MacroDefined event, skipping builtins and system headers, and the visitor turns what survives into a MacroSymbol. Include guards are dropped by asking Clang (MacroInfo::isUsedForHeaderGuard()) rather than by pattern-matching names, because nobody wants a reference page for MY_LIBRARY_DETAIL_FOO_HPP. Variadic macros get their synthetic trailing __VA_ARGS__ parameter removed and a flag set instead, mirroring how a function symbol handles a C-style .... Macros needed their own filters rather than reusing the symbol ones, and the reason is a nice illustration of how little a macro resembles a C++ symbol. Macro names are unqualified, so a namespace-scoped include-symbols pattern can never match one; hence include-macros and exclude-macros. Whether an undocumented macro is kept is its own question too, so extract-all-macros sits beside extract-all and defaults to off. And the implementation-defined and see-below modes have no macro equivalent at all: both keep a symbol in the corpus while hiding its scope or eliding its synopsis, and a macro has no members to hide and, since the preprocessor runs before anything else is extracted, never appears in another symbol’s synopsis anyway. A macro is only ever included or excluded. The last piece is about a special case: a feature-test or configuration macro is often not defined in the build MrDocs runs against, so the preprocessor never reports it at all. For such macros, the always-defined __MRDOCS__ can guard a definition (with a doc-comment) that only affects MrDocs. Bumping LLVM, and why it mattered here Which brings me to what looks like the most routine item of the quarter. #1241 moved the LLVM pin to 77e43ec1, and it is in this article because of one upstream change it picks up: llvm/llvm-project#198452, which attaches documentation comments to macro definitions. Until then, the macro support above had no way to ask Clang for a macro’s doc comment, so #1192 was scanning the source text for it. With the new pin the comment comes from Clang, through a getRawCommentForAnyRedecl() overload that accepts a MacroInfo, and a pile of ad-hoc text handling goes away. The pin had drifted about six months, so collecting that one feature meant paying six months of API churn at once: USRGeneration.h moved namespaces, DiagnosticConsumer::finish() was removed, the driver option table moved, cl::getRegisteredOptions() started returning a DenseMap, and the per-declaration comment lookup we rely on was renamed from getRawCommentForDeclNoCache() to getRawCommentNoCache(). Parsing the newer libc++ also wanted a vcruntime_new.h stub and guards to stop stdbool.h, stdalign.h, and threads.h from redefining bool, alignas, and thread_local, which are keywords rather than macros in C++. The regenerated goldens changed only where Clang’s own output had drifted. The moral, which I’ll be repeating to myself next time: a toolchain pin is cheapest to move when you don’t need anything from moving it. Specializations move in with their primary Class template specializations, function template specializations, and deduction guides used to share the enclosing scope’s listing with their primary template, so A and A&lt;int&gt; appeared side by side in the namespace index, reading like independent siblings, while the primary’s own page said nothing about its variants. Users reported this repeatedly. #1199 moves them: each primary’s page gains a “Specializations” section, each deduced class’s page gains a “Deduction Guides” section, and the parent scope lists only the primary. An orphan specialization (one whose primary was excluded from extraction) stays in the parent’s listing so the index can still reach it. The primary-to-variant link is corpus-resident: records and functions carry Specializations lists, records carry DeductionGuides, and an IsListedOnPrimary flag decides suppression, all populated by a new SpecializationFinalizer pass. Because those fields are described like everything else, every template and every downstream consumer of the corpus sees the new shape automatically. That is the infrastructure work paying rent. Field reports The rest of the quarter was the ordinary, indispensable business of fixing what users hit. A partial specialization on an array type rendered as array_trait&lt;T [,void, void&gt;], because dependent array bounds were being dropped (#1172). task&lt;&gt; rendered as task, losing the empty argument list that distinguishes a specialization from its primary (#1184). Inline markup (&lt;em&gt;, &lt;mark&gt;, &lt;sub&gt;, &lt;sup&gt;, &lt;del&gt;) produced no HTML tags at all, because a single shared partial conflated five semantically distinct kinds and the HTML side of it didn’t exist; each kind now has its own partial and its own element (#1185). A @par block with no prose before it rendered upside down (#1162). An HTML table in a doc comment produced a warning and then a fatal error (#1146). Inherited members went missing from derived classes when the base was a dependent specialization (#1176). Setting extract-all: false crashed outright (#1195), and an assertion failure took down extraction on an Antora test project (#1145). Every source link in every Synopsis section pointed at #Lundefined, because the template asked for dcl.line where the DOM field is dcl.lineNumber (#1182). A one-word fix, and a reminder that a template author programming against the object model has no compiler to catch a misspelled field. Long noexcept conditions used to be dumped into the declaration, where they were unreadable. They now collapse to noexcept(/* see-below */) with the condition moved into its own section, past a per-generator noexcept-see-below-limit (#1103). And mp-units surfaced a lovely one (#1238): default-constructed variables were shown with an initializer that doesn’t exist in the source, so the synopsis cheerfully claimed inline constexpr one one = one;. I take this list as a good sign. Bugs like these arrive because people are pointing MrDocs at real libraries (Boost.Multi, mp-units, Boost.OpenMethod, Corosio), and real libraries are where a documentation tool finds out what it doesn’t yet handle. Boost.StaticString Away from MrDocs, Boost.StaticString got a round of maintenance. In the library proper I added basic_static_string::available(), which reports how much room is left before the string hits its capacity. That is the natural question to ask a fixed-capacity string before appending to it, and previously one you had to work out yourself. The rest went to basic_static_cstring, the experimental fixed-capacity string that lives under example/: its comparison operators were fixed, as were compare(const CharT*) for over-long inputs and the array constructor, which wasn’t respecting the type’s own no-embedded-NULs invariant. Housekeeping For a while, anyone installing MrDocs from a rolling release was at risk of downloading an older build than the one they asked for. The install page picks an asset per platform by matching a filename suffix through the GitHub API, and every push to develop published its packages under the current project version, giving names like “MrDocs-0.8.0-Linux.tar.gz”. A version bump therefore produced a new filename and left the previous one sitting on the same rolling release as a stale asset, which the first-match lookup would then find and serve. #1181 renames non-tag packages after the branch before upload, so successive pushes produce identical filenames that the release action overwrites in place. Tag releases are immutable per version and keep their versioned names. Twenty-two lines of CI configuration, and a class of confusing bug reports that will never be filed. Next up: turning the scripting extensions into proper plugins, which is the rung above the three described here, and where the interesting question stops being “what can a script reach?” and starts being “what should it be allowed to?”." />
+<meta property="og:description" content="MrDocs models everything it extracts (namespaces, records, functions, types, doc comments, and so on) as a tree of C++ structs. Every one of those structs has to be compared, serialized, and exposed to Handlebars templates as a DOM object. Historically, each of those jobs meant another hand-written function or function template per type, and each new field meant touching all of them. Miss one and nothing breaks loudly; the field just quietly fails to appear in the output. Much of what follows comes from attacking that problem at the root, and then spending the room it freed up on letting users extend MrDocs without building it. MrDocs.Describe The starting point was issue #1149: Alan wondered whether the BOOST_DESCRIBE_xxx() invocations we relied on were hurting compile times for translation units that pulled in Reflection.hpp. The honest answer was that compile times weren’t actually a problem, but investigating it made clear how much we were bending Boost.Describe and Boost.Mp11 to fit a job they were never designed for, and how much implementation knowledge that bending required. So #1171 replaced them with our own public reflection facilities, MrDocs.Describe. It is a large change, a little over four hundred files, but the point of it was subtraction: with metadata we control, the per-type boilerplate can be written once, generically, instead of once per type. There are now something like a hundred and thirty described types in the tree, a hundred and eleven of them in the metadata model alone, so “once per type” was never going to scale. The first dividend was #1177. Comparison operators for the metadata types had accumulated as a long tail of near-identical overloads: compare the bases, then compare the members, in order, for type after type. That is now a single generic operator&lt;=&gt;(), plus an operator==() that delegates to it, in Support/Reflection/CompareReflectedType.hpp. It walks the described bases first, in description order, then the described members, short-circuiting as soon as it finds an inequality. Almost every per-type overload went away, and it is no longer possible to add a field to a metadata struct and forget to compare it. The one wrinkle worth recording is that the constraint on those operators is spelled as a requires-expression rather than the obvious trait, because MSVC has a bug where a constrained operator&lt;=&gt;() in the same namespace breaks constraint evaluation for an unrelated merge() template. Writing it as a distinct atomic constraint works around it. Generic code is a fine thing right up to the point where three compilers have to agree on it. Three ways to extend MrDocs without a compiler The other half of the quarter went to extensibility, on a simple principle: a user who wants a different output format, or a small transformation of the corpus, should not have to build MrDocs to get it. That arrived in three rungs, and the shape it finally took is joint work with Alan. My first cut exposed a narrower, more rigid interface; the registration API and the single context object that replaced it are his design, and they are better than what I had. The discovery walk and the output sink are mine, and the language bindings, the registry, and the script generator we wrote between us. Scripts (#1196). Lua joins JavaScript as a first-class language for Handlebars helpers, and both can now host extensions proper. Any .lua or .js file directly under an addon’s extensions/ directory is an extension; the discovery walk sorts by full path, interleaving the two languages, so behaviour depends only on file names and never on which language you happened to pick. Running a script’s top level registers things rather than doing them: mrdocs.register_transform(id, fn) for a corpus transform, mrdocs.register_generator(id, fn) for an output generator, any number of each per file. Nothing is applied at load time: the host collects the registrations and invokes them later. Each one is called with a single context object carrying ctx.corpus, ctx.config, and ctx.params (that last being the script’s own options block from transform-options.&lt;id&gt;), so new extension kinds can be added later without changing the signature. A transform mutates the corpus in place; reads go through the same DOM the generators already see, so scripts and templates have one shape to learn rather than two. The reflection work pays for itself a second time here. Rather than a hand-maintained binding table that would drift from the C++ model the moment anyone added a type, the bridge is driven by the metadata: a MRDOCS_DESCRIBE_KINDS macro registers the closed set of concrete derived classes of a polymorphic base, and each per-base list is #included straight from the existing *Nodes.inc X-macro files. One source of truth for what kinds exist, shared by the visitors and the script bindings. Data-driven generators (#1197). Any directory under an addon’s generator/ directory, named after the generator it defines, is now discovered at config-resolve time and installed as a generator, described by a mrdocs-generator.yml alongside its templates. The manifest is small on purpose, just two keys: an escape table of per-character replacements, and an extends key that inherits another generator’s templates so a new format only has to state its differences. The directory name does the rest, serving as the generator’s id, its file extension, and its display name. The Markdown example’s manifest is eight lines of YAML: extends: html, plus the six characters Markdown needs backslash-escaped. The LaTeX one then extends the Markdown one, so the key chains: tex inherits from md, which inherits from html, and each link states only what it changes. Making that work meant making the generator subsystem data-driven, and the built-in generators are what shows it: AdocGenerator and HTMLGenerator are now about forty lines each, a constructor and an escape() override over a shared HandlebarsGenerator. Three data-driven examples ship in the tree (jsonl, md, and tex), none of which needs a line of C++ to work. Script-driven generators (#1218). The third rung hands the whole emit loop to a registered script function, which owns every decision about what files to write. Because it owns the loop, it can produce output shapes the per-page generators structurally cannot, such as a single artifact aggregated over every symbol, and the two shipped examples are exactly that: a whole-corpus json dump and a search-index. Two details I liked building. First, the host has no idea which language it is running: a script generator is a dom::Function that self-owns its scripting VM, so one implementation drives a Lua generator and a JavaScript one without branching. Second, the file-writing API, bound into the script as output.write, resolves every path under the output directory and rejects anything absolute or escaping, so a generator cannot write anywhere on disk; and it takes an append flag, so a script assembling something large can stream it in chunks instead of holding the whole artifact in memory. Macros #1192 taught MrDocs about the preprocessor. A clang::PPCallbacks subclass records each MacroDefined event, skipping builtins and system headers, and the visitor turns what survives into a MacroSymbol. Include guards are dropped by asking Clang (MacroInfo::isUsedForHeaderGuard()) rather than by pattern-matching names, because nobody wants a reference page for MY_LIBRARY_DETAIL_FOO_HPP. Variadic macros get their synthetic trailing __VA_ARGS__ parameter removed and a flag set instead, mirroring how a function symbol handles a C-style .... Macros needed their own filters rather than reusing the symbol ones, and the reason is a nice illustration of how little a macro resembles a C++ symbol. Macro names are unqualified, so a namespace-scoped include-symbols pattern can never match one; hence include-macros and exclude-macros. Whether an undocumented macro is kept is its own question too, so extract-all-macros sits beside extract-all and defaults to off. And the implementation-defined and see-below modes have no macro equivalent at all: both keep a symbol in the corpus while hiding its scope or eliding its synopsis, and a macro has no members to hide and, since the preprocessor runs before anything else is extracted, never appears in another symbol’s synopsis anyway. A macro is only ever included or excluded. The last piece is about a special case: a feature-test or configuration macro is often not defined in the build MrDocs runs against, so the preprocessor never reports it at all. For such macros, the always-defined __MRDOCS__ can guard a definition (with a doc-comment) that only affects MrDocs. Bumping LLVM, and why it mattered here Which brings me to what looks like the most routine item of the quarter. #1241 moved the LLVM pin to 77e43ec1, and it is in this article because of one upstream change it picks up: llvm/llvm-project#198452, which attaches documentation comments to macro definitions. Until then, the macro support above had no way to ask Clang for a macro’s doc comment, so #1192 was scanning the source text for it. With the new pin the comment comes from Clang, through a getRawCommentForAnyRedecl() overload that accepts a MacroInfo, and a pile of ad-hoc text handling goes away. The pin had drifted about six months, so collecting that one feature meant paying six months of API churn at once: USRGeneration.h moved namespaces, DiagnosticConsumer::finish() was removed, the driver option table moved, cl::getRegisteredOptions() started returning a DenseMap, and the per-declaration comment lookup we rely on was renamed from getRawCommentForDeclNoCache() to getRawCommentNoCache(). Parsing the newer libc++ also wanted a vcruntime_new.h stub and guards to stop stdbool.h, stdalign.h, and threads.h from redefining bool, alignas, and thread_local, which are keywords rather than macros in C++. The regenerated goldens changed only where Clang’s own output had drifted. The moral, which I’ll be repeating to myself next time: a toolchain pin is cheapest to move when you don’t need anything from moving it. Specializations move in with their primary Class template specializations, function template specializations, and deduction guides used to share the enclosing scope’s listing with their primary template, so A and A&lt;int&gt; appeared side by side in the namespace index, reading like independent siblings, while the primary’s own page said nothing about its variants. Users reported this repeatedly. #1199 moves them: each primary’s page gains a “Specializations” section, each deduced class’s page gains a “Deduction Guides” section, and the parent scope lists only the primary. An orphan specialization (one whose primary was excluded from extraction) stays in the parent’s listing so the index can still reach it. The primary-to-variant link is corpus-resident: records and functions carry Specializations lists, records carry DeductionGuides, and an IsListedOnPrimary flag decides suppression, all populated by a new SpecializationFinalizer pass. Because those fields are described like everything else, every template and every downstream consumer of the corpus sees the new shape automatically. That is the infrastructure work paying rent. Field reports The rest of the quarter was the ordinary, indispensable business of fixing what users hit. A partial specialization on an array type rendered as array_trait&lt;T [,void, void&gt;], because dependent array bounds were being dropped (#1172). task&lt;&gt; rendered as task, losing the empty argument list that distinguishes a specialization from its primary (#1184). Inline markup (&lt;em&gt;, &lt;mark&gt;, &lt;sub&gt;, &lt;sup&gt;, &lt;del&gt;) produced no HTML tags at all, because a single shared partial conflated five semantically distinct kinds and the HTML side of it didn’t exist; each kind now has its own partial and its own element (#1185). A @par block with no prose before it rendered upside down (#1162). An HTML table in a doc comment produced a warning and then a fatal error (#1146). Inherited members went missing from derived classes when the base was a dependent specialization (#1176). Setting extract-all: false crashed outright (#1195), and an assertion failure took down extraction on an Antora test project (#1145). Every source link in every Synopsis section pointed at #Lundefined, because the template asked for dcl.line where the DOM field is dcl.lineNumber (#1182). A one-word fix, and a reminder that a template author programming against the object model has no compiler to catch a misspelled field. Long noexcept conditions used to be dumped into the declaration, where they were unreadable. They now collapse to noexcept(/* see-below */) with the condition moved into its own section, past a per-generator noexcept-see-below-limit (#1103). And mp-units surfaced a lovely one (#1238): default-constructed variables were shown with an initializer that doesn’t exist in the source, so the synopsis cheerfully claimed inline constexpr one one = one;. I take this list as a good sign. Bugs like these arrive because people are pointing MrDocs at real libraries (Boost.Multi, mp-units, Boost.OpenMethod, Corosio), and real libraries are where a documentation tool finds out what it doesn’t yet handle. Boost.StaticString Away from MrDocs, Boost.StaticString got a round of maintenance. In the library proper I added basic_static_string::available(), which reports how much room is left before the string hits its capacity. That is the natural question to ask a fixed-capacity string before appending to it, and previously one you had to work out yourself. The rest went to basic_static_cstring, the experimental fixed-capacity string that lives under example/: its comparison operators were fixed, as were compare(const CharT*) for over-long inputs and the array constructor, which wasn’t respecting the type’s own no-embedded-NULs invariant. Housekeeping For a while, anyone installing MrDocs from a rolling release was at risk of downloading an older build than the one they asked for. The install page picks an asset per platform by matching a filename suffix through the GitHub API, and every push to develop published its packages under the current project version, giving names like “MrDocs-0.8.0-Linux.tar.gz”. A version bump therefore produced a new filename and left the previous one sitting on the same rolling release as a stale asset, which the first-match lookup would then find and serve. #1181 renames non-tag packages after the branch before upload, so successive pushes produce identical filenames that the release action overwrites in place. Tag releases are immutable per version and keep their versioned names. Twenty-two lines of CI configuration, and a class of confusing bug reports that will never be filed. Next up: turning the scripting extensions into proper plugins, which is the rung above the three described here, and where the interesting question stops being “what can a script reach?” and starts being “what should it be allowed to?”." />
+<link rel="canonical" href="http://cppalliance.org/gennaro/2026/08/21/Gennaros2026Q2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/gennaro/2026/08/21/Gennaros2026Q2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-08-21T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Reflection All the Way Down" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"MrDocs models everything it extracts (namespaces, records, functions, types, doc comments, and so on) as a tree of C++ structs. Every one of those structs has to be compared, serialized, and exposed to Handlebars templates as a DOM object. Historically, each of those jobs meant another hand-written function or function template per type, and each new field meant touching all of them. Miss one and nothing breaks loudly; the field just quietly fails to appear in the output. Much of what follows comes from attacking that problem at the root, and then spending the room it freed up on letting users extend MrDocs without building it. MrDocs.Describe The starting point was issue #1149: Alan wondered whether the BOOST_DESCRIBE_xxx() invocations we relied on were hurting compile times for translation units that pulled in Reflection.hpp. The honest answer was that compile times weren’t actually a problem, but investigating it made clear how much we were bending Boost.Describe and Boost.Mp11 to fit a job they were never designed for, and how much implementation knowledge that bending required. So #1171 replaced them with our own public reflection facilities, MrDocs.Describe. It is a large change, a little over four hundred files, but the point of it was subtraction: with metadata we control, the per-type boilerplate can be written once, generically, instead of once per type. There are now something like a hundred and thirty described types in the tree, a hundred and eleven of them in the metadata model alone, so “once per type” was never going to scale. The first dividend was #1177. Comparison operators for the metadata types had accumulated as a long tail of near-identical overloads: compare the bases, then compare the members, in order, for type after type. That is now a single generic operator&lt;=&gt;(), plus an operator==() that delegates to it, in Support/Reflection/CompareReflectedType.hpp. It walks the described bases first, in description order, then the described members, short-circuiting as soon as it finds an inequality. Almost every per-type overload went away, and it is no longer possible to add a field to a metadata struct and forget to compare it. The one wrinkle worth recording is that the constraint on those operators is spelled as a requires-expression rather than the obvious trait, because MSVC has a bug where a constrained operator&lt;=&gt;() in the same namespace breaks constraint evaluation for an unrelated merge() template. Writing it as a distinct atomic constraint works around it. Generic code is a fine thing right up to the point where three compilers have to agree on it. Three ways to extend MrDocs without a compiler The other half of the quarter went to extensibility, on a simple principle: a user who wants a different output format, or a small transformation of the corpus, should not have to build MrDocs to get it. That arrived in three rungs, and the shape it finally took is joint work with Alan. My first cut exposed a narrower, more rigid interface; the registration API and the single context object that replaced it are his design, and they are better than what I had. The discovery walk and the output sink are mine, and the language bindings, the registry, and the script generator we wrote between us. Scripts (#1196). Lua joins JavaScript as a first-class language for Handlebars helpers, and both can now host extensions proper. Any .lua or .js file directly under an addon’s extensions/ directory is an extension; the discovery walk sorts by full path, interleaving the two languages, so behaviour depends only on file names and never on which language you happened to pick. Running a script’s top level registers things rather than doing them: mrdocs.register_transform(id, fn) for a corpus transform, mrdocs.register_generator(id, fn) for an output generator, any number of each per file. Nothing is applied at load time: the host collects the registrations and invokes them later. Each one is called with a single context object carrying ctx.corpus, ctx.config, and ctx.params (that last being the script’s own options block from transform-options.&lt;id&gt;), so new extension kinds can be added later without changing the signature. A transform mutates the corpus in place; reads go through the same DOM the generators already see, so scripts and templates have one shape to learn rather than two. The reflection work pays for itself a second time here. Rather than a hand-maintained binding table that would drift from the C++ model the moment anyone added a type, the bridge is driven by the metadata: a MRDOCS_DESCRIBE_KINDS macro registers the closed set of concrete derived classes of a polymorphic base, and each per-base list is #included straight from the existing *Nodes.inc X-macro files. One source of truth for what kinds exist, shared by the visitors and the script bindings. Data-driven generators (#1197). Any directory under an addon’s generator/ directory, named after the generator it defines, is now discovered at config-resolve time and installed as a generator, described by a mrdocs-generator.yml alongside its templates. The manifest is small on purpose, just two keys: an escape table of per-character replacements, and an extends key that inherits another generator’s templates so a new format only has to state its differences. The directory name does the rest, serving as the generator’s id, its file extension, and its display name. The Markdown example’s manifest is eight lines of YAML: extends: html, plus the six characters Markdown needs backslash-escaped. The LaTeX one then extends the Markdown one, so the key chains: tex inherits from md, which inherits from html, and each link states only what it changes. Making that work meant making the generator subsystem data-driven, and the built-in generators are what shows it: AdocGenerator and HTMLGenerator are now about forty lines each, a constructor and an escape() override over a shared HandlebarsGenerator. Three data-driven examples ship in the tree (jsonl, md, and tex), none of which needs a line of C++ to work. Script-driven generators (#1218). The third rung hands the whole emit loop to a registered script function, which owns every decision about what files to write. Because it owns the loop, it can produce output shapes the per-page generators structurally cannot, such as a single artifact aggregated over every symbol, and the two shipped examples are exactly that: a whole-corpus json dump and a search-index. Two details I liked building. First, the host has no idea which language it is running: a script generator is a dom::Function that self-owns its scripting VM, so one implementation drives a Lua generator and a JavaScript one without branching. Second, the file-writing API, bound into the script as output.write, resolves every path under the output directory and rejects anything absolute or escaping, so a generator cannot write anywhere on disk; and it takes an append flag, so a script assembling something large can stream it in chunks instead of holding the whole artifact in memory. Macros #1192 taught MrDocs about the preprocessor. A clang::PPCallbacks subclass records each MacroDefined event, skipping builtins and system headers, and the visitor turns what survives into a MacroSymbol. Include guards are dropped by asking Clang (MacroInfo::isUsedForHeaderGuard()) rather than by pattern-matching names, because nobody wants a reference page for MY_LIBRARY_DETAIL_FOO_HPP. Variadic macros get their synthetic trailing __VA_ARGS__ parameter removed and a flag set instead, mirroring how a function symbol handles a C-style .... Macros needed their own filters rather than reusing the symbol ones, and the reason is a nice illustration of how little a macro resembles a C++ symbol. Macro names are unqualified, so a namespace-scoped include-symbols pattern can never match one; hence include-macros and exclude-macros. Whether an undocumented macro is kept is its own question too, so extract-all-macros sits beside extract-all and defaults to off. And the implementation-defined and see-below modes have no macro equivalent at all: both keep a symbol in the corpus while hiding its scope or eliding its synopsis, and a macro has no members to hide and, since the preprocessor runs before anything else is extracted, never appears in another symbol’s synopsis anyway. A macro is only ever included or excluded. The last piece is about a special case: a feature-test or configuration macro is often not defined in the build MrDocs runs against, so the preprocessor never reports it at all. For such macros, the always-defined __MRDOCS__ can guard a definition (with a doc-comment) that only affects MrDocs. Bumping LLVM, and why it mattered here Which brings me to what looks like the most routine item of the quarter. #1241 moved the LLVM pin to 77e43ec1, and it is in this article because of one upstream change it picks up: llvm/llvm-project#198452, which attaches documentation comments to macro definitions. Until then, the macro support above had no way to ask Clang for a macro’s doc comment, so #1192 was scanning the source text for it. With the new pin the comment comes from Clang, through a getRawCommentForAnyRedecl() overload that accepts a MacroInfo, and a pile of ad-hoc text handling goes away. The pin had drifted about six months, so collecting that one feature meant paying six months of API churn at once: USRGeneration.h moved namespaces, DiagnosticConsumer::finish() was removed, the driver option table moved, cl::getRegisteredOptions() started returning a DenseMap, and the per-declaration comment lookup we rely on was renamed from getRawCommentForDeclNoCache() to getRawCommentNoCache(). Parsing the newer libc++ also wanted a vcruntime_new.h stub and guards to stop stdbool.h, stdalign.h, and threads.h from redefining bool, alignas, and thread_local, which are keywords rather than macros in C++. The regenerated goldens changed only where Clang’s own output had drifted. The moral, which I’ll be repeating to myself next time: a toolchain pin is cheapest to move when you don’t need anything from moving it. Specializations move in with their primary Class template specializations, function template specializations, and deduction guides used to share the enclosing scope’s listing with their primary template, so A and A&lt;int&gt; appeared side by side in the namespace index, reading like independent siblings, while the primary’s own page said nothing about its variants. Users reported this repeatedly. #1199 moves them: each primary’s page gains a “Specializations” section, each deduced class’s page gains a “Deduction Guides” section, and the parent scope lists only the primary. An orphan specialization (one whose primary was excluded from extraction) stays in the parent’s listing so the index can still reach it. The primary-to-variant link is corpus-resident: records and functions carry Specializations lists, records carry DeductionGuides, and an IsListedOnPrimary flag decides suppression, all populated by a new SpecializationFinalizer pass. Because those fields are described like everything else, every template and every downstream consumer of the corpus sees the new shape automatically. That is the infrastructure work paying rent. Field reports The rest of the quarter was the ordinary, indispensable business of fixing what users hit. A partial specialization on an array type rendered as array_trait&lt;T [,void, void&gt;], because dependent array bounds were being dropped (#1172). task&lt;&gt; rendered as task, losing the empty argument list that distinguishes a specialization from its primary (#1184). Inline markup (&lt;em&gt;, &lt;mark&gt;, &lt;sub&gt;, &lt;sup&gt;, &lt;del&gt;) produced no HTML tags at all, because a single shared partial conflated five semantically distinct kinds and the HTML side of it didn’t exist; each kind now has its own partial and its own element (#1185). A @par block with no prose before it rendered upside down (#1162). An HTML table in a doc comment produced a warning and then a fatal error (#1146). Inherited members went missing from derived classes when the base was a dependent specialization (#1176). Setting extract-all: false crashed outright (#1195), and an assertion failure took down extraction on an Antora test project (#1145). Every source link in every Synopsis section pointed at #Lundefined, because the template asked for dcl.line where the DOM field is dcl.lineNumber (#1182). A one-word fix, and a reminder that a template author programming against the object model has no compiler to catch a misspelled field. Long noexcept conditions used to be dumped into the declaration, where they were unreadable. They now collapse to noexcept(/* see-below */) with the condition moved into its own section, past a per-generator noexcept-see-below-limit (#1103). And mp-units surfaced a lovely one (#1238): default-constructed variables were shown with an initializer that doesn’t exist in the source, so the synopsis cheerfully claimed inline constexpr one one = one;. I take this list as a good sign. Bugs like these arrive because people are pointing MrDocs at real libraries (Boost.Multi, mp-units, Boost.OpenMethod, Corosio), and real libraries are where a documentation tool finds out what it doesn’t yet handle. Boost.StaticString Away from MrDocs, Boost.StaticString got a round of maintenance. In the library proper I added basic_static_string::available(), which reports how much room is left before the string hits its capacity. That is the natural question to ask a fixed-capacity string before appending to it, and previously one you had to work out yourself. The rest went to basic_static_cstring, the experimental fixed-capacity string that lives under example/: its comparison operators were fixed, as were compare(const CharT*) for over-long inputs and the array constructor, which wasn’t respecting the type’s own no-embedded-NULs invariant. Housekeeping For a while, anyone installing MrDocs from a rolling release was at risk of downloading an older build than the one they asked for. The install page picks an asset per platform by matching a filename suffix through the GitHub API, and every push to develop published its packages under the current project version, giving names like “MrDocs-0.8.0-Linux.tar.gz”. A version bump therefore produced a new filename and left the previous one sitting on the same rolling release as a stale asset, which the first-match lookup would then find and serve. #1181 renames non-tag packages after the branch before upload, so successive pushes produce identical filenames that the release action overwrites in place. Tag releases are immutable per version and keep their versioned names. Twenty-two lines of CI configuration, and a class of confusing bug reports that will never be filed. Next up: turning the scripting extensions into proper plugins, which is the rung above the three described here, and where the interesting question stops being “what can a script reach?” and starts being “what should it be allowed to?”.","@type":"BlogPosting","url":"http://cppalliance.org/gennaro/2026/08/21/Gennaros2026Q2Update.html","headline":"Reflection All the Way Down","dateModified":"2026-08-21T00:00:00+00:00","datePublished":"2026-08-21T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/gennaro/2026/08/21/Gennaros2026Q2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Reflection All the Way Down</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/gennaro">
+              <img class='author-img' src='/images/people/gennaro.jpg' alt='Portrait of Gennaro Prota' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/gennaro">
+                  Gennaro Prota
+                </a> &middot; Aug 21, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>MrDocs models everything it extracts (namespaces, records, functions, types, doc
+comments, and so on) as a tree of C++ structs. Every one of those structs has to
+be compared, serialized, and exposed to Handlebars templates as a DOM object.
+Historically, each of those jobs meant another hand-written function or function
+template per type, and each new field meant touching all of them. Miss one and
+nothing breaks loudly; the field just quietly fails to appear in the output.
+Much of what follows comes from attacking that problem at the root, and then
+spending the room it freed up on letting users extend MrDocs without building
+it.</p>
+
+<h2 id="mrdocsdescribe">MrDocs.Describe</h2>
+
+<p>The starting point was issue
+<a href="https://github.com/cppalliance/mrdocs/issues/1149">#1149</a>: Alan wondered
+whether the <code>BOOST_DESCRIBE_xxx()</code> invocations we relied on were hurting compile
+times for translation units that pulled in Reflection.hpp. The honest answer was
+that compile times weren’t actually a problem, but investigating it made clear
+how much we were bending Boost.Describe and Boost.Mp11 to fit a job they were
+never designed for, and how much implementation knowledge that bending required.</p>
+
+<p>So <a href="https://github.com/cppalliance/mrdocs/pull/1171">#1171</a> replaced them with
+our own public reflection facilities, MrDocs.Describe. It is a large change, a
+little over four hundred files, but the point of it was subtraction: with
+metadata we control, the per-type boilerplate can be written once, generically,
+instead of once per type. There are now something like a hundred and thirty
+described types in the tree, a hundred and eleven of them in the metadata model
+alone, so “once per type” was never going to scale.</p>
+
+<p>The first dividend was <a href="https://github.com/cppalliance/mrdocs/pull/1177">#1177</a>.
+Comparison operators for the metadata types had accumulated as a long tail of
+near-identical overloads: compare the bases, then compare the members, in order,
+for type after type. That is now a single generic <code>operator&lt;=&gt;()</code>, plus an
+<code>operator==()</code> that delegates to it, in
+Support/Reflection/CompareReflectedType.hpp. It walks the described bases first,
+in description order, then the described members, short-circuiting as soon as it
+finds an inequality. Almost every per-type overload went away, and it is no
+longer possible to add a field to a metadata struct and forget to compare it.</p>
+
+<p>The one wrinkle worth recording is that the constraint on those operators is
+spelled as a <code>requires</code>-expression rather than the obvious trait, because MSVC
+has a bug where a constrained <code>operator&lt;=&gt;()</code> in the same namespace breaks
+constraint evaluation for an unrelated <code>merge()</code> template. Writing it as a
+distinct atomic constraint works around it. Generic code is a fine thing right
+up to the point where three compilers have to agree on it.</p>
+
+<h2 id="three-ways-to-extend-mrdocs-without-a-compiler">Three ways to extend MrDocs without a compiler</h2>
+
+<p>The other half of the quarter went to extensibility, on a simple principle: a
+user who wants a different output format, or a small transformation of the
+corpus, should not have to build MrDocs to get it.</p>
+
+<p>That arrived in three rungs, and the shape it finally took is joint work with
+Alan. My first cut exposed a narrower, more rigid interface; the registration
+API and the single context object that replaced it are his design, and they are
+better than what I had. The discovery walk and the output sink are mine, and the
+language bindings, the registry, and the script generator we wrote between us.</p>
+
+<p><strong>Scripts</strong> (<a href="https://github.com/cppalliance/mrdocs/pull/1196">#1196</a>). Lua
+joins JavaScript as a first-class language for Handlebars helpers, and both can
+now host extensions proper. Any .lua or .js file directly under an addon’s
+extensions/ directory is an extension; the discovery walk sorts by full path,
+interleaving the two languages, so behaviour depends only on file names and
+never on which language you happened to pick.</p>
+
+<p>Running a script’s top level registers things rather than doing them:
+<code>mrdocs.register_transform(id, fn)</code> for a corpus transform,
+<code>mrdocs.register_generator(id, fn)</code> for an output generator, any number of each
+per file. Nothing is applied at load time: the host collects the registrations
+and invokes them later. Each one is called with a single context object carrying
+<code>ctx.corpus</code>, <code>ctx.config</code>, and <code>ctx.params</code> (that last being the script’s own
+options block from <code>transform-options.&lt;id&gt;</code>), so new extension kinds can be
+added later without changing the signature. A transform mutates the corpus in
+place; reads go through the same DOM the generators already see, so scripts and
+templates have one shape to learn rather than two.</p>
+
+<p>The reflection work pays for itself a second time here. Rather than a
+hand-maintained binding table that would drift from the C++ model the moment
+anyone added a type, the bridge is driven by the metadata: a
+<code>MRDOCS_DESCRIBE_KINDS</code> macro registers the closed set of concrete derived
+classes of a polymorphic base, and each per-base list is <code>#include</code>d straight
+from the existing *Nodes.inc X-macro files. One source of truth for what kinds
+exist, shared by the visitors and the script bindings.</p>
+
+<p><strong>Data-driven generators</strong>
+(<a href="https://github.com/cppalliance/mrdocs/pull/1197">#1197</a>). Any directory under
+an addon’s generator/ directory, named after the generator it defines, is now
+discovered at config-resolve time and installed as a generator, described by a
+mrdocs-generator.yml alongside its templates. The manifest is small on purpose,
+just two keys: an <code>escape</code> table of per-character replacements, and an <code>extends</code>
+key that inherits another generator’s templates so a new format only has to
+state its differences. The directory name does the rest, serving as the
+generator’s id, its file extension, and its display name. The Markdown example’s
+manifest is eight lines of YAML: <code>extends: html</code>, plus the six characters
+Markdown needs backslash-escaped. The LaTeX one then extends the Markdown one,
+so the key chains: <code>tex</code> inherits from <code>md</code>, which inherits from <code>html</code>, and
+each link states only what it changes.</p>
+
+<p>Making that work meant making the generator subsystem data-driven, and the
+built-in generators are what shows it: <code>AdocGenerator</code> and <code>HTMLGenerator</code> are
+now about forty lines each, a constructor and an <code>escape()</code> override over a
+shared <code>HandlebarsGenerator</code>. Three data-driven examples ship in the tree
+(<code>jsonl</code>, <code>md</code>, and <code>tex</code>), none of which needs a line of C++ to work.</p>
+
+<p><strong>Script-driven generators</strong>
+(<a href="https://github.com/cppalliance/mrdocs/pull/1218">#1218</a>). The third rung hands
+the whole emit loop to a registered script function, which owns every decision
+about what files to write. Because it owns the loop, it can produce output
+shapes the per-page generators structurally cannot, such as a single artifact
+aggregated over every symbol, and the two shipped examples are exactly that: a
+whole-corpus <code>json</code> dump and a <code>search-index</code>.</p>
+
+<p>Two details I liked building. First, the host has no idea which language it is
+running: a script generator is a <code>dom::Function</code> that self-owns its scripting
+VM, so one implementation drives a Lua generator and a JavaScript one without
+branching. Second, the file-writing API, bound into the script as
+<code>output.write</code>, resolves every path under the output directory and rejects
+anything absolute or escaping, so a generator cannot write anywhere on disk; and
+it takes an <code>append</code> flag, so a script assembling something large can stream it
+in chunks instead of holding the whole artifact in memory.</p>
+
+<h2 id="macros">Macros</h2>
+
+<p><a href="https://github.com/cppalliance/mrdocs/pull/1192">#1192</a> taught MrDocs about the
+preprocessor. A <code>clang::PPCallbacks</code> subclass records each <code>MacroDefined</code> event,
+skipping builtins and system headers, and the visitor turns what survives into a
+<code>MacroSymbol</code>. Include guards are dropped by asking Clang
+(<code>MacroInfo::isUsedForHeaderGuard()</code>) rather than by pattern-matching names,
+because nobody wants a reference page for <code>MY_LIBRARY_DETAIL_FOO_HPP</code>. Variadic
+macros get their synthetic trailing <code>__VA_ARGS__</code> parameter removed and a flag
+set instead, mirroring how a function symbol handles a C-style <code>...</code>.</p>
+
+<p>Macros needed their own filters rather than reusing the symbol ones, and the
+reason is a nice illustration of how little a macro resembles a C++ symbol.
+Macro names are unqualified, so a namespace-scoped <code>include-symbols</code> pattern can
+never match one; hence <code>include-macros</code> and <code>exclude-macros</code>. Whether an
+undocumented macro is kept is its own question too, so <code>extract-all-macros</code> sits
+beside <code>extract-all</code> and defaults to off. And the <code>implementation-defined</code> and
+<code>see-below</code> modes have no macro equivalent at all: both keep a symbol in the
+corpus while hiding its scope or eliding its synopsis, and a macro has no
+members to hide and, since the preprocessor runs before anything else is
+extracted, never appears in another symbol’s synopsis anyway. A macro is only
+ever included or excluded.</p>
+
+<p>The last piece is about a special case: a feature-test or configuration macro is
+often not defined in the build MrDocs runs against, so the preprocessor never
+reports it at all. For such macros, the always-defined <code>__MRDOCS__</code> can guard a
+definition (with a doc-comment) that only affects MrDocs.</p>
+
+<h2 id="bumping-llvm-and-why-it-mattered-here">Bumping LLVM, and why it mattered here</h2>
+
+<p>Which brings me to what looks like the most routine item of the quarter.
+<a href="https://github.com/cppalliance/mrdocs/pull/1241">#1241</a> moved the LLVM pin to
+<code>77e43ec1</code>, and it is in this article because of one upstream change it picks
+up:
+<a href="https://github.com/llvm/llvm-project/pull/198452">llvm/llvm-project#198452</a>,
+which attaches documentation comments to macro definitions. Until then, the
+macro support above had no way to ask Clang for a macro’s doc comment, so #1192
+was scanning the source text for it. With the new pin the comment comes from
+Clang, through a <code>getRawCommentForAnyRedecl()</code> overload that accepts a
+<code>MacroInfo</code>, and a pile of ad-hoc text handling goes away.</p>
+
+<p>The pin had drifted about six months, so collecting that one feature meant
+paying six months of API churn at once: USRGeneration.h moved namespaces,
+<code>DiagnosticConsumer::finish()</code> was removed, the driver option table moved,
+<code>cl::getRegisteredOptions()</code> started returning a <code>DenseMap</code>, and the
+per-declaration comment lookup we rely on was renamed from
+<code>getRawCommentForDeclNoCache()</code> to <code>getRawCommentNoCache()</code>. Parsing the newer
+libc++ also wanted a vcruntime_new.h stub and guards to stop stdbool.h,
+stdalign.h, and threads.h from redefining <code>bool</code>, <code>alignas</code>, and <code>thread_local</code>,
+which are keywords rather than macros in C++. The regenerated goldens changed
+only where Clang’s own output had drifted.</p>
+
+<p>The moral, which I’ll be repeating to myself next time: a toolchain pin is
+cheapest to move when you don’t need anything from moving it.</p>
+
+<h2 id="specializations-move-in-with-their-primary">Specializations move in with their primary</h2>
+
+<p>Class template specializations, function template specializations, and deduction
+guides used to share the enclosing scope’s listing with their primary template,
+so <code>A</code> and <code>A&lt;int&gt;</code> appeared side by side in the namespace index, reading like
+independent siblings, while the primary’s own page said nothing about its
+variants. Users reported this repeatedly.</p>
+
+<p><a href="https://github.com/cppalliance/mrdocs/pull/1199">#1199</a> moves them: each
+primary’s page gains a “Specializations” section, each deduced class’s page
+gains a “Deduction Guides” section, and the parent scope lists only the primary.
+An orphan specialization (one whose primary was excluded from extraction) stays
+in the parent’s listing so the index can still reach it. The primary-to-variant
+link is corpus-resident: records and functions carry <code>Specializations</code> lists,
+records carry <code>DeductionGuides</code>, and an <code>IsListedOnPrimary</code> flag decides
+suppression, all populated by a new <code>SpecializationFinalizer</code> pass. Because
+those fields are described like everything else, every template and every
+downstream consumer of the corpus sees the new shape automatically. That is the
+infrastructure work paying rent.</p>
+
+<h2 id="field-reports">Field reports</h2>
+
+<p>The rest of the quarter was the ordinary, indispensable business of fixing what
+users hit.</p>
+
+<p>A partial specialization on an array type rendered as <code>array_trait&lt;T [,void,
+void&gt;]</code>, because dependent array bounds were being dropped
+(<a href="https://github.com/cppalliance/mrdocs/issues/1172">#1172</a>). <code>task&lt;&gt;</code> rendered
+as <code>task</code>, losing the empty argument list that distinguishes a specialization
+from its primary (<a href="https://github.com/cppalliance/mrdocs/issues/1184">#1184</a>).
+Inline markup (<code>&lt;em&gt;</code>, <code>&lt;mark&gt;</code>, <code>&lt;sub&gt;</code>, <code>&lt;sup&gt;</code>, <code>&lt;del&gt;</code>) produced no HTML
+tags at all, because a single shared partial conflated five semantically
+distinct kinds and the HTML side of it didn’t exist; each kind now has its own
+partial and its own element
+(<a href="https://github.com/cppalliance/mrdocs/issues/1185">#1185</a>). A <code>@par</code> block
+with no prose before it rendered upside down
+(<a href="https://github.com/cppalliance/mrdocs/issues/1162">#1162</a>). An HTML table in a
+doc comment produced a warning and then a fatal error
+(<a href="https://github.com/cppalliance/mrdocs/issues/1146">#1146</a>). Inherited members
+went missing from derived classes when the base was a dependent specialization
+(<a href="https://github.com/cppalliance/mrdocs/issues/1176">#1176</a>). Setting
+<code>extract-all: false</code> crashed outright
+(<a href="https://github.com/cppalliance/mrdocs/issues/1195">#1195</a>), and an assertion
+failure took down extraction on an Antora test project
+(<a href="https://github.com/cppalliance/mrdocs/issues/1145">#1145</a>). Every source link
+in every Synopsis section pointed at <code>#Lundefined</code>, because the template asked
+for <code>dcl.line</code> where the DOM field is <code>dcl.lineNumber</code>
+(<a href="https://github.com/cppalliance/mrdocs/pull/1182">#1182</a>). A one-word fix, and
+a reminder that a template author programming against the object model has no
+compiler to catch a misspelled field.</p>
+
+<p>Long <code>noexcept</code> conditions used to be dumped into the declaration, where they
+were unreadable. They now collapse to <code>noexcept(/* see-below */)</code> with the
+condition moved into its own section, past a per-generator
+<code>noexcept-see-below-limit</code>
+(<a href="https://github.com/cppalliance/mrdocs/issues/1103">#1103</a>). And mp-units
+surfaced a lovely one
+(<a href="https://github.com/cppalliance/mrdocs/issues/1238">#1238</a>):
+default-constructed variables were shown with an initializer that doesn’t exist
+in the source, so the synopsis cheerfully claimed <code>inline constexpr one one =
+one;</code>.</p>
+
+<p>I take this list as a good sign. Bugs like these arrive because people are
+pointing MrDocs at real libraries (Boost.Multi, mp-units, Boost.OpenMethod,
+Corosio), and real libraries are where a documentation tool finds out what it
+doesn’t yet handle.</p>
+
+<h2 id="booststaticstring">Boost.StaticString</h2>
+
+<p>Away from MrDocs, Boost.StaticString got a round of maintenance. In the library
+proper I added <code>basic_static_string::available()</code>, which reports how much room
+is left before the string hits its capacity. That is the natural question to ask
+a fixed-capacity string before appending to it, and previously one you had to
+work out yourself. The rest went to <code>basic_static_cstring</code>, the experimental
+fixed-capacity string that lives under example/: its comparison operators were
+fixed, as were <code>compare(const CharT*)</code> for over-long inputs and the array
+constructor, which wasn’t respecting the type’s own no-embedded-NULs invariant.</p>
+
+<h2 id="housekeeping">Housekeeping</h2>
+
+<p>For a while, anyone installing MrDocs from a rolling release was at risk of
+downloading an older build than the one they asked for. The install page picks
+an asset per platform by matching a filename suffix through the GitHub API, and
+every push to develop published its packages under the current project version,
+giving names like “MrDocs-0.8.0-Linux.tar.gz”. A version bump therefore produced
+a <em>new</em> filename and left the previous one sitting on the same rolling release
+as a stale asset, which the first-match lookup would then find and serve.
+<a href="https://github.com/cppalliance/mrdocs/pull/1181">#1181</a> renames non-tag
+packages after the branch before upload, so successive pushes produce identical
+filenames that the release action overwrites in place. Tag releases are
+immutable per version and keep their versioned names. Twenty-two lines of CI
+configuration, and a class of confusing bug reports that will never be filed.</p>
+
+<p>Next up: turning the scripting extensions into proper plugins, which is the
+rung above the three described here, and where the interesting question stops
+being “what can a script reach?” and starts being “what should it be allowed
+to?”.</p>
+
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/21/2026</span>
+          <a class='text-l news-title link' href="/gennaro/2026/08/21/Gennaros2026Q2Update.html">Reflection All the Way Down</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/06/2026</span>
+          <a class='text-l news-title link' href="/gennaro/2026/04/06/Gennaros2026Q1Update.html">Mr.Docs: Niebloids, Reflection, Code Removal, New XML Generator</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/14/2025</span>
+          <a class='text-l news-title link' href="/gennaro/2025/10/14/Gennaros2025Q3Update.html">DynamicBitset Reimagined: A Quarter of Flexibility, Cleanup, and Modern C++</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>

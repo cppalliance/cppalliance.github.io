@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Return of the Graph | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>The Return of the Graph | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="The Return of the Graph" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Q1 was all about identifying Boost.Graph user community and implementing a community detection algorithm. Q2 has been focusing on making Boost.Graph a comfy place where our community can thrive by exorcising the old legacy shadows that a 30-year-old project inevitably summons. Where the Shadows Lie Over its 30 years of existence, Boost.Graph naturally accumulated technical debt and quite a few ghosts. Some of those are invisible to users, like an outdated C++ style, internal const-correctness or constexpr-ness. But most are more concerning because they impact metrics users care about: documentation accessibility warning counts undefined behaviors code coverage compile time runtime performance memory usage transitive dependency count. Work items for this quarter overwhelmingly fell into one or several of these dimensions, aiming at making technical debt visible and actionable. One Doc to Find Them All If you can’t find a feature in the doc, does it really exist? I was particularly happy to see the new Boost.Graph documentation shipping with Boost 1.92. A modernized documentation that lowers the bar for newcomers has been a major focus of my work with the C++ Alliance over the last six months. The previous doc infrastructure was written as pure HTML and was tedious to read, scan and update: it’s now easier than ever! Numerous examples built and run in CI have been brought. And look at the cool animations to make graph semantics crystal clear. One Bot to Warn them All It began with creating a CI bot that, for each PR, counts the number of warnings across the build matrix and compares it to the last develop build. This delta to baseline gives an easy metric and dashboard to review PRs (preventing creep to grow back) and orient refactors (identifying low-hanging fruits where a small fix removes many warnings). Hundreds of warnings have been fixed so far, bringing non-msvc builds close to zero (with -Wall -Wextra disabled; but they are now enabled and work is on the way). One Bot to Test them All Code coverage PR bots were enabled for the repository, leading to some unit test modernization. Numerous unit tests seemed to have been historically developed as examples: writing to the output, always passing, never checking for correctness, often not seeding random number generators. I opened a series of PRs to tie them to the test framework, testing hard expectations where possible and statistical properties where required. Seventy Two Deps for Mortified Users, Doomed to Die Boost.Graph is among the heaviest libraries in the ecosystem (72 dependencies). So another bot was created that, for each PR, reports any change in dependency weight (included headers) and number of transitive dependencies. This helps orient dependency-reduction operations and will prevent future contributors from bringing back heavy weights. I first removed the Boost dependencies that C++14 made outdated: Boost.SmartPtr, Boost.Math, Boost.TTI, Boost.Move, Boost.Foreach, Boost.Conversion, Boost.Typeof, Boost.Bind, Boost.Bimap, Boost.Lambda, Boost.MPL … I opened a number of PRs to drop the mammoth culprits: Boost.Spirit, Boost.PropertyTree, Boost.Serialization When merged, they will considerably lighten the transitive dependency chain. In local benchmarks I could already measure considerable performance gains both in memory and speed when dropping PropertyTree (3x better in speed and memory), while dropping Xpressive brings ~3600 fewer warnings in CI with -Wall -Wextra enabled. One Process to Bring Them All (with love) Contributors are essential to open-source projects, even more so for Boost.Graph because implementing graph algorithms requires both deep theoretical knowledge of the field and solid technical mastery over C++ and Boost. Which is a (highly) unusual skillset: where skills are fragmented, collaboration thrives! So I continued my way through the backlog of unsolved issues and stale/unmerged PRs, contacting authors and supporting new contributors. Notably, a coming PR for a very popular Personalized PageRank algorithm by a new contributor (Emmanouil Manios Krasanakis) is close to acceptance. This is a very exciting moment because the entire PR will be used as a reference for testing our new Algorithm Submission Process. In short, this is our response to user complaints about unresponsive review process. It has been designed in 3 phases to avoid monolithic PRs that are hard or impossible to review, and to favor quick iteration and collaboration between graph theorists and Boost.Graph maintainers: Phase A: Design. Discussion in the issue, sketches in Compiler Explorer, until a minimum viable signature is agreed upon. Output is a Compiler Explorer link that compiles and runs. Phase B: Working code. The signature is implemented in the BGL idiom, lives in the right place in the source tree, and passes a minimal test. Output is a Pull Request marked as Draft. Phase C: Production polish. Concept checks, broader test coverage, documentation, and (when relevant) performance benchmarks. Output is a Pull Request marked as Ready for Review. This is what gets merged. Forging a New Shiny Thing And of course, because bringing in new features is an essential part of library maintenance, I have used the Boost.Graph 2026 workshop output (part of Joaquin’s proposal) to implement a C++14 proof of concept for a unified semantics of graph property map manipulation based on operator overloading. It may be part of the next release if it is proven to avoid the pitfalls of named parameters (named parameters began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation). Side Quests in Loath-lorien I drafted a PR to activated UBSan, currently working on fixing the UBs it identified. I also had the pleasure to manage Boost.Int128’s review for Matt Borland (Accepted!) and to review his Boost.Decimal paper in the Journal of Open Source Software (Accepted!)." />
+<meta property="og:description" content="Q1 was all about identifying Boost.Graph user community and implementing a community detection algorithm. Q2 has been focusing on making Boost.Graph a comfy place where our community can thrive by exorcising the old legacy shadows that a 30-year-old project inevitably summons. Where the Shadows Lie Over its 30 years of existence, Boost.Graph naturally accumulated technical debt and quite a few ghosts. Some of those are invisible to users, like an outdated C++ style, internal const-correctness or constexpr-ness. But most are more concerning because they impact metrics users care about: documentation accessibility warning counts undefined behaviors code coverage compile time runtime performance memory usage transitive dependency count. Work items for this quarter overwhelmingly fell into one or several of these dimensions, aiming at making technical debt visible and actionable. One Doc to Find Them All If you can’t find a feature in the doc, does it really exist? I was particularly happy to see the new Boost.Graph documentation shipping with Boost 1.92. A modernized documentation that lowers the bar for newcomers has been a major focus of my work with the C++ Alliance over the last six months. The previous doc infrastructure was written as pure HTML and was tedious to read, scan and update: it’s now easier than ever! Numerous examples built and run in CI have been brought. And look at the cool animations to make graph semantics crystal clear. One Bot to Warn them All It began with creating a CI bot that, for each PR, counts the number of warnings across the build matrix and compares it to the last develop build. This delta to baseline gives an easy metric and dashboard to review PRs (preventing creep to grow back) and orient refactors (identifying low-hanging fruits where a small fix removes many warnings). Hundreds of warnings have been fixed so far, bringing non-msvc builds close to zero (with -Wall -Wextra disabled; but they are now enabled and work is on the way). One Bot to Test them All Code coverage PR bots were enabled for the repository, leading to some unit test modernization. Numerous unit tests seemed to have been historically developed as examples: writing to the output, always passing, never checking for correctness, often not seeding random number generators. I opened a series of PRs to tie them to the test framework, testing hard expectations where possible and statistical properties where required. Seventy Two Deps for Mortified Users, Doomed to Die Boost.Graph is among the heaviest libraries in the ecosystem (72 dependencies). So another bot was created that, for each PR, reports any change in dependency weight (included headers) and number of transitive dependencies. This helps orient dependency-reduction operations and will prevent future contributors from bringing back heavy weights. I first removed the Boost dependencies that C++14 made outdated: Boost.SmartPtr, Boost.Math, Boost.TTI, Boost.Move, Boost.Foreach, Boost.Conversion, Boost.Typeof, Boost.Bind, Boost.Bimap, Boost.Lambda, Boost.MPL … I opened a number of PRs to drop the mammoth culprits: Boost.Spirit, Boost.PropertyTree, Boost.Serialization When merged, they will considerably lighten the transitive dependency chain. In local benchmarks I could already measure considerable performance gains both in memory and speed when dropping PropertyTree (3x better in speed and memory), while dropping Xpressive brings ~3600 fewer warnings in CI with -Wall -Wextra enabled. One Process to Bring Them All (with love) Contributors are essential to open-source projects, even more so for Boost.Graph because implementing graph algorithms requires both deep theoretical knowledge of the field and solid technical mastery over C++ and Boost. Which is a (highly) unusual skillset: where skills are fragmented, collaboration thrives! So I continued my way through the backlog of unsolved issues and stale/unmerged PRs, contacting authors and supporting new contributors. Notably, a coming PR for a very popular Personalized PageRank algorithm by a new contributor (Emmanouil Manios Krasanakis) is close to acceptance. This is a very exciting moment because the entire PR will be used as a reference for testing our new Algorithm Submission Process. In short, this is our response to user complaints about unresponsive review process. It has been designed in 3 phases to avoid monolithic PRs that are hard or impossible to review, and to favor quick iteration and collaboration between graph theorists and Boost.Graph maintainers: Phase A: Design. Discussion in the issue, sketches in Compiler Explorer, until a minimum viable signature is agreed upon. Output is a Compiler Explorer link that compiles and runs. Phase B: Working code. The signature is implemented in the BGL idiom, lives in the right place in the source tree, and passes a minimal test. Output is a Pull Request marked as Draft. Phase C: Production polish. Concept checks, broader test coverage, documentation, and (when relevant) performance benchmarks. Output is a Pull Request marked as Ready for Review. This is what gets merged. Forging a New Shiny Thing And of course, because bringing in new features is an essential part of library maintenance, I have used the Boost.Graph 2026 workshop output (part of Joaquin’s proposal) to implement a C++14 proof of concept for a unified semantics of graph property map manipulation based on operator overloading. It may be part of the next release if it is proven to avoid the pitfalls of named parameters (named parameters began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation). Side Quests in Loath-lorien I drafted a PR to activated UBSan, currently working on fixing the UBs it identified. I also had the pleasure to manage Boost.Int128’s review for Matt Borland (Accepted!) and to review his Boost.Decimal paper in the Journal of Open Source Software (Accepted!)." />
+<link rel="canonical" href="http://cppalliance.org/arnaud/2026/08/18/ArnaudBecheler2026Q2Update.html" />
+<meta property="og:url" content="http://cppalliance.org/arnaud/2026/08/18/ArnaudBecheler2026Q2Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-08-18T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="The Return of the Graph" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"Q1 was all about identifying Boost.Graph user community and implementing a community detection algorithm. Q2 has been focusing on making Boost.Graph a comfy place where our community can thrive by exorcising the old legacy shadows that a 30-year-old project inevitably summons. Where the Shadows Lie Over its 30 years of existence, Boost.Graph naturally accumulated technical debt and quite a few ghosts. Some of those are invisible to users, like an outdated C++ style, internal const-correctness or constexpr-ness. But most are more concerning because they impact metrics users care about: documentation accessibility warning counts undefined behaviors code coverage compile time runtime performance memory usage transitive dependency count. Work items for this quarter overwhelmingly fell into one or several of these dimensions, aiming at making technical debt visible and actionable. One Doc to Find Them All If you can’t find a feature in the doc, does it really exist? I was particularly happy to see the new Boost.Graph documentation shipping with Boost 1.92. A modernized documentation that lowers the bar for newcomers has been a major focus of my work with the C++ Alliance over the last six months. The previous doc infrastructure was written as pure HTML and was tedious to read, scan and update: it’s now easier than ever! Numerous examples built and run in CI have been brought. And look at the cool animations to make graph semantics crystal clear. One Bot to Warn them All It began with creating a CI bot that, for each PR, counts the number of warnings across the build matrix and compares it to the last develop build. This delta to baseline gives an easy metric and dashboard to review PRs (preventing creep to grow back) and orient refactors (identifying low-hanging fruits where a small fix removes many warnings). Hundreds of warnings have been fixed so far, bringing non-msvc builds close to zero (with -Wall -Wextra disabled; but they are now enabled and work is on the way). One Bot to Test them All Code coverage PR bots were enabled for the repository, leading to some unit test modernization. Numerous unit tests seemed to have been historically developed as examples: writing to the output, always passing, never checking for correctness, often not seeding random number generators. I opened a series of PRs to tie them to the test framework, testing hard expectations where possible and statistical properties where required. Seventy Two Deps for Mortified Users, Doomed to Die Boost.Graph is among the heaviest libraries in the ecosystem (72 dependencies). So another bot was created that, for each PR, reports any change in dependency weight (included headers) and number of transitive dependencies. This helps orient dependency-reduction operations and will prevent future contributors from bringing back heavy weights. I first removed the Boost dependencies that C++14 made outdated: Boost.SmartPtr, Boost.Math, Boost.TTI, Boost.Move, Boost.Foreach, Boost.Conversion, Boost.Typeof, Boost.Bind, Boost.Bimap, Boost.Lambda, Boost.MPL … I opened a number of PRs to drop the mammoth culprits: Boost.Spirit, Boost.PropertyTree, Boost.Serialization When merged, they will considerably lighten the transitive dependency chain. In local benchmarks I could already measure considerable performance gains both in memory and speed when dropping PropertyTree (3x better in speed and memory), while dropping Xpressive brings ~3600 fewer warnings in CI with -Wall -Wextra enabled. One Process to Bring Them All (with love) Contributors are essential to open-source projects, even more so for Boost.Graph because implementing graph algorithms requires both deep theoretical knowledge of the field and solid technical mastery over C++ and Boost. Which is a (highly) unusual skillset: where skills are fragmented, collaboration thrives! So I continued my way through the backlog of unsolved issues and stale/unmerged PRs, contacting authors and supporting new contributors. Notably, a coming PR for a very popular Personalized PageRank algorithm by a new contributor (Emmanouil Manios Krasanakis) is close to acceptance. This is a very exciting moment because the entire PR will be used as a reference for testing our new Algorithm Submission Process. In short, this is our response to user complaints about unresponsive review process. It has been designed in 3 phases to avoid monolithic PRs that are hard or impossible to review, and to favor quick iteration and collaboration between graph theorists and Boost.Graph maintainers: Phase A: Design. Discussion in the issue, sketches in Compiler Explorer, until a minimum viable signature is agreed upon. Output is a Compiler Explorer link that compiles and runs. Phase B: Working code. The signature is implemented in the BGL idiom, lives in the right place in the source tree, and passes a minimal test. Output is a Pull Request marked as Draft. Phase C: Production polish. Concept checks, broader test coverage, documentation, and (when relevant) performance benchmarks. Output is a Pull Request marked as Ready for Review. This is what gets merged. Forging a New Shiny Thing And of course, because bringing in new features is an essential part of library maintenance, I have used the Boost.Graph 2026 workshop output (part of Joaquin’s proposal) to implement a C++14 proof of concept for a unified semantics of graph property map manipulation based on operator overloading. It may be part of the next release if it is proven to avoid the pitfalls of named parameters (named parameters began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation). Side Quests in Loath-lorien I drafted a PR to activated UBSan, currently working on fixing the UBs it identified. I also had the pleasure to manage Boost.Int128’s review for Matt Borland (Accepted!) and to review his Boost.Decimal paper in the Journal of Open Source Software (Accepted!).","@type":"BlogPosting","url":"http://cppalliance.org/arnaud/2026/08/18/ArnaudBecheler2026Q2Update.html","headline":"The Return of the Graph","dateModified":"2026-08-18T00:00:00+00:00","datePublished":"2026-08-18T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/arnaud/2026/08/18/ArnaudBecheler2026Q2Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>The Return of the Graph</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/arnaud">
+              <img class='author-img' src='/images/people/arnaud.jpg' alt='Portrait of Arnaud Becheler' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/arnaud">
+                  Arnaud Becheler
+                </a> &middot; Aug 18, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>Q1 was all about identifying Boost.Graph user community and implementing a community detection algorithm.
+Q2 has been focusing on making Boost.Graph a comfy place where our community can thrive by exorcising the old legacy shadows that a 30-year-old project inevitably summons.</p>
+
+<h3 id="where-the-shadows-lie">Where the Shadows Lie</h3>
+
+<p>Over its 30 years of existence, Boost.Graph naturally accumulated technical debt and quite a few ghosts.
+Some of those are invisible to users, like an outdated C++ style, internal const-correctness or constexpr-ness.
+But most are more concerning because they impact metrics users care about:</p>
+<ul>
+  <li>documentation accessibility</li>
+  <li>warning counts</li>
+  <li>undefined behaviors</li>
+  <li>code coverage</li>
+  <li>compile time</li>
+  <li>runtime performance</li>
+  <li>memory usage</li>
+  <li>transitive dependency count.</li>
+</ul>
+
+<p>Work items for this quarter overwhelmingly fell into one or several of these dimensions, aiming at making technical debt visible and actionable.</p>
+
+<h3 id="one-doc-to-find-them-all">One Doc to Find Them All</h3>
+
+<p>If you can’t find a feature in the doc, does it really exist?
+I was particularly happy to see the <a href="https://www.boost.org/doc/libs/latest/libs/graph/doc/html/graph/index.html">new Boost.Graph documentation</a> shipping with Boost 1.92.</p>
+
+<p>A modernized documentation that lowers the bar for newcomers has been a major focus of my work with the C++ Alliance
+over the last six months. The previous doc infrastructure was written as pure HTML and was tedious to read,
+scan and update: it’s now easier than ever!</p>
+
+<p>Numerous examples built and run in CI have been brought. And look at the <a href="https://www.boost.org/doc/libs/latest/libs/graph/doc/html/graph/primitives.html#_traversal">cool animations</a> to make graph semantics crystal clear.</p>
+
+<h3 id="one-bot-to-warn-them-all">One Bot to Warn them All</h3>
+
+<p>It began with creating a CI bot that, for each PR, counts the number of warnings across the build matrix
+and compares it to the last develop build.
+This delta to baseline gives an easy metric and dashboard to review PRs (preventing creep to grow back) 
+and orient refactors (identifying low-hanging fruits where a small fix removes many warnings).
+Hundreds of warnings have been fixed so far, bringing non-msvc builds close to zero
+(with <code>-Wall -Wextra</code> disabled; but they are now enabled and work is on the way).</p>
+
+<h3 id="one-bot-to-test-them-all">One Bot to Test them All</h3>
+
+<p>Code coverage PR bots were enabled for the repository, leading to some unit test modernization.
+Numerous unit tests seemed to have been historically developed as examples: writing to the output,
+always passing, never checking for correctness, often not seeding random number generators.
+I opened a series of PRs to tie them to the test framework, testing hard expectations
+where possible and statistical properties where required.</p>
+
+<h3 id="seventy-two-deps-for-mortified-users-doomed-to-die">Seventy Two Deps for Mortified Users, Doomed to Die</h3>
+
+<p>Boost.Graph is among the heaviest libraries in the ecosystem (72 dependencies). 
+So another bot was created that, for each PR, reports any change in dependency weight
+(included headers) and number of transitive dependencies.
+This helps orient dependency-reduction operations and will prevent future contributors
+from bringing back heavy weights.</p>
+
+<p>I first removed the Boost dependencies that C++14 made outdated:</p>
+<ul>
+  <li>Boost.SmartPtr,</li>
+  <li>Boost.Math,</li>
+  <li>Boost.TTI,</li>
+  <li>Boost.Move,</li>
+  <li>Boost.Foreach,</li>
+  <li>Boost.Conversion,</li>
+  <li>Boost.Typeof,</li>
+  <li>Boost.Bind,</li>
+  <li>Boost.Bimap,</li>
+  <li>Boost.Lambda,</li>
+  <li>Boost.MPL …</li>
+</ul>
+
+<p>I opened a number of PRs to drop the mammoth culprits:</p>
+<ul>
+  <li>Boost.Spirit,</li>
+  <li>Boost.PropertyTree,</li>
+  <li>Boost.Serialization</li>
+</ul>
+
+<p>When merged, they will considerably lighten the transitive dependency chain.</p>
+
+<p>In local benchmarks I could already measure considerable performance gains both in memory and speed
+when dropping PropertyTree (3x better in speed and memory), while dropping Xpressive brings ~3600 fewer warnings in CI with <code>-Wall -Wextra</code> enabled.</p>
+
+<h3 id="one-process-to-bring-them-all-with-love">One Process to Bring Them All (with love)</h3>
+
+<p>Contributors are essential to open-source projects, even more so for Boost.Graph because implementing graph algorithms requires both
+deep theoretical knowledge of the field and solid technical mastery over C++ and Boost. Which is a (highly) unusual skillset: where
+skills are fragmented, collaboration thrives!</p>
+
+<p>So I continued my way through the backlog of unsolved issues and stale/unmerged PRs, contacting authors and supporting new contributors.
+Notably, a coming PR for a very popular Personalized PageRank algorithm by a new contributor (Emmanouil Manios Krasanakis) is close to acceptance.</p>
+
+<p>This is a very exciting moment because the entire PR will be used as a reference for testing our <a href="https://github.com/boostorg/graph/discussions/495">new Algorithm Submission Process</a>.</p>
+
+<p>In short, this is our response to user complaints about unresponsive review process. It has been designed in 3 phases to avoid monolithic PRs that are hard or impossible to review, and to favor quick iteration and collaboration between graph theorists and Boost.Graph maintainers:</p>
+
+<ul>
+  <li>Phase A: Design. Discussion in the issue, sketches in Compiler Explorer, until a minimum viable signature is agreed upon. Output is a Compiler Explorer link that compiles and runs.</li>
+  <li>Phase B: Working code. The signature is implemented in the BGL idiom, lives in the right place in the source tree, and passes a minimal test. Output is a Pull Request marked as Draft.</li>
+  <li>Phase C: Production polish. Concept checks, broader test coverage, documentation, and (when relevant) performance benchmarks. Output is a Pull Request marked as Ready for Review. This is what gets merged.</li>
+</ul>
+
+<h3 id="forging-a-new-shiny-thing">Forging a New Shiny Thing</h3>
+
+<p>And of course, because bringing in new features is an essential part of library maintenance, I have used the Boost.Graph 2026 workshop output (part of Joaquin’s proposal) to implement a C++14 proof of concept for a unified semantics of graph property map manipulation based on operator overloading.</p>
+
+<p>It may be part of the next release if it is proven to avoid the pitfalls of named parameters (named parameters began as syntactic sugar and ended up as one of the most costly and confusing features, and is planned for deprecation).</p>
+
+<h3 id="side-quests-in-loath-lorien">Side Quests in Loath-lorien</h3>
+
+<p>I drafted a PR to activated UBSan, currently working on fixing the UBs it identified.</p>
+
+<p>I also had the pleasure to manage Boost.Int128’s review for Matt Borland (Accepted!) and to review his Boost.Decimal paper in the Journal of Open Source Software (Accepted!).</p>
+
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>08/18/2026</span>
+          <a class='text-l news-title link' href="/arnaud/2026/08/18/ArnaudBecheler2026Q2Update.html">The Return of the Graph</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2026</span>
+          <a class='text-l news-title link' href="/arnaud/2026/04/08/Arnaud2026Q1Update.html">Joining Community, Detecting Communities, Making Community.</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>
