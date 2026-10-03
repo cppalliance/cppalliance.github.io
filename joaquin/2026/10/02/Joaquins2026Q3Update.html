@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unordered polymorphic collections | The C++ Alliance</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+<!-- Bootstrap core CSS -->
+<link href="/css/style.css" rel="stylesheet">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=1">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=1">
+<link rel="manifest" href="/site.webmanifest?v=1">
+<link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#a91c20">
+<link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+<!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Unordered polymorphic collections | The C++ Alliance</title>
+<meta name="generator" content="Jekyll v3.8.7" />
+<meta property="og:title" content="Unordered polymorphic collections" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="During Q3 2026, I’ve been working in the following areas: Unordered polymorphic collections The preexisting containers offered by Boost.PolyCollection (boost::base_collection, boost::function_collection, boost::any_collection, boost::variant_collection) do not provide full control over the global positioning of an element, for the simple reason that each element goes to its dedicated, type-specific segment. At the segment level, though, users can decide where an element is inserted much as they would with a std::vector, which is, ultimately, the data structure these segments are based on. If the user can dispense with intra-segment positioning, segments can be implemented with a different internal data structure. Unordered polymorphic collections (boost::base_unordered_collection, boost::function_unordered_collection, boost::any_unordered_collection, boost::variant_unordered_collection) internally use boost::container::hub-based segments, giving these collections iterator and reference stability. Their performance profile relative to the existing ordered collections is different: insertion is on par or even faster, whereas iteration is definitely slower (nothing beats iterating over a vector). My hypothesis is that iterator stability is a very desirable property in the kind of scenarios targeted by Boost.PolyCollection — time will tell. Unordered polymorphic collections will ship with Boost 1.93. The internal design of Boost.PolyCollection is interesting: all eight collections are instantiations of the same internal poly_collection class template, parameterized by a so-called model that encodes: The type of runtime polymorphism used (OOP, function wrapping, duck typing, std::variant-like). Whether the collection is ordered or unordered. Whether the collection is closed (boost::variant_[unordered]_collection) or open (the rest). The result is a rich internal structure in which interoperable parts are combined across three independent dimensions. As a reference for interested readers (and for my future self) I’ve written the article “Inside Boost.PolyCollection”, which explains the design in some detail. Boost.PolyCollection maintenance PR#33, PR#34. boost::container::hub Optimized range insertion (PR#339). Written maintenance fix PR#340. Boost.MultiIndex Written maintenance fixes PR#102, PR#104. Papergate (Not related to Boost.) Papergate is an AI tool that takes any WG21 proposal and determines whether the paper itself answers a simple question: why is this worth standardizing? Papergate looks at things such as the presentation of alternatives, cost/benefit analysis, availability of a reference implementation, etc. The goal is not to assess the merits of a proposal, but merely to check whether the paper addresses the basic questions a human reviewer will ask before digging into the details. I’ve been working on the md prompt powering Papergate. Papergate is integrated into wg21.org. Support to the community I’ve been helping a bit with Mark Cooper’s very successful Boost Blueprint series on X. Working on a classification of Boost libraries according to their maintenance status (work in progress). This will help us point new volunteers toward those libraries most in need of attention. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC)." />
+<meta property="og:description" content="During Q3 2026, I’ve been working in the following areas: Unordered polymorphic collections The preexisting containers offered by Boost.PolyCollection (boost::base_collection, boost::function_collection, boost::any_collection, boost::variant_collection) do not provide full control over the global positioning of an element, for the simple reason that each element goes to its dedicated, type-specific segment. At the segment level, though, users can decide where an element is inserted much as they would with a std::vector, which is, ultimately, the data structure these segments are based on. If the user can dispense with intra-segment positioning, segments can be implemented with a different internal data structure. Unordered polymorphic collections (boost::base_unordered_collection, boost::function_unordered_collection, boost::any_unordered_collection, boost::variant_unordered_collection) internally use boost::container::hub-based segments, giving these collections iterator and reference stability. Their performance profile relative to the existing ordered collections is different: insertion is on par or even faster, whereas iteration is definitely slower (nothing beats iterating over a vector). My hypothesis is that iterator stability is a very desirable property in the kind of scenarios targeted by Boost.PolyCollection — time will tell. Unordered polymorphic collections will ship with Boost 1.93. The internal design of Boost.PolyCollection is interesting: all eight collections are instantiations of the same internal poly_collection class template, parameterized by a so-called model that encodes: The type of runtime polymorphism used (OOP, function wrapping, duck typing, std::variant-like). Whether the collection is ordered or unordered. Whether the collection is closed (boost::variant_[unordered]_collection) or open (the rest). The result is a rich internal structure in which interoperable parts are combined across three independent dimensions. As a reference for interested readers (and for my future self) I’ve written the article “Inside Boost.PolyCollection”, which explains the design in some detail. Boost.PolyCollection maintenance PR#33, PR#34. boost::container::hub Optimized range insertion (PR#339). Written maintenance fix PR#340. Boost.MultiIndex Written maintenance fixes PR#102, PR#104. Papergate (Not related to Boost.) Papergate is an AI tool that takes any WG21 proposal and determines whether the paper itself answers a simple question: why is this worth standardizing? Papergate looks at things such as the presentation of alternatives, cost/benefit analysis, availability of a reference implementation, etc. The goal is not to assess the merits of a proposal, but merely to check whether the paper addresses the basic questions a human reviewer will ask before digging into the details. I’ve been working on the md prompt powering Papergate. Papergate is integrated into wg21.org. Support to the community I’ve been helping a bit with Mark Cooper’s very successful Boost Blueprint series on X. Working on a classification of Boost libraries according to their maintenance status (work in progress). This will help us point new volunteers toward those libraries most in need of attention. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC)." />
+<link rel="canonical" href="http://cppalliance.org/joaquin/2026/10/02/Joaquins2026Q3Update.html" />
+<meta property="og:url" content="http://cppalliance.org/joaquin/2026/10/02/Joaquins2026Q3Update.html" />
+<meta property="og:site_name" content="The C++ Alliance" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-10-02T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Unordered polymorphic collections" />
+<meta name="twitter:site" content="@CPPAlliance" />
+<script type="application/ld+json">
+{"description":"During Q3 2026, I’ve been working in the following areas: Unordered polymorphic collections The preexisting containers offered by Boost.PolyCollection (boost::base_collection, boost::function_collection, boost::any_collection, boost::variant_collection) do not provide full control over the global positioning of an element, for the simple reason that each element goes to its dedicated, type-specific segment. At the segment level, though, users can decide where an element is inserted much as they would with a std::vector, which is, ultimately, the data structure these segments are based on. If the user can dispense with intra-segment positioning, segments can be implemented with a different internal data structure. Unordered polymorphic collections (boost::base_unordered_collection, boost::function_unordered_collection, boost::any_unordered_collection, boost::variant_unordered_collection) internally use boost::container::hub-based segments, giving these collections iterator and reference stability. Their performance profile relative to the existing ordered collections is different: insertion is on par or even faster, whereas iteration is definitely slower (nothing beats iterating over a vector). My hypothesis is that iterator stability is a very desirable property in the kind of scenarios targeted by Boost.PolyCollection — time will tell. Unordered polymorphic collections will ship with Boost 1.93. The internal design of Boost.PolyCollection is interesting: all eight collections are instantiations of the same internal poly_collection class template, parameterized by a so-called model that encodes: The type of runtime polymorphism used (OOP, function wrapping, duck typing, std::variant-like). Whether the collection is ordered or unordered. Whether the collection is closed (boost::variant_[unordered]_collection) or open (the rest). The result is a rich internal structure in which interoperable parts are combined across three independent dimensions. As a reference for interested readers (and for my future self) I’ve written the article “Inside Boost.PolyCollection”, which explains the design in some detail. Boost.PolyCollection maintenance PR#33, PR#34. boost::container::hub Optimized range insertion (PR#339). Written maintenance fix PR#340. Boost.MultiIndex Written maintenance fixes PR#102, PR#104. Papergate (Not related to Boost.) Papergate is an AI tool that takes any WG21 proposal and determines whether the paper itself answers a simple question: why is this worth standardizing? Papergate looks at things such as the presentation of alternatives, cost/benefit analysis, availability of a reference implementation, etc. The goal is not to assess the merits of a proposal, but merely to check whether the paper addresses the basic questions a human reviewer will ask before digging into the details. I’ve been working on the md prompt powering Papergate. Papergate is integrated into wg21.org. Support to the community I’ve been helping a bit with Mark Cooper’s very successful Boost Blueprint series on X. Working on a classification of Boost libraries according to their maintenance status (work in progress). This will help us point new volunteers toward those libraries most in need of attention. Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).","@type":"BlogPosting","url":"http://cppalliance.org/joaquin/2026/10/02/Joaquins2026Q3Update.html","headline":"Unordered polymorphic collections","dateModified":"2026-10-02T00:00:00+00:00","datePublished":"2026-10-02T00:00:00+00:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://cppalliance.org/joaquin/2026/10/02/Joaquins2026Q3Update.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+
+
+<link href="/css/prism.css" rel="stylesheet">
+
+
+<link href='/feed.xml' rel='alternate' type='application/atom+xml'>
+
+<!-- Twitter Card Start -->
+
+
+
+
+  
+    <meta name="twitter:image" content="https://cppalliance.org/images/logo.png">
+  
+
+<!-- Twitter Card End -->
+
+<script defer data-domain="cppalliance.org" src="https://plausible.io/js/script.js"></script>
+
+</head>
+
+<body id='body' class="line-numbers">
+
+  <!-- Navigation -->
+  <nav class='nav dark'>
+    <a href='/'>
+      <img class='logo' alt='cpp-alliance-logo' src='/images/logo.svg' />
+    </a>
+    <div class='hamburger' id='nav-hamburger'>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+      <span class='hamburger-line'></span>
+    </div>
+    <div class='nav-items' id='nav-items'>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/">Home</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#mission">Mission</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#team">Team</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#news">News</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#links">Links</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#faq">FAQ</a></div>
+      <div class="nav-item"><a class="nav-link nav-link-mobile" href="/#contact">Contact</a></div>
+      <div class='socials'>
+        <div class='connect-content'>
+          <div class='row row-sm'>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://github.com/CPPAlliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img github' alt='github-logo' src='/images/icons/github.svg' />
+                </div>
+                <span class='social-icon-text'>GitHub</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.facebook.com/CPPAlliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img facebook' alt='facebook-logo' src='/images/icons/facebook.svg' />
+                </div>
+                <span class='social-icon-text'>Facebook</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://x.com/cppalliance">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img twitter' alt='x-logo' src='/images/icons/twitter.svg' />
+                </div>
+                <span class='social-icon-text'>X</span>
+              </a>
+            </div>
+            <div class='col-fourth col-fourth-sm social-link'>
+              <a class='social-icon nav-link-mobile' href="https://www.linkedin.com/in/cppalliance/">
+                <div class='social-icon-img-wrapper'>
+                  <img class='social-icon-img linkedin' alt='linkedin-logo' src='/images/icons/linkedin.svg' />
+                </div>
+                <span class='social-icon-text'>LinkedIn</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+
+
+
+
+
+  <div class='post'>
+  <div class='current-article'>
+    
+
+    <section class='section article'>
+      
+
+      <article>
+      <div class="title-section center">
+        <h2 class='text-l news-title no-border'>Unordered polymorphic collections</h2>
+        
+        
+                
+                
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                
+                  
+                    
+                    
+        
+
+        
+
+        
+          <div class='author d-iblock'>
+            <a class='link author-img-link' href="/people/joaquin">
+              <img class='author-img' src='/images/people/joaquin.jpg' alt='Portrait of Joaquín M López Muñoz' />
+            </a>
+            <span class='text-xxs author-name'>
+                <a class='link' href="/people/joaquin">
+                  Joaquín M López Muñoz
+                </a> &middot; Oct 2, 2026
+            </span>
+          </div>
+        
+      </div>
+        <div class='text-xxs content-text generated-content'>
+          <p>During Q3 2026, I’ve been working in the following areas:</p>
+
+<h3 id="unordered-polymorphic-collections">Unordered polymorphic collections</h3>
+
+<p>The preexisting containers offered by Boost.PolyCollection
+(<code>boost::base_collection</code>, <code>boost::function_collection</code>, <code>boost::any_collection</code>,
+<code>boost::variant_collection</code>) do not provide full control over the global positioning
+of an element, for the simple reason that each element goes to its dedicated,
+type-specific segment. At the segment level, though, users can decide where an
+element is inserted much as they would with a <code>std::vector</code>, which is, ultimately,
+the data structure these segments are based on.</p>
+
+<p>If the user can dispense with intra-segment positioning, segments can be implemented
+with a different internal data structure.
+<a href="https://www.boost.org/doc/libs/develop/doc/html/poly_collection/tutorial.html#poly_collection.tutorial.unordered_collections"><em>Unordered polymorphic collections</em></a>
+(<code>boost::base_unordered_collection</code>, <code>boost::function_unordered_collection</code>,
+<code>boost::any_unordered_collection</code>, <code>boost::variant_unordered_collection</code>) internally
+use <a href="https://www.boost.org/doc/libs/latest/doc/html/container/non_standard_containers.html#container.non_standard_containers.hub"><code>boost::container::hub</code></a>-based
+segments, giving these collections iterator and reference stability. Their performance
+profile relative to the existing ordered collections is different: insertion is on
+par or even faster, whereas iteration is definitely slower (nothing beats iterating
+over a vector). My hypothesis is that iterator stability is a very desirable property
+in the kind of scenarios targeted by Boost.PolyCollection — time will tell.
+Unordered polymorphic collections will ship with Boost 1.93.</p>
+
+<p>The internal design of Boost.PolyCollection is interesting: all eight collections
+are instantiations of the same internal <code>poly_collection</code> class template,
+parameterized by a so-called <em>model</em> that encodes:</p>
+
+<ul>
+  <li>The type of runtime polymorphism used (OOP, function wrapping, duck typing,
+<code>std::variant</code>-like).</li>
+  <li>Whether the collection is ordered or unordered.</li>
+  <li>Whether the collection is closed (<code>boost::variant_[unordered]_collection</code>) or
+open (the rest).</li>
+</ul>
+
+<p>The result is a rich internal structure in which interoperable parts are combined
+across three independent dimensions. As a reference for interested readers (and
+for my future self) I’ve written the article
+<a href="https://bannalia.blogspot.com/2026/09/inside-boostpolycollection.html">“Inside Boost.PolyCollection”</a>,
+which explains the design in some detail.</p>
+
+<h4 id="boostpolycollection-maintenance">Boost.PolyCollection maintenance</h4>
+
+<ul>
+  <li><a href="https://github.com/boostorg/poly_collection/pull/33">PR#33</a>,
+<a href="https://github.com/boostorg/poly_collection/pull/34">PR#34</a>.</li>
+</ul>
+
+<h3 id="boostcontainerhub"><code>boost::container::hub</code></h3>
+
+<ul>
+  <li>Optimized range insertion (<a href="https://github.com/boostorg/container/pull/339">PR#339</a>).</li>
+  <li>Written maintenance fix <a href="https://github.com/boostorg/container/pull/340">PR#340</a>.</li>
+</ul>
+
+<h3 id="boostmultiindex">Boost.MultiIndex</h3>
+
+<ul>
+  <li>Written maintenance fixes
+<a href="https://github.com/boostorg/multi_index/pull/102">PR#102</a>,
+<a href="https://github.com/boostorg/multi_index/pull/104">PR#104</a>.</li>
+</ul>
+
+<h3 id="papergate">Papergate</h3>
+
+<p>(Not related to Boost.) Papergate is an AI tool that takes any WG21 proposal and determines
+whether <em>the paper itself</em> answers a simple question: why is this worth standardizing?
+Papergate looks at things such as the presentation of alternatives, cost/benefit analysis,
+availability of a reference implementation, etc. The goal is not to assess the merits of a
+proposal, but merely to check whether the paper addresses the basic questions a human reviewer
+will ask before digging into the details. I’ve been working on the <code>md</code> prompt powering Papergate.
+Papergate is integrated into <a href="https://wg21.org/">wg21.org</a>.</p>
+
+<h3 id="support-to-the-community">Support to the community</h3>
+
+<ul>
+  <li>I’ve been helping a bit with Mark Cooper’s very successful
+<a href="https://x.com/search?q=%22Boost%20Blueprint%22&amp;src=typed_query&amp;f=live">Boost Blueprint</a>
+series on X.</li>
+  <li>Working on a classification of Boost libraries according to their maintenance status
+(work in progress). This will help us point new volunteers toward those
+libraries most in need of attention.</li>
+  <li>Supporting the community as a member of the Fiscal Sponsorship Committee (FSC).</li>
+</ul>
+
+        </div>
+        <script>
+          document.querySelectorAll('.generated-content h1[id], .generated-content h2[id], .generated-content h3[id], .generated-content h4[id]').forEach(function(heading) {
+            var link = document.createElement('a');
+            link.className = 'heading-anchor';
+            link.href = '#' + heading.id;
+            link.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"></path></svg>';
+            heading.appendChild(link);
+          });
+        </script>
+        
+      </article>
+    </section>
+  </div>
+
+  <section class="section news bottom-layout" id='news'>
+    <div class='section-title'>
+      <h2 class='header text-xl recent-post-header'>All Posts by This Author</h2>
+    </div>
+    <div class='news-content formatted-text'>
+      <ul>
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/02/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/10/02/Joaquins2026Q3Update.html">Unordered polymorphic collections</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/07/01/Joaquins2026Q2Update.html">Hub is here</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/02/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/04/02/Joaquins2026Q1Update.html">Hubs, intervals and math</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/18/2026</span>
+          <a class='text-l news-title link' href="/joaquin/2026/01/18/Joaquins2025Q4Update.html">Containers galore</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/09/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/10/09/Joaquins2025Q3Update.html">Working on Boost.Bloom roadmap</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/01/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/07/01/Joaquins2025Q2Update.html">Boost.Bloom ready for shipping in Boost 1.89</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/08/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/04/08/Joaquins2025Q1Update.html">New Boost library proposal and a talk on how to make C++ ranges faster</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/05/2025</span>
+          <a class='text-l news-title link' href="/joaquin/2025/01/05/Joaquins2024Q4Update.html">New container in Boost.PolyCollection, additions to Boost.Mp11 and more</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/11/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/10/11/Joaquins2024Q3Update.html">Joaquín's Q3 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>07/06/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/07/06/Joaquins2024Q2Update.html">Joaquín's Q2 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>04/20/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/04/20/Joaquins2024Q1Update.html">Joaquín's Q1 2024 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>01/10/2024</span>
+          <a class='text-l news-title link' href="/joaquin/2024/01/10/Joaquins2023Q4Update.html">Joaquín's Q4 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li class='news-list-item '>
+          <span class='text-xs news-date'>10/27/2023</span>
+          <a class='text-l news-title link' href="/joaquin/2023/10/27/Joaquins2023Q3Update.html">Joaquín's Q3 2023 Update</a>
+        </li>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <li>
+          <a class='text-l all link' href="/news">View All Posts...</a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+
+  <footer class='footer'>
+    <p class='text-xxs footer-text'>
+      <span class='line'>&copy; 2024 The C Plus Plus Alliance, Inc.</span>
+      <span class='line'>Contact us at: <a href='mailto:%69%6E%66%6F@%63%70%70%61%6C%6C%69%61%6E%63%65.%6F%72%67'>info@cppalliance.org</a></span>
+    </p>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src='/js/main.js'></script>
+  
+  <script src='/js/prism.js'></script>
+  
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-76438364-18', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script>
+    document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+      if (link.hostname !== window.location.hostname) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      }
+    });
+  </script>
+
+</body>
+</html>
