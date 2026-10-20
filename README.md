@@ -1,5 +1,7 @@
 # C++ Alliance Website
 
+> **Parked:** cppalliance.org is now served by a separate Django site. This repository's GitHub Pages site lives at gh.cppalliance.org, where it hosts project pages (e.g. gh.cppalliance.org/runvil). The CircleCI deploy job currently publishes only `_parked/index.html` to `master`; the Jekyll sources below are kept intact and still built by CI. To publish the full Jekyll site again, set `PUBLISH_DIR=_site` in `.circleci/config.yml` (and set `CNAME` to the intended domain).
+
 Source code for [cppalliance.org](https://cppalliance.org), The C++ Alliance’s public-facing site. It is a classic Jekyll 3.8 project that publishes a fully static site through GitHub Pages.
 
 ## Typical Workflow
